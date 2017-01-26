@@ -14,7 +14,6 @@ gulp.task('fetch', function() {
   }
 
   const req = https.request(options, function(res) {
-    fs.mkdirSync('src');
     var raw = '';
     res.on('data', function(chunk) {
       raw += chunk
