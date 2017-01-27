@@ -26,3 +26,12 @@ modutil.roProp(Creep, 'taskCreep', function() {
 modutil.roProp(Creep, 'hurts', function() {
   return this.hitsMax - this.hits;
 });
+
+modutil.cachedProp(Creep, 'carryTotal', function() {
+  return _.sum(this.carry);
+});
+
+modutil.cachedProp(Creep, 'carryFree', function() {
+  return this.carryCapacity - this.carryTotal;
+});
+

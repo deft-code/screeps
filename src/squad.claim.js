@@ -20,26 +20,6 @@ StructureSpawn.prototype.roleClaim = function() {
   return this.createRole(body, 2, {role: 'claim'});
 };
 
-Creep.prototype.actionTravel = function(dest) {
-  if (!dest || dest.pos.roomName == this.pos.roomName) {
-    return false;
-  }
-  this.memory.task = {
-    task: 'travel',
-    travel: dest.name,
-    note: dest.note,
-  };
-  return this.taskTravel();
-};
-
-Creep.prototype.taskTravel = function() {
-  const dest = Game.flags[this.memory.task.travel];
-  if (!dest || this.pos.isNearTo(dest)) {
-    return false;
-  }
-  return this.actionMoveTo(dest);
-};
-
 Creep.prototype.actionHarvestAny = function(room) {
   room = room || this.room;
   const src = this.pos.findClosestByPath(room.cachedFind(FIND_SOURCES_ACTIVE));

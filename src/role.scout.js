@@ -27,6 +27,7 @@ Creep.prototype.actionDistraction = function() {
     this.memory.duck = true;
     return 'in place';
   }
+  delete this.memory.duck;
   this.moveTo(Game.flags.distraction);
 };
 
@@ -45,3 +46,27 @@ StructureSpawn.prototype.roleDistraction = function() {
   ];
   return this.createCreep(body, undefined, {role: 'distraction'});
 };
+
+Creep.prototype.roleBait = function() {
+    return this.actionTask() ||
+        this.actionHospital() ||
+        this.actionMoveFlag(Game.flags.bait);
+};
+
+StructureSpawn.prototype.roleBait = function() {
+  const body = [
+    TOUGH,
+    TOUGH,
+    TOUGH,
+
+    MOVE,
+    MOVE,
+    MOVE,
+    MOVE,
+
+    ATTACK,
+  ];
+  return this.createCreep(body, undefined, {role: 'bait'});
+};
+
+

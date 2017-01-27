@@ -1,16 +1,48 @@
 let modutil = require('util');
 
-modutil.cachedProp(Creep, 'carryTotal', function() {
-  return _.sum(this.carry);
-});
-
-modutil.cachedProp(Creep, 'carryFree', function() {
-  return this.carryCapacity - this.carryTotal;
-});
-
 Creep.prototype.run = function() {
   let what = this.actionSpawning() || this.actionRole();
   this.dlog(what);
+};
+
+Creep.prototype.actionTravel = function(dest) {
+  if (!dest || dest.pos.roomName == this.pos.roomName) {
+    return false;
+  }
+  this.memory.task = {
+    task: 'travel',
+    travel: dest.name,
+    note: dest.note,
+  };
+  return this.taskTravel();
+};
+
+Creep.prototype.taskTravel = function() {
+  const dest = Game.flags[this.memory.task.travel];
+  if (!dest || this.pos.isNearTo(dest)) {
+    return false;
+  }
+  return this.actionMoveTo(dest);
+};
+
+Creep.prototype.actionMoveFlag = function(dest) {
+  if (!dest) {
+    return false;
+  }
+  this.memory.task = {
+    task: 'move flag',
+    flag: dest.name,
+    note: `flag:${dest.name}`,
+  };
+  return this.taskMoveFlag();
+};
+
+Creep.prototype.taskMoveFlag = function() {
+  const flag = this.taskFlag;
+  if (!flag || this.pos.isNearTo(flag)) {
+    return false;
+  }
+  return this.actionMoveTo(flag);
 };
 
 Creep.prototype.actionSpawning = function() {
