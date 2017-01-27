@@ -263,7 +263,8 @@ Creep.prototype.actionUpgrade = function() {
   this.memory.task = {
     task: 'upgrade',
     note: this.pos.roomName,
-  } return this.taskUpgrade();
+  };
+  return this.taskUpgrade();
 };
 
 Creep.prototype.taskUpgrade = function() {

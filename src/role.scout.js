@@ -12,6 +12,12 @@ Creep.prototype.roleScout = function() {
 };
 
 Creep.prototype.roleDistraction = function() {
+    return this.actionTask() ||
+        this.actionHospital() ||
+        this.actionDistraction();
+};
+
+Creep.prototype.actionDistraction = function() {
   if (this.memory.duck || !Game.flags.distraction) {
     const dirs = [TOP, BOTTOM];
     this.move(_.sample(dirs));
@@ -24,7 +30,7 @@ Creep.prototype.roleDistraction = function() {
   this.moveTo(Game.flags.distraction);
 };
 
-StructureSpawn.prototype.newDistraction = function() {
+StructureSpawn.prototype.roleDistraction = function() {
   const body = [
     TOUGH,
     TOUGH,

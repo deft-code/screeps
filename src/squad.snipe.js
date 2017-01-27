@@ -76,7 +76,7 @@ Creep.prototype.actionDismantleAt = function(obj) {
 
 Creep.prototype.roleAssassin = function(struct) {
   return this.actionTask() ||
-      this.actionTravel(Game.flags.assassin) this.actionAssassin();
+      this.actionTravel(Game.flags.assassin) || this.actionAssassin();
 
 };
 
@@ -96,7 +96,8 @@ Creep.prototype.actionAttackStruct = function(struct) {
     task: 'attack struct',
     attack: struct.id,
     note: modutil.structNote(struct.structureType || 'creep', struct.pos),
-  } return this.taskAttackStruct();
+  };
+  return this.taskAttackStruct();
 };
 
 Creep.prototype.taskAttackStruct = function() {
@@ -128,7 +129,7 @@ StructureSpawn.prototype.roleSnipe = function() {
 
 StructureSpawn.prototype.roleThief = function(flag) {
   const body = [
-    MOVE,  CARRY, MOVE,  TOUGH, MOVE,  TOUGH, MOVE,  CARRY, MOVE,  CARRY, MOVE,
+    MOVE,  CARRY, MOVE,  CARRY, MOVE,  CARRY, MOVE,
     CARRY, MOVE,  CARRY, MOVE,  CARRY, MOVE,  CARRY, MOVE,  CARRY, MOVE,  CARRY,
   ];
   return this.createRole(body, 4, {role: 'thief', flag: flag});

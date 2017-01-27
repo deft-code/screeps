@@ -1,7 +1,7 @@
 const modutil = require('util');
 
 modutil.cachedProp(Creep, 'home', function() {
-  return Game.rooms[this.memory.home] || this.room;
+  return Game.rooms[this.memory.home] || this.squad.home || this.room;
 });
 
 modutil.cachedProp(Creep, 'squad', function() {

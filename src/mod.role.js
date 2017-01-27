@@ -65,7 +65,7 @@ Creep.prototype.actionReserve = function(room) {
 Creep.prototype.actionHospital = function() {
   if (this.hits < this.hitsMax &&
       !this.pos.inRangeTo(this.squad.home.controller, 5)) {
-    return this.actionMoveTo(this.squad.home.controller);
+    return this.actionMoveTo(this.home.controller);
   }
   return false;
 };
@@ -367,7 +367,8 @@ let actionTransfer = function(creep) {
     creep.memory.transfer = target.id;
   }
   let target = Game.getObjectById(creep.memory.transfer);
-  let e = creep.transfer(target, RESOURCE_ENERGY) if (e == ERR_NOT_IN_RANGE) {
+  let e = creep.transfer(target, RESOURCE_ENERGY);
+  if (e == ERR_NOT_IN_RANGE) {
     creep.road(creep.moveTo(target));
     return 'moveTo transfer';
   }
@@ -386,7 +387,8 @@ var actionTransferTower = function(creep) {
   if (targets.length) {
     console.log('Spawn Recharge Tower', creep.name);
     var target = creep.pos.findClosestByPath(targets);
-    var e = creep.transfer(target, RESOURCE_ENERGY) if (e == ERR_NOT_IN_RANGE) {
+    var e = creep.transfer(target, RESOURCE_ENERGY);
+    if (e == ERR_NOT_IN_RANGE) {
       creep.road(creep.moveTo(target));
     }
     return 'transfer tower';
@@ -456,7 +458,8 @@ Creep.prototype.actionRecycle = function() {
   this.memory.task = {
     task: 'recycle',
     spawn: spawn.id,
-  } return this.taskRecycle();
+  };
+  return this.taskRecycle();
 };
 
 Creep.prototype.taskRecycle = function() {

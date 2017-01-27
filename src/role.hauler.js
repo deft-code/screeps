@@ -272,7 +272,8 @@ Creep.prototype.taskUnstore = function() {
   const what = modutil.sprint('unstore', src);
   let err = this.withdraw(src, resource);
   if (err == ERR_NOT_IN_RANGE) {
-    this.road(this.moveTo(src)) return modutil.sprint('moveTo', what);
+    this.road(this.moveTo(src));
+    return modutil.sprint('moveTo', what);
   }
   if (err == OK) {
     delete this.memory.task;
