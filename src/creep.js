@@ -22,3 +22,7 @@ modutil.roProp(Creep, 'taskCreep', function() {
   const task = this.memory.task || {};
   return Game.creeps[task.creep];
 });
+
+modutil.roProp(Creep, 'hurts', function() {
+  return this.hitsMax - this.hits;
+});

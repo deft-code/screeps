@@ -63,8 +63,8 @@ Creep.prototype.actionReserve = function(room) {
 };
 
 Creep.prototype.actionHospital = function() {
-  if (this.hits < this.hitsMax &&
-      !this.pos.inRangeTo(this.squad.home.controller, 5)) {
+  if ((this.hurts > 100 || this.hits < 100) &&
+      !this.pos.inRangeTo(this.home.controller, 5)) {
     return this.actionMoveTo(this.home.controller);
   }
   return false;
