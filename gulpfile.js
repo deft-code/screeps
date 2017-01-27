@@ -2,7 +2,13 @@
 const gulp = require('gulp');
 const credentials = require('./credentials.js');
 const https = require('https');
+const screeps = require('gulp-screeps');
 const fs = require('fs');
+
+
+gulp.task('deploy', function() {
+  gulp.src('src/*.js').pipe(screeps(credentials));
+});
 
 gulp.task('fetch', function() {
   const options = {
@@ -21,7 +27,7 @@ gulp.task('fetch', function() {
     res.on('end', function() {
       var x = JSON.parse(raw);
       for (var mod in x.modules) {
-        if(x.modules[mod] === null) {
+        if (x.modules[mod] === null) {
           continue;
         }
         var f = './src/' + mod + '.js';
