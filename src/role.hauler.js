@@ -253,12 +253,15 @@ Creep.prototype.actionUnstoreAny = function() {
   return this.actionUnstore(store);
 };
 
-Creep.prototype.actionUnstore = function(structure, resource) {
+Creep.prototype.actionUnstore = function(struct, resource) {
+  if(!struct) {
+    return false;
+  }
   this.memory.task = {
     task: 'unstore',
-    unstore: structure.id,
+    unstore: struct.id,
     resource: resource,
-    note: structure.note,
+    note: struct.note,
   };
   return this.taskUnstore();
 };
