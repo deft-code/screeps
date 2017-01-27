@@ -79,8 +79,12 @@ Creep.prototype.roleReserver = function() {
 };
 
 Creep.prototype.roleFarmer = function() {
-  return this.idleNom() || this.actionHospital() || this.actionTask() ||
+  this.idleNom();
+  return this.actionHospital() ||
+      this.actionTask() ||
+      this.dlog("after task") ||
       (!this.carryTotal && this.actionTravelFlag(this.squad.flag)) ||
+      this.dlog("after travel", this.squad.flag, this.carryTotal) ||
       this.actionRepairStruct(STRUCTURE_ROAD, this.squad.farm) ||
       this.actionBuildStruct(STRUCTURE_ROAD, this.squad.farm) ||
       ((this.carryFree > this.carryTotal) &&

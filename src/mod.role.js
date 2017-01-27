@@ -12,6 +12,7 @@ Creep.prototype.taskTravel = function() {
 };
 
 Creep.prototype.actionTravelFlag = function(flag) {
+  this.dlog("travel flag", flag);
   if (!flag) {
     return false;
   }
@@ -20,12 +21,13 @@ Creep.prototype.actionTravelFlag = function(flag) {
     flag: flag.name,
     note: flag.note,
   };
-  return this.taskTravel();
+  return this.taskTravelFlag();
 };
 
 Creep.prototype.taskTravelFlag = function() {
   const flag = this.taskFlag;
-  if (!dest || this.pos.roomName === flag.pos.roomName) {
+  this.dlog("taskTravelFlag");
+  if (!flag || this.pos.roomName === flag.pos.roomName) {
     return false;
   }
   return this.actionMoveTo(flag);
