@@ -52,7 +52,7 @@ StructureSpawn.prototype.newCartSquad = function(name) {
 
 Creep.prototype.roleCartPump = function() {
   return this.idleNom() || this.actionTask() ||
-      this.actionTravel(this.squad.flag) ||
+      this.actionTravelFlag(this.squad.flag) ||
       this.actionRepairStruct(STRUCTURE_ROAD, this.squad.Cart) ||
       this.actionBuildStruct(STRUCTURE_ROAD, this.squad.Cart) ||
       this.actionHarvestAny(this.squad.Cart) ||

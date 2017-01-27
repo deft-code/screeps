@@ -1,6 +1,7 @@
 
 Creep.prototype.roleSnipe = function() {
-  return this.actionTask() || this.actionTravel(Game.flags.snipe) ||
+  return this.actionTask() ||
+      this.actionTravelFlag(Game.flags.snipe) ||
       this.actionSnipe();  //        this.taskGoHome();
 };
 
@@ -64,8 +65,9 @@ StructureSpawn.prototype.roleDismantler = function() {
 };
 
 Creep.prototype.roleDismantler = function() {
-  return this.actionTask() || (this.drop(RESOURCE_ENERGY) && false) ||
-      this.actionTravel(Game.flags.dismantler) ||
+  return this.actionTask() ||
+      (this.drop(RESOURCE_ENERGY) && false) ||
+      this.actionTravelFlag(Game.flags.dismantler) ||
       this.actionDismantleAt(Game.flags.dismantler);
 };
 
@@ -76,7 +78,7 @@ Creep.prototype.actionDismantleAt = function(obj) {
 
 Creep.prototype.roleAssassin = function(struct) {
   return this.actionTask() ||
-      this.actionTravel(Game.flags.assassin) || this.actionAssassin();
+      this.actionTravelFlag(Game.flags.assassin) || this.actionAssassin();
 
 };
 
@@ -129,14 +131,17 @@ StructureSpawn.prototype.roleSnipe = function() {
 
 StructureSpawn.prototype.roleThief = function(flag) {
   const body = [
+    MOVE, ATTACK,
     MOVE,  CARRY, MOVE,  CARRY, MOVE,  CARRY, MOVE,
     CARRY, MOVE,  CARRY, MOVE,  CARRY, MOVE,  CARRY, MOVE,  CARRY, MOVE,  CARRY,
   ];
-  return this.createRole(body, 4, {role: 'thief', flag: flag});
+  return this.createRole(body, 6, {role: 'thief', flag: flag});
 };
 
 Creep.prototype.roleThief = function() {
-  return this.actionTask() || this.actionThief();
+  return this.actionTask() ||
+      this.actionHospital() ||
+      this.actionThief();
 };
 
 Creep.prototype.actionThief = function() {
@@ -149,7 +154,7 @@ Creep.prototype.actionThief = function() {
     if (this.carryTotal) {
       return this.actionStoreAny();
     } else {
-      return this.actionTravel(flag);
+      return this.actionTravelFlag(flag);
     }
   } else {
     if (this.carryTotal) {

@@ -27,7 +27,8 @@ class FarmSquad extends modsquads.Squad {
     const nreservers =
         this.memory.nreservers || this.farm.cachedFind(FIND_SOURCES).length - 1;
 
-    if (this.memory.reservers.length < nreservers) {
+    if (this.memory.reservers.length < nreservers &&
+        this.farm.controller && this.farm.controller.resTicks < 4000) {
       console.log('Squad', this.name, this.memory.reservers, nreservers);
       return this.roleReserver();
     }
@@ -72,13 +73,14 @@ StructureSpawn.prototype.newFarmSquad = function(name) {
 };
 
 Creep.prototype.roleReserver = function() {
-  return this.actionTask() || this.actionTravel(this.squad.flag) ||
+  return this.actionTask() ||
+      this.actionTravelFlag(this.squad.flag) ||
       this.actionReserve(this.squad.farm);
 };
 
 Creep.prototype.roleFarmer = function() {
   return this.idleNom() || this.actionHospital() || this.actionTask() ||
-      (!this.carryTotal && this.actionTravel(this.squad.flag)) ||
+      (!this.carryTotal && this.actionTravelFlag(this.squad.flag)) ||
       this.actionRepairStruct(STRUCTURE_ROAD, this.squad.farm) ||
       this.actionBuildStruct(STRUCTURE_ROAD, this.squad.farm) ||
       ((this.carryFree > this.carryTotal) &&

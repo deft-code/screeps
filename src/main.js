@@ -1,11 +1,10 @@
-var modrole = require('mod.role');
-var modtower = require('tower');
-var modprototypes = require('prototypes');
-var modutil = require('util');
-var modwork = require('work');
-let modroom = require('room');
-//let modpump = require('role.pump');
-let modscout = require('role.scout');
+const modrole = require('mod.role');
+const modtower = require('tower');
+const modprototypes = require('prototypes');
+const modutil = require('util');
+const modwork = require('work');
+const modroom = require('room');
+const modscout = require('role.scout');
 const modmisc = require('role.misc');
 const modclaim = require('squad.claim');
 const modsnipe = require('squad.snipe');
@@ -16,12 +15,11 @@ const modcreep = require('creep');
 const modroomsquad = require('squad.room');
 const modfarmsquad = require('squad.farmer');
 const modcartsquad = require('squad.carts');
+const modmatrix = require('matrix');
 
 let roles = modrole.roles;
-// roles.pump = modpump.rolePump;
 
-global.structMem =
-    function(id) {
+global.structMem = function(id) {
   const s = Game.getObjectById(id);
   return s.note + JSON.stringify(s.memory);
 };

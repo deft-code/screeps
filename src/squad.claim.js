@@ -108,9 +108,12 @@ Creep.prototype.taskUpgrade2 = function() {
 };
 
 Creep.prototype.roleRemoteBuild = function() {
-  return this.idleNom() || this.actionTask() ||
-      this.actionTravel(Game.flags.claim) || this.actionBuildFinish() ||
-      this.actionUpgrade() || this.actionHarvestAny();
+  return this.idleNom() ||
+      this.actionTask() ||
+      this.actionTravelFlag(Game.flags.claim) ||
+      this.actionBuildFinish() ||
+      this.actionUpgrade() ||
+      this.actionHarvestAny();
 };
 
 Creep.prototype.roleMedic = function() {

@@ -5,24 +5,30 @@ Creep.prototype.run = function() {
   this.dlog(what);
 };
 
-Creep.prototype.actionTravel = function(dest) {
-  if (!dest || dest.pos.roomName == this.pos.roomName) {
+//TODO delete me
+Creep.prototype.taskTravel = function() {
+  const dest = Game.flags[this.memory.task.travel];
+  return this.actionTravelFlag(dest);
+};
+
+Creep.prototype.actionTravelFlag = function(flag) {
+  if (!flag) {
     return false;
   }
   this.memory.task = {
     task: 'travel',
-    travel: dest.name,
-    note: dest.note,
+    flag: flag.name,
+    note: flag.note,
   };
   return this.taskTravel();
 };
 
-Creep.prototype.taskTravel = function() {
-  const dest = Game.flags[this.memory.task.travel];
-  if (!dest || this.pos.isNearTo(dest)) {
+Creep.prototype.taskTravelFlag = function() {
+  const flag = this.taskFlag;
+  if (!dest || this.pos.roomName === flag.pos.roomName) {
     return false;
   }
-  return this.actionMoveTo(dest);
+  return this.actionMoveTo(flag);
 };
 
 Creep.prototype.actionMoveFlag = function(dest) {

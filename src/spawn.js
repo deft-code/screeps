@@ -10,6 +10,7 @@ StructureSpawn.prototype.createRole = function(body, min, memory) {
     const optParts = modutil.optimizeBody(myParts);
     const ret = this.createCreep(optParts, undefined, memory);
     if (_.isString(ret)) {
+      this.spawning = true;
       console.log('Started Spawning', ret, JSON.stringify(memory));
       return ret;
     }
