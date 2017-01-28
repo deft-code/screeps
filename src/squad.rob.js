@@ -44,6 +44,7 @@ modsquads.Squad.register(RobSquad);
 StructureSpawn.prototype.newRobSquad = function(flagname) {
   const name = flagname
   const mem = {
+    flag: flagname,
     thieves: [],
   };
   return this.newSquad(flagname, RobSquad, mem);
