@@ -98,17 +98,34 @@ let who = function(obj) {
 };
 
 function cachedProp(klass, prop, func) {
-  Object.defineProperty(klass.prototype, prop, {
-    get: function() {
-      this.cache = this.cache || {}
-      return this.cache[prop] = this.cache[prop] || func.apply(this);
-    },
-  });
-}
+	Object.defineProperty(klass.proto, prop, {
+		get: function() { 
+			if(this === klass.proto || this == undefined)
+				return;
+			let result = func.call(this,this);
+			Object.defineProperty(this, prop, {
+				value: result,
+				configurable: true,
+				enumerable: false
+			});
+			return result;
+		},
+		configurable: true,
+		enumerable: false
+	});
+} 
 
 function roProp(klass, prop, func) {
-  Object.defineProperty(klass.prototype, prop, {get: func});
-}
+	Object.defineProperty(klass.proto, prop, {
+		get: function() { 
+			if(this === klass.proto || this == undefined)
+				return;
+			return func.call(this,this);
+		},
+		configurable: false,
+		enumerable: false
+	});
+} 
 
 function randomResource(resources) {
   let r = {};
