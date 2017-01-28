@@ -34,7 +34,8 @@ class RobSquad extends modsquads.Squad {
       min = 10;
       body = [TOUGH, MOVE, ATTACK, MOVE].concat(body);
     }
-    return this.createRole(body, min, {role: 'thief'});
+    const who = this.createRole(body, min, {role: 'thief'});
+    return this.trackCreep(this.memory.thieves, who);
   }
 };
 
@@ -49,6 +50,7 @@ StructureSpawn.prototype.newRobSquad = function(flagname) {
 };
 
 Creep.prototype.roleThief = function() {
+  this.idleNom();
   return this.actionHospital() ||
       this.actionTask() ||
       this.actionThief();
@@ -56,6 +58,7 @@ Creep.prototype.roleThief = function() {
 
 Creep.prototype.actionThief = function() {
   const flag = this.squad.flag;
+  this.dlog("action theif", flag);
   if (!flag) {
     return false;
   }
@@ -69,7 +72,7 @@ Creep.prototype.actionThief = function() {
     if (this.carryTotal) {
       return this.actionMoveTo(this.home.controller);
     } else {
-      return this.actionUnstoreAny();
+      return this.actionTravelFlag(flag) || this.actionUnstoreAny();
     }
   }
   return false;
