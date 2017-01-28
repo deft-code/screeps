@@ -1,3 +1,5 @@
+const modsquads = require('squads');
+
 class RobSquad extends modsquads.Squad {
   constructor(name) {
     super(name);
@@ -33,7 +35,9 @@ class RobSquad extends modsquads.Squad {
       body = [TOUGH, MOVE, ATTACK, MOVE].concat(body);
     }
     return this.createRole(body, min, {role: 'thief'});
+  }
 };
+
 modsquads.Squad.register(RobSquad);
 
 StructureSpawn.prototype.newRobSquad = function(flagname) {
