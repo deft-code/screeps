@@ -44,13 +44,13 @@ modsquads.Squad.register(RobSquad);
 StructureSpawn.prototype.newRobSquad = function(flagname) {
   const name = flagname
   const mem = {
-    flag: flagname,
     thieves: [],
   };
   return this.newSquad(flagname, RobSquad, mem);
 };
 
 Creep.prototype.roleThief = function() {
+  this.notifyWhenAttacked(this.squad.memory.aggressive);
   this.idleNom();
   return this.actionHospital() ||
       this.actionTask() ||

@@ -22,8 +22,6 @@ const modrobsquad = require('squad.rob');
 const modroomsquad = require('squad.room');
 const modsquads = require('squads');
 
-let roles = modrole.roles;
-
 global.structMem = function(id) {
   const s = Game.getObjectById(id);
   return s.note + JSON.stringify(s.memory);
@@ -32,27 +30,27 @@ global.structMem = function(id) {
 const time = Game.time;
 const sig = Math.floor(Math.random() * 100)
 
+const profiler = require('screeps-profiler');
+
+//profiler.enable();
 module.exports.loop = function() {
-  const dt = Game.time - time;
-  console.log(`${Game.time}: ${sig}, ${dt}`);
-  PathFinder.use(true);
-  modsquads.run();
+     profiler.wrap(function() {
+        const dt = Game.time - time;
+        console.log(`${Game.time}: ${sig}, ${dt}`);
+         PathFinder.use(true);
+        modsquads.run();
+    
+        _.each(Game.rooms, modroom.upkeep);
+    
+        _.each(Game.creeps, creep => creep.run());
+    
+         for (var name in Memory.creeps) {
+            if (!Game.creeps[name]) {
+               delete Memory.creeps[name];
+              console.log('Clearing non-existing creep memory:', name);
+            }
+        }
+    });
+}
 
-  _.each(Game.rooms, modroom.upkeep);
 
-  _.each(Game.creeps, creep => creep.run());
-
-  for (var name in Memory.creeps) {
-    if (!Game.creeps[name]) {
-      delete Memory.creeps[name];
-      console.log('Clearing non-existing creep memory:', name);
-    }
-  }
-
-  for (let rname in Memory.rooms) {
-    if (!Game.rooms[rname]) {
-      delete Memory.rooms[rname];
-      console.log('Cleaing non-existing room memory:', rname);
-    }
-  }
-};
