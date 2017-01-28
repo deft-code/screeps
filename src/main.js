@@ -16,6 +16,7 @@ const modroomsquad = require('squad.room');
 const modfarmsquad = require('squad.farmer');
 const modcartsquad = require('squad.carts');
 const modmatrix = require('matrix');
+const modcontroller = require('controller');
 
 let roles = modrole.roles;
 
