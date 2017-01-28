@@ -5,7 +5,6 @@ let modutil = require('util');
 let modwork = require('work');
 let modroad = require('road');
 let modlink = require('link');
-//let modpump = require('role.pump');
 let modhauler = require('role.hauler');
 let modmanual = require('role.manual');
 

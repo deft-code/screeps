@@ -20,10 +20,13 @@ class FarmSquad extends modsquads.Squad {
     if (this.memory.farmers.length < this.memory.nfarmers) {
       return this.roleFarmer();
     }
-    this.undertaker(this.memory.reservers);
     if (!this.farm) {
       return 'enough';
     }
+
+    
+    
+    this.undertaker(this.memory.reservers);
     const nreservers =
         this.memory.nreservers || this.farm.cachedFind(FIND_SOURCES).length - 1;
 
@@ -41,7 +44,12 @@ class FarmSquad extends modsquads.Squad {
       MOVE, CARRY, MOVE, CARRY, MOVE, WORK,  MOVE, CARRY,
       MOVE, CARRY, MOVE, WORK,  MOVE, CARRY, MOVE, CARRY,
     ];
-    const who = this.createRole(body, 4, {role: 'farmer'});
+    let min = 4;
+    if(this.memory.aggressive) {
+      min = 8;
+      body = [TOUGH, MOVE, ATTACK, MOVE].concat(body);
+    }
+    const who = this.createRole(body, min, {role: 'farmer'});
     return this.trackCreep(this.memory.farmers, who);
   }
 
