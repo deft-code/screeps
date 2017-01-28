@@ -1,22 +1,26 @@
-const modrole = require('mod.role');
-const modtower = require('tower');
-const modprototypes = require('prototypes');
 const modutil = require('util');
-const modwork = require('work');
-const modroom = require('room');
-const modscout = require('role.scout');
-const modmisc = require('role.misc');
-const modclaim = require('squad.claim');
-const modsnipe = require('squad.snipe');
-const modspawn = require('spawn');
-const modsquads = require('squads');
-const modminer = require('squad.miner');
-const modcreep = require('creep');
-const modroomsquad = require('squad.room');
-const modfarmsquad = require('squad.farmer');
-const modcartsquad = require('squad.carts');
-const modmatrix = require('matrix');
+
+const modprototypes = require('prototypes');
 const modcontroller = require('controller');
+const modcreep = require('creep');
+const modroom = require('room');
+const modtower = require('tower');
+const modspawn = require('spawn');
+const modmatrix = require('matrix');
+
+const modrole = require('mod.role');
+const modwork = require('work');
+const modsnipe = require('squad.snipe');
+
+const modscout = require('role.scout');
+const modcartsquad = require('squad.carts');
+const modclaim = require('squad.claim');
+const modfarmsquad = require('squad.farmer');
+const modminer = require('squad.miner');
+const modmisc = require('role.misc');
+const modrobsquad = require('squad.rob');
+const modroomsquad = require('squad.room');
+const modsquads = require('squads');
 
 let roles = modrole.roles;
 

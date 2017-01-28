@@ -14,10 +14,15 @@ class Squad {
       }
     }
     Memory.squads[name].creeps = cnames;
+    this.memory
   }
 
   get spawn() {
-    return Game.getObjectById(this.memory.spawn);
+    return Game.spawns[this.memory.spawn] || Game.getObjectById(this.memory.spawn);
+  }
+
+  get flag() {
+    return Game.flags[this.memory.flag];
   }
 
   get home() {
@@ -49,6 +54,16 @@ class Squad {
     registry[klass.name] = klass;
   }
 }
+
+StructureSpawn.prototype.newSquad = function(name, klass, mem) {
+  Memory.squads[name] = {
+    squad: klass.name,
+    creeps: [],
+    spawn: this.name,
+  };
+  _.assign(Memory.squads[name], mem || {});
+  return Memory.squads[name]
+};
 
 class WorkSquad extends Squad {
   execute() {
@@ -84,16 +99,6 @@ class WorkSquad extends Squad {
   }
 }
 Squad.register(WorkSquad);
-
-StructureSpawn.prototype.newSquad = function(name, klass, mem) {
-  Memory.squads[name] = {
-    squad: klass.name,
-    creeps: [],
-    spawn: this.id,
-  };
-  _.assign(Memory.squads[name], mem || {});
-  return Memory.squads[name]
-};
 
 StructureSpawn.prototype.newWorkSquad = function() {
   const squad = 'Work' + this.name;
