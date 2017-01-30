@@ -44,8 +44,6 @@ Object.defineProperty(RoomObject.prototype, 'memory', {
   }
 });
 
-
-
 function dlog(...args) {
   if (this.memory.debug || (Memory.dlog && _.matches(Memory.dlog)(this))) {
     console.log(`${Game.time % 100}:`, modutil.who(this), ...args);

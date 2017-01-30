@@ -13,6 +13,16 @@ class FarmSquad extends modsquads.Squad {
     if (this.spawn.spawning) {
       return 'spawning';
     }
+    
+    if(!this.attacked() && this.farm && this.farm.hostiles.length) {
+        this.memory.attacked = Game.time + this.farm.hostiles[0].ticksToLive;
+    }
+    
+    if(this.attacked() && !this.armed()) {
+        console.log("Retailiate spawn of farmer");
+        return this.roleFarmer();
+    }
+    
     if (room.energyAvailable < room.energyCapacityAvailable) {
       return 'need energy';
     }
@@ -20,10 +30,11 @@ class FarmSquad extends modsquads.Squad {
     if (this.memory.farmers.length < this.memory.nfarmers) {
       return this.roleFarmer();
     }
-    this.undertaker(this.memory.reservers);
     if (!this.farm) {
       return 'enough';
     }
+
+    this.undertaker(this.memory.reservers);
     const nreservers =
         this.memory.nreservers || this.farm.cachedFind(FIND_SOURCES).length - 1;
 
@@ -34,6 +45,24 @@ class FarmSquad extends modsquads.Squad {
     }
     return 'enough';
   }
+  
+  armed() {
+        for(let creep of this.roleCreeps("farmer")) {
+            if(creep.memory.armed) {
+                return true;
+            }
+        }
+        return false;
+  }
+  
+  attacked() {
+      const end = this.memory.attacked;
+      if(end < Game.time) {
+          return true;
+      }
+      delete this.memory.attacked;
+      return false;
+  }
 
   roleFarmer() {
     let body = [
@@ -41,7 +70,12 @@ class FarmSquad extends modsquads.Squad {
       MOVE, CARRY, MOVE, CARRY, MOVE, WORK,  MOVE, CARRY,
       MOVE, CARRY, MOVE, WORK,  MOVE, CARRY, MOVE, CARRY,
     ];
-    const who = this.createRole(body, 4, {role: 'farmer'});
+    let min = 4;
+    if(this.attacked()) {
+      min = 8;
+      body = [TOUGH, MOVE, ATTACK, MOVE].concat(body);
+    }
+    const who = this.createRole(body, min, {role: 'farmer', armed: this.attacked()});
     return this.trackCreep(this.memory.farmers, who);
   }
 
