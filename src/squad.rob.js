@@ -16,12 +16,7 @@ class RobSquad extends modsquads.Squad {
     if (room.energyAvailable < room.energyCapacityAvailable) {
       return 'need energy';
     }
-    this.undertaker(this.memory.thieves);
-    const nthieves = this.memory.nthieves || 1;
-    if (this.memory.thieves.length < nthieves) {
-      return this.roleThief();
-    }
-    return 'enough';
+    return this.upkeepRole("thief", 1);
   }
 
   roleThief() {
@@ -50,7 +45,7 @@ StructureSpawn.prototype.newRobSquad = function(flagname) {
 };
 
 Creep.prototype.roleThief = function() {
-  this.notifyWhenAttacked(this.squad.memory.aggressive);
+  this.notifyWhenAttacked(!this.squad.memory.aggressive);
   this.idleNom();
   return this.actionHospital() ||
       this.actionTask() ||
@@ -59,19 +54,18 @@ Creep.prototype.roleThief = function() {
 
 Creep.prototype.actionThief = function() {
   const flag = this.squad.flag;
-  this.dlog("action theif", flag);
   if (!flag) {
     return false;
   }
-  if (this.pos.roomName == this.home.name) {
+  if (this.pos.roomName == this.squad.home.name) {
     if (this.carryTotal) {
-      return this.actionStoreAny();
+      return this.actionXferNearest(this.squad.home);
     } else {
       return this.actionTravelFlag(flag);
     }
   } else {
     if (this.carryTotal) {
-      return this.actionMoveTo(this.home.controller);
+      return this.actionMoveTo(this.spawn);
     } else {
       return this.actionTravelFlag(flag) || this.actionUnstoreAny();
     }

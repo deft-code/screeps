@@ -1,16 +1,14 @@
 Creep.prototype.roleScout = function() {
-  if (this.hits < this.hitsMax) {
-    this.moveTo(Game.spawns.Home);
-    return 'flee';
-  }
-  var f = Game.flags.Scout;
-  if (f && !this.pos.isNearTo(f)) {
-    this.moveTo(f);
-    return 'move to flag';
-  }
-  return false;
-};
+    return this.actionTask() ||
+        this.actionHospital() ||
+        this.actionMoveFlag(Game.flags.scout);
+}
 
+StructureSpawn.prototype.roleScout = function() {
+  const body = [TOUGH, MOVE, MOVE];
+  return this.createCreep(body, undefined, {role: 'scout'});
+};
+ 
 Creep.prototype.roleDistraction = function() {
     return this.actionTask() ||
         this.actionHospital() ||

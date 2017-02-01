@@ -41,31 +41,12 @@ function structNote(type, pos) {
   return type.slice(0, 10 - xy.length) + xy;
 }
 
+const parts = [TOUGH, CARRY, WORK, ATTACK, RANGED_ATTACK, MOVE, CLAIM, HEAL];
+
+const partPriority = (part) => _.indexOf(parts, part) || -1;
+
 function optimizeBody(body) {
-  return body.slice().sort((l, r) => {
-    if (l == r) {
-      return 0;
-    }
-    if (l == TOUGH) {
-      return -1;
-    }
-    if (r == TOUGH) {
-      return 1;
-    }
-    if (l == CARRY) {
-      return -1;
-    }
-    if (r == CARRY) {
-      return 1;
-    }
-    if (l == MOVE) {
-      return 1;
-    }
-    if (r == MOVE) {
-      return -1;
-    }
-    return 0;
-  });
+  return body.slice().sort((l, r) => partPriority(l) - partPriority(r));
 }
 
 let who = function(obj) {
@@ -98,9 +79,9 @@ let who = function(obj) {
 };
 
 function cachedProp(klass, prop, func) {
-	Object.defineProperty(klass.proto, prop, {
+	Object.defineProperty(klass.prototype, prop, {
 		get: function() { 
-			if(this === klass.proto || this == undefined)
+			if(this === klass.prototype || this == undefined)
 				return;
 			let result = func.call(this,this);
 			Object.defineProperty(this, prop, {
@@ -116,9 +97,9 @@ function cachedProp(klass, prop, func) {
 } 
 
 function roProp(klass, prop, func) {
-	Object.defineProperty(klass.proto, prop, {
+	Object.defineProperty(klass.prototype, prop, {
 		get: function() { 
-			if(this === klass.proto || this == undefined)
+			if(this === klass.prototype || this == undefined)
 				return;
 			return func.call(this,this);
 		},
@@ -133,7 +114,7 @@ function randomResource(resources) {
   if (r.energy == 0) {
     delete r.energy;
   }
-  return _.sample(Object.keys(r));
+  return _.sample(_.keys(r));
 }
 
 module.exports = {

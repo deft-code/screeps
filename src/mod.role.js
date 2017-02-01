@@ -5,19 +5,43 @@ Creep.prototype.run = function() {
   this.dlog(what);
 };
 
-//TODO delete me
-Creep.prototype.taskTravel = function() {
-  const dest = Game.flags[this.memory.task.travel];
-  return this.actionTravelFlag(dest);
+Creep.prototype.actionChase = function(creep) {
+    if(this.pos.inRangeTo(creep, 3)) {
+        this.move(this.pos.getDirectionTo(creep));
+        return "nudge";
+    }
+    return this.actionMoveTo(creep);
 };
 
+Creep.prototype.actionTravel = function(obj) {
+    if(!obj) {
+        return false;
+    }
+    this.memory.task = {
+        task: 'travel',
+        id: obj.id,
+        note: obj.pos.roomName,
+    };
+    return this.taskTravel();
+}
+
+Creep.prototype.taskTravel = function() {
+    const obj = this.taskId;
+    if(!obj) {
+        return false;
+    }
+    if(this.pos.roomName === obj.pos.roomName && !this.pos.exit) {
+        return false;
+    }
+    return this.actionMoveTo(obj);
+}
+
 Creep.prototype.actionTravelFlag = function(flag) {
-  this.dlog("travel flag", flag);
   if (!flag) {
     return false;
   }
   this.memory.task = {
-    task: 'travel',
+    task: 'travel flag',
     flag: flag.name,
     note: flag.note,
   };
@@ -26,8 +50,7 @@ Creep.prototype.actionTravelFlag = function(flag) {
 
 Creep.prototype.taskTravelFlag = function() {
   const flag = this.taskFlag;
-  this.dlog("taskTravelFlag");
-  if (!flag || this.pos.roomName === flag.pos.roomName) {
+  if (!flag || this.pos.roomName === flag.pos.roomName && !this.pos.exit) {
     return false;
   }
   return this.actionMoveTo(flag);
@@ -52,6 +75,41 @@ Creep.prototype.taskMoveFlag = function() {
   }
   return this.actionMoveTo(flag);
 };
+
+Creep.prototype.actionReplaceOldest = function(creeps) {
+    let min = this;
+    for(let creep of creeps) {
+        if(creep.ticksToLive < min.ticksToLive) {
+            min = creep;
+        }
+    }
+    return this.actionReplace(min);
+}
+
+Creep.prototype.actionReplace = function(creep) {
+    if(!creep || creep.name === this.name) {
+        return false;
+    }
+    this.memory.task = {
+        task: "replace",
+        creep: creep.name,
+    };
+    return this.taskReplace();
+}
+
+Creep.prototype.taskReplace = function() {
+    const creep = this.taskCreep;
+    if(!creep) {
+        return false;
+    }
+    if(this.pos.isNearTo(creep)) {
+        this.memory.task = creep.memory.task;
+        delete creep.memory.task;
+        creep.actionRecycle();
+        return this.actionTask();
+    }
+    return this.actionMoveTo(creep);
+}
 
 Creep.prototype.actionSpawning = function() {
   if (!this.memory.home) {
@@ -492,18 +550,15 @@ let roleRanged = function(creep) {
 };
 
 Creep.prototype.actionRecycle = function() {
-  let spawns = this.room.find(FIND_MY_SPAWNS);
-  spawns.push(Game.spawns.Home);
-  let spawn = this.pos.findClosestByRange(spawns);
   this.memory.task = {
     task: 'recycle',
-    spawn: spawn.id,
+    id: this.memory.spawn.id,
   };
   return this.taskRecycle();
 };
 
 Creep.prototype.taskRecycle = function() {
-  let spawn = Game.getObjectById(this.memory.task.spawn);
+  let spawn = this.taskId;
   if (!spawn) {
     return false;
   }

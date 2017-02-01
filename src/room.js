@@ -8,6 +8,14 @@ let modlink = require('link');
 let modhauler = require('role.hauler');
 let modmanual = require('role.manual');
 
+modutil.cachedProp(Room, "structsByType", room =>
+    _.groupBy(room.find(FIND_STRUCTURES), "structureType"));
+    
+
+modutil.cachedProp(Room, "enemies", room => room.cachedFind(FIND_HOSTILE_CREEPS));
+modutil.cachedProp(Room, "hostiles", room => _.filter(room.enemies, e => e.hostile));
+modutil.cachedProp(Room, "assaulters", room => _.filter(room.enemies, e => e.assault))
+    
 Room.prototype.cachedFind = function(find, filter) {
   this.cache = this.cache || {};
   this.cache[find] = this.cache[find] || {};
@@ -78,38 +86,9 @@ Room.prototype.createRole = function(parts, min, mem) {
   }
 };
 
-let spawnUpkeep = function(spawn) {
-  let myCreeps = spawn.room.find(FIND_MY_CREEPS);
-
-  let counts = _.countBy(myCreeps, 'memory.role');
-
-  let body = [
-    CARRY,
-    WORK,
-    MOVE,
-  ];
-
-  if (!counts.bootstrap) {
-    var who = spawn.createRole(body, 3, {role: 'bootstrap'});
-    console.log('Bootstrap', who);
-  }
-  return;
-  const nhostiles = spawn.room.cachedFind(FIND_HOSTILE_CREEPS).length;
-  if (!counts.ranged && nhostiles) {
-    let who = spawn.createRole(
-        [
-          MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK, MOVE,
-          RANGED_ATTACK
-        ],
-        2, 'ranged');
-    console.log('Create Ranged', who);
-  }
-};
-
 Room.prototype.emergencySafeMode = function() {
   console.log('Deprecated');
 };
-
 
 const custom = {
   W23S79(room) {
@@ -155,22 +134,6 @@ Room.prototype.cycleRampart = function(rampart) {
 
 function upkeepMyRoom(room) {
   modlink.upkeep(room);
-  /*let needPump = modpump.upkeep(room);
-  if(needPump) {
-      let newCreep = needPump(room);
-      console.log("New pump", newCreep);
-  }*/
-  let needHauler = modhauler.upkeep(room);
-  if (needHauler) {
-    let newCreep = needHauler(room);
-    console.log('New hauler', newCreep);
-  }
-  let needWork = modwork.upkeep(room);
-  if (needWork) {
-    let newCreep = needWork(room);
-    console.log('New worker', newCreep);
-  }
-
   let towers = room.Structures(STRUCTURE_TOWER);
   towers.forEach(modtower.tower);
 
@@ -182,7 +145,6 @@ function upkeepMyRoom(room) {
   }
 
   let spawns = room.Structures(STRUCTURE_SPAWN);
-  spawns.forEach(spawnUpkeep);
 
   if (!towers.length) {
     const spawn = _.sample(spawns);

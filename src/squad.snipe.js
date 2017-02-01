@@ -2,13 +2,29 @@
 Creep.prototype.roleSnipe = function() {
   return this.actionTask() ||
       this.actionTravelFlag(Game.flags.snipe) ||
-      this.actionSnipe();  //        this.taskGoHome();
+      this.actionSnipe(); 
 };
-
+/*
+Creep.prototype.actionAttackNearStruct = function(structType) {
+    if(this.room.controller && this.room.controller.my) {
+        return false;
+    }
+    
+    const structs = _(this.room.cachedFined(FIND_HOSTILE_STRUCTURES))
+        .filter(s => s.structureType == structType);
+}
+*/
 Creep.prototype.actionSnipe = function() {
   if (this.room.controller.my) {
     return false;
   }
+  const tower = _(this.room.find(FIND_HOSTILE_STRUCTURES))
+                    .filter(s => s.structureType == STRUCTURE_TOWER)
+                    .sample();
+  if (tower) {
+    return this.actionAttackStruct(tower);
+  }
+  
   const spawn = _(this.room.find(FIND_HOSTILE_STRUCTURES))
                     .filter(s => s.structureType == STRUCTURE_SPAWN)
                     .sample();
@@ -56,17 +72,17 @@ Creep.prototype.actionSnipe = function() {
 
 StructureSpawn.prototype.roleDismantler = function() {
   const body = [
-    CARRY, MOVE, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE,
-    WORK,  MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
-    MOVE,  WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE,
-    WORK,  MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
+    MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
+    MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
+    MOVE,  WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
+    MOVE,  WORK,  MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
   ];
   return this.createRole(body, 4, {role: 'dismantler'});
 };
 
 Creep.prototype.roleDismantler = function() {
+    this.drop(RESOURCE_ENERGY);
   return this.actionTask() ||
-      (this.drop(RESOURCE_ENERGY) && false) ||
       this.actionTravelFlag(Game.flags.dismantler) ||
       this.actionDismantleAt(Game.flags.dismantler);
 };
@@ -97,7 +113,7 @@ Creep.prototype.actionAttackStruct = function(struct) {
   this.memory.task = {
     task: 'attack struct',
     attack: struct.id,
-    note: modutil.structNote(struct.structureType || 'creep', struct.pos),
+    //note: modutil.structNote(struct.structureType || 'creep', struct.pos),
   };
   return this.taskAttackStruct();
 };
@@ -105,7 +121,7 @@ Creep.prototype.actionAttackStruct = function(struct) {
 Creep.prototype.taskAttackStruct = function() {
   const struct = Game.getObjectById(this.memory.task.attack);
   if (!struct) {
-    console.log('BAD attack struct', JSON.stringify(this.memory));
+    console.log('BAD attack struct', JSON.stringify(this.memory.task));
     return false;
   }
   const err = this.attack(struct);
@@ -122,9 +138,13 @@ Creep.prototype.taskAttackStruct = function() {
 
 StructureSpawn.prototype.roleSnipe = function() {
   const body = [
+     TOUGH, MOVE, TOUGH, MOVE, TOUGH, TOUGH, MOVE,
     ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
     ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
     ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
+    ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
+    ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
+    //ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
   ];
   return this.createRole(body, 2, {role: 'snipe'});
 };

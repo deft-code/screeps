@@ -71,29 +71,31 @@ Creep.prototype.actionDismantleAny = function() {
   return this.actionDismantle(target);
 };
 
-Creep.prototype.actionDismantle = function(struct) {
+Creep.prototype.actionDismantle = function(struct, drop) {
   if (!struct) {
     return false;
   }
-  if (!this.carryFree) {
+  if (!drop && !this.carryFree) {
     return false;
   }
   this.memory.task = {
     task: 'dismantle',
     id: struct.id,
+    drop: drop,
     note: struct.note,
   };
   return this.taskDismantle();
 };
 
 Creep.prototype.taskDismantle = function() {
-  if (!this.carryFree) {
+  if (!this.carryFree && !this.memory.task.drop) {
     this.say('Full');
     return false;
     // return this.actionUpgrade();
   }
   let structure = this.taskId;
   if (!structure || (structure.my && !structure.memory.dismantle)) {
+      console.log("protect mine");
     return false;
   }
   let err = this.dismantle(structure);

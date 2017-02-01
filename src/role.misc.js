@@ -1,7 +1,9 @@
 const modutil = require('util');
 
 Creep.prototype.actionMoveTo = function(where) {
-  const err = this.moveTo(where);
+   const err = this.moveTo(where, {
+      ignoreRoads: this.ignoreRoads,
+  });
   if (err == ERR_NO_PATH) {
     return false;
   }
