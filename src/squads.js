@@ -132,14 +132,14 @@ module.exports = {
   run: () => {
     Game.squads = {};
     const squadNames = _.keys(Memory.squads);
-    console.log("squadNames", squadNames.length, squadNames);
+    //console.log("squadNames", squadNames.length, squadNames);
     for (let i in squadNames) {
       const name = squadNames[i];
       Game.squads[name] = new registry[Memory.squads[name].squad](name);
     }
 
-    //_.each(Game.squads, squad => console.log(Game.time, squad.name, squad.execute()));
-    _.each(Game.squads, squad => squad.execute());
+    _.each(Game.squads, squad => console.log(Game.time, squad.name, squad.execute()));
+    //_.each(Game.squads, squad => squad.execute());
 
   }
 };

@@ -57,6 +57,7 @@ function dlog(...args) {
 Creep.prototype.dlog = dlog;
 Room.prototype.dlog = dlog;
 Structure.prototype.dlog = dlog;
+Flag.prototype.dlog = dlog;
 
 Object.defineProperty(StructureContainer.prototype, 'charger', {
   get: function() {

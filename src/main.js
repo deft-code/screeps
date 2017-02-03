@@ -1,6 +1,7 @@
 const modutil = require('util');
 const server = require('server');
 const team = require('team');
+const lib = require('lib');
 
 const modprototypes = require('prototypes');
 const modcontroller = require('controller');
@@ -42,6 +43,8 @@ if(false) {
 
 function main() {
     PathFinder.use(true);
+    _.each(Game.flags, flag => flag.run());
+
     modsquads.run();
 
     _.each(Game.rooms, modroom.upkeep);
