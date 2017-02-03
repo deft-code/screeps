@@ -5,8 +5,38 @@ Creep.prototype.run = function() {
   this.dlog(what);
 };
 
+Creep.prototype.actionChase = function(creep) {
+    if(this.pos.inRangeTo(creep, 3)) {
+        this.move(this.pos.getDirectionTo(creep));
+        return "nudge";
+    }
+    return this.actionMoveTo(creep);
+};
+
+Creep.prototype.actionTravel = function(obj) {
+    if(!obj) {
+        return false;
+    }
+    this.memory.task = {
+        task: 'travel',
+        id: obj.id,
+        note: obj.pos.roomName,
+    };
+    return this.taskTravel();
+}
+
+Creep.prototype.taskTravel = function() {
+    const obj = this.taskId;
+    if(!obj) {
+        return false;
+    }
+    if(this.pos.roomName === obj.pos.roomName && !this.pos.exit) {
+        return false;
+    }
+    return this.actionMoveTo(obj);
+}
+
 Creep.prototype.actionTravelFlag = function(flag) {
-  this.dlog("travel flag", flag);
   if (!flag) {
     return false;
   }
@@ -20,8 +50,7 @@ Creep.prototype.actionTravelFlag = function(flag) {
 
 Creep.prototype.taskTravelFlag = function() {
   const flag = this.taskFlag;
-  this.dlog("taskTravelFlag");
-  if (!flag || this.pos.roomName === flag.pos.roomName) {
+  if (!flag || this.pos.roomName === flag.pos.roomName && !this.pos.exit) {
     return false;
   }
   return this.actionMoveTo(flag);

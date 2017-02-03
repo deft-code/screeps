@@ -35,3 +35,15 @@ modutil.cachedProp(Creep, 'carryFree', function() {
   return this.carryCapacity - this.carryTotal;
 });
 
+modutil.cachedProp(Creep, 'partsByType', creep =>
+    _(creep.body)
+        .filter(part => part.hits)
+        .countBy("type")
+        .value());
+
+modutil.cachedProp(Creep, 'ignoreRoads', creep => creep.body.length >= 2*creep.getActiveBodyparts(MOVE));
+modutil.cachedProp(Creep, 'hostile',
+    creep => creep.getActiveBodyparts(ATTACK) || creep.getActiveBodyparts(RANGED_ATTACK));
+    
+modutil.cachedProp(Creep, 'assault',
+    creep => creep.hostile || creep.getActiveBodyparts(WORK) || creep.getActiveBodyparts(CLAIM) >= 5);

@@ -1,5 +1,6 @@
 const modutil = require('util');
 const server = require('server');
+const team = require('team');
 
 const modprototypes = require('prototypes');
 const modcontroller = require('controller');
@@ -13,13 +14,14 @@ const modrole = require('mod.role');
 const modwork = require('work');
 const modsnipe = require('squad.snipe');
 
+const modguard = require('role.guard');
+const modattack = require('squad.attack');
 const modscout = require('role.scout');
 const modchemist = require('role.chemist');
 const modsrcer = require('role.srcer');
 const modcartsquad = require('squad.carts');
 const modclaim = require('squad.claim');
 const modfarmsquad = require('squad.farmer');
-const modminer = require('squad.miner');
 const modmisc = require('role.misc');
 const modrobsquad = require('squad.rob');
 const modroomsquad = require('squad.room');

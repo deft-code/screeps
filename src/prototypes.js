@@ -8,6 +8,8 @@ modutil.cachedProp(Structure, 'storeFree', function() {
   return this.storeCapacity - this.storeTotal;
 });
 
+modutil.cachedProp(Structure, 'energyFree', struct => struct.energyCapacity - struct.energy);
+
 modutil.cachedProp(Structure, 'note', function() {
   return modutil.structNote(this.structureType, this.pos);
 });
@@ -43,6 +45,8 @@ Object.defineProperty(RoomObject.prototype, 'memory', {
     this.room.memory.objects[this.id] = value;
   }
 });
+
+modutil.cachedProp(RoomPosition, 'exit', p => p.x == 0 || p.y == 0 || p.x == 49 || p.y == 49);
 
 function dlog(...args) {
   if (this.memory.debug || (Memory.dlog && _.matches(Memory.dlog)(this))) {
@@ -102,7 +106,8 @@ Object.defineProperty(Structure.prototype, 'repairs', {
         myMax = this.hitsMax / 5;
         break;
     }
-    myMax = Math.max(this.memory.hitsMax || 0, myMax);
+    mem = this.memory || {};
+    myMax = Math.max(mem.hitsMax || 0, myMax);
     return 1 - (this.hits / myMax);
   }
 });

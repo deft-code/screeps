@@ -6,7 +6,6 @@ class MinerSquad extends modsquads.Squad {
   }
 
   execute() {
-    return "deprecated";
     if (!this.spawn) {
       return 'no spawn';
     }

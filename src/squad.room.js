@@ -6,64 +6,36 @@ class RoomSquad extends modsquads.Squad {
   }
 
   execute() {
+    console.log(Game.time, "execute", this.name);
     if (!this.spawn) {
+        console.log(this.name, "no spawn");
       return 'no spawn';
     }
     const room = this.spawn.room;
     if (this.spawn.spawning) {
+        console.log(this.name, this.spawn.name, "spawning")
       return 'spawning';
     }
     
-    const haulers = this.roleCreeps("hauler");
-    if(!haulers.length) {
-        return this.roleHauler();
-    }
-    
-    const srcers = this.roleCreeps("srcer");
-    if(!srcers.length) {
-        return this.roleSrcer();
-    }
-
-    if (room.energyAvailable < room.energyCapacityAvailable) {
-      return 'need energy';
-    }
-    
-    const nhaulers = this.memory.nhaulers || 2;
-    if(haulers.length < nhaulers) {
-        return this.roleHauler();
-    }
-    
-    const nsrcers = this.memory.nsrcers || 2;
-    if(srcers.length < nsrcers) {
-        return this.roleSrcer();
-    }
-    
-    const workers = this.roleCreeps("worker");
-    const nworkers = this.memory.nworkers || 1 ;
-    if(workers.length < nworkers) {
-        return this.roleWorker();
-    }
-    
-    const upgraders = this.roleCreeps("upgrader");
-    const nupgraders = this.memory.nupgraders || 1;
-    if (upgraders.length < this.memory.nupgraders) {
-      return this.roleUpgrader();
-    }
-    
-    const nchemists = this.home.terminal? 1: 0;
-    const chemists = this.roleCreeps("chemist");
-    if( false&&chemists.length < nchemists) {
-        return this.roleChemist();
-    }
-    
-    return "skip";
-    
-    let who = this.preemptive("srcer");
+    const who = this.upkeepRole("hauler", 1) ||
+        this.upkeepRole("srcer", 1);
     if(who) {
         return who;
     }
+
+    if (room.energyAvailable < room.energyCapacityAvailable) {
+        console.log(this.name, "need energy");
+      return 'need energy';
+    }
     
-    return 'enough';
+    const nchemist = 0 // this.home.terminal? 1: 0;
+
+    return this.upkeepRole("hauler", 2) ||
+        this.upkeepRole("srcer", 2) ||
+        this.upkeepRole("worker", 1)  ||
+        this.upkeepRole("upgrader", 1) ||
+        this.upkeepRole("chemist", nchemist) ||
+        "enough";
   }
   
   roleSrcer() {

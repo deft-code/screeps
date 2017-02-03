@@ -29,6 +29,12 @@ class Squad {
   }
 
   get spawn() {
+      let s = Game.spawns[this.memory.spawn];
+      if(!s) {
+          s = Game.getObjectById(this.memory.spawn);
+          this.memory.spawn = s.name;
+      }
+      return s;
     return Game.spawns[this.memory.spawn] || Game.getObjectById(this.memory.spawn);
   }
 
@@ -43,6 +49,14 @@ class Squad {
   get memory() {
     return Memory.squads[this.name];
   }
+  
+  memOr(key, value) {
+      const v = this.memory[key];
+      if(v === undefined) {
+          return value;
+      }
+      return v;
+  }
 
   trackCreep(creeps, who) {
     if (_.isString(who)) {
@@ -51,10 +65,32 @@ class Squad {
     return who;
   }
 
+  upkeepRole(role, n) {
+      n = this.memOr("n" + role, n);
+      const creeps = this.roleCreeps(role);
+      if(creeps.length < n) {
+          console.log("upkeepROle > spawnROle", role, creeps.length, n);
+          return this.spawnRole(role);
+      }
+      return false;
+  }
+  
+  spawnRole(role) {
+    const fname = _.camelCase('role ' + role);
+      const fn = this[fname];
+      if(fn){
+          return fn.apply(this);
+      }
+  }
+  
   createRole(body, min, mem) {
     mem.squad = this.name;
     const who = this.spawn.createRole(body, min, mem);
-    return this.trackCreep(this.memory.creeps, who);
+    this.trackCreep(this.memory.creeps, who);
+    if(_.isString(who)) {
+        return who;
+    }
+    return false;
   }
 
   undertaker(creeps) {
@@ -89,46 +125,6 @@ StructureSpawn.prototype.newSquad = function(name, klass, mem) {
   return Memory.squads[name]
 };
 
-class WorkSquad extends Squad {
-  execute() {
-    if (!this.spawn) {
-      return 'no spawn';
-    }
-    const nworkers = this.creeps.length;
-    if (!(nworkers < this.memory.nworkers)) {
-      return 'Enough workers';
-    }
-    const room = this.spawn.room;
-    if (this.spawn.spawning ||
-        room.energyAvailable < room.energyCapacityAvailable) {
-      return 'no spawning';
-    }
-    const who = this.roleWorker();
-    if (_.isString(who)) {
-      this.memory.creeps.push(who);
-      return 'spawned ' + who;
-    }
-    return modutil.sprint('fail build', who);
-  }
-
-
-  roleWorker() {
-    let body = [
-      CARRY, WORK, MOVE, CARRY, MOVE, WORK, CARRY, MOVE, WORK,
-      CARRY, MOVE, WORK, CARRY, MOVE, WORK, CARRY, MOVE, WORK,
-      CARRY, MOVE, WORK, CARRY, MOVE, WORK, WORK,  MOVE, WORK,
-      MOVE,  WORK, MOVE, WORK,  MOVE, WORK, MOVE,
-    ];
-    return this.spawn.createRole(body, 3, {role: 'worker', squad: this.name});
-  }
-}
-Squad.register(WorkSquad);
-
-StructureSpawn.prototype.newWorkSquad = function() {
-  const squad = 'Work' + this.name;
-  return this.newSquad(
-      squad, WorkSquad, {rooms: [this.pos.roomName], nworkers: 1});
-};
 
 module.exports = {
   Squad: Squad,
@@ -136,11 +132,14 @@ module.exports = {
   run: () => {
     Game.squads = {};
     const squadNames = _.keys(Memory.squads);
+    console.log("squadNames", squadNames.length, squadNames);
     for (let i in squadNames) {
       const name = squadNames[i];
       Game.squads[name] = new registry[Memory.squads[name].squad](name);
     }
 
+    //_.each(Game.squads, squad => console.log(Game.time, squad.name, squad.execute()));
     _.each(Game.squads, squad => squad.execute());
+
   }
 };

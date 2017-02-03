@@ -12,19 +12,9 @@ modutil.cachedProp(Room, "structsByType", room =>
     _.groupBy(room.find(FIND_STRUCTURES), "structureType"));
     
 
-modutil.cachedProp(Room, "hostiles", room => {
-    const enemies = room.cachedFind(FIND_HOSTILE_CREEPS);
-    return _.filter(enemies, e => {
-        for(let part of e.body) {
-            if(!part.hits) continue;
-            
-            if(part.type == ATTACK || part.type == RANGED_ATTACK || part.type == WORK) {
-                return true;
-            }
-        }
-        return false;
-    });
-});
+modutil.cachedProp(Room, "enemies", room => room.cachedFind(FIND_HOSTILE_CREEPS));
+modutil.cachedProp(Room, "hostiles", room => _.filter(room.enemies, e => e.hostile));
+modutil.cachedProp(Room, "assaulters", room => _.filter(room.enemies, e => e.assault))
     
 Room.prototype.cachedFind = function(find, filter) {
   this.cache = this.cache || {};
@@ -100,7 +90,6 @@ Room.prototype.emergencySafeMode = function() {
   console.log('Deprecated');
 };
 
-
 const custom = {
   W23S79(room) {
     return;
@@ -155,20 +144,6 @@ function upkeepMyRoom(room) {
     customFunc(room);
   }
 
-  let spawns = room.Structures(STRUCTURE_SPAWN);
-
-  if (!towers.length) {
-    const spawn = _.sample(spawns);
-    if (spawn && !spawn.spawning) {
-      const creeps = room.cachedFind(FIND_MY_CREEPS);
-      const counts = _.countBy(creeps, 'memory.role');
-      const hurt = _.filter(creeps, c => c.hits < c.hitsMax);
-      if (hurt.length && !counts.medic) {
-        spawn.newMedic();
-      }
-    }
-  }
-
   if (room.controller && room.controller.my) {
     const hostiles = room.cachedFind(FIND_HOSTILE_CREEPS);
     if (hostiles.length) {
@@ -181,21 +156,6 @@ function upkeepMyRoom(room) {
           extn => extn.hits < extn.hitsMax);
       if (hurt_towers.length || hurt_spawns.length || hurt_extns.length) {
         console.log('SAFE MOVE!', room.controller.activateSafeMode());
-      }
-    }
-  }
-
-
-  if (false && room.name == 'W27S79') {
-    if (!Game.spawns.Second.spawning &&
-        room.energyCapacityAvailable == room.energyAvailable) {
-      const counts = _.countBy(Game.creeps, 'memory.role');
-      // delete counts["remote build"];
-      if (!(counts['remote build'] >= 2)) {
-        Game.spawns.Second.roleRemoteBuild();
-      }
-      if (false && !(counts['remote haul'] >= 1)) {
-        Game.spawns.Second.roleRemoteHaul();
       }
     }
   }
