@@ -1,3 +1,23 @@
+
+Creep.prototype.getCostMatrix(roomName) = function() {
+  const info = this.bodyInfo;
+  const needRoad = info.weight * 2 > info.fatigue;
+
+  const needRoad = this.body.length <= this.getActiveBodyParts(MOVE) * 2;
+
+  const dpt = this.getActiveBodyParts(WORK) * 50 +
+      this.getActiveBodyParts(ATTACK) * 30 +
+      this.getActiveBodyParts(RANGED_ATTACK) * 10;
+
+  const total = this.ticksToLive * dpt;
+
+};
+CostMatrix.Get = function(roomName) {
+  const matrices = Memory.Matrices = Memory.Matrices || {};
+  const matrix = matrices[roomName] = matrices[roomName] || {};
+}
+
+
 function calcMatrix(name, matrix) {
   const room = Game.rooms[name];
   Memory.matrix = Memory.matrix || {};
@@ -23,8 +43,8 @@ function calcMatrix(name, matrix) {
           const range = pos.getRangeTo(tower);
           const extra = Math.min(0, 20 - range);
           this.matrix.set(x, y, this.matrix.get(x, y) + 10 + extra);
-        } 
-      } 
+        }
+      }
     }
     Memory.matrix[name] = this.matrix.serialize();
   }
