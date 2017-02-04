@@ -1,6 +1,8 @@
 const modutil = require('util');
 const server = require('server');
 const team = require('team');
+const teambase = require('team.base');
+
 const lib = require('lib');
 lib.enhanceAll();
 
@@ -33,6 +35,10 @@ global.structMem = function(id) {
   const s = Game.getObjectById(id);
   return s.note + JSON.stringify(s.memory);
 };
+
+global.dismantle = (id) => Game.getObjectById(id).dismantle();
+
+global.opposite = lib.oppositeDir;
 
 if(false) {
     const profiler = require('screeps-profiler');

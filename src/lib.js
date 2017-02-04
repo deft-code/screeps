@@ -44,7 +44,7 @@ exports.patch = (fn) => function(...args){
 
 exports.enhance = (klass, prop, fn) => {
   if(fn.length == 1) {
-    exports.cachedProp(klass, prop, fn);
+    exports.roProp(klass, prop, fn);
   } else if( fn.length > 1) {
     klass.prototype[prop] = exports.patch(fn);
   }
@@ -123,7 +123,7 @@ exports.creepCarryFree = (creep) =>
     creep.carryCapacity - exports.creepCarryTotal(creep);
 
 // Amount of hits `creep` is missing.
-exports.creepHitsGone = (creep) => creep.hitsMax - creep.hits;
+exports.creepHurts = (creep) => creep.hitsMax - creep.hits;
 
 // Fatigue generated when `creep` moves.
 exports.creepWeight = (creep) => {
@@ -249,8 +249,28 @@ exports.creepBodyInfo = (creep, all) => {
   return info;
 };
 
+// Room enhancers
+
+exports.roomEnergyOpen = (room) => room.energyCapacityAvailable - room.energyAvailable;
+
+// RoomPosition enhancers
+
+const oppositeLookup = new Map();
+oppositeLookup.set(TOP, BOTTOM);
+oppositeLookup.set(TOP_RIGHT, BOTTOM_LEFT);
+oppositeLookup.set(RIGHT, LEFT);
+oppositeLookup.set(BOTTOM_RIGHT, TOP_LEFT);
+oppositeLookup.set(BOTTOM, TOP);
+oppositeLookup.set(BOTTOM_LEFT, TOP_RIGHT);
+oppositeLookup.set(LEFT, RIGHT);
+oppositeLookup.set(TOP_LEFT, BOTTOM_RIGHT);
+exports.oppositeDir = function(dir) {
+    return oppositeLookup.get(dir);
+};
 
 exports.roomposFromMem = (obj) => new RoomPosition(obj.x, obj.y, obj.roomName);
+exports.roomposGetDirectionAway = (pos, dest) => exports.oppositeDir(pos.getDirectionTo(dest));
+
 
 // Total amount of stored resources.
 exports.structCarryTotal = (struct) => _.sum(struct.store);
@@ -348,8 +368,15 @@ exports.enhanceProto = (klass, re) => {
 
 exports.enhanceCreep = () => exports.enhanceProto(Creep, /^creep(.*)$/, exports);
 exports.enhanceTower = () => exports.enhanceProto(StructureTower, /^tower(.*)/, exports);
+exports.enhancePosition = () => {
+    exports.enhanceProto(RoomPosition, /^roompos(.*)$/, exports);
+    RoomPosition.FromMem = exports.roomposFromMem;
+};
+exports.enhanceRoom = () => exports.enhanceProto(Room, /^room([A-Z].*)$/, exports);
 
 exports.enhanceAll = () => {
   exports.enhanceCreep();
+  exports.enhancePosition();
+  exports.enhanceRoom();
   exports.enhanceTower();
 };

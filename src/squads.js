@@ -64,11 +64,11 @@ class Squad {
     return who;
   }
 
-  upkeepRole(role, n) {
+  upkeepRole(role, n=1) {
     n = this.memOr('n' + role, n);
     const creeps = this.roleCreeps(role);
     if (creeps.length < n) {
-      console.log('upkeepROle > spawnROle', role, creeps.length, n);
+      console.log(this.spawn.name, this.name, 'upkeepROle > spawnROle', role, creeps.length, n);
       return this.spawnRole(role);
     }
     return false;
@@ -135,10 +135,12 @@ module.exports = {
     for (let i in squadNames) {
       const name = squadNames[i];
       Game.squads[name] = new registry[Memory.squads[name].squad](name);
+      //console.log(name, JSON.stringify(Game.squads[name].memory));
     }
-
-    //_.each( Game.squads, squad => console.log(Game.time, squad.name, squad.execute()));
-    _.each(Game.squads, squad => squad.execute());
-
+    
+    for(let squadname in Game.squads) {
+        Game.squads[squadname].execute();
+    }
+    return;
   }
 };

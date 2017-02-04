@@ -24,23 +24,32 @@ class FarmSquad extends modsquads.Squad {
         return guard;
     }
     
-    if (room.energyAvailable < room.energyCapacityAvailable) {
-      return 'need energy';
-    }
-    
     if(!this.farm) {
-        return this.upkeepRole("farmer", 1);
+        if(room.energyOpen < 150) {
+            return this.upkeepRole("farmer");
+        }
+        return "need energy, no visibility";
     }
     
-    const canReserve = !this.attacked &&
-        this.farm.controller && this.farm.controller.resTicks < 4000;
-  
     const srcs = this.farm.cachedFind(FIND_SOURCES);
+    const nreserver = this.memOr("nreserver", srcs.length -1);
     
-    const nreserver = srcs.length>1? 1: 0;
+    const extra = nreserver > 0? 150: 0;
     
-    return this.upkeepRole("farmer", srcs.length+1) ||
-        (canReserve && this.upkeepRole("reserver", nreserver));
+    if(room.energyOpen <= extra) {
+        return "need energy";
+    }
+    
+    const controller = this.farm.controller;
+    
+    const claimed = controller && controller.reservation && !controller.my;
+
+    const canReserve = !this.attacked && controller && !claimed && controller.resTicks < 4000;
+    
+    const nfarmer = this.memOr("nfarmer", srcs.length + claimed? 0: 1);
+    
+    return this.upkeepRole("farmer", nfarmer) ||
+        canReserve && this.upkeepRole("reserver", nreserver);
   }
   
   get attacked() {
@@ -102,12 +111,36 @@ Creep.prototype.roleFarmer = function() {
   this.idleNom();
   return this.actionHospital() ||
       this.actionTask() ||
-      (!this.carryTotal && this.actionTravelFlag(this.squad.flag)) ||
-      this.actionRepairStruct(STRUCTURE_ROAD, this.squad.farm) ||
-      this.actionBuildStruct(STRUCTURE_ROAD, this.squad.farm) ||
-      ((this.carryFree > this.carryTotal) && this.actionHarvestAny(this.squad.farm)) ||
+      !this.carryTotal && this.actionTravelFlag(this.squad.flag) ||
+      this.actionRoadUpkeep(this.squad.farm) ||
+      this.actionFarm(this.squad.farm) ||
       this.carryTotal && this.actionTravel(this.squad.home.controller) ||
       this.actionXferNearest(this.squad.home);
+};
+
+Creep.prototype.actionRoadUpkeep = function(room) {
+    if(!room) return false;
+    return this.actionRepairStruct(STRUCTURE_ROAD, room) ||
+        this.actionBuildStruct(STRUCTURE_ROAD, room);
+}
+
+Creep.prototype.actionFarm = function(room) {
+    if(!room) return false;
+    if(!this.carryFree) return false;
+    
+  let resource = _.find(room.cachedFind(FIND_DROPPED_RESOURCES), r => r.resourceType != RESOURCE_ENERGY || r.amount > 20);
+  if(resource) {
+      return this.actionPickup(resource);
+  }
+  
+  let store = _.find(
+      room.cachedFind(FIND_STRUCTURES),
+      s => s.storeTotal);
+  if(store) {
+      return this.actionUnstore(store);
+  }
+  
+  return this.actionHarvestAny(room);
 };
 
 

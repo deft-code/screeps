@@ -6,9 +6,6 @@ class AttackSquad extends modsquads.Squad {
   }
 
   execute() {
-      
-      return "DISABLED";
-      
    if (!this.spawn) {
       return 'no spawn';
     }
@@ -21,6 +18,7 @@ class AttackSquad extends modsquads.Squad {
     if (room.energyAvailable < room.energyCapacityAvailable) {
       return 'need energy';
     }
+    
     
     return this.upkeepRole("archer", 1) ||
         this.upkeepRole("caboose", 1);
@@ -39,6 +37,8 @@ class AttackSquad extends modsquads.Squad {
           MOVE, TOUGH, MOVE, HEAL, MOVE, HEAL,
           MOVE, TOUGH, MOVE, HEAL, MOVE, HEAL,
       ];
+      const nparts = this.memOr('nparts', body.length);
+      body = body.slice(0, nparts);
       return this.createRole(body, 4, {role: 'caboose'});
   }
 
@@ -53,6 +53,8 @@ class AttackSquad extends modsquads.Squad {
         MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
         MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
     ];
+    const nparts = this.memOr('nparts', body.length);
+    body = body.slice(0, nparts);
     return this.createRole(body, 4, {role: 'archer'});
   }
 }
@@ -88,7 +90,7 @@ Creep.prototype.actionCabooseFind = function() {
     }
     this.dlog("caboose finde");
     for(let creep of this.squad.creeps) {
-        if(creep.armed) {
+        if(creep.hostile) {
             return this.actionCaboose(creep);
         }
     }
@@ -152,8 +154,8 @@ Creep.prototype.actionArcher = function() {
         return this.actionKite(this.pos.findClosestByRange(hostiles));
     }
     
-    const enemies = this.room.cachedFind(FIND_HOSTILE_CREEPS);
-    return this.actionKite(_.sample(enemies));
+    const enemy = _.find(this.room.cachedFind(FIND_HOSTILE_CREEPS), c => c.getActiveBodyparts(CLAIM));
+    return this.actionKite(enemy);
 };
 
 Creep.prototype.actionKite = function(creep) {
@@ -177,8 +179,8 @@ Creep.prototype.taskKite = function() {
         return this.actionMoveTo(creep);
     }
     if(err == OK) {
-        if(!this.pos.inRangeTo(creep, 2)) {
-            this.move(this.pos.getDirectionTo(creep));
+        if(creep.hostile && this.pos.inRangeTo(creep, 2)) {
+            this.move(this.pos.getDirectionAway(creep));
             return "moved";
         }
         return "stay";

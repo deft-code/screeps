@@ -6,6 +6,7 @@ class RobSquad extends modsquads.Squad {
   }
 
   execute() {
+    this.memory.thieves = [];
     if (!this.spawn) {
       return 'no spawn';
     }
@@ -29,8 +30,7 @@ class RobSquad extends modsquads.Squad {
       min = 10;
       body = [MOVE, TOUGH, MOVE, TOUGH, MOVE, ATTACK, MOVE, ATTACK].concat(body);
     }
-    const who = this.createRole(body, min, {role: 'thief'});
-    return this.trackCreep(this.memory.thieves, who);
+    return this.createRole(body, min, {role: 'thief'});
   }
 };
 

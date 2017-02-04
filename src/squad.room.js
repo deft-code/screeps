@@ -6,7 +6,7 @@ class RoomSquad extends modsquads.Squad {
   }
 
   execute() {
-    console.log(Game.time, "execute", this.name);
+    //console.log(Game.time, "execute", this.spawn.name, this.name);
     if (!this.spawn) {
         console.log(this.name, "no spawn");
       return 'no spawn';
@@ -17,22 +17,35 @@ class RoomSquad extends modsquads.Squad {
       return 'spawning';
     }
     
-    const who = this.upkeepRole("hauler", 1) ||
+    let who = this.upkeepRole("hauler", 1) ||
         this.upkeepRole("srcer", 1);
     if(who) {
+        console.log(this.spawn.name, "spawned", who);
         return who;
     }
-
-    if (room.energyAvailable < room.energyCapacityAvailable) {
+    
+    if(room.energyAvailable < 900) {
+        console.log(this.spawn.name, "energy low");
+        return "energy low";
+        
+    }
+    
+    who = this.upkeepRole("hauler", 2) ||
+        this.upkeepRole("srcer", 2);
+    if(who) {
+        console.log(this.spawn.name, "spawned", who);
+        return who;
+    }
+    
+    
+    if (room.energyOpen > 100) {
         console.log(this.name, "need energy");
       return 'need energy';
     }
     
     const nchemist = 0 // this.home.terminal? 1: 0;
 
-    return this.upkeepRole("hauler", 2) ||
-        this.upkeepRole("srcer", 2) ||
-        this.upkeepRole("worker", 1)  ||
+    return this.upkeepRole("worker", 1)  ||
         this.upkeepRole("upgrader", 1) ||
         this.upkeepRole("chemist", nchemist) ||
         "enough";
@@ -44,14 +57,22 @@ class RoomSquad extends modsquads.Squad {
   }
   
   roleHauler() {
+      const cap = this.spawn.room.energyCapacityAvailable;
+      const n = Math.floor(cap/100) * 3;
       const body = [
         MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
         
         MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
         
-        MOVE, CARRY, CARRY, MOVE, CARRY, CARRY
+        MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
+        
+        MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
+
+        MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
+
+        MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
       ];
-     return this.createRole(body, 2, {role: 'hauler'});
+     return this.createRole(body.slice(0, n), 2, {role: 'hauler'});
     }
     
   roleWorker() {

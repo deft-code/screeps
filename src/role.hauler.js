@@ -219,7 +219,7 @@ Creep.prototype.taskDischarge = function() {
 };
 
 
-Creep.prototype.actionDrain = function() {
+Creep.prototype.actionDrain = function(room) {
   if (!this.carryFree) {
     return false;
   }
@@ -231,16 +231,21 @@ Creep.prototype.actionDrain = function() {
 
   let links =
       _.filter(this.room.Structures(STRUCTURE_LINK), l => !l.memory.bucket);
-
+      
   let srcs = resources.concat(stores).concat(links);
+  if(this.room.terminal && this.room.terminal.store.energy * 2 > this.room.terminal.storeCapacity) {
+      srcs.push(this.room.terminal);
+  }
+
   let src = _.sample(srcs);
   if (!src) {
     return false;
   }
 
   switch (src.structureType) {
+    case STRUCTURE_TERMINAL:
     case STRUCTURE_CONTAINER:
-      return this.actionUnstore(src);
+      return this.actionUnstore(src, RESOURCE_ENERGY);
     case STRUCTURE_LINK:
       return this.actionUncharge(src);
     default:
@@ -259,7 +264,7 @@ Creep.prototype.actionUnstore = function(struct, resource) {
   }
   this.memory.task = {
     task: 'unstore',
-    unstore: struct.id,
+    id: struct.id,
     resource: resource,
     note: struct.note,
   };
@@ -267,7 +272,7 @@ Creep.prototype.actionUnstore = function(struct, resource) {
 };
 
 Creep.prototype.taskUnstore = function() {
-  let src = Game.getObjectById(this.memory.task.unstore);
+  let src = this.taskId;
   if (!src) {
     return false;
   }
@@ -376,7 +381,8 @@ Creep.prototype.actionEmptyStore = function() {
 };
 
 Creep.prototype.roleHauler = function() {
-  return this.idleNom() || this.actionTask() || this.taskGoHome() ||
+  this.idleNom();
+  return this.actionTask() || this.taskGoHome() ||
       this.actionPoolCharge() || this.actionTowerCharge() ||
       this.actionDrain() || this.actionEmptyStore() ||
       this.actionChargeCreep() || this.actionChargeAny() ||

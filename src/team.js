@@ -36,15 +36,17 @@ Flag.prototype.upkeepRole = function(role, n, energy, priority) {
   return spawn.enqueueRole(this, role, priority);
 };
 
-Flag.prototype.findSpawn = function(energy) {
+Flag.prototype.findSpawn = function(energy=0) {
   const spawns =
       _(Game.spawns)
           .filter(spawn => spawn.room.energyCapacityAvailable >= energy)
           .sortBy(spawn => this.spawnDist(spawn));
 
+    console.log("possible spawns", spawns);
   if (!spawns.length) return false;
 
   const closest = spawns[0];
+  console.log("closest spawn", closest);
   let max = this.spawnDist(closest) + 50;
   if (closest.spawning) {
     max += closest.spawning.remainingTime;
