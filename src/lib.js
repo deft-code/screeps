@@ -38,16 +38,59 @@ exports.roProp = (klass, prop, func) => {
   });
 };
 
+
+exports.cache = (opts, fn) => {
+  return function(...args) {
+    const cache = opts.getcache(this);
+    const key = opts.resolver(args);
+    const entry = cache[key];
+    if (!entry || entry.ttl < Game.time) {
+      const ttl = opts.ttl || 0;
+      entry = cache[key] = {
+        ttl: Math.floor(Game.time + ttl * Math.random() + ttl / 2),
+        value: fn.apply(this, args),
+      };
+    }
+    return entry.value;
+  };
+};
+
+exports.thisCache = (prop_opts, fn) => {
+  const prop = opts.prop || opts;
+  opts = {
+    resolver: opts.resovler || JSON.stringify,
+    getcache: (obj) => {
+      const c1 = obj.libcache = obj.libcache || {};
+      return c1[prop] = c1[prop] || {};
+    },
+  };
+  return exports.cache(opts, fn);
+};
+exports.globalCache = exports.thisCache;
+
+exports.memoryCache = (prop_opts, fn) => {
+  const prop = opts.prop || opts;
+  opts = {
+    ttl: opts.ttl || 100; resolver: opts.resovler || JSON.stringify,
+    getcache: (obj) => {
+      const c1 = obj.memory.libcache = obj.memory.libcache || {};
+      return c1[prop] = c1[prop] || {};
+    },
+  };
+  return exports.cache(opts, fn);
+};
+
+
 // Returns a RoomPosition for obj or null if no position can be found.
 exports.getPos = (obj) => {
-  if(obj instanceof RoomPosition) {
+  if (obj instanceof RoomPosition) {
     return obj;
   }
-  if(obj.pos instanceof RoomPosition) {
+  if (obj.pos instanceof RoomPosition) {
     return obj.pos;
   }
-  for(let prop of obj) {
-    if(prop instanceof RoomPosition) {
+  for (let prop of obj) {
+    if (prop instanceof RoomPosition) {
       return prop;
     }
   }
@@ -64,7 +107,8 @@ exports.creepSpawnTime = (creep) => CREEP_SPAWN_TIME * creep.body.length;
 exports.creepCarryTotal = (creep) => _.sum(creep.carry);
 
 // Available carrying capacity.
-exports.creepCarryFree = (creep) => creep.carryCapacity - exports.creepCarryTotal(creep);
+exports.creepCarryFree = (creep) =>
+    creep.carryCapacity - exports.creepCarryTotal(creep);
 
 // Amount of hits `creep` is missing.
 exports.creepHitsGone = (creep) => creep.hitsMax - creep.hits;
@@ -145,12 +189,12 @@ exports.creepBodyInfo = (creep, all) => {
 // Add all creep functions to `Creep.prototype`.
 let creepEnhanced = false;
 exports.enhanceCreep = () => {
-  if(creepEnhanced) {
+  if (creepEnhanced) {
     return false;
   }
-  for(let fname in exports) {
+  for (let fname in exports) {
     const found = /^creep(.*)$/.exec(fname);
-    if(found.length) {
+    if (found.length) {
       const prop = _.camelCase(found[1]);
       const fn = exports[fname];
       exports.cachedProp(Creep, prop, fn);
@@ -211,11 +255,14 @@ function getPartInfo(part) {
   return partInfo;
 }
 
+exports.roomposFromMem = (obj) => new RoomPosition(obj.x, obj.y, obj.roomName);
+
 // Total amount of stored resources.
 exports.structCarryTotal = (struct) => _.sum(struct.store);
 
 // Available carrying capacity.
-exports.structCarryFree = (struct) => struct.carryCapacity - exports.structCarryTotal(struct);
+exports.structCarryFree = (struct) =>
+    struct.carryCapacity - exports.structCarryTotal(struct);
 
 // Available energy capacity.
 exports.structEnergyFree = (struct) => struct.energyCapacity - struct.energy;
@@ -225,18 +272,19 @@ lerp = (ratio, from, to) => from + (to - from) * ratio;
 towerPower = (power, from, to) => {
   const fpos = exports.getPos(from);
   const tpos = exports.getPos(to);
-  if(!fpos || !tpos) {
+  if (!fpos || !tpos) {
     return ERR_INVALID_ARGS;
   }
-  const range = fpos.getRangeTo(tpos);
-  if(!range) {
+  if (!range) {
     return ERR_NOT_IN_RANGE;
   }
-  if(range <= TOWER_OPTIMAL_RANGE) {
+
+  if (range <= TOWER_OPTIMAL_RANGE) {
     return power;
   }
-  const min = power - power*TOWER_FALLOFF;
-  if(range >= TOWER_FALLOFF_RANGE) {
+
+  const min = power - power * TOWER_FALLOFF;
+  if (range >= TOWER_FALLOFF_RANGE) {
     return min;
   }
 
@@ -244,12 +292,15 @@ towerPower = (power, from, to) => {
   const lerp_range = range - TOWER_OPTIMAL_RANGE;
   const ratio = lerp_range / lerp_total;
 
-  return Math.floor(lerp(lerp_range/rdelta, power, min));
+  return Math.floor(lerp(ratio, power, min));
 };
 
-exports.towerAttackPower = (tower, target) => towerPower(TOWER_POWER_ATTACK, tower, target);
-exports.towerHealPower = (tower, target) => towerPower(TOWER_POWER_HEAL, tower, target);
-exports.towerRepairPower = (tower, target) => towerPower(TOWER_POWER_REPAIR, tower, target);
+exports.towerAttackPower = (tower, target) =>
+    towerPower(TOWER_POWER_ATTACK, tower, target);
+exports.towerHealPower = (tower, target) =>
+    towerPower(TOWER_POWER_HEAL, tower, target);
+exports.towerRepairPower = (tower, target) =>
+    towerPower(TOWER_POWER_REPAIR, tower, target);
 
 exports.defaultCostMatrix = (roomName, opts) => {
   const cost = {
@@ -258,8 +309,8 @@ exports.defaultCostMatrix = (roomName, opts) => {
     wall: 255,
   };
   const mat = PathFinder.CostMatrix();
-  for(let y=0; y<50; y++) {
-    for(let x=0; x<50; x++) {
+  for (let y = 0; y < 50; y++) {
+    for (let x = 0; x < 50; x++) {
       const terrain = Game.map.getTerrainAt(x, y, roomName);
       mat.set(x, y, cost[terrain]);
     }
@@ -271,12 +322,12 @@ exports.customCostMatrix = (room, costCb) => {
   const mat = PathFinder.CostMatrix();
   const objs = room.lookAtArea(0, 0, 49, 49);
   let i = 0;
-  for(let y=0; y<50; y++) {
-    for(let x=0; x<50; x++) {
+  for (let y = 0; y < 50; y++) {
+    for (let x = 0; x < 50; x++) {
       const at = [];
       let terrain;
-      for(let obj of objs[x][y]) {
-        if(obj.type === 'terrain') {
+      for (let obj of objs[x][y]) {
+        if (obj.type === 'terrain') {
           terrain = obj.terrain;
         } else {
           at.push(obj);
