@@ -27,7 +27,7 @@ class RobSquad extends modsquads.Squad {
     let min = 6;
     if(this.memory.aggressive) {
       min = 10;
-      body = [TOUGH, MOVE, ATTACK, MOVE].concat(body);
+      body = [MOVE, TOUGH, MOVE, TOUGH, MOVE, ATTACK, MOVE, ATTACK].concat(body);
     }
     const who = this.createRole(body, min, {role: 'thief'});
     return this.trackCreep(this.memory.thieves, who);
@@ -56,6 +56,10 @@ Creep.prototype.actionThief = function() {
   const flag = this.squad.flag;
   if (!flag) {
     return false;
+  }
+  const hostile = _.find(this.room.hostiles, h => this.pos.isNearTo(h));
+  if(hostile) {
+      this.attack(hostile);
   }
   if (this.pos.roomName == this.squad.home.name) {
     if (this.carryTotal) {

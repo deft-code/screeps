@@ -62,7 +62,7 @@ class FarmSquad extends modsquads.Squad {
   }
 
   roleReserver() {
-    let body = [MOVE, MOVE, CLAIM, CLAIM];
+    let body = [MOVE, MOVE, CLAIM, CLAIM, MOVE, CLAIM];
     return this.createRole(body, 4, {role: 'reserver'});
   }
   
