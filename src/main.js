@@ -2,6 +2,7 @@ const modutil = require('util');
 const server = require('server');
 const team = require('team');
 const lib = require('lib');
+lib.enhanceAll();
 
 const modprototypes = require('prototypes');
 const modcontroller = require('controller');

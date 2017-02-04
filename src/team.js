@@ -55,10 +55,10 @@ Flag.prototype.findSpawn = function(energy) {
           this.spawnDist(spawn) < max);
 };
 
-Flag.prototype.createRole = (body, mem) {
+Flag.prototype.createRole = function(body, mem) {
   mem.team = this.name;
   const who = this.spawn.createRole2(body, mem);
-  if(_.isString(who){
+  if(_.isString(who)){
     this.memory.creeps.push(who);
     return who;
   }

@@ -38,6 +38,17 @@ exports.roProp = (klass, prop, func) => {
   });
 };
 
+exports.patch = (fn) => function(...args){
+    return fn(this, ...args);
+  };
+
+exports.enhance = (klass, prop, fn) => {
+  if(fn.length == 1) {
+    exports.cachedProp(klass, prop, fn);
+  } else if( fn.length > 1) {
+    klass.prototype[prop] = exports.patch(fn);
+  }
+};
 
 exports.cache = (opts, fn) => {
   return function(...args) {
@@ -71,7 +82,8 @@ exports.globalCache = exports.thisCache;
 exports.memoryCache = (prop_opts, fn) => {
   const prop = opts.prop || opts;
   opts = {
-    ttl: opts.ttl || 100; resolver: opts.resovler || JSON.stringify,
+    ttl: opts.ttl || 100,
+    resolver: opts.resovler || JSON.stringify,
     getcache: (obj) => {
       const c1 = obj.memory.libcache = obj.memory.libcache || {};
       return c1[prop] = c1[prop] || {};
@@ -160,50 +172,6 @@ exports.creepBodyCost = (creep, current) => {
   return cost;
 };
 
-// Info about the power of `creep`s actions.
-// Most keys are standard action names
-// The exceptions:
-// * hits: a pseudo count of the extra hits available to boosted TOUGH parts.
-// * mineral: harvest power when harvesting a mineral.
-// * fatigue: is the fatigue removed by MOVE parts.
-// * capacity: is equivalent to `carryCapacity` unless `creep` is damaged.
-exports.creepBodyInfo = (creep, all) => {
-  let info = {};
-  for (let part of power) {
-    for (let action in part) {
-      info[action] = 0;
-    }
-  }
-
-  for (let i = 0; i < creep.body.length; i++) {
-    const part = creep.body[i];
-    if (!all && !part.hits) continue;
-    const p = partPower(creep.body[i]);
-    for (let action in p) {
-      info[action] += p[action];
-    }
-  }
-  return info;
-};
-
-// Add all creep functions to `Creep.prototype`.
-let creepEnhanced = false;
-exports.enhanceCreep = () => {
-  if (creepEnhanced) {
-    return false;
-  }
-  for (let fname in exports) {
-    const found = /^creep(.*)$/.exec(fname);
-    if (found.length) {
-      const prop = _.camelCase(found[1]);
-      const fn = exports[fname];
-      exports.cachedProp(Creep, prop, fn);
-    }
-  }
-  creepEnhanced = true;
-  return true;
-};
-
 const power = {};
 power[ATTACK] = {
   attack: ATTACK_POWER,
@@ -254,6 +222,33 @@ function getPartInfo(part) {
   }
   return partInfo;
 }
+
+// Info about the power of `creep`s actions.
+// Most keys are standard action names
+// The exceptions:
+// * hits: a pseudo count of the extra hits available to boosted TOUGH parts.
+// * mineral: harvest power when harvesting a mineral.
+// * fatigue: is the fatigue removed by MOVE parts.
+// * capacity: is equivalent to `carryCapacity` unless `creep` is damaged.
+exports.creepBodyInfo = (creep, all) => {
+  let info = {};
+  for (let part of power) {
+    for (let action in part) {
+      info[action] = 0;
+    }
+  }
+
+  for (let i = 0; i < creep.body.length; i++) {
+    const part = creep.body[i];
+    if (!all && !part.hits) continue;
+    const p = partPower(creep.body[i]);
+    for (let action in p) {
+      info[action] += p[action];
+    }
+  }
+  return info;
+};
+
 
 exports.roomposFromMem = (obj) => new RoomPosition(obj.x, obj.y, obj.roomName);
 
@@ -338,4 +333,23 @@ exports.customCostMatrix = (room, costCb) => {
     }
   }
   return mat;
+};
+
+exports.enhanceProto = (klass, re) => {
+  for (let fname in exports) {
+    const found = re.exec(fname);
+    if (found) {
+      const prop = _.camelCase(found[1]);
+      const fn = exports[fname];
+      exports.enhance(klass, prop, fn);
+    }
+  }
+};
+
+exports.enhanceCreep = () => exports.enhanceProto(Creep, /^creep(.*)$/, exports);
+exports.enhanceTower = () => exports.enhanceProto(StructureTower, /^tower(.*)/, exports);
+
+exports.enhanceAll = () => {
+  exports.enhanceCreep();
+  exports.enhanceTower();
 };

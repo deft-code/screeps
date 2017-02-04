@@ -137,10 +137,8 @@ module.exports = {
       Game.squads[name] = new registry[Memory.squads[name].squad](name);
     }
 
-    _.each(
-        Game.squads,
-        squad => console.log(Game.time, squad.name, squad.execute()));
-    //_.each(Game.squads, squad => squad.execute());
+    //_.each( Game.squads, squad => console.log(Game.time, squad.name, squad.execute()));
+    _.each(Game.squads, squad => squad.execute());
 
   }
 };
