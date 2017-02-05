@@ -45,6 +45,94 @@ Creep.prototype.actionSrc = function(src) {
     return this.taskSrc();
 };
 
+Creep.prototype.startShunt = function(...positions) {
+  const room = Game.rooms[positions[0].roomName];
+  if(!room) return false;
+
+  const byType = _(room.cachedFind(FIND_STRUCTURES))
+    .filter(s => _.any(positions, pos => pos.isNearTo(s)))
+    .groupBy("structureType");
+
+  const sTypes = [
+    STRUCTURE_TOWER, STRUCTURE_SPAWN, STRUCTURE_EXTENSION,
+    STRUCTURE_LINK,
+    STRUCTURE_STORAGE, STRUCTURE_CONTAINER,
+  ];
+  
+  const structs = _(sTypes)
+      .map(sType => _.map(byType[sType] || [], "id"))
+      .flatten()
+      .value();
+    
+  this.memory.task.shunt = {
+    positions: positions,
+    structs: structs,
+  };
+};
+
+Creep.prototype.idleShunt = function() {
+  const shunt = this.memory.task.shunt;
+  if(!shunt ) return false;
+
+  const positions = _.map(shunt.positions, RoomPosition.FromMem);
+  let xfer = false;
+  let deficit = false;
+  let withdraw = false;
+  let move = false;
+
+  const moveTo = (struct, err) => {
+      if(!move && err == ERR_NOT_IN_RANGE) {
+        const p = _.filter(positions, p => p.isNearTo(struct));
+        this.move(this.pos.getDirectionTo(p));
+        move = true;
+      }
+      return err == OK;
+  };
+
+  for(let id of this.shunt.structs) {
+    if(xfer && withdraw) {
+      break;
+    }
+    const struct = Game.getObjectById(id);
+    if(!struct) {
+      console.log("Broken Shunt!");
+      delete this.memory.task.shunt;
+      return;
+    }
+    switch(struct.structureType) {
+      case STRUCTURE_TOWER:
+      case STRUCTURE_SPAWN: 
+      case STRUCTURE_EXTENSION: 
+        if(xfer) break;
+        deficit = struct.energyFree > this.energy;
+        xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+        break;
+      case STRUCTURE_LINK:
+        if(deficit) {
+          if(withdraw || !struct.energy) break;
+          withdraw = moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
+          break;
+        }
+
+        if(xfer) return;
+        xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+        break;
+      case STRUCTURE_STORAGE:
+      case STRUCTURE_CONTAINER:
+        if(deficit) {
+          if(withdraw || !struct.store.energy) break;
+          withdraw = moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
+          break;
+        }
+
+        if(xfer) return;
+        xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+        break;
+    }
+  }
+  // TODO pickup dropped resources.
+};
+
 Creep.prototype.taskSrc = function() {
     this.dlog("taskSrc");
   const src = this.taskId;
@@ -56,6 +144,33 @@ Creep.prototype.taskSrc = function() {
     return this.actionMoveTo(src);
   }
   if (this.carry) {
+    //let shunt = this.memory.task.shunt;
+    //if(!shunt && !this.carryFree) {
+    //  let spots = src.room.lookAtArea(src.pos.x-1, src.pos.y-1, src.pos.x+1, src.pos.y+1);
+    //  let positions = [];
+    //  for(let x in spots) {
+    //    for( let y in spots[x]) {
+    //      let blocked = false;
+    //      for(let entry of spots[x][y]) {
+    //        if(entry.type == 'terrain' && entry.terrain == wall) {
+    //          blocked = true;
+    //          break;
+    //        }
+    //        if(entry.type == 'structure' && entry.structure.obstacle) {
+    //          blocked = true;
+    //          break;
+    //        }
+    //      }
+    //      if(!blocked) {
+    //        positions.push(src.room.getPositionAt(x, y));
+    //      }
+    //    }
+    //  }
+    //  this.startShunt(positions);
+    //}
+
+    //this.idleShunt();
+
     let bucket = Game.getObjectById(this.memory.task.bucket);
     if (!bucket && !this.carryFree) {
       const bucket = _(this.room.cachedFind(FIND_STRUCTURES))
@@ -86,3 +201,4 @@ Creep.prototype.taskSrc = function() {
   }
   return false;
 };
+
