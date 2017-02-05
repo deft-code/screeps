@@ -264,23 +264,49 @@ oppositeLookup.set(BOTTOM, TOP);
 oppositeLookup.set(BOTTOM_LEFT, TOP_RIGHT);
 oppositeLookup.set(LEFT, RIGHT);
 oppositeLookup.set(TOP_LEFT, BOTTOM_RIGHT);
+
 exports.oppositeDir = function(dir) {
     return oppositeLookup.get(dir);
 };
 
+exports.roomposExit = (pos) => pos.x == 0 || pos.y == 0 || pos.x == 49 || pos.y == 49;
+
 exports.roomposFromMem = (obj) => new RoomPosition(obj.x, obj.y, obj.roomName);
+
 exports.roomposGetDirectionAway = (pos, dest) => exports.oppositeDir(pos.getDirectionTo(dest));
 
+//
+// Source
+//
+
+exports.srcPositions = (src) => {
+  let spots = src.room.lookAtArea(src.pos.x-1, src.pos.y-1, src.pos.x+1, src.pos.y+1, true);
+  return _(spots)
+    .filter(spot => spot.type == 'terrain' && spot.terrain != 'wall')
+    .map(spot => new RoomPosition(spot.x, spot.y, src.room.name))
+    .value();
+};
+
+//
+// Structure
+//
 
 // Total amount of stored resources.
-exports.structCarryTotal = (struct) => _.sum(struct.store);
+exports.structStoreTotal = (struct) => _.sum(struct.store);
 
-// Available carrying capacity.
-exports.structCarryFree = (struct) =>
-    struct.carryCapacity - exports.structCarryTotal(struct);
+// Available storeing capacity.
+exports.structStoreFree = (struct) =>
+    struct.storeCapacity - exports.structStoreTotal(struct);
 
 // Available energy capacity.
 exports.structEnergyFree = (struct) => struct.energyCapacity - struct.energy;
+
+exports.structObstacle = (struct) => _.contains(OBSTACLE_OBJECT_TYPES, struct.structureType);
+
+
+//
+// StructureTower
+//
 
 lerp = (ratio, from, to) => from + (to - from) * ratio;
 
@@ -316,6 +342,10 @@ exports.towerHealPower = (tower, target) =>
     towerPower(TOWER_POWER_HEAL, tower, target);
 exports.towerRepairPower = (tower, target) =>
     towerPower(TOWER_POWER_REPAIR, tower, target);
+
+//
+// CostMatrix
+//
 
 exports.defaultCostMatrix = (roomName, opts) => {
   const cost = {
@@ -367,16 +397,18 @@ exports.enhanceProto = (klass, re) => {
 };
 
 exports.enhanceCreep = () => exports.enhanceProto(Creep, /^creep(.*)$/, exports);
-exports.enhanceTower = () => exports.enhanceProto(StructureTower, /^tower(.*)/, exports);
 exports.enhancePosition = () => {
     exports.enhanceProto(RoomPosition, /^roompos(.*)$/, exports);
     RoomPosition.FromMem = exports.roomposFromMem;
 };
+exports.enhanceStructure = () => exports.enhanceProto(Structure, /^struct([A-Z].*)$/, exports);
 exports.enhanceRoom = () => exports.enhanceProto(Room, /^room([A-Z].*)$/, exports);
+exports.enhanceTower = () => exports.enhanceProto(StructureTower, /^tower(.*)/, exports);
 
 exports.enhanceAll = () => {
   exports.enhanceCreep();
   exports.enhancePosition();
   exports.enhanceRoom();
+  exports.enhanceStructure();
   exports.enhanceTower();
 };

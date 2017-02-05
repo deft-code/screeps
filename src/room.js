@@ -10,7 +10,6 @@ let modmanual = require('role.manual');
 
 modutil.cachedProp(Room, "structsByType", room =>
     _.groupBy(room.find(FIND_STRUCTURES), "structureType"));
-    
 
 modutil.cachedProp(Room, "enemies", room => room.cachedFind(FIND_HOSTILE_CREEPS));
 modutil.cachedProp(Room, "hostiles", room => _.filter(room.enemies, e => e.hostile));
@@ -86,10 +85,6 @@ Room.prototype.createRole = function(parts, min, mem) {
   }
 };
 
-Room.prototype.emergencySafeMode = function() {
-  console.log('Deprecated');
-};
-
 const custom = {
   W23S79(room) {
     return;
@@ -155,7 +150,7 @@ function upkeepMyRoom(room) {
           room.Structures(STRUCTURE_EXTENSION),
           extn => extn.hits < extn.hitsMax);
       if (hurt_towers.length || hurt_spawns.length || hurt_extns.length) {
-        console.log('SAFE MOVE!', room.controller.activateSafeMode());
+        console.log('SAFE MODE!', room.controller.activateSafeMode());
       }
     }
   }
@@ -167,7 +162,7 @@ function roomUpkeep(room) {
   }
   let cleaned = _.remove(
       room.memory.objects,
-      (id, mem) => _.isEmpty(mem) || Game.getObjectById(id) == null);
+      (mem, id) => _.isEmpty(mem) || !Game.getObjectById(id));
   // console.log("Cleaned memory for", JSON.stringify(cleaned));
 }
 
