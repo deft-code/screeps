@@ -57,103 +57,15 @@ Creep.prototype.taskHarvest = function() {
   return false;
 };
 
-Creep.prototype.actionRbuild = function() {
-  const sites = this.room.cachedFind(FIND_MY_CONSTRUCTION_SITES);
-  const site = this.pos.findClosestByRange(sites);
-  if (!site) {
-    return false;
-  }
-  this.memory.task = {
-    task: 'rbuild',
-    rbuild: site.id,
-    note: 'site' + site.pos.x + site.pos.y,
-  };
-  return this.taskRbuild();
-};
-
-Creep.prototype.taskRbuild = function() {
-  const site = Game.getObjectById(this.memory.task.rbuild);
-  if (!site) {
-    return false;
-  }
-  let err = this.build(site);
-  if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(site);
-  }
-  if (err == OK) {
-    return 'building';
-  }
-  return false;
-};
-
-Creep.prototype.actionUpgrade2 = function() {
-  this.memory.task = {
-    task: 'upgrade2',
-  };
-  return this.taskUpgrade2();
-};
-
-Creep.prototype.taskUpgrade2 = function() {
-  if (!this.carry.energy) {
-    return false;
-  }
-  const err = this.upgradeController(this.room.controller);
-  if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(this.room.controller);
-  }
-  if (err == OK) {
-    return this.room.controller.progress;
-  }
-  return false;
-};
-
 Creep.prototype.roleRemoteBuild = function() {
-  this.idleNom();
+  if(this.room.name == this.team.pos.roomName) this.idleNom();
+
   return this.actionTask() ||
       this.actionTravelFlag(this.team) ||
-      this.actionBuildFinish() ||
-      this.actionUpgrade() ||
-      this.actionHarvestAny();
-};
-
-Creep.prototype.roleMedic = function() {
-  return this.actionTask() || this.actionLocalHeal();
-};
-
-StructureSpawn.prototype.newMedic = function() {
-  return this.createCreep([HEAL, MOVE], undefined, {role: 'medic'});
-};
-
-Creep.prototype.actionLocalHeal = function() {
-  const heal = _(this.room.cachedFind(FIND_MY_CREEPS))
-                   .filter(c => c.hits < c.hitsMax)
-                   .sample();
-  if (!heal) {
-    return false;
-  }
-  this.say(heal.name);
-  this.memory.task = {
-    task: 'local heal',
-    creep: heal.name,
-  };
-  return this.taskLocalHeal();
-};
-
-Creep.prototype.taskLocalHeal = function() {
-  const c = Game.creeps[this.memory.task.creep];
-  if (!c || c.pos.roomName != this.pos.roomName || c.hits == c.hitsMax) {
-    return false;
-  }
-  const err = this.heal(c);
-  if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(c);
-  }
-  if (err == OK) {
-    this.move(this.pos.getDirectionTo(c));
-    return c.hits;
-  }
-  return false;
-
+      this.actionBuildRoom(this.team.room) ||
+      this.actionUpgrade(this.team.room) ||
+      this.actionHarvestAny(this.team.room) ||
+      this.idleMoveNear(this.team);
 };
 
 Creep.prototype.roleRemoteHaul = function() {

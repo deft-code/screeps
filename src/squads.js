@@ -68,7 +68,6 @@ class Squad {
     n = this.memOr('n' + role, n);
     const creeps = this.roleCreeps(role);
     if (creeps.length < n) {
-      console.log(this.spawn.name, this.name, 'upkeepROle > spawnROle', role, creeps.length, n);
       return this.spawnRole(role);
     }
     return false;

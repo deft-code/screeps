@@ -1,4 +1,4 @@
 Flag.prototype.teamBase = function() {
-    console.log("Base Team");
+  this.dlog("base team");
 };
 

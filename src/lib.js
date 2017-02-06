@@ -109,8 +109,14 @@ exports.getPos = (obj) => {
   return null;
 };
 
+//
+// Creep
+//
+
 // Total energy cost to spawn a creep with parts.
 exports.partsCost = (parts) => _.sum(parts, part => BODYPART_COST[part]);
+
+exports.creepWhere = (creep) => `<a href="/a/#!/room/${creep.pos.roomName}">${creep.pos.roomName}</a>`;
 
 // Total time to creep took to spawn.
 exports.creepSpawnTime = (creep) => CREEP_SPAWN_TIME * creep.body.length;

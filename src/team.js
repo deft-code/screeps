@@ -74,10 +74,12 @@ Flag.prototype.createRole = function(spawn, body, mem) {
 
 Flag.prototype.spawnDist = function(spawn) {
   const mem = this.memory = this.memory || {};
-  const cache = mem.spawnDist = mem.spawnDist || {};
+  let cache = mem.spawnDist;
+  if(!cache || !this.pos.isEqualTo(cache.pos)) {
+    cache = { pos: this.pos };
+  }
   let dist = cache[spawn.name];
-  if (!dist || !RoomPosition.FromMem(dist.pos).isEqualTo(this.pos) ||
-      dist.expire < Game.time) {
+  if (!dist || dist.expire < Game.time) {
     dist = cache[spawn.name] = {
       pos: this.pos,
       cost: PathFinder.search(this.pos, spawn.pos).cost,
@@ -100,6 +102,6 @@ Flag.prototype.run = function() {
 };
 
 Flag.prototype.teamNull = function() {
-  console.log(this.name, 'is teamNull');
+  this.dlog("is Team Null");
   return 'null';
 };

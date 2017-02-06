@@ -1,7 +1,8 @@
 Flag.prototype.teamClaim = function() {
-  this.memory.debug = true;
   this.dlog("my creeps", this.creeps.length, this.creeps);
-  return this.upkeepRole("remote build", 2, 1000);
+  const hurt = _.any(this.creeps, "hurts");
+  return this.upkeepRole("remote build", 2, 2000) ||
+    hurt && this.upkeepRole("medic", 1, 1000);
 };
 
 Flag.prototype.roleRemoteBuild = function(spawn) {

@@ -2,7 +2,6 @@ const modutil = require('util');
 const lib = require('lib');
 
 StructureSpawn.prototype.run = function() {
-  this.memory.debug = true;
   if(this.spawning) {
     const mem = Memory.creeps[this.spawning.name];
     this.dlog("Spawning", JSON.stringify(this.spawning), mem.role, mem.team || mem.squad);
@@ -12,11 +11,9 @@ StructureSpawn.prototype.run = function() {
 };
 
 StructureSpawn.prototype.dequeueRole = function() {
-  console.log(this.name, "dequeueing", this.nextRole);
   if(!this.nextRole) {
     return false;
   }
-  console.log(this.name, "dequeueing");
   const fname = _.camelCase("role " + this.nextRole.role);
   const fn = this.nextRole.obj[fname];
   if(!fn) {
@@ -64,9 +61,6 @@ StructureSpawn.prototype.createRole = function(body, min, memory) {
     const optParts = modutil.optimizeBody(myParts);
     const ret = this.createCreep(optParts, undefined, memory);
     if (_.isString(ret)) {
-      // TODO I think this is causing problems.
-      //this.spawning = true;
-      console.log('Started Spawning', ret, JSON.stringify(memory));
       return ret;
     }
     if (ret != ERR_NOT_ENOUGH_ENERGY) {

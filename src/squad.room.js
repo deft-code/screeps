@@ -6,14 +6,12 @@ class RoomSquad extends modsquads.Squad {
   }
 
   execute() {
-    //console.log(Game.time, "execute", this.spawn.name, this.name);
     if (!this.spawn) {
         console.log(this.name, "no spawn");
       return 'no spawn';
     }
     const room = this.spawn.room;
     if (this.spawn.spawning) {
-        console.log(this.name, this.spawn.name, "spawning")
       return 'spawning';
     }
     

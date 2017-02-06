@@ -24,6 +24,7 @@ const modattack = require('squad.attack');
 const modscout = require('role.scout');
 const modchemist = require('role.chemist');
 const modsrcer = require('role.srcer');
+const medic = require('role.medic');
 const modcartsquad = require('squad.carts');
 const modclaim = require('squad.claim');
 const modfarmsquad = require('squad.farmer');

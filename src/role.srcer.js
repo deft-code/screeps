@@ -144,55 +144,58 @@ Creep.prototype.taskSrc = function() {
     return this.actionMoveTo(src);
   }
   if (this.carry) {
-    //let shunt = this.memory.task.shunt;
-    //if(!shunt && !this.carryFree) {
-    //  let spots = src.room.lookAtArea(src.pos.x-1, src.pos.y-1, src.pos.x+1, src.pos.y+1);
-    //  let positions = [];
-    //  for(let x in spots) {
-    //    for( let y in spots[x]) {
-    //      let blocked = false;
-    //      for(let entry of spots[x][y]) {
-    //        if(entry.type == 'terrain' && entry.terrain == wall) {
-    //          blocked = true;
-    //          break;
-    //        }
-    //        if(entry.type == 'structure' && entry.structure.obstacle) {
-    //          blocked = true;
-    //          break;
-    //        }
-    //      }
-    //      if(!blocked) {
-    //        positions.push(src.room.getPositionAt(x, y));
-    //      }
-    //    }
-    //  }
-    //  this.startShunt(positions);
-    //}
-
-    //this.idleShunt();
-
-    let bucket = Game.getObjectById(this.memory.task.bucket);
-    if (!bucket && !this.carryFree) {
-      const bucket = _(this.room.cachedFind(FIND_STRUCTURES))
-                         .filter(
-                             s => s.pos.getRangeTo(this.pos) <= 1 &&
-                                 (s.structureType == STRUCTURE_CONTAINER ||
-                                  s.structureType == STRUCTURE_STORAGE ||
-                                  s.structureType == STRUCTURE_LINK))
-                         .sample();
-      if (bucket) {
-        bucket.memory.bucket = src.id;
-        this.memory.task.bucket = bucket.id;
-      } else {
-        this.drop(RESOURCE_ENERGY);
+    if(false) {
+      let shunt = this.memory.task.shunt;
+      this.dlog("srcer", JSON.stringify(shunt));
+      if(!shunt && !this.carryFree) {
+        let spots = src.room.lookAtArea(src.pos.x-1, src.pos.y-1, src.pos.x+1, src.pos.y+1);
+        let positions = [];
+        for(let x in spots) {
+          for( let y in spots[x]) {
+            let blocked = false;
+            for(let entry of spots[x][y]) {
+              if(entry.type === 'terrain' && entry.terrain === 'wall') {
+                blocked = true;
+                break;
+              }
+              if(entry.type === 'structure' && entry.structure.obstacle) {
+                blocked = true;
+                break;
+              }
+            }
+            if(!blocked) {
+              positions.push(src.room.getPositionAt(x, y));
+            }
+          }
+        }
+        this.startShunt(positions);
       }
-    }
-    if (bucket) {
-      const xfer = this.transfer(bucket, RESOURCE_ENERGY);
-      if (xfer != OK) {
-        delete this.memory.task.bucket;
-      } else {
-        this.pickup(_.first(this.pos.lookFor(LOOK_ENERGY)), RESOURCE_ENERGY);
+
+      this.idleShunt();
+    } else {
+      let bucket = Game.getObjectById(this.memory.task.bucket);
+      if (!bucket && !this.carryFree) {
+        const bucket = _(this.room.cachedFind(FIND_STRUCTURES))
+                           .filter(
+                               s => s.pos.getRangeTo(this.pos) <= 1 &&
+                                   (s.structureType == STRUCTURE_CONTAINER ||
+                                    s.structureType == STRUCTURE_STORAGE ||
+                                    s.structureType == STRUCTURE_LINK))
+                           .sample();
+        if (bucket) {
+          bucket.memory.bucket = src.id;
+          this.memory.task.bucket = bucket.id;
+        } else {
+          this.drop(RESOURCE_ENERGY);
+        }
+      }
+      if (bucket) {
+        const xfer = this.transfer(bucket, RESOURCE_ENERGY);
+        if (xfer != OK) {
+          delete this.memory.task.bucket;
+        } else {
+          this.pickup(_.first(this.pos.lookFor(LOOK_ENERGY)), RESOURCE_ENERGY);
+        }
       }
     }
   }

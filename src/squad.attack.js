@@ -72,9 +72,8 @@ Creep.prototype.roleCaboose = function() {
     return this.actionTask() ||
         this.actionCabooseFind() ||
         this.actionSelfHeal() ||
-        this.actionTravelFlag(this.squad.flag) ||
-        this.actionMoveFlag(this.squad.flag)
-}
+        this.idleMoveNear(this.squad.flag);
+};
 
 Creep.prototype.actionSelfHeal = function() {
     // Always return false;
@@ -82,20 +81,20 @@ Creep.prototype.actionSelfHeal = function() {
         this.heal(this);
     }
     return false;
-}
+};
 
 Creep.prototype.actionCabooseFind = function() {
     if(this.squad.creeps.length < 2) {
         return false;
     }
-    this.dlog("caboose finde");
+    this.dlog("caboose find");
     for(let creep of this.squad.creeps) {
         if(creep.hostile) {
             return this.actionCaboose(creep);
         }
     }
     return false;
-}
+};
 
 Creep.prototype.actionCaboose = function(creep) {
     this.dlog("actionCaboose", creep);
@@ -138,30 +137,30 @@ Creep.prototype.taskCaboose = function() {
         this.actionMoveTo(creep);
         return "chase";
     }
-    
 };
 
 Creep.prototype.roleArcher = function() {
     return this.actionTask() ||
-        this.actionTravelFlag(this.squad.flag) ||
-        this.actionArcher() ||
-        this.actionMoveFlag(this.squad.flag);
+        this.actionArcher(this.squad.flag.room) ||
+        this.idleMoveNear(this.squad.flag);
 };
 
-Creep.prototype.actionArcher = function() {
-    const hostiles = this.room.hostiles;
+Creep.prototype.actionArcher = function(room) {
+  if(!room) return false;
+
+    const hostiles = room.hostiles;
     if(hostiles.length) {
         return this.actionKite(this.pos.findClosestByRange(hostiles));
     }
     
-    const enemy = _.find(this.room.cachedFind(FIND_HOSTILE_CREEPS), c => c.getActiveBodyparts(CLAIM));
+    const enemy = _.find(room.enemies,
+      c => c.getActiveBodyparts(CLAIM) || c.getActiveBodyparts(CARRY) > 1);
     return this.actionKite(enemy);
 };
 
 Creep.prototype.actionKite = function(creep) {
-    if(!creep) {
-        return false;
-    }
+    if(!creep) return false;
+
     this.memory.task = {
         task: 'kite',
         id: creep.id,
@@ -169,23 +168,66 @@ Creep.prototype.actionKite = function(creep) {
     return this.taskKite();
 };
 
+Creep.prototype.idleFlee = function(creeps, range) {
+  const ret = PathFinder.search(
+    this.pos,
+    _.map(creeps, creep => ({pos: creep.pos, range: range})),
+    {flee: true});
+
+  const next = _.first(ret.path);
+  if(!next) return false;
+
+  const err = this.move(this.pos.getDirectionTo(next));
+  if(err == OK) return `flee ${next.x} ${next.y}`;
+
+  return false;
+};
+
+Creep.prototype.idleAway = function(creep) {
+  if(!creep) return false;
+
+  const dir = this.pos.getDirectionAway(creep);
+  const err = this.move(dir);
+  if(err == OK) return `move away ${dir}`;
+
+  return false;
+};
+
 Creep.prototype.taskKite = function() {
-    const creep = this.taskId;
-    if(!creep) {
-        return false;
-    }
-    const err = this.rangedAttack(creep);
-    if(err == ERR_NOT_IN_RANGE) {
-        return this.actionMoveTo(creep);
-    }
-    if(err == OK) {
-        if(creep.hostile && this.pos.inRangeTo(creep, 2)) {
-            this.move(this.pos.getDirectionAway(creep));
-            return "moved";
+  const creep = this.taskId;
+  if(!creep) return false;
+
+  if(this.room.hostiles.length && !creep.hostile) {
+    this.actionKite(_.first(this.room.hostiles));
+  }
+
+  const range = this.pos.getRangeTo(creep);
+  let err = ERR_NOT_IN_RANGE;
+  switch(range) {
+    case 1:
+      err = this.rangedMassAttack(creep);
+      break;
+    case 2:
+    case 3:
+      err = this.rangedAttack(creep);
+      break;
+    default:
+      return this.idleMoveTo(creep);
+  }
+
+  if(err == OK) {
+      if(creep.hostile) {
+        if(range < 3) {
+          return this.idleFlee(this.room.hostiles, 3);
         }
-        return "stay";
-    }
-    return false;
+      } else {
+        if(range > 1) {
+          return this.idleMoveTo(creep);
+        }
+      }
+      return "stay";
+  }
+  return false;
 };
 
 Creep.prototype.actionMassAttackStructs = function(structType) {
@@ -237,10 +279,9 @@ Creep.prototype.taskRangedAttackStruct = function() {
     const struct = this.taskId;
     const err = this.rangedAttack(struct);
     if(err == ERR_NOT_IN_RANGE) {
-        return this.actionMoveTo(struct);
+        return this.idleMoveTo(struct);
     }
-    if(err == OK) {
-        return struct.hits;
-    }
+    if(err == OK) return struct.hits;
+
     return false;
 };

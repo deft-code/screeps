@@ -97,7 +97,6 @@ Creep.prototype.taskDismantle = function() {
   if (!this.carryFree && !this.memory.task.drop) {
     this.say('Full');
     return false;
-    // return this.actionUpgrade();
   }
   let structure = this.taskId;
   if (!structure || (structure.my && !structure.memory.dismantle)) {
@@ -267,7 +266,8 @@ const upkeepDismantle = function(room) {
   });
 };
 
-Creep.prototype.actionUpgrade = function() {
+Creep.prototype.actionUpgrade = function(room) {
+  room = room || this.room;
   this.memory.task = {
     task: 'upgrade',
     note: this.pos.roomName,
