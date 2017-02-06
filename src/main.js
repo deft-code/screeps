@@ -2,6 +2,7 @@ const modutil = require('util');
 const server = require('server');
 const team = require('team');
 const teambase = require('team.base');
+const teamclaim = require('team.claim');
 
 const lib = require('lib');
 lib.enhanceAll();
@@ -50,11 +51,12 @@ if(false) {
 
 function main() {
     PathFinder.use(true);
+    _.each(Game.rooms, modroom.upkeep);
     _.each(Game.flags, flag => flag.run());
+    _.each(Game.spawns, spawn => spawn.run());
 
     modsquads.run();
 
-    _.each(Game.rooms, modroom.upkeep);
 
     _.each(Game.creeps, creep => creep.run());
 

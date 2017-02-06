@@ -2,23 +2,33 @@ const modutil = require('util');
 const lib = require('lib');
 
 StructureSpawn.prototype.run = function() {
-  return this.dequeueRole();
+  this.memory.debug = true;
+  if(this.spawning) {
+    const mem = Memory.creeps[this.spawning.name];
+    this.dlog("Spawning", JSON.stringify(this.spawning), mem.role, mem.team || mem.squad);
+  } else {
+    this.dlog("Start Spawning", this.dequeueRole());
+  }
 };
 
 StructureSpawn.prototype.dequeueRole = function() {
+  console.log(this.name, "dequeueing", this.nextRole);
   if(!this.nextRole) {
     return false;
   }
+  console.log(this.name, "dequeueing");
   const fname = _.camelCase("role " + this.nextRole.role);
   const fn = this.nextRole.obj[fname];
   if(!fn) {
     console.log("Bad enqueued role", JSON.stringify(obj));
     return false;
   }
-  return fn.call(obj, this);
+  return fn.call(this.nextRole.obj, this);
 };
 
 StructureSpawn.prototype.enqueueRole = function(obj, role, priority) {
+  if(this.spawning) return false;
+
   if(!this.nextRole || !this.nextRole.priority>priority) {
     this.nextRole = {
       obj: obj,

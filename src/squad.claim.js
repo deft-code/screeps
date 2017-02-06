@@ -108,9 +108,9 @@ Creep.prototype.taskUpgrade2 = function() {
 };
 
 Creep.prototype.roleRemoteBuild = function() {
-  return this.idleNom() ||
-      this.actionTask() ||
-      this.actionTravelFlag(Game.flags.claim) ||
+  this.idleNom();
+  return this.actionTask() ||
+      this.actionTravelFlag(this.team) ||
       this.actionBuildFinish() ||
       this.actionUpgrade() ||
       this.actionHarvestAny();

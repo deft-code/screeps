@@ -1,5 +1,11 @@
 let modutil = require('util');
 
+Creep.prototype.actionBuildRoom = function(room) {
+  if(!room) return false;
+  const sites = room.cachedFind(FIND_MY_CONSTRUCTION_SITES);
+  return this.actionBuildFinish(sites);
+}
+
 Creep.prototype.actionBuildFinish = function(sites) {
   if (!sites) {
     sites = this.room.cachedFind(FIND_MY_CONSTRUCTION_SITES);

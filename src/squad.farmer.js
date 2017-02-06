@@ -121,7 +121,8 @@ Creep.prototype.roleFarmer = function() {
 Creep.prototype.actionRoadUpkeep = function(room) {
     if(!room) return false;
     return this.actionRepairStruct(STRUCTURE_ROAD, room) ||
-        this.actionBuildStruct(STRUCTURE_ROAD, room);
+        this.actionBuildStruct(STRUCTURE_ROAD, room) ||
+        this.actionBuildRoom(room);
 }
 
 Creep.prototype.actionFarm = function(room) {

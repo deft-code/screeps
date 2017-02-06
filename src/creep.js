@@ -8,6 +8,10 @@ modutil.cachedProp(Creep, 'squad', function() {
   return Game.squads[this.memory.squad];
 });
 
+modutil.cachedProp(Creep, 'team', function() {
+  return Game.flags[this.memory.team];
+});
+
 modutil.roProp(Creep, 'taskId', function() {
   const task = this.memory.task || {};
   return Game.getObjectById(task.id);

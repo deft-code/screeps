@@ -1,15 +1,20 @@
 Flag.prototype.runTeam = function() {
-  this.creeps = [];
-  const cnames = [];
-  for (let cname of this.memory.creeps) {
-    let creep = Game.creeps[cname];
-    if (c) {
-      this.creeps.push(creep);
-      cnames.push(cname);
-    }
+  this.memory.creeps = this.memory.creeps || [];
+  const removed = _.remove(this.memory.creeps, cname => !Game.creeps[cname]);
+  if(removed.length) {
+    this.dlog("Dead Creeps", removed);
   }
-  this.memory.creeps = cnames;
+  this.creeps = this.memory.creeps.sort().map(name => Game.creeps[name]);
   this.creepsByRole = _.groupBy(this.creeps, c => c.memory.role);
+};
+
+Flag.prototype.makeTeam = function(name, force=false) {
+  const team = this.memory.team;
+  if(!team || force) {
+    this.memory.team = name;
+    return true;
+  }
+  return false;
 };
 
 Flag.prototype.roleCreeps = function(role) {
@@ -24,7 +29,7 @@ Flag.prototype.memOr = function(key, value) {
   return v;
 };
 
-Flag.prototype.upkeepRole = function(role, n, energy, priority) {
+Flag.prototype.upkeepRole = function(role, n, energy, priority=0) {
   const creeps = this.roleCreeps(role);
 
   n = this.memOr('n' + role, n);
@@ -33,21 +38,21 @@ Flag.prototype.upkeepRole = function(role, n, energy, priority) {
   const spawn = this.findSpawn(energy);
   if (!spawn) return false;
 
-  return spawn.enqueueRole(this, role, priority);
+  return spawn.enqueueRole(this, role, priority) && spawn.name;
 };
 
-Flag.prototype.findSpawn = function(energy=0) {
+Flag.prototype.findSpawn = function(energy=0, dist=50) {
   const spawns =
       _(Game.spawns)
           .filter(spawn => spawn.room.energyCapacityAvailable >= energy)
-          .sortBy(spawn => this.spawnDist(spawn));
+          .sortBy(spawn => this.spawnDist(spawn))
+          .value();
 
-    console.log("possible spawns", spawns);
   if (!spawns.length) return false;
 
   const closest = spawns[0];
-  console.log("closest spawn", closest);
-  let max = this.spawnDist(closest) + 50;
+  this.dlog("closest spawn", closest);
+  let max = this.spawnDist(closest) + dist;
   if (closest.spawning) {
     max += closest.spawning.remainingTime;
   }
@@ -57,9 +62,9 @@ Flag.prototype.findSpawn = function(energy=0) {
           this.spawnDist(spawn) < max);
 };
 
-Flag.prototype.createRole = function(body, mem) {
+Flag.prototype.createRole = function(spawn, body, mem) {
   mem.team = this.name;
-  const who = this.spawn.createRole2(body, mem);
+  const who = spawn.createRole2(body, mem);
   if(_.isString(who)){
     this.memory.creeps.push(who);
     return who;
@@ -90,6 +95,7 @@ Flag.prototype.run = function() {
   const team = mem.team || 'null';
   const fname = _.camelCase('team ' + team);
   const fn = this[fname];
+  this.runTeam();
   this.dlog(fn.call(this));
 };
 
