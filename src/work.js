@@ -285,7 +285,7 @@ Creep.prototype.taskUpgrade = function() {
   }
   const err = this.upgradeController(controller);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(controller);
+    return this.idleMoveTo(controller);
   }
   if (err == OK) {
     this.actionDoubleTime();

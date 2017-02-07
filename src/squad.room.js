@@ -22,10 +22,9 @@ class RoomSquad extends modsquads.Squad {
         return who;
     }
     
-    if(room.energyAvailable < 900) {
+    if(room.energyAvailable < Math.min(room.energyCapacityAvailable-100, 900)) {
         console.log(this.spawn.name, "energy low");
         return "energy low";
-        
     }
     
     who = this.upkeepRole("hauler", 2) ||

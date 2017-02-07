@@ -37,7 +37,11 @@ Creep.prototype.idleMoveNear = function(obj) {
 
 Creep.prototype.idleMoveTo = function(obj) {
   const err = this.moveTo(obj);
-  if(err == OK) return `moveTo ${obj.pos}`;
+  if(err == OK) {
+      const path = Room.deserializePath(this.memory._move.path);
+      this.room.visual.poly(path);
+      return `moveTo ${obj.pos}`;
+  }
   return false;
 };
 
