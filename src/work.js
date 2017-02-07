@@ -56,7 +56,7 @@ Creep.prototype.taskBuild = function() {
   }
   const err = this.build(site);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(site);
+    return this.idleMoveWork(site);
   }
   if (err == OK) {
     this.actionDoubleTime();
@@ -182,7 +182,7 @@ Creep.prototype.taskRepair = function() {
   }
   const err = this.repair(structure);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(structure);
+    return this.idleMoveWork(structure);
   }
   if (err == OK) {
     this.actionDoubleTime();
@@ -285,7 +285,7 @@ Creep.prototype.taskUpgrade = function() {
   }
   const err = this.upgradeController(controller);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(controller);
+    return this.idleMoveWork(controller);
   }
   if (err == OK) {
     this.actionDoubleTime();
