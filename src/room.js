@@ -160,8 +160,5 @@ function roomUpkeep(room) {
 
 Room.prototype.run = function() {
   this.runLinks();
-};
-
-module.exports = {
-  upkeep: roomUpkeep,
+  roomUpkeep(this);
 };

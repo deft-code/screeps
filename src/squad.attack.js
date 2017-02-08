@@ -134,7 +134,7 @@ Creep.prototype.taskCaboose = function() {
         this.move(this.pos.getDirectionTo(creep));
         return "nudge";
     } else {
-        this.actionMoveTo(creep);
+        this.idleMoveTo(creep);
         return "chase";
     }
 };
@@ -261,7 +261,7 @@ Creep.prototype.taskMassAttackStruct = function() {
         this.rangedMassAttack();
         return "bang";
     }
-    return this.actionMoveTo(struct);
+    return this.idleMoveTo(struct);
 };
 
 Creep.prototype.actionRangedAttackStruct = function(struct) {

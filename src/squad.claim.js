@@ -9,10 +9,10 @@ Creep.prototype.roleClaim = function() {
   if (this.pos.roomName == f.pos.roomName) {
     const err = this.claimController(this.room.controller);
     if (err == ERR_NOT_IN_RANGE) {
-      return this.actionMoveTo(this.room.controller);
+      return this.idleMoveTo(this.room.controller);
     }
   }
-  return this.actionMoveTo(f);
+  return this.idleMoveTo(f);
 };
 
 StructureSpawn.prototype.roleClaim = function() {
@@ -49,7 +49,7 @@ Creep.prototype.taskHarvest = function() {
   }
   let err = this.harvest(src);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(src);
+    return this.idleMoveTo(src);
   }
   if (err == OK) {
     return src.energy || 'success';

@@ -79,7 +79,7 @@ Creep.prototype.taskStoreLab = function() {
     
     const err = this.transfer(lab, mineral);
     if(err == ERR_NOT_IN_RANGE) {
-        return this.actionMoveTo(lab);
+        return this.idleMoveTo(lab);
     }
     if(err == OK) {
         return "success";
@@ -138,7 +138,7 @@ Creep.prototype.taskWithdrawLab = function() {
     }
     const err = this.withdraw(lab, this.memory.task.mineral);
     if(err == ERR_NOT_IN_RANGE) {
-        return this.actionMoveTo(lab);
+        return this.idleMoveTo(lab);
     }
     if(err == OK) {
         return "success";

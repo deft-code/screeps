@@ -1,19 +1,11 @@
 const modutil = require('util');
 
-Creep.prototype.actionMoveTo = function(where) {
-   const err = this.travelTo(where);
-  if (err == ERR_NO_PATH) {
-    return false;
-  }
-  return modutil.sprint('moveTo', err);
-};
-
 Creep.prototype.taskGoHome = function() {
   const home = Game.rooms[this.memory.home];
   if (!home || this.pos.roomName == home.name) {
     return false;
   }
-  return this.actionMoveTo(home.controller);
+  return this.idleMoveTo(home.controller);
 };
 
 Creep.prototype.idleNom = function() {
@@ -61,7 +53,7 @@ Creep.prototype.taskPickup = function() {
   }
   let err = this.pickup(resource);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(resource);
+    return this.idleMoveTo(resource);
   }
   if (err == OK) {
     return 'success';
@@ -101,7 +93,7 @@ Creep.prototype.taskWithdraw = function() {
   }
   let err = this.withdraw(store, resource);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(store);
+    return this.idleMoveTo(store);
   }
   if (err == OK) {
     delete this.memory.task;
@@ -132,7 +124,7 @@ Creep.prototype.taskUncharge = function() {
   }
   let err = this.withdraw(src, RESOURCE_ENERGY);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(src);
+    return this.idleMoveTo(src);
   }
   if (err == OK) {
     delete this.memory.task;
@@ -182,7 +174,7 @@ Creep.prototype.taskTransferLab = function() {
   }
   const err = this.transfer(lab, lab.memory.prefer);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(lab);
+    return this.idleMoveTo(lab);
   }
   if (err == OK) {
     delete this.memory.task;

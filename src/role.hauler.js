@@ -119,7 +119,7 @@ Creep.prototype.taskCharge = function() {
   const what = modutil.sprint('charge', dest);
   let err = this.transfer(dest, RESOURCE_ENERGY);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(dest);
+    return this.idleMoveTo(dest);
   }
   if (err == OK) {
     delete this.memory.task;
@@ -170,7 +170,7 @@ Creep.prototype.taskChargeCreep = function() {
   }
   const err = this.transfer(creep, RESOURCE_ENERGY);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(creep);
+    return this.idleMoveTo(creep);
   }
   if (err == OK) {
     return 'success';
@@ -209,7 +209,7 @@ Creep.prototype.taskDischarge = function() {
   }
   let err = this.transfer(recv, RESOURCE_ENERGY);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(recv);
+    return this.idleMoveTo(recv);
   }
   if (err == OK) {
     return 'success';

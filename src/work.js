@@ -105,7 +105,7 @@ Creep.prototype.taskDismantle = function() {
   }
   let err = this.dismantle(structure);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(structure);
+    return this.idleMoveTo(structure);
   }
   if (err == OK) {
     return structure.hits;

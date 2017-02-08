@@ -199,7 +199,7 @@ Creep.prototype.taskXferStore = function() {
     const resource = modutil.randomResource(this.carry);
     const err = this.transfer(store, resource);
     if(err == ERR_NOT_IN_RANGE) {
-        return this.actionMoveTo(store);
+        return this.idleMoveTo(store);
     }
     if(err == OK) {
         return resource;
@@ -228,7 +228,7 @@ Creep.prototype.taskXferEnergy = function() {
     }
     const err = this.transfer(battery, RESOURCE_ENERGY);
     if(err == ERR_NOT_IN_RANGE) {
-        return this.actionMoveTo(battery);
+        return this.idleMoveTo(battery);
     }
     if(err == OK) {
         return "success";

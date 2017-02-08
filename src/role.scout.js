@@ -1,7 +1,7 @@
 Creep.prototype.roleScout = function() {
     return this.actionTask() ||
         this.actionHospital() ||
-        this.actionMoveFlag(Game.flags.scout);
+        this.idleMoveTo(Game.flags.scout);
 }
 
 StructureSpawn.prototype.roleScout = function() {
@@ -48,7 +48,7 @@ StructureSpawn.prototype.roleDistraction = function() {
 Creep.prototype.roleBait = function() {
     return this.actionTask() ||
         this.actionHospital() ||
-        this.actionMoveFlag(Game.flags.bait);
+        this.idleMoveTo(Game.flags.bait);
 };
 
 StructureSpawn.prototype.roleBait = function() {

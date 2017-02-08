@@ -95,7 +95,7 @@ Creep.prototype.taskMine = function() {
   }
   const err = this.harvest(src);
   if (err == ERR_NOT_IN_RANGE || err == ERR_NOT_ENOUGH_RESOURCES) {
-    return this.actionMoveTo(src);
+    return this.idleMoveTo(src);
   }
   if (this.carry) {
     let bucket = Game.getObjectById(this.memory.task.bucket);

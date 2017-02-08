@@ -12,6 +12,7 @@ lib.enhanceAll();
 const modprototypes = require('prototypes');
 const modcontroller = require('controller');
 const modcreep = require('creep');
+require('creep.move');
 const modroom = require('room');
 const modtower = require('tower');
 const modspawn = require('spawn');
@@ -52,19 +53,28 @@ if(false) {
     module.exports.loop = main;
 }
 
+function runner(objs) {
+  for(let name in objs) {
+    obj = objs[name];
+    try {
+      obj.run();
+    }
+    catch( err ) {
+      console.log(err.stack);
+      Game.notify(err.stack, 30);
+    }
+  }
+}
+
 function main() {
     PathFinder.use(true);
-    _.each(Game.rooms, modroom.upkeep);
-    _.each(Game.rooms, room => room.run());
-    _.each(Game.flags, flag => flag.run());
-    _.each(Game.spawns, spawn => spawn.run());
-
+    runner(Game.rooms);
+    runner(Game.flags);
+    runner(Game.spawns);
     modsquads.run();
+    runner(Game.creeps);
 
-
-    _.each(Game.creeps, creep => creep.run());
-
-     for (var name in Memory.creeps) {
+    for (var name in Memory.creeps) {
         if (!Game.creeps[name]) {
            delete Memory.creeps[name];
           console.log('Clearing non-existing creep memory:', name);

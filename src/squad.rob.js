@@ -69,7 +69,7 @@ Creep.prototype.actionThief = function() {
     }
   } else {
     if (this.carryTotal) {
-      return this.actionMoveTo(this.squad.spawn);
+      return this.idleMoveTo(this.squad.spawn);
     } else {
       return this.actionTravelFlag(flag) || this.actionUnstoreAny();
     }

@@ -40,7 +40,7 @@ Creep.prototype.taskHeal = function() {
 
   const err = this.heal(creep);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(creep);
+    return this.idleMoveTo(creep);
   }
   if (err == OK) {
     this.move(this.pos.getDirectionTo(creep));
@@ -71,7 +71,7 @@ Creep.prototype.taskLocalHeal = function() {
   }
   const err = this.heal(c);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(c);
+    return this.idleMoveTo(c);
   }
   if (err == OK) {
     this.move(this.pos.getDirectionTo(c));

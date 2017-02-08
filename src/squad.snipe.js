@@ -126,7 +126,7 @@ Creep.prototype.taskAttackStruct = function() {
   }
   const err = this.attack(struct);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.actionMoveTo(struct);
+    return this.idleMoveTo(struct);
   }
   if (err == OK) {
     this.move(this.pos.getDirectionTo(struct.pos));
@@ -178,7 +178,7 @@ Creep.prototype.actionThief = function() {
     }
   } else {
     if (this.carryTotal) {
-      return this.actionMoveTo(this.home.controller);
+      return this.idleMoveTo(this.home.controller);
     } else {
       return this.actionUnstoreAny();
     }

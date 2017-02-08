@@ -141,7 +141,7 @@ Creep.prototype.taskSrc = function() {
   }
   const err = this.harvest(src);
   if (err == ERR_NOT_IN_RANGE || err == ERR_NOT_ENOUGH_RESOURCES) {
-    return this.actionMoveTo(src);
+    return this.idleMoveTo(src);
   }
   if (this.carry) {
     if(false) {
