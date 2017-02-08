@@ -11,10 +11,14 @@ let modmanual = require('role.manual');
 modutil.cachedProp(Room, "structsByType", room =>
     _.groupBy(room.find(FIND_STRUCTURES), "structureType"));
 
+Room.prototype.findStructs = function(...types) {
+  return _.flatten(_.map(types, sType => this.structsByType[sType]));
+};
+
 modutil.cachedProp(Room, "enemies", room => room.cachedFind(FIND_HOSTILE_CREEPS));
 modutil.cachedProp(Room, "hostiles", room => _.filter(room.enemies, e => e.hostile));
 modutil.cachedProp(Room, "assaulters", room => _.filter(room.enemies, e => e.assault))
-    
+
 Room.prototype.cachedFind = function(find, filter) {
   this.cache = this.cache || {};
   this.cache[find] = this.cache[find] || {};
