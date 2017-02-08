@@ -1,13 +1,111 @@
-StructureLink.prototype.balance = function(other) {
-  if (this.energy - other.energy < 200) {
-    return false;
+StructureLink.prototype.calcMode = function() {
+  if(this.room.storage && this.pos.inRangeTo(this.room.storage, 2)) {
+    return 'buffer';
   }
 
-  const delta = Math.floor((this.energy - other.energy) / 2);
-  const extra = delta % 100;
-  const amount = delta - extra;
-  let err = this.transferEnergy(other, amount);
-  return err == OK && modutil.sprint('tranferred', amount, 'to', other);
+  if(this.pos.isRangeTo(this.room.controller, 4) {
+    return 'sink';
+  }
+
+  return 'src'
+};
+
+StructureLink.prototype.mode = function() {
+  let mem = this.memory.links[this.id];
+  if(!mem) {
+    mem = this.memory.links[this.id] = {
+      note: this.note,
+      mode: this.calcMode(),
+    };
+  }
+  return mem.mode;
+};
+
+StructureLink.prototype.xferHalf = function(target) {
+  const e = Math.floor(target.energyFree / 2);
+  return this.xferRaw(target, e);
+};
+
+StructureLink.prototype.xfer = function(target, mod=100) {
+  let e = Math.min(this.energy, target.energyFree * (1+LINK_LOSS_RATIO));
+  e -= e % mod;
+  return this.xferRaw(target, e);
+};
+
+StructureLink.prototype.xferAll = function(target) {
+  return this.xfer(target, 1);
+};
+
+StructureLink.prototype.xferRaw = function(target, energy) {
+  const err = this.energyTransfer(target, energy);
+  if(err == OK) {
+    target.energy += Math.floor(energy * (1-LINK_LOSS_RATIO));
+    this.energy -= xfer;
+  }
+  return `xfer ${err}`;
+};
+
+StructureLink.prototype.run = function() {
+  if(this.cooldown) return `cooldown ${this.cooldown}`;
+  if(this.energy < 100) return `empty ${this.energy}`;
+
+  switch(this.mode()) {
+    case 'sink': return "sink";
+    case 'src': return this.runSrc();
+    case 'buffer': return this.runBuffer();
+  }
+  return `bad mode ${this.mode()}`;
+}
+
+StructureLink.prototype.runSrc = function() {
+  const links = this.room.findStructs(STRUCTURE_LINK);
+
+  const sinks = _.filter(links, link => link.mode() === 'sink');
+
+  const sink = _.find(sinks, link => link.energyFree >= 97);
+  if(sink) return this.xfer(sink);
+
+  if(this.energy < 600) return "waiting";
+
+  const buffer = _.find(links,
+      link => link.mode() === 'buffer');
+
+  if(buffer && buffer.energyFree >= 97) return this.xfer(buffer);
+
+  if(this.energyFree) return "not full";
+
+  if(buffer && buffer.energyFree) {
+    return this.xferAll(buffer);
+  }
+
+  const balance = _.max(links, "energyFree");
+  if(balance && balance.energyFree > 4) {
+    return this.xferHalf(balance);
+  }
+
+  return "everything is full!";
+};
+
+StructureLink.prototype.runBuffer = function() {
+  const sink = _.find(this.room.findStructs(STRUCTURE_LINK),
+      link => link.mode() === 'sink' && !link.energy);
+  if(sink) return this.xfer(sink);
+  return "nothing";
+};
+
+Room.prototype.runLinks = function() {
+  if(!this.memory.links) {
+    this.memory.links = {};
+  }
+
+  for(let id in this.memory.links) {
+    const link = Game.getObjectById(id);
+    if(!link) {
+      delete this.memory.links[id];
+    }
+  }
+
+  _.each(this.room.findStructs(STRUCTURE_LINK), link => link.run());
 };
 
 function upkeepBucket(bucket, links) {

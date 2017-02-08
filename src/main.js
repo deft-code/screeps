@@ -1,3 +1,5 @@
+require('traveler')({exportTraveler: false, installTraveler: true, installPrototype: true, defaultStuckValue: 2});
+
 const modutil = require('util');
 const server = require('server');
 const team = require('team');

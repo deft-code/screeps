@@ -1,6 +1,7 @@
 let modutil = require('util');
 
 Creep.prototype.run = function() {
+  modutil.markDebug(this);
   let what = this.actionSpawning() || this.actionRole();
   this.dlog(what);
 };
@@ -35,12 +36,20 @@ Creep.prototype.idleMoveNear = function(obj) {
   return this.idleMoveTo(obj);
 };
 
-Creep.prototype.idleMoveTo = function(obj) {
-  const err = this.moveTo(obj);
-  if(err == OK) {
-      const path = Room.deserializePath(this.memory._move.path);
-      this.room.visual.poly(path);
-      return `moveTo ${obj.pos}`;
+Creep.prototype.idleMoveWork = function(dest, opts={}) {
+  opts = _.defaults(opts, {range: 3});
+  if(this.pos.inRangeTo(dest, opts.range)) return false;
+  return this.idleMoveTo(dest, opts);
+};
+
+
+Creep.prototype.idleMoveTo = function(obj, opts={}) {
+  opts = _.defaults(opts, {
+    useFindRoute: true,
+  });
+  const err = this.travelTo(obj, opts);
+  if(err != ERR_NO_PATH) {
+    return `moveTo ${err} ${obj.pos}`;
   }
   return false;
 };
@@ -65,7 +74,7 @@ Creep.prototype.taskTravel = function() {
     if(this.pos.roomName === obj.pos.roomName && !this.pos.exit) {
         return false;
     }
-    return this.actionMoveTo(obj);
+    return this.idleMoveTo(obj);
 }
 
 Creep.prototype.actionTravelFlag = function(flag) {
@@ -85,7 +94,7 @@ Creep.prototype.taskTravelFlag = function() {
   if (!flag || this.pos.roomName === flag.pos.roomName && !this.pos.exit) {
     return false;
   }
-  return this.actionMoveTo(flag);
+  return this.idleMoveTo(flag);
 };
 
 Creep.prototype.actionMoveFlag = function(dest) {

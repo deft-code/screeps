@@ -1,4 +1,19 @@
 
+function markDebug(obj, time=500) {
+  this.debug = false;
+  const mem = this.memory;
+  if(!mem) return;
+  const mdebug = memory.debug;
+  if(mdebug === true) {
+    mdebug = this.memory.debug = Game.time + time;
+  }
+  if(!mdebug || mdebug < Game.time) {
+    delete this.memory.debug;
+    return;
+  }
+  this.debug = true;
+}
+
 function sprint(...args) {
   let sargs = args.map(a => who(a));
   return sargs.join(' ');
@@ -118,6 +133,7 @@ function randomResource(resources) {
 }
 
 module.exports = {
+  markDebug: markDebug,
   who: who,
   cachedProp: cachedProp,
   roProp: roProp,

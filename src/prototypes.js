@@ -37,15 +37,8 @@ Object.defineProperty(RoomObject.prototype, 'memory', {
 });
 
 function dlog(...args) {
-  if(this.memory.debug === true) {
-    this.memory.debug = Game.time + 500;
-  } else if(!this.memory.debug || this.memory.debug < Game.time) {
-    delete this.memory.debug;
-  }
-
-  if (this.memory.debug || (Memory.dlog && _.matches(Memory.dlog)(this))) {
+  if(this.debug) {
     const time = ("00" + (Game.time % 1000)).slice(-3);
-
     console.log(time, modutil.who(this), ...args);
   }
 }
