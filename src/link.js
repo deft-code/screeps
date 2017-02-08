@@ -16,6 +16,7 @@ StructureLink.prototype.mode = function() {
       note: this.note,
       mode: this.calcMode(),
     };
+    console.log("calculating link mode", JSON.stringify(mem));
   }
   return mem.mode;
 };
@@ -107,8 +108,8 @@ Room.prototype.runLinks = function() {
   }
   for(let link of this.findStructs(STRUCTURE_LINK)) {
     let mode = link.mode();
-    this.visual.text(mode, link.pos.x+1, link.pos.y);
-    //link.run();
+    let act = link.run();
+    this.visual.text(act, link.pos.x+1, link.pos.y);
   }
 };
 
