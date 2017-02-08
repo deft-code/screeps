@@ -55,6 +55,7 @@ if(false) {
 function main() {
     PathFinder.use(true);
     _.each(Game.rooms, modroom.upkeep);
+    _.each(Game.rooms, room => room.run());
     _.each(Game.flags, flag => flag.run());
     _.each(Game.spawns, spawn => spawn.run());
 

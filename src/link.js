@@ -3,17 +3,16 @@ StructureLink.prototype.calcMode = function() {
     return 'buffer';
   }
 
-  if(this.pos.isRangeTo(this.room.controller, 4) {
+  if(this.pos.inRangeTo(this.room.controller, 4)) {
     return 'sink';
   }
-
   return 'src'
 };
 
 StructureLink.prototype.mode = function() {
-  let mem = this.memory.links[this.id];
+  let mem = this.room.memory.links[this.id];
   if(!mem) {
-    mem = this.memory.links[this.id] = {
+    mem = this.room.memory.links[this.id] = {
       note: this.note,
       mode: this.calcMode(),
     };
@@ -96,16 +95,21 @@ StructureLink.prototype.runBuffer = function() {
 Room.prototype.runLinks = function() {
   if(!this.memory.links) {
     this.memory.links = {};
+    console.log("Creating links for", this.name);
   }
 
   for(let id in this.memory.links) {
     const link = Game.getObjectById(id);
     if(!link) {
+      console.log("Cleared missing link", JSON.stringify(this.memory.links[id]));
       delete this.memory.links[id];
     }
   }
-
-  _.each(this.room.findStructs(STRUCTURE_LINK), link => link.run());
+  for(let link of this.findStructs(STRUCTURE_LINK)) {
+    let mode = link.mode();
+    this.visual.text(mode, link.pos.x+1, link.pos.y);
+    //link.run();
+  }
 };
 
 function upkeepBucket(bucket, links) {

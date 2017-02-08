@@ -8,11 +8,11 @@ let modlink = require('link');
 let modhauler = require('role.hauler');
 let modmanual = require('role.manual');
 
-modutil.cachedProp(Room, "structsByType", room =>
-    _.groupBy(room.find(FIND_STRUCTURES), "structureType"));
-
 Room.prototype.findStructs = function(...types) {
-  return _.flatten(_.map(types, sType => this.structsByType[sType]));
+  if(!this.structsByType) {
+    this.structsByType =  _.groupBy(this.find(FIND_STRUCTURES), "structureType");
+  }
+  return _.flatten(_.map(types, sType => this.structsByType[sType] || []));
 };
 
 modutil.cachedProp(Room, "enemies", room => room.cachedFind(FIND_HOSTILE_CREEPS));
@@ -48,18 +48,6 @@ Room.prototype.roleCreeps = function(role) {
 modutil.cachedProp(Room, 'sources', function() {
   return this.find(FIND_SOURCES);
 });
-
-Room.prototype.findMyCreeps = function(role) {
-  return this.find(FIND_MY_CREEPS, {filter: c => c.memory.role == role});
-};
-
-modutil.cachedProp(Room, 'pumpCreeps', function() {
-  return this.findMyCreeps('pump');
-});
-
-Room.prototype.findStructures = function(kind) {
-  return this.find(FIND_STRUCTURES, {filter: {structureType: kind}});
-};
 
 Object.defineProperty(Room.prototype, 'droppedEnergy', {
   get: function() {
@@ -169,6 +157,10 @@ function roomUpkeep(room) {
       (mem, id) => _.isEmpty(mem) || !Game.getObjectById(id));
   // console.log("Cleaned memory for", JSON.stringify(cleaned));
 }
+
+Room.prototype.run = function() {
+  this.runLinks();
+};
 
 module.exports = {
   upkeep: roomUpkeep,
