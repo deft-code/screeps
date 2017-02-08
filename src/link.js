@@ -40,7 +40,7 @@ StructureLink.prototype.xferRaw = function(target, energy) {
   const err = this.transferEnergy(target, energy);
   if(err == OK) {
     target.energy += Math.floor(energy * (1-LINK_LOSS_RATIO));
-    this.energy -= xfer;
+    this.energy -= energy;
   }
   return `xfer ${err}`;
 };
@@ -111,43 +111,4 @@ Room.prototype.runLinks = function() {
     let act = link.run();
     this.visual.text(act, link.pos.x+1, link.pos.y);
   }
-};
-
-function upkeepBucket(bucket, links) {
-  if (bucket.cooldown) {
-    return;
-  }
-  if (bucket.energy < 100) {
-    return;
-  }
-  for (let i in links) {
-    let link = links[i];
-    let need = link.energyCapacity - link.energy;
-    if (link.energy >= bucket.energy || need < 100) {
-      continue;
-    }
-    let xfer = Math.min(bucket.energy, need);
-    let xtra = xfer % 100;
-    let amount = xfer - xtra;
-    let err = bucket.transferEnergy(link, amount);
-    bucket.dlog('xfer', err, amount, link);
-    return;
-  }
-}
-
-function upkeep(room) {
-  let links = room.Structures(STRUCTURE_LINK).slice();
-  if (links.length < 2) {
-    return;
-  }
-  let buckets = _.remove(links, l => l.memory.bucket);
-  for (let i in buckets) {
-    let bucket = buckets[i];
-    upkeepBucket(bucket, links);
-  }
-}
-
-module.exports = {
-  upkeep: upkeep,
-
 };

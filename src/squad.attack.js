@@ -6,6 +6,8 @@ class AttackSquad extends modsquads.Squad {
   }
 
   execute() {
+    return "NOT YET";
+
    if (!this.spawn) {
       return 'no spawn';
     }
@@ -18,7 +20,6 @@ class AttackSquad extends modsquads.Squad {
     if (room.energyAvailable < room.energyCapacityAvailable) {
       return 'need energy';
     }
-    
     
     return this.upkeepRole("archer", 1) ||
         this.upkeepRole("caboose", 1);

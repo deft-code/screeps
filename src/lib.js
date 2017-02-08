@@ -281,6 +281,36 @@ exports.roomposFromMem = (obj) => new RoomPosition(obj.x, obj.y, obj.roomName);
 
 exports.roomposGetDirectionAway = (pos, dest) => exports.oppositeDir(pos.getDirectionTo(dest));
 
+exports.roomposAtDirection = (pos, dir) => {
+  let x = pos.x, y = pos.y;
+  switch(dir) {
+    case TOP:
+    case TOP_RIGHT:
+    case TOP_LEFT:
+      x--;
+      break;
+    case BOTTOM:
+    case BOTTOM_RIGHT:
+    case BOTTOM_LEFT:
+      x++;
+      break;
+  }
+  switch(dir) {
+    case RIGHT:
+    case TOP_RIGHT:
+    case BOTTOM_RIGHT:
+      y++;
+      break;
+    case LEFT:
+    case TOP_LEFT:
+    case BOTTOM_LEFT:
+      y--;
+      break;
+  }
+
+  return new RoomPosition(x, y, pos.roomName);
+};
+
 //
 // Source
 //

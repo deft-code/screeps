@@ -4,7 +4,6 @@ let modprototypes = require('prototypes');
 let modutil = require('util');
 let modwork = require('work');
 let modroad = require('road');
-let modlink = require('link');
 let modhauler = require('role.hauler');
 let modmanual = require('role.manual');
 
@@ -120,7 +119,6 @@ Room.prototype.cycleRampart = function(rampart) {
 };
 
 function upkeepMyRoom(room) {
-  modlink.upkeep(room);
   let towers = room.Structures(STRUCTURE_TOWER);
   towers.forEach(modtower.tower);
 

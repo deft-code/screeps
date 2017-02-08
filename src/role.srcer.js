@@ -172,7 +172,8 @@ Creep.prototype.taskSrc = function() {
       }
 
       this.idleShunt();
-    } else {
+    }
+    if(true) {
       let bucket = Game.getObjectById(this.memory.task.bucket);
       if (!bucket && !this.carryFree) {
         const bucket = _(this.room.cachedFind(FIND_STRUCTURES))
