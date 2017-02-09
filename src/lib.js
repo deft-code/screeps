@@ -38,14 +38,14 @@ exports.roProp = (klass, prop, func) => {
   });
 };
 
-exports.patch = (fn) => function(...args){
-    return fn(this, ...args);
-  };
+exports.patch = (fn) => function(...args) {
+  return fn(this, ...args);
+};
 
 exports.enhance = (klass, prop, fn) => {
-  if(fn.length == 1) {
+  if (fn.length == 1) {
     exports.roProp(klass, prop, fn);
-  } else if( fn.length > 1) {
+  } else if (fn.length > 1) {
     klass.prototype[prop] = exports.patch(fn);
   }
 };
@@ -116,7 +116,8 @@ exports.getPos = (obj) => {
 // Total energy cost to spawn a creep with parts.
 exports.partsCost = (parts) => _.sum(parts, part => BODYPART_COST[part]);
 
-exports.creepWhere = (creep) => `<a href="/a/#!/room/${creep.pos.roomName}">${creep.pos.roomName}</a>`;
+exports.creepWhere = (creep) =>
+    `<a href="/a/#!/room/${creep.pos.roomName}">${creep.pos.roomName}</a>`;
 
 // Total time to creep took to spawn.
 exports.creepSpawnTime = (creep) => CREEP_SPAWN_TIME * creep.body.length;
@@ -257,7 +258,8 @@ exports.creepBodyInfo = (creep, all) => {
 
 // Room enhancers
 
-exports.roomEnergyOpen = (room) => room.energyCapacityAvailable - room.energyAvailable;
+exports.roomEnergyOpen = (room) =>
+    room.energyCapacityAvailable - room.energyAvailable;
 
 // RoomPosition enhancers
 
@@ -272,18 +274,20 @@ oppositeLookup.set(LEFT, RIGHT);
 oppositeLookup.set(TOP_LEFT, BOTTOM_RIGHT);
 
 exports.oppositeDir = function(dir) {
-    return oppositeLookup.get(dir);
+  return oppositeLookup.get(dir);
 };
 
-exports.roomposExit = (pos) => pos.x == 0 || pos.y == 0 || pos.x == 49 || pos.y == 49;
+exports.roomposExit = (pos) =>
+    pos.x == 0 || pos.y == 0 || pos.x == 49 || pos.y == 49;
 
 exports.roomposFromMem = (obj) => new RoomPosition(obj.x, obj.y, obj.roomName);
 
-exports.roomposGetDirectionAway = (pos, dest) => exports.oppositeDir(pos.getDirectionTo(dest));
+exports.roomposGetDirectionAway = (pos, dest) =>
+    exports.oppositeDir(pos.getDirectionTo(dest));
 
 exports.roomposAtDirection = (pos, dir) => {
   let x = pos.x, y = pos.y;
-  switch(dir) {
+  switch (dir) {
     case TOP:
     case TOP_RIGHT:
     case TOP_LEFT:
@@ -295,7 +299,7 @@ exports.roomposAtDirection = (pos, dir) => {
       x++;
       break;
   }
-  switch(dir) {
+  switch (dir) {
     case RIGHT:
     case TOP_RIGHT:
     case BOTTOM_RIGHT:
@@ -316,11 +320,12 @@ exports.roomposAtDirection = (pos, dir) => {
 //
 
 exports.srcPositions = (src) => {
-  let spots = src.room.lookAtArea(src.pos.x-1, src.pos.y-1, src.pos.x+1, src.pos.y+1, true);
+  let spots = src.room.lookAtArea(
+      src.pos.x - 1, src.pos.y - 1, src.pos.x + 1, src.pos.y + 1, true);
   return _(spots)
-    .filter(spot => spot.type == 'terrain' && spot.terrain != 'wall')
-    .map(spot => new RoomPosition(spot.x, spot.y, src.room.name))
-    .value();
+      .filter(spot => spot.type == 'terrain' && spot.terrain != 'wall')
+      .map(spot => new RoomPosition(spot.x, spot.y, src.room.name))
+      .value();
 };
 
 //
@@ -337,7 +342,8 @@ exports.structStoreFree = (struct) =>
 // Available energy capacity.
 exports.structEnergyFree = (struct) => struct.energyCapacity - struct.energy;
 
-exports.structObstacle = (struct) => _.contains(OBSTACLE_OBJECT_TYPES, struct.structureType);
+exports.structObstacle = (struct) =>
+    _.contains(OBSTACLE_OBJECT_TYPES, struct.structureType);
 
 
 //
@@ -432,14 +438,22 @@ exports.enhanceProto = (klass, re) => {
   }
 };
 
-exports.enhanceCreep = () => exports.enhanceProto(Creep, /^creep(.*)$/, exports);
+exports.enhanceCreep = () =>
+    exports.enhanceProto(Creep, /^creep(.*)$/, exports);
+
 exports.enhancePosition = () => {
-    exports.enhanceProto(RoomPosition, /^roompos(.*)$/, exports);
-    RoomPosition.FromMem = exports.roomposFromMem;
+  exports.enhanceProto(RoomPosition, /^roompos(.*)$/, exports);
+  RoomPosition.FromMem = exports.roomposFromMem;
 };
-exports.enhanceStructure = () => exports.enhanceProto(Structure, /^struct([A-Z].*)$/, exports);
-exports.enhanceRoom = () => exports.enhanceProto(Room, /^room([A-Z].*)$/, exports);
-exports.enhanceTower = () => exports.enhanceProto(StructureTower, /^tower(.*)/, exports);
+
+exports.enhanceStructure = () =>
+    exports.enhanceProto(Structure, /^struct([A-Z].*)$/, exports);
+
+exports.enhanceRoom = () =>
+    exports.enhanceProto(Room, /^room([A-Z].*)$/, exports);
+
+exports.enhanceTower = () =>
+    exports.enhanceProto(StructureTower, /^tower(.*)/, exports);
 
 exports.enhanceAll = () => {
   exports.enhanceCreep();
