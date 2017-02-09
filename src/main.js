@@ -11,7 +11,9 @@ lib.enhanceAll();
 
 const modprototypes = require('prototypes');
 const modcontroller = require('controller');
-require('link')
+
+require('link');
+require('source');
 
 const modcreep = require('creep');
 require('creep.move');

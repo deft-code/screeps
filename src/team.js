@@ -1,4 +1,7 @@
+const util = require('util');
 Flag.prototype.runTeam = function() {
+  delete this.memory.cnames;
+  util.markDebug(this);
   this.memory.creeps = this.memory.creeps || [];
   const removed = _.remove(this.memory.creeps, cname => !Game.creeps[cname]);
   if(removed.length) {

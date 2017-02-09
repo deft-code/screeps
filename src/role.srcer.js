@@ -1,13 +1,19 @@
 const modutil = require('util');
 
 Creep.prototype.roleSrcer = function() {
-  return this.actionTask() || this.actionStartSrc()
+  return this.actionTask() ||
+    this.actionTravelFlag(this.team) ||
+    this.actionStartSrc();
 };
 
 Creep.prototype.actionStartSrc = function() {
   const srcers = this.squad.roleCreeps(this.memory.role);
   const home = this.home;
-  const srcs = home.cachedFind(FIND_SOURCES);
+  const srcs = home.find(FIND_SOURCES);
+
+  if( srcers.length === 0) {
+    return this.actionSrc(this.pos.findClosestByRange(srcs));
+  }
 
   if (srcers.length <= srcs.length) {
     for (let src of srcs) {
@@ -16,7 +22,7 @@ Creep.prototype.actionStartSrc = function() {
         if (srcer.name === this.name) {
           continue;
         }
-        if (srcer.taskId.id === src.id) {
+        if (srcer.taskId && srcer.taskId.id === src.id) {
           taken = true;
           break;
         }
@@ -45,21 +51,27 @@ Creep.prototype.actionSrc = function(src) {
 };
 
 Creep.prototype.startShunt = function(...positions) {
+  this.dlog("shunting in ", positions[0], positions[0].roomName);
   const room = Game.rooms[positions[0].roomName];
+
   if (!room) return false;
 
+  this.dlog("room is", room);
+
   const order = [
-    STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_LINK, STRUCTURE_SPAWN,
-    STRUCTURE_EXTENSION, STRUCTURE_TOWER
+    STRUCTURE_TOWER,
+    STRUCTURE_EXTENSION,
+    STRUCTURE_SPAWN,
+    STRUCTURE_LINK,
+    STRUCTURE_STORAGE,
+    STRUCTURE_CONTAINER,
   ];
 
   const structs = _(room.find(FIND_STRUCTURES))
                       .filter(
                           s => _.any(positions, pos => pos.isNearTo(s)) &&
                               _.contains(order, s.structureType))
-                      .sort(
-                          (l, r) => order.indexOf(l.structureType) -
-                              order.indexOf(r.structureType))
+                      .sortBy(s=> order.indexOf(s.structureType))
                       .map('id')
                       .value();
 
@@ -76,7 +88,9 @@ Creep.prototype.idleShunt = function() {
   let move = false;
 
   const moveTo = (struct, err) => {
+    this.dlog("shunt moveTo", struct, err);
     if (!move && err == ERR_NOT_IN_RANGE) {
+      this.dlog("moving", struct);
       this.idleMoveNear(struct);
       move = true;
     }
@@ -88,6 +102,7 @@ Creep.prototype.idleShunt = function() {
       break;
     }
     const struct = Game.getObjectById(id);
+    this.dlog("shunting", struct);
     if (!struct) {
       console.log('Broken Shunt!');
       delete this.memory.task.shunt;
@@ -97,11 +112,13 @@ Creep.prototype.idleShunt = function() {
       case STRUCTURE_TOWER:
       case STRUCTURE_SPAWN:
       case STRUCTURE_EXTENSION:
-        if (xfer) break;
+        if (xfer || !this.energFree) break;
+        this.dlog("energy check", struct);
         if (this.energyFree < this.energy && struct.energyFree < this.energy) {
           break;
         }
         deficit = struct.energyFree > this.energy;
+        this.room.visual.line(this.pos, struct.pos);
         xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
         break;
       case STRUCTURE_LINK:
@@ -123,6 +140,8 @@ Creep.prototype.idleShunt = function() {
         }
 
         if (xfer) break;
+
+        this.dlog("xfer to", struct);
         xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
         break;
     }
@@ -136,43 +155,17 @@ Creep.prototype.taskSrc = function() {
     return false;
   }
   const err = this.harvest(src);
-  if (err == ERR_NOT_IN_RANGE || err == ERR_NOT_ENOUGH_RESOURCES) {
+  if (err == ERR_NOT_IN_RANGE || err == ERR_NOT_ENOUGH_RESOURCES && !this.pos.isNearTo(src)) {
     return this.idleMoveTo(src);
   }
   if (this.carry) {
-    if (false) {
+    if (true) {
       this.idleNom();
       const shunt = this.memory.task.shunt;
       if (!shunt) {
-        this.startShunt(src.spots);
+        this.startShunt(...src.spots);
       }
       this.idleShunt();
-    }
-    if (true) {
-      let bucket = Game.getObjectById(this.memory.task.bucket);
-      if (!bucket && !this.carryFree) {
-        const bucket = _(this.room.cachedFind(FIND_STRUCTURES))
-                           .filter(
-                               s => s.pos.getRangeTo(this.pos) <= 1 &&
-                                   (s.structureType == STRUCTURE_CONTAINER ||
-                                    s.structureType == STRUCTURE_STORAGE ||
-                                    s.structureType == STRUCTURE_LINK))
-                           .sample();
-        if (bucket) {
-          bucket.memory.bucket = src.id;
-          this.memory.task.bucket = bucket.id;
-        } else {
-          this.drop(RESOURCE_ENERGY);
-        }
-      }
-      if (bucket) {
-        const xfer = this.transfer(bucket, RESOURCE_ENERGY);
-        if (xfer != OK) {
-          delete this.memory.task.bucket;
-        } else {
-          this.pickup(_.first(this.pos.lookFor(LOOK_ENERGY)), RESOURCE_ENERGY);
-        }
-      }
     }
   }
   if (err == OK) {

@@ -22,7 +22,7 @@ Creep.prototype.actionHospital = function() {
 };
 
 Creep.prototype.idleTravel = function(obj) {
-  if(!obj) return;
+  if(!obj) return false;
 
   if(this.pos.roomName === obj.pos.roomName && !this.pos.exit) {
       return false;
@@ -31,7 +31,7 @@ Creep.prototype.idleTravel = function(obj) {
 };
 
 Creep.prototype.idleMoveNear = function(obj, opts={}) {
-  opts = _.defaults(opts, {range: 3});
+  opts = _.defaults(opts, {range: 1});
   if(!obj || this.pos.inRangeTo(obj, opts.range)) return false;
 
   return this.idleMoveTo(obj, opts);
@@ -89,9 +89,5 @@ Creep.prototype.actionTravelFlag = function(flag) {
 };
 
 Creep.prototype.taskTravelFlag = function() {
-  const flag = this.taskFlag;
-  if (!flag || this.pos.roomName === flag.pos.roomName && !this.pos.exit) {
-    return false;
-  }
-  return this.idleMoveTo(flag);
+  return this.idleTravel(this.taskFlag);
 };

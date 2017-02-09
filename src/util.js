@@ -1,17 +1,16 @@
 
 function markDebug(obj, time=500) {
-  this.debug = false;
-  const mem = this.memory;
-  if(!mem) return;
-  const mdebug = memory.debug;
+  obj.debug = false;
+  let mdebug = obj.memory.debug;
   if(mdebug === true) {
-    mdebug = this.memory.debug = Game.time + time;
+    console.log("set debug");
+    mdebug = obj.memory.debug = Game.time + time;
   }
   if(!mdebug || mdebug < Game.time) {
-    delete this.memory.debug;
+    delete obj.memory.debug;
     return;
   }
-  this.debug = true;
+  obj.debug = true;
 }
 
 function sprint(...args) {

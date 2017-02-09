@@ -1,11 +1,11 @@
 const modutil = require('util');
 
 modutil.cachedProp(Creep, 'home', function() {
-  return Game.rooms[this.memory.home] || this.squad.home || this.room;
+  return Game.rooms[this.memory.home];
 });
 
 modutil.cachedProp(Creep, 'squad', function() {
-  return Game.squads[this.memory.squad];
+  return Game.squads[this.memory.squad] || this.team;
 });
 
 modutil.cachedProp(Creep, 'team', function() {
@@ -26,18 +26,6 @@ modutil.roProp(Creep, 'taskCreep', function() {
   const task = this.memory.task || {};
   return Game.creeps[task.creep];
 });
-
-//modutil.roProp(Creep, 'hurts', function() {
-//  return this.hitsMax - this.hits;
-//});
-
-//modutil.cachedProp(Creep, 'carryTotal', function() {
-//  return _.sum(this.carry);
-//});
-
-//modutil.cachedProp(Creep, 'carryFree', function() {
-//  return this.carryCapacity - this.carryTotal;
-//});
 
 modutil.cachedProp(Creep, 'partsByType', creep =>
     _(creep.body)

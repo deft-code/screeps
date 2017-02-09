@@ -49,7 +49,7 @@ Creep.prototype.taskHarvest = function() {
   }
   let err = this.harvest(src);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.idleMoveTo(src);
+    return this.idleMoveNear(src);
   }
   if (err == OK) {
     return src.energy || 'success';

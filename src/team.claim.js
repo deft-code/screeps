@@ -1,7 +1,15 @@
 Flag.prototype.teamClaim = function() {
   this.dlog("my creeps", this.creeps.length, this.creeps);
+  let nremote = 1;
+  if(this.room) {
+    if(this.room.controller.level > 4) {
+      nremote = 0;
+    } else if(this.room.controller.level < 4) {
+      nremote = 2;
+    }
+  }
   const hurt = _.any(this.creeps, "hurts");
-  return this.upkeepRole("remote build", 2, 2000) ||
+  return this.upkeepRole("remote build", nremote, 2000) ||
     hurt && this.upkeepRole("medic", 1, 1000);
 };
 

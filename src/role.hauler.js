@@ -65,7 +65,7 @@ Creep.prototype.actionPoolCharge = function() {
 
 Creep.prototype.actionTowerCharge = function() {
   const room = Game.rooms[this.memory.home] || this.room;
-  let tower = _(room.Structures(STRUCTURE_TOWER))
+  let tower = _(room.findStructs(STRUCTURE_TOWER))
                   .filter(s => s.energyCapacity - s.energy > s.energy)
                   .sample();
   return this.actionCharge(tower);
@@ -88,7 +88,7 @@ Creep.prototype.actionCharge = function(battery) {
   }
   this.memory.task = {
     task: 'charge',
-    charge: battery.id,
+    id: battery.id,
     note: battery.note,
   };
   this.say(battery.note);
@@ -97,10 +97,9 @@ Creep.prototype.actionCharge = function(battery) {
 
 Creep.prototype.taskCharge = function() {
   this.dlog('taskCharge');
-  let dest = Game.getObjectById(this.memory.task.charge);
-  if (!dest) {
-    return false;
-  }
+  let dest = this.taskId;
+  if (!dest) return false;
+
   const eNeed = dest.energyCapacity - dest.energy;
   if (eNeed <= 0) {
     return false;
@@ -215,9 +214,7 @@ Creep.prototype.taskDischarge = function() {
     return 'success';
   }
   return false;
-
 };
-
 
 Creep.prototype.actionDrain = function(room) {
   if (!this.carryFree) {
