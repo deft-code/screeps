@@ -1,18 +1,18 @@
 const lib = require('lib');
 
 Creep.prototype.actionChase = function(creep) {
-    if(this.pos.inRangeTo(creep, 3)) {
-        this.move(this.pos.getDirectionTo(creep));
-        return "nudge";
-    }
-    return this.idleMoveTo(creep);
+  if (this.pos.inRangeTo(creep, 3)) {
+    this.move(this.pos.getDirectionTo(creep));
+    return 'nudge';
+  }
+  return this.idleMoveTo(creep);
 };
 
 Creep.prototype.idleRetreat = function(part) {
-    if(this.getActiveBodyparts(part)) {
-        return false;
-    }
-    return this.idleMoveTo(this.home.controller);
+  if (this.getActiveBodyparts(part)) {
+    return false;
+  }
+  return this.idleMoveTo(this.home.controller);
 };
 
 Creep.prototype.actionHospital = function() {
@@ -24,33 +24,40 @@ Creep.prototype.actionHospital = function() {
 };
 
 Creep.prototype.idleTravel = function(obj) {
-  if(!obj) return false;
+  if (!obj) return false;
 
-  if(this.pos.roomName === obj.pos.roomName && !this.pos.exit) {
-      return false;
+  if (this.pos.roomName === obj.pos.roomName && !this.pos.exit) {
+    return false;
   }
   return this.idleMoveTo(obj);
 };
 
-Creep.prototype.idleMoveNear = function(obj, opts={}) {
+Creep.prototype.idleMoveNear = function(target, opts = {}) {
   opts = _.defaults(opts, {range: 1});
-  if(!obj || this.pos.inRangeTo(obj, opts.range)) return false;
+  if (!target || this.pos.inRangeTo(target, opts.range)) return false;
 
-  return this.idleMoveTo(obj, opts);
+  return this.doMoveTo(target, opts);
 };
 
-Creep.prototype.idleMoveWork = function(dest, opts={}) {
+Creep.prototype.idleMoveRange = function(target, opts = {}) {
+  opts = _.defaults(opts, {range: 3});
+  if (!target || this.pos.inRangeTo(target, opts.range)) return false;
+
+  return this.doMoveTo(target, opts);
+};
+
+Creep.prototype.idleMoveWork = function(dest, opts = {}) {
   opts = _.defaults(opts, {range: 3});
   return this.idleMoveNear(dest, opts);
 };
 
-Creep.prototype.idleMoveTo = function(obj, opts={}) {
-  if(!obj) return false;
+Creep.prototype.idleMoveTo = function(obj, opts = {}) {
+  if (!obj) return false;
   opts = _.defaults(opts, {
     useFindRoute: true,
   });
   const err = this.travelTo(obj, opts);
-  if(err != ERR_NO_PATH) {
+  if (err != ERR_NO_PATH) {
     this.intents.move = lib.getPos(obj);
     return `moveTo ${err} ${obj.pos}`;
   }
@@ -58,27 +65,27 @@ Creep.prototype.idleMoveTo = function(obj, opts={}) {
 };
 
 Creep.prototype.actionTravel = function(obj) {
-    if(!obj) {
-        return false;
-    }
-    this.memory.task = {
-        task: 'travel',
-        id: obj.id,
-        note: obj.pos.roomName,
-    };
-    return this.taskTravel();
-}
+  if (!obj) {
+    return false;
+  }
+  this.memory.task = {
+    task: 'travel',
+    id: obj.id,
+    note: obj.pos.roomName,
+  };
+  return this.taskTravel();
+};
 
 Creep.prototype.taskTravel = function() {
-    const obj = this.taskId;
-    if(!obj) {
-        return false;
-    }
-    if(this.pos.roomName === obj.pos.roomName && !this.pos.exit) {
-        return false;
-    }
-    return this.idleMoveTo(obj);
-}
+  const obj = this.taskId;
+  if (!obj) {
+    return false;
+  }
+  if (this.pos.roomName === obj.pos.roomName && !this.pos.exit) {
+    return false;
+  }
+  return this.idleMoveTo(obj);
+};
 
 Creep.prototype.actionTravelFlag = function(flag) {
   if (!flag) {
