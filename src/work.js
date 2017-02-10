@@ -37,7 +37,7 @@ Creep.prototype.actionBuild = function(site) {
   }
   this.memory.task = {
     task: 'build',
-    build: site.id,
+    id: site.id,
     note: modutil.structNote(site.structureType, site.pos),
   };
   this.say(this.memory.task.note);
@@ -46,13 +46,13 @@ Creep.prototype.actionBuild = function(site) {
 };
 
 Creep.prototype.taskBuild = function() {
-  let site = Game.getObjectById(this.memory.task.build);
+  let site = this.taskId;
   if (!site) {
     return this.actionBuildNear();
   }
   if (this.carry.energy == 0) {
     this.say('recharge');
-    this.actionRecharge(this.carryCapacity, site.pos);
+    this.actionRecharge(this.carryCapacity/2, site.pos);
   }
   const err = this.build(site);
   if (err == ERR_NOT_IN_RANGE) {
@@ -74,7 +74,7 @@ Creep.prototype.actionDismantleAny = function() {
                      .sample(3)
                      .sortBy('hits')
                      .first();
-  return this.actionDismantle(target);
+  return this.actionDismantle(target, true);
 };
 
 Creep.prototype.actionDismantle = function(struct, drop) {

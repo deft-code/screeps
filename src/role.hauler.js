@@ -65,7 +65,7 @@ Creep.prototype.actionPoolCharge = function() {
 
 Creep.prototype.actionTowerCharge = function() {
   const room = Game.rooms[this.memory.home] || this.room;
-  let tower = _(room.findStructs(STRUCTURE_TOWER))
+  let tower = _(room.Structures(STRUCTURE_TOWER))
                   .filter(s => s.energyCapacity - s.energy > s.energy)
                   .sample();
   return this.actionCharge(tower);
@@ -270,19 +270,17 @@ Creep.prototype.actionUnstore = function(struct, resource) {
 
 Creep.prototype.taskUnstore = function() {
   let src = this.taskId;
-  if (!src) {
+  if (!src || !this.carryFree) {
     return false;
   }
   let resource = this.memory.task.resource || _.sample(Object.keys(src.store));
   const what = modutil.sprint('unstore', src);
   let err = this.withdraw(src, resource);
   if (err == ERR_NOT_IN_RANGE) {
-    this.road(this.moveTo(src));
-    return modutil.sprint('moveTo', what);
+    return this.idleMoveTo(src);
   }
   if (err == OK) {
-    delete this.memory.task;
-    return what;
+    return "success";
   }
   return false;
 };
@@ -348,10 +346,10 @@ Creep.prototype.taskStore = function() {
   const what = modutil.sprint('store', err, resource, store);
 
   if (err == ERR_NOT_IN_RANGE) {
-    this.road(this.moveTo(store));
-    return what;
+    return this.idleMoveTo(store);
   }
-  return err == OK && what;
+  if( err == OK ) return 'success';
+  return false;
 };
 
 Creep.prototype.actionEmptyStore = function() {
