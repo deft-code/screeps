@@ -3,6 +3,11 @@ StructureLink.prototype.calcMode = function() {
     return 'buffer';
   }
 
+  const src = this.room.find(FIND_SOURCES, src => this.pos.inRangeTo(src, 2));
+  if(src) {
+    return 'src';
+  }
+
   if (this.pos.inRangeTo(this.room.controller, 4)) {
     return 'sink';
   }
@@ -114,6 +119,6 @@ Room.prototype.runLinks = function() {
   for (let link of this.findStructs(STRUCTURE_LINK)) {
     let mode = link.mode();
     let act = link.run();
-    //this.visual.text(act, link.pos.x + 1, link.pos.y);
+    this.visual.text(`${mode} ${act}`, link.pos, {align: "left"});
   }
 };

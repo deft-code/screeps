@@ -2,6 +2,7 @@ let modutil = require('util');
 
 Creep.prototype.run = function() {
   modutil.markDebug(this);
+  this.intents = {};
   let what = this.actionSpawning() || this.actionRole();
   this.dlog(what);
 };

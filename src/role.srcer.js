@@ -82,27 +82,24 @@ Creep.prototype.idleShunt = function() {
   const shunt = this.memory.task.shunt;
   if (!shunt) return false;
 
-  let xfer = false;
-  let deficit = false;
-  let withdraw = false;
-  let move = false;
-
   const moveTo = (struct, err) => {
     this.dlog("shunt moveTo", struct, err);
-    if (!move && err == ERR_NOT_IN_RANGE) {
+    if (!this.intents.move && err == ERR_NOT_IN_RANGE) {
       this.dlog("moving", struct);
       this.idleMoveNear(struct);
-      move = true;
     }
-    return err == OK;
+    return err ==- OK;
   };
 
+  let deficit = false;
+
   for (let id of shunt) {
-    if (xfer && withdraw) {
+    if (this.intents.xfer && this.intents.withdraw) {
+      this.dlog("done shunting");
       break;
     }
     const struct = Game.getObjectById(id);
-    this.dlog("shunting", struct);
+    this.dlog("shunting", struct, JSON.stringify(this.intents));
     if (!struct) {
       console.log('Broken Shunt!');
       delete this.memory.task.shunt;
@@ -112,40 +109,64 @@ Creep.prototype.idleShunt = function() {
       case STRUCTURE_TOWER:
       case STRUCTURE_SPAWN:
       case STRUCTURE_EXTENSION:
-        if (xfer || !this.energFree) break;
+        if (this.intents.xfer || !struct.energyFree) break;
         this.dlog("energy check", struct);
         if (this.energyFree < this.energy && struct.energyFree < this.energy) {
           break;
         }
         deficit = struct.energyFree > this.energy;
-        this.room.visual.line(this.pos, struct.pos);
-        xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+        if(!this.energy) break;
+        this.dlog("filling", struct);
+        this.intents.xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
         break;
       case STRUCTURE_LINK:
-        if (deficit) {
-          if (withdraw || !struct.energy) break;
-          withdraw = moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
+        if( struct.mode() === 'buffer') {
+          this.dlog("shunting link buffer", struct);
+          if( struct.energy > 250 ) {
+            this.dlog("clearing link buffer", struct);
+            this.intents.withdraw = moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
+          } else if( struct.energy < 200 ) {
+            this.dlog("filling link buffer", struct);
+            this.intents.xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+          }
           break;
         }
 
-        if (xfer) break;
-        xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+        if (deficit) {
+          if (this.intents.withdraw || !struct.energy) break;
+          this.dlog("withdraw", struct);
+          this.intents.withdraw = moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
+          break;
+        }
+
+        if (this.intents.xfer) break;
+        this.intents.xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
         break;
       case STRUCTURE_STORAGE:
       case STRUCTURE_CONTAINER:
         if (deficit) {
-          if (withdraw || !struct.store.energy) break;
-          withdraw = moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
+          if (this.intents.withdraw || !struct.store.energy) break;
+          this.intents.withdraw = moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
           break;
         }
 
-        if (xfer) break;
+        if (this.intents.xfer) break;
 
         this.dlog("xfer to", struct);
-        xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+        this.intents.xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
         break;
     }
   }
+};
+
+const findCont = (positions) => {
+  for(let pos of positions) {
+    const cont = _.find(
+      pos.lookFor(LOOK_STRUCTURES),
+      {structureType: STRUCTURE_CONTAINER});
+    if(cont) return cont.id;
+  }
+  return false;
 };
 
 Creep.prototype.taskSrc = function() {
@@ -158,14 +179,26 @@ Creep.prototype.taskSrc = function() {
   if (err == ERR_NOT_IN_RANGE || err == ERR_NOT_ENOUGH_RESOURCES && !this.pos.isNearTo(src)) {
     return this.idleMoveTo(src);
   }
-  if (this.carry) {
-    if (true) {
-      this.idleNom();
-      const shunt = this.memory.task.shunt;
-      if (!shunt) {
-        this.startShunt(...src.spots);
+  if (this.getActiveBodyparts(CARRY)) {
+    this.idleNom();
+    const shunt = this.memory.task.shunt;
+    if (!shunt) {
+      this.startShunt(...src.spots);
+    }
+    this.idleShunt();
+  } else {
+    let contid = this.memory.task.cont;
+    if(contid === undefined) {
+      contid = this.memory.task.cont = findCont(src.spots);
+    }
+    if(contid) {
+      const cont = Game.getObjectById(contid);
+      if(!cont) {
+        delete this.memory.task.cont;
+      } else {
+        this.dlog("adjusting");
+        this.idleMoveTo(cont);
       }
-      this.idleShunt();
     }
   }
   if (err == OK) {

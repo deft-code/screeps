@@ -4,6 +4,6 @@ Creep.prototype.roleGuard = function() {
         this.actionTask() ||
         this.actionArcher(this.squad.flag.room) ||
         this.actionRoomHeal(this.squad.flag.room) ||
-        this.idleMoveNear(this.squad.flag);
+        this.idleTravel(this.squad.flag);
 };
 

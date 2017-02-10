@@ -155,7 +155,7 @@ Creep.prototype.actionArcher = function(room) {
     }
     
     const enemy = _.find(room.enemies,
-      c => c.getActiveBodyparts(CLAIM) || c.getActiveBodyparts(CARRY) > 1);
+      c => c.getActiveBodyparts(CLAIM) || c.getActiveBodyparts(CARRY) > c.getActiveBodyparts(WORK));
     return this.actionKite(enemy);
 };
 
@@ -213,7 +213,7 @@ Creep.prototype.taskKite = function() {
       err = this.rangedAttack(creep);
       break;
     default:
-      return this.idleMoveTo(creep);
+      return this.idleMoveWork(creep);
   }
 
   if(err == OK) {
