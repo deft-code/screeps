@@ -34,7 +34,7 @@ Creep.prototype.run = function() {
     move: this.fatigue > 0 ? 'tired' : false,
   };
   let what = this.actionSpawning() || this.actionRole();
-  const total = Game.cpu.getUsed() - start;
+  const total = Math.floor(1000* (Game.cpu.getUsed() - start));
   if (!this.memory.cpu) {
     this.memory.cpu = 0;
   }
@@ -42,7 +42,7 @@ Creep.prototype.run = function() {
   let rate = this.memory.cpu;
   const age = CREEP_LIFE_TIME - this.ticksToLive;
   if (age > 0) {
-    rate /= age;
+    rate = Math.floor(rate / age);
   }
 
   this.dlog(`cpu ${total}:${rate} ${what}`);

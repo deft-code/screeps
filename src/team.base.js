@@ -1,5 +1,4 @@
 Flag.prototype.teamBase = function() {
-  this.debug = true;
   this.dlog("my creeps", this.creeps.length, this.creeps);
 
   const srcers = this.roleCreeps("srcer");
@@ -14,8 +13,8 @@ Flag.prototype.teamBase = function() {
     if(where) return where;
   }
 
-  return this.upkeepRole("srcer", 2, Math.min(this.room.energyCapacity, 750), 3) ||
-    this.upkeepRole("hauler", 2, this.room.energyCapacity / 3, 3) ||
+  return this.upkeepRole("srcer", 2, Math.min(this.room.energyCapacityAvailable, 750), 3) ||
+    this.upkeepRole("hauler", 2, this.room.energyCapacityAvailable / 3, 3) ||
     "enough";
 };
 

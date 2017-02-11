@@ -47,6 +47,8 @@ Flag.prototype.upkeepRole = function(role, n, energy, priority=0) {
   n = this.memOr('n' + role, n);
   if (creeps.length >= n) return false;
 
+  this.dlog("team upkeepRole", role, n, energy, priority);
+
   const spawn = this.findSpawn(energy);
   if (!spawn) return false;
 
@@ -88,14 +90,13 @@ Flag.prototype.spawnDist = function(spawn) {
   const mem = this.memory = this.memory || {};
   let cache = mem.spawnDist;
   if(!cache || !this.pos.isEqualTo(cache.pos)) {
-    cache = { pos: this.pos };
+    cache = mem.spawnDist = { pos: this.pos };
   }
   let dist = cache[spawn.name];
   if (!dist || dist.expire < Game.time) {
     dist = cache[spawn.name] = {
-      pos: this.pos,
       cost: PathFinder.search(this.pos, spawn.pos).cost,
-      expire: Game.time + 100,
+      expire: Math.floor(Game.time + 100 + 50 * Math.random()),
     };
   }
   return dist.cost;

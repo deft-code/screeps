@@ -114,8 +114,10 @@ Creep.prototype.taskDismantle = function() {
 };
 
 Creep.prototype.actionRepairAny = function() {
-  const room = Game.rooms[this.memory.home] || this.room;
-  const target = _(room.cachedFind(FIND_STRUCTURES))
+  const room = this.team.room;
+  if(!room) return false;
+
+  const target = _(room.find(FIND_STRUCTURES))
                      .filter(s => s.repairs > 0 && !s.memory.dismantle)
                      .sample(3)
                      .sortBy('repairs')
@@ -139,7 +141,7 @@ Creep.prototype.actionRepairStruct = function(structureType, room) {
 Creep.prototype.actionRepairNear = function() {
   const room = this.room;
   const struct =
-      _(room.cachedFind(FIND_STRUCTURES))
+      _(room.find(FIND_STRUCTURES))
           .filter(
               s => s.structureType != STRUCTURE_WALL &&
                   s.structureType != STRUCTURE_RAMPART && s.hits < s.hitsMax &&
@@ -149,12 +151,11 @@ Creep.prototype.actionRepairNear = function() {
 };
 
 Creep.prototype.actionRepair = function(struct) {
-  if (!struct) {
-    return false;
-  }
+  if (!struct) return false;
+
   this.memory.task = {
     task: 'repair',
-    repair: struct.id,
+    id: struct.id,
     note: struct.note,
   };
   this.say(this.memory.task.note);
@@ -162,7 +163,7 @@ Creep.prototype.actionRepair = function(struct) {
 };
 
 Creep.prototype.taskRepair = function() {
-  const structure = Game.getObjectById(this.memory.task.repair);
+  const structure = this.taskId;
   if (!structure || structure.memory.dismantle) {
     return false;
   }
@@ -180,15 +181,10 @@ Creep.prototype.taskRepair = function() {
   if (!this.carry.energy) {
     return this.actionRecharge(this.carryCapacity, structure.pos);
   }
-  const err = this.repair(structure);
-  if (err == ERR_NOT_IN_RANGE) {
-    return this.idleMoveRange(structure);
-  }
-  if (err == OK) {
+  if(this.doRepair(structure)) {
     this.actionDoubleTime();
     return structure.hits;
   }
-  console.log('repair err', err);
   return false;
 };
 

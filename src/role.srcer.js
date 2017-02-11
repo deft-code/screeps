@@ -109,13 +109,10 @@ Creep.prototype.idleShunt = function() {
       case STRUCTURE_TOWER:
       case STRUCTURE_SPAWN:
       case STRUCTURE_EXTENSION:
-        if (this.intents.xfer || !struct.energyFree) break;
+        if (this.intents.xfer || struct.energyFree < 25) break;
         this.dlog("energy check", struct);
-        if (this.energyFree < this.energy && struct.energyFree < this.energy) {
-          break;
-        }
-        deficit = struct.energyFree > this.energy;
-        if(!this.energy) break;
+        deficit = struct.energyFree > this.carry.energy;
+        if(!this.carry.energy) break;
         this.dlog("filling", struct);
         this.intents.xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
         break;

@@ -1,5 +1,5 @@
 
-function(pos, objs) {
+function pickClosest(pos, objs) {
   // Sample as well since range only work within the room.
   return pos.findClosestByRange(objs) || _.sample(objs);
 }
@@ -137,12 +137,13 @@ function randomResource(resources) {
 }
 
 module.exports = {
-  markDebug: markDebug,
-  who: who,
   cachedProp: cachedProp,
+  markDebug: markDebug,
+  optimizeBody: optimizeBody,
+  pickClosest: pickClosest,
+  randomResource: randomResource,
   roProp: roProp,
   sprint: sprint,
-  randomResource: randomResource,
   structNote: structNote,
-  optimizeBody: optimizeBody,
+  who: who,
 };
