@@ -15,6 +15,7 @@ class RoomSquad extends modsquads.Squad {
       return 'spawning';
     }
     
+    /*
     let who = this.upkeepRole("hauler", 1) ||
         this.upkeepRole("srcer", 1);
     if(who) {
@@ -33,6 +34,7 @@ class RoomSquad extends modsquads.Squad {
         console.log(this.spawn.name, "spawned", who);
         return who;
     }
+    */
     
     
     if (room.energyOpen > 100) {

@@ -213,7 +213,7 @@ Creep.prototype.taskKite = function() {
       err = this.rangedAttack(creep);
       break;
     default:
-      return this.idleMoveWork(creep);
+      return this.idleMoveRange(creep);
   }
 
   if(err == OK) {

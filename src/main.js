@@ -10,17 +10,19 @@ const lib = require('lib');
 lib.enhanceAll();
 
 const modprototypes = require('prototypes');
-const modcontroller = require('controller');
 
+require('container');
+require('controller');
 require('link');
+require('matrix');
+require('room');
 require('source');
+require('spawn');
+require('tower');
 
 const modcreep = require('creep');
 require('creep.move');
-const modroom = require('room');
-const modtower = require('tower');
-const modspawn = require('spawn');
-const modmatrix = require('matrix');
+require('role.hauler');
 
 const modrole = require('mod.role');
 const modwork = require('work');

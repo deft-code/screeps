@@ -46,11 +46,6 @@ Creep.prototype.idleMoveRange = function(target, opts = {}) {
   return this.doMoveTo(target, opts);
 };
 
-Creep.prototype.idleMoveWork = function(dest, opts = {}) {
-  opts = _.defaults(opts, {range: 3});
-  return this.idleMoveNear(dest, opts);
-};
-
 Creep.prototype.idleMoveTo = function(obj, opts = {}) {
   if (!obj) return false;
   opts = _.defaults(opts, {

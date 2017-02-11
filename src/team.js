@@ -1,13 +1,22 @@
 const util = require('util');
+
 Flag.prototype.runTeam = function() {
-  delete this.memory.cnames;
   util.markDebug(this);
   this.memory.creeps = this.memory.creeps || [];
   const removed = _.remove(this.memory.creeps, cname => !Game.creeps[cname]);
   if(removed.length) {
     this.dlog("Dead Creeps", removed);
   }
+  if(this.room) {
+    let stolen = this.memory.creeps.concat(_.map(this.room.find(FIND_MY_CREEPS), 'name'));
+    this.memory.creeps = _.uniq(stolen);
+  }
   this.creeps = this.memory.creeps.sort().map(name => Game.creeps[name]);
+  for(let creep of this.creeps) {
+    if(!creep.memory.team) {
+      creep.memory.team = this.name;
+    }
+  }
   this.creepsByRole = _.groupBy(this.creeps, c => c.memory.role);
 };
 

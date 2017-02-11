@@ -1,4 +1,9 @@
 
+function(pos, objs) {
+  // Sample as well since range only work within the room.
+  return pos.findClosestByRange(objs) || _.sample(objs);
+}
+
 function markDebug(obj, time=500) {
   obj.debug = false;
   let mdebug = obj.memory.debug;

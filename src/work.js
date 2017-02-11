@@ -56,7 +56,7 @@ Creep.prototype.taskBuild = function() {
   }
   const err = this.build(site);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.idleMoveWork(site);
+    return this.idleMoveRange(site);
   }
   if (err == OK) {
     this.actionDoubleTime();
@@ -182,7 +182,7 @@ Creep.prototype.taskRepair = function() {
   }
   const err = this.repair(structure);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.idleMoveWork(structure);
+    return this.idleMoveRange(structure);
   }
   if (err == OK) {
     this.actionDoubleTime();
@@ -202,7 +202,7 @@ Creep.prototype.actionEmergencyUpgrade = function() {
 
 Creep.prototype.roleWorker = function() {
   return this.idleNom() || this.taskDoubleTime() || this.actionTask() ||
-      this.actionMineralStore() || this.actionBuildStruct(STRUCTURE_TOWER) ||
+      this.actionStoreResource() || this.actionBuildStruct(STRUCTURE_TOWER) ||
       this.actionBuildStruct(STRUCTURE_EXTENSION) ||
       this.actionBuildStruct(STRUCTURE_CONTAINER) || this.actionBuildFinish() ||
       this.actionRepairAny() || this.actionDismantleAny() ||
@@ -210,7 +210,7 @@ Creep.prototype.roleWorker = function() {
 };
 
 Creep.prototype.roleBootstrap = function() {
-  return this.actionTask() || this.actionMineralStore() ||
+  return this.actionTask() || this.actionStoreResource() ||
       this.actionPoolCharge() || this.actionTowerCharge() ||
       this.actionUpgrade() || this.actionHarvestAny();
 };
@@ -285,22 +285,12 @@ Creep.prototype.taskUpgrade = function() {
   }
   const err = this.upgradeController(controller);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.idleMoveWork(controller);
+    return this.idleMoveRange(controller);
   }
   if (err == OK) {
     this.actionDoubleTime();
   }
   return 'upgrade ' + controller.progress;
-};
-
-
-const newWorker = function(room) {
-  let spawn = _.first(room.cachedFind(FIND_MY_SPAWNS));
-  if (!spawn) {
-    console.log('No spawners');
-    return;
-  }
-  return spawn.roleWorker();
 };
 
 StructureSpawn.prototype.roleWorker = function() {

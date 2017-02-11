@@ -4,16 +4,7 @@ Creep.prototype.roleSnipe = function() {
       this.actionTravelFlag(Game.flags.snipe) ||
       this.actionSnipe(); 
 };
-/*
-Creep.prototype.actionAttackNearStruct = function(structType) {
-    if(this.room.controller && this.room.controller.my) {
-        return false;
-    }
-    
-    const structs = _(this.room.cachedFined(FIND_HOSTILE_STRUCTURES))
-        .filter(s => s.structureType == structType);
-}
-*/
+
 Creep.prototype.actionSnipe = function() {
   if (this.room.controller.my) {
     return false;

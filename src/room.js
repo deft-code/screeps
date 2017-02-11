@@ -4,7 +4,6 @@ let modprototypes = require('prototypes');
 let modutil = require('util');
 let modwork = require('work');
 let modroad = require('road');
-let modhauler = require('role.hauler');
 let modmanual = require('role.manual');
 
 Room.prototype.findStructs = function(...types) {

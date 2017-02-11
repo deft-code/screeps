@@ -63,7 +63,7 @@ Creep.prototype.doMove = function(dir) {
       return this.intents.move;
     case ERR_TIRED:
     case ERR_BUSY:
-      console.log(this, 'move error!', err);
+      console.log(this, 'Unexpected move error!', err);
   }
   return false;
 };
@@ -82,7 +82,7 @@ Creep.prototype.doMoveTo = function(target, opts = {}) {
       return this.intents.move;
     case ERR_TIRED:
     case ERR_BUSY:
-      console.log(this, 'move error!', err);
+      console.log(this, 'Unexpected moveTo error!', err);
   }
   return false;
 };

@@ -50,8 +50,7 @@ StructureLink.prototype.xferRaw = function(target, energy) {
   return `xfer ${err}`;
 };
 
-StructureLink.prototype.run =
-    function() {
+StructureLink.prototype.run = function() {
   if (this.cooldown) return `cooldown ${this.cooldown}`;
   if (this.energy < 100) return `empty ${this.energy}`;
 
@@ -64,9 +63,9 @@ StructureLink.prototype.run =
       return this.runBuffer();
   }
   return `bad mode ${this.mode()}`;
-}
+};
 
-    StructureLink.prototype.runSrc = function() {
+StructureLink.prototype.runSrc = function() {
   const links = this.room.findStructs(STRUCTURE_LINK);
 
   const sinks = _.filter(links, link => link.mode() === 'sink');

@@ -6,6 +6,8 @@ class FarmSquad extends modsquads.Squad {
   }
 
   execute() {
+    return  "NOT YET!";
+
     if (!this.spawn) {
       return 'no spawn';
     }
