@@ -86,7 +86,8 @@ Creep.prototype.actionChargeAny = function() {
   if(!room) return false;
 
   let need =
-      _(room.findStructs(STRUCTURE_LAB, STRUCTURE_TOWER))
+      //_(room.findStructs(STRUCTURE_LAB, STRUCTURE_TOWER))
+      _(room.findStructs(STRUCTURE_TOWER))
           .filter(s => s.energyFree > 100)
           .sample();
   return this.actionCharge(need);
