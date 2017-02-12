@@ -128,6 +128,7 @@ module.exports = {
   Squad: Squad,
 
   run: () => {
+    return;
     Game.squads = {};
     const squadNames = _.keys(Memory.squads);
     // console.log("squadNames", squadNames.length, squadNames);

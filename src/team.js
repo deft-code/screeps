@@ -59,6 +59,7 @@ Flag.prototype.findSpawn = function(energy=0, dist=50) {
   const spawns =
       _(Game.spawns)
           .filter(spawn => spawn.room.energyCapacityAvailable >= energy)
+          .filter(spawn => spawn.room.name === this.pos.roomName)
           .sortBy(spawn => this.spawnDist(spawn))
           .value();
 

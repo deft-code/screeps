@@ -1,3 +1,5 @@
+const util = require('util');
+
 Flag.prototype.teamClaim = function() {
   this.dlog("my creeps", this.creeps.length, this.creeps);
   let nremote = 1;
@@ -43,6 +45,8 @@ StructureSpawn.prototype.roleClaim = function() {
 };
 
 Creep.prototype.actionHarvestAny = function(room) {
+  if(!room) return false;
+
   const src = util.pickClosest(room.find(FIND_SOURCES_ACTIVE));
   return this.actionHarvest(src);
 };

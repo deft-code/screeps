@@ -34,11 +34,7 @@ const modscout = require('role.scout');
 const modchemist = require('role.chemist');
 const modsrcer = require('role.srcer');
 const medic = require('role.medic');
-const modcartsquad = require('squad.carts');
 const modmisc = require('role.misc');
-const modrobsquad = require('squad.rob');
-const modroomsquad = require('squad.room');
-const modsquads = require('squads');
 
 global.structMem = function(id) {
   const s = Game.getObjectById(id);
@@ -75,7 +71,6 @@ function main() {
     runner(Game.rooms);
     runner(Game.flags);
     runner(Game.spawns);
-    modsquads.run();
     runner(Game.creeps);
 
     for (var name in Memory.creeps) {

@@ -4,10 +4,6 @@ modutil.cachedProp(Creep, 'home', function() {
   return Game.rooms[this.memory.home];
 });
 
-modutil.cachedProp(Creep, 'squad', function() {
-  return Game.squads[this.memory.squad] || this.team;
-});
-
 modutil.cachedProp(Creep, 'team', function() {
   return Game.flags[this.memory.team];
 });

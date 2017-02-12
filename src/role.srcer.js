@@ -7,7 +7,7 @@ Creep.prototype.roleSrcer = function() {
 };
 
 Creep.prototype.actionStartSrc = function() {
-  const srcers = this.squad.roleCreeps(this.memory.role);
+  const srcers = this.team.roleCreeps(this.memory.role);
   const home = this.home;
   const srcs = home.find(FIND_SOURCES);
 
