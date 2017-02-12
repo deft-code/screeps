@@ -6,6 +6,7 @@ class RoomSquad extends modsquads.Squad {
   }
 
   execute() {
+    return "NOPE!";
     if (!this.spawn) {
         console.log(this.name, "no spawn");
       return 'no spawn';
