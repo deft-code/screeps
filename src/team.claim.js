@@ -23,3 +23,59 @@ Flag.prototype.roleRemoteBuild = function(spawn) {
   ];
   return this.createRole(spawn, body, {role: 'remote build'});
 };
+
+Creep.prototype.roleClaim = function() {
+  let f = Game.flags.claim;
+  if (!f) return false;
+
+  if (this.pos.roomName === f.pos.roomName) {
+    const err = this.claimController(this.room.controller);
+    if (err == ERR_NOT_IN_RANGE) {
+      return this.idleMoveTo(this.room.controller);
+    }
+  }
+  return this.idleMoveNear(f);
+};
+
+StructureSpawn.prototype.roleClaim = function() {
+  const body = [CLAIM, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE];
+  return this.createRole(body, 2, {role: 'claim'});
+};
+
+Creep.prototype.actionHarvestAny = function(room) {
+  const src = util.pickClosest(room.find(FIND_SOURCES_ACTIVE));
+  return this.actionHarvest(src);
+};
+
+Creep.prototype.actionHarvest = function(src) {
+  if (!src) return false;
+
+  this.memory.task = {
+    task: 'harvest',
+    id: src.id,
+    note: 'src' + src.pos.x + src.pos.y,
+  };
+  this.say(this.memory.task.note);
+  return this.taskHarvest();
+};
+
+Creep.prototype.taskHarvest = function() {
+  if (!this.carryFree) return false;
+
+  const src = this.taskId;
+  if (!src || !src.energy) {
+    return false;
+  }
+  return this.doHarvest(src) && src.energy + 1;
+};
+
+Creep.prototype.roleRemoteBuild = function() {
+  if(this.room.name == this.team.pos.roomName) this.idleNom();
+
+  return this.actionTask() ||
+      this.actionTravelFlag(this.team) ||
+      this.actionBuildRoom(this.team.room) ||
+      this.actionUpgrade(this.team.room) ||
+      this.actionHarvestAny(this.team.room) ||
+      this.idleMoveNear(this.team);
+};

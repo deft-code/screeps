@@ -87,6 +87,20 @@ Creep.prototype.doMoveTo = function(target, opts = {}) {
   return false;
 };
 
+Creep.prototype.doHarvest = function(src) {
+  if(this.busy('melee')) return false;
+
+  const err = this.harvest(src);
+  if (err == OK) {
+    return this.intents.melee = `src ${src.pos}`;
+  }
+  if (err == ERR_NOT_IN_RANGE) {
+    return this.idleMoveNear(src);
+  }
+  return false;
+
+};
+
 Creep.prototype.doBuild = function(site) {
   if (this.busy('melee', 'range')) return false;
 
@@ -127,7 +141,7 @@ Creep.prototype.doDismantle = function(struct) {
 };
 
 Creep.prototype.doHeal = function(creep) {
-  if (this.busy('melee') return false;
+  if (this.busy('melee')) return false;
 
   const err = this.heal(struct);
   if (err == OK) {
