@@ -118,10 +118,11 @@ Room.prototype.cycleRampart = function(rampart) {
 };
 
 function upkeepMyRoom(room) {
-  let towers = room.Structures(STRUCTURE_TOWER);
-  towers.forEach(modtower.tower);
+  for(let tower of room.findStructs(STRUCTURE_TOWER)) {
+    modtower.tower(tower);
+  }
 
-  modroad.upkeep(room);
+  //modroad.upkeep(room);
 
   customFunc = custom[room.name];
   if (customFunc) {

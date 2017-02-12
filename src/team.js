@@ -73,7 +73,7 @@ Flag.prototype.findSpawn = function(energy=0, dist=50) {
   }
   return _.find(
       spawns,
-      spawn => !spawn.spawning && spawn.room.energyAvailable > energy &&
+      spawn => !spawn.spawning && spawn.room.energyAvailable >= energy &&
           this.spawnDist(spawn) < max);
 };
 

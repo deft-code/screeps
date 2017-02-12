@@ -1,6 +1,8 @@
 var doTower = function(tower) {
+  if(!tower.energy) return false;
+
   const struct =
-      _(tower.room.cachedFind(FIND_STRUCTURES))
+      _(tower.room.find(FIND_STRUCTURES))
           .filter(
               s => !s.memory.dismantle &&
                   ((s.structureType == STRUCTURE_RAMPART &&

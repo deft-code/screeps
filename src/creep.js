@@ -74,8 +74,8 @@ Creep.prototype.doMoveTo = function(target, opts = {}) {
   const err = this.travelTo(target, opts);
   switch (err) {
     case OK:
-      this.intents.move = `move ${target.pos}`;
-      return this.intents.move;
+      this.intents.move = target;
+      return `move ${target.pos}`;
     case ERR_TIRED:
     case ERR_BUSY:
       console.log(this, 'Unexpected moveTo error!', err);
@@ -88,7 +88,8 @@ Creep.prototype.doHarvest = function(src) {
 
   const err = this.harvest(src);
   if (err == OK) {
-    return this.intents.melee = `src ${src.pos}`;
+    this.intents.melee = src;
+    return src.energy + 1;
   }
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveNear(src);
@@ -102,7 +103,8 @@ Creep.prototype.doBuild = function(site) {
 
   const err = this.build(site);
   if (err == OK) {
-    return this.intents.melee = this.intents.range = `build ${site.pos}`;
+    this.intents.melee = this.intents.range = site;
+    return site.progressTotal - site.progress + 1;
   }
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveRange(site);
@@ -115,7 +117,8 @@ Creep.prototype.doRepair = function(struct) {
 
   const err = this.repair(struct);
   if (err == OK) {
-    return this.intents.melee = this.intents.range = `repair ${struct.note}`;
+    this.intents.melee = this.intents.range = struct;
+    return struct.hits;
   }
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveRange(struct);
@@ -128,7 +131,8 @@ Creep.prototype.doDismantle = function(struct) {
 
   const err = this.dismantle(struct);
   if (err == OK) {
-    return this.intents.melee = `dismantle ${struct.note}`;
+    this.intents.melee = struct;
+    return struct.hits;
   }
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveNear(struct);
@@ -141,7 +145,8 @@ Creep.prototype.doHeal = function(creep) {
 
   const err = this.heal(struct);
   if (err == OK) {
-    return this.intents.melee = `heal ${creep.name}`;
+    this.intents.melee = creep;
+    return creep.hurts;
   }
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveNear(creep);
@@ -154,7 +159,8 @@ Creep.prototype.doRangedHeal = function(creep) {
 
   const err = this.rangeHeal(struct);
   if (err == OK) {
-    return this.intents.melee = this.intents.range = `range heal ${creep.name}`;
+    this.intents.melee = this.intents.range = creep;
+    return creep.hurts;
   }
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveRange(creep);
@@ -167,7 +173,8 @@ Creep.prototype.doRangedAttack = function(creep) {
 
   const err = this.rangedAttack(struct);
   if (err == OK) {
-    return this.intents.range = `attack ${creep.pos}`;
+    this.intents.range = creep;
+    return creep.hits;
   }
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveRange(creep);
@@ -203,7 +210,8 @@ Creep.prototype.doTransfer = function(target, resource, ...amount) {
 
   const err = this.transfer(target, resource, ...amount);
   if (err == OK) {
-    return this.intents.transfer = `xfer ${target.pos}`;
+    this.intents.transfer = `xfer ${target.pos}`;
+    return "success";
   }
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveNear(target);
@@ -216,7 +224,8 @@ Creep.prototype.doWithdraw = function(target, resource, ...amount) {
 
   const err = this.withdraw(target, resource, ...amount);
   if (err == OK) {
-    return this.intents.withdraw = `withdraw ${target.pos}`;
+    return this.intents.withdraw = target;
+    return "success";
   }
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveNear(target);

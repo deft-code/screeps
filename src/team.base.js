@@ -21,7 +21,7 @@ Flag.prototype.teamBase = function() {
 };
 
 Flag.prototype.roleSrcer = function(spawn) {
-  const body = [MOVE, WORK, WORK, WORK, WORK, CARRY, WORK, WORK, MOVE, MOVE];
+  const body = [MOVE, WORK, WORK, CARRY, WORK, WORK, WORK, WORK, MOVE, MOVE];
   return this.createRole(spawn, body, {role: "srcer"});
 };
 

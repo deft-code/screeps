@@ -125,10 +125,7 @@ Creep.prototype.taskCharge = function() {
 
   if (!this.carry.energy) return false;
 
-  const ret = this.doTransfer(dest, RESOURCE_ENERGY);
-  this.dlog("task charge ret", ret);
-  return ret && "success";
-  //return this.doTransfer(dest, RESOURCE_ENERGY) && "success";
+  return this.doTransfer(dest, RESOURCE_ENERGY);
 };
 
 const creepNeedsCharge = (creep) => creep.carryFree > creep.carry.energy &&
@@ -158,7 +155,7 @@ Creep.prototype.taskChargeCreep = function() {
   if (!creep || !creepNeedsCharge(creep)) {
     return false;
   }
-  return this.doTransfer(creep, RESOURCE_ENERGY) && "success";
+  return this.doTransfer(creep, RESOURCE_ENERGY);
 };
 
 Creep.prototype.actionDischarge = function() {
@@ -187,7 +184,7 @@ Creep.prototype.taskDischarge = function() {
 
   if (!this.carry.energy) return false;
 
-  return this.doTransfer(target, RESOURCE_ENERGY) && "success";
+  return this.doTransfer(target, RESOURCE_ENERGY);
 };
 
 Creep.prototype.actionDrain = function() {
@@ -253,7 +250,7 @@ Creep.prototype.taskUnstore = function() {
   }
   const resource = this.memory.task.resource || util.randomResource(src.store);
   this.dlog("task unstore", src, resource);
-  return this.doWithdraw(src, resource) && "success";
+  return this.doWithdraw(src, resource);
 };
 
 Creep.prototype.actionStoreAny = function() {
@@ -320,7 +317,7 @@ Creep.prototype.taskStore = function() {
     return false;
   }
   let resource = this.memory.task.resource || util.randomResource(this.carry);
-  return this.doTransfer(store, resource) && "success";
+  return this.doTransfer(store, resource);
 };
 
 Creep.prototype.roleHauler = function() {

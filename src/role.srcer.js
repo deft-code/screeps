@@ -99,7 +99,6 @@ Creep.prototype.idleShunt = function() {
       break;
     }
     const struct = Game.getObjectById(id);
-    this.dlog("shunting", struct, JSON.stringify(this.intents));
     if (!struct) {
       console.log('Broken Shunt!');
       delete this.memory.task.shunt;
