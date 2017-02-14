@@ -152,7 +152,7 @@ exports.creepWeight = (creep) => {
         break;
     }
   }
-  return weight;
+  return weight*2;
 };
 
 // Returns resource amounts from `creep` creation.
@@ -224,7 +224,7 @@ function getPartInfo(part) {
       if (action == 'harvest') {
         partInfo.mineral *= boost[action];
       }
-      partPower[action] *= boost[action];
+      partInfo[action] *= boost[action];
     }
   }
   return partInfo;
@@ -239,7 +239,7 @@ function getPartInfo(part) {
 // * capacity: is equivalent to `carryCapacity` unless `creep` is damaged.
 exports.creepBodyInfo = (creep, all) => {
   let info = {};
-  for (let part of power) {
+  for (let part of _.values(power)) {
     for (let action in part) {
       info[action] = 0;
     }
@@ -248,7 +248,7 @@ exports.creepBodyInfo = (creep, all) => {
   for (let i = 0; i < creep.body.length; i++) {
     const part = creep.body[i];
     if (!all && !part.hits) continue;
-    const p = partPower(creep.body[i]);
+    const p = power[part.type];
     for (let action in p) {
       info[action] += p[action];
     }
