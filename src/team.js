@@ -41,7 +41,7 @@ Flag.prototype.memOr = function(key, value) {
   return v;
 };
 
-Flag.prototype.upkeepRole = function(role, n, energy, priority=0) {
+Flag.prototype.upkeepRole = function(role, n, energy, priority=0, dist=0) {
   const creeps = this.roleCreeps(role);
 
   n = this.memOr('n' + role, n);
@@ -49,32 +49,20 @@ Flag.prototype.upkeepRole = function(role, n, energy, priority=0) {
 
   this.dlog("team upkeepRole", role, n, energy, priority);
 
-  const spawn = this.findSpawn(energy);
+  const spawn = this.findSpawn(energy, dist);
   if (!spawn) return false;
-
   return spawn.enqueueRole(this, role, priority) && spawn.name;
 };
 
-Flag.prototype.findSpawn = function(energy=0, dist=50) {
-  const spawns =
-      _(Game.spawns)
-          .filter(spawn => spawn.room.energyCapacityAvailable >= energy)
-          .filter(spawn => spawn.room.name === this.pos.roomName)
-          .sortBy(spawn => this.spawnDist(spawn))
-          .value();
-
-  if (!spawns.length) return false;
-
-  const closest = spawns[0];
-  this.dlog("closest spawn", closest);
-  let max = this.spawnDist(closest) + dist;
-  if (closest.spawning) {
-    max += closest.spawning.remainingTime;
-  }
-  return _.find(
-      spawns,
-      spawn => !spawn.spawning && spawn.room.energyAvailable >= energy &&
-          this.spawnDist(spawn) < max);
+Flag.prototype.findSpawn = function(energy=0, dist=0) {
+  return _(Game.spawns)
+    .filter(spawn =>
+      spawn.room.energyAvailable >= energy &&
+      this.spawnDist(spawn) <= dist &&
+      !spawn.spawning)
+    .shuffle()
+    .concat([null])
+    .min(spawn => this.spawnDist(spawn));
 };
 
 Flag.prototype.createRole = function(spawn, body, mem) {
@@ -85,22 +73,24 @@ Flag.prototype.createRole = function(spawn, body, mem) {
     return who;
   }
   return false;
-}
+};
 
 Flag.prototype.spawnDist = function(spawn) {
+  if(!spawn) return Infinity;
+
   const mem = this.memory = this.memory || {};
+  // TODO delete this
+  //delete this.memory.spawnDist;
   let cache = mem.spawnDist;
   if(!cache || !this.pos.isEqualTo(cache.pos)) {
     cache = mem.spawnDist = { pos: this.pos };
   }
   let dist = cache[spawn.name];
-  if (!dist || dist.expire < Game.time) {
-    dist = cache[spawn.name] = {
-      cost: PathFinder.search(this.pos, spawn.pos).cost,
-      expire: Math.floor(Game.time + 100 + 50 * Math.random()),
-    };
+  if (dist === undefined) {
+    dist = cache[spawn.name] = Game.map.findRoute(this.pos.roomName, spawn.room).length;
+    cache.min = Math.min(cache.min||0, dist);
   }
-  return dist.cost;
+  return dist;
 };
 
 Flag.prototype.run = function() {

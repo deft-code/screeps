@@ -15,7 +15,7 @@ Flag.prototype.teamBase = function() {
 
   return this.upkeepRole("srcer", 2, Math.min(this.room.energyCapacityAvailable, 750), 3) ||
     this.upkeepRole("hauler", 2, this.room.energyCapacityAvailable / 3, 3) ||
-    this.upkeepRole("worker", 2, this.room.energyCapacityAvailable, 2) ||
+    this.upkeepRole("worker", 1, this.room.energyCapacityAvailable, 2) ||
     this.upkeepRole("upgrader", 1, this.room.energyCapacityAvailable, 2) ||
     "enough";
 };

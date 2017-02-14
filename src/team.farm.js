@@ -1,9 +1,8 @@
 const util = require('util');
 
 Flag.prototype.teamFarm = function() {
-  return "NOT YET";
-  this.dlog("teamFarm", this.creeps);
-  this.attacked = this.memory.attacked < Game.time;
+  this.dlog("teamFarm", JSON.stringify(_.mapValues(this.creepsByRole, creeps => _.map(creeps, "name"))));
+  this.attacked = this.memory.attacked > Game.time;
   if(!this.attacked) {
     if(this.room && this.room.hostiles.length) {
       this.memory.attacked = Game.time + this.room.hostiles[0].ticksToLive;
@@ -16,23 +15,27 @@ Flag.prototype.teamFarm = function() {
   let nfarmer = 1;
   let canReserve = false;
   if(this.room) {
+    const nsrcs = this.room.find(FIND_SOURCES).length;
+    nfarmer = nsrcs;
     const controller = this.room.controller;
-    const claimed = controller && controller.reservation && !controller.my;
-    canReserve = !this.attacked && controller && !claimed && controller.resTicks < 4000;
+    const claimed = controller && !controller.my;
+    canReserve = !this.attacked && controller && !claimed &&
+      controller.resTicks < 4000 && this.memory.spawnDist.min < 2;
     if(canReserve) {
-      nfarmer = this.room.find(FIND_SOURCES).length + 1;
+      nfarmer++;
     }
   }
 
-  return this.upkeepRole("guard", 1,  700, 2) ||
-    this.upkeepRole("farmer", nfarmer,  700, 1) ||
-    canReserve && this.upkeepRole("reserver", 1,  1300, 1) ||
+  return this.upkeepRole("guard", 1,  700, 2, 2) ||
+    this.upkeepRole("farmer", nfarmer,  700, 1, 2) ||
+    canReserve && this.upkeepRole("reserver", 1,  1300, 1, 2) ||
     "enough";
 };
 
 Flag.prototype.roleGuard = function(spawn) {
   let body = [
-      MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, HEAL,
+      MOVE, TOUGH, MOVE, TOUGH,
+      MOVE, RANGED_ATTACK, MOVE, HEAL,
       MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
   ];
   return this.createRole(spawn, body, {role: 'guard'});
@@ -104,14 +107,14 @@ Creep.prototype.actionXferNearest = function(room) {
     let stores = room.findStructs(STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL);
     stores = _.filter(stores, s => s.storeFree > this.carryTotal);
 
-    const store = util.pickClosest(stores);
+    const store = util.pickClosest(this.pos, stores);
     this.dlog("closest store", store);
     
     const batteries = _.filter(
         room.findStructs(STRUCTURE_LAB, STRUCTURE_TOWER, STRUCTURE_LINK),
         b => b.energyFree > this.carryTotal);
         
-    const battery = util.pickClosest(batteries);
+    const battery = util.pickClosest(this.pos, batteries);
     
     if(store) {
         if(battery && this.pos.getRangeTo(battery) < this.pos.getRangeTo(store)) {

@@ -6,7 +6,8 @@ function layout(room, dry=true) {
 
   return layoutSrc(room, dry) +
     layoutLink(room, dry) +
-    layoutSpawn(room, dry);
+    layoutSpawn(room, dry) +
+    layoutExtensions(room, dry);
 }
 
 const canRoad = (room, p) => {
@@ -30,6 +31,20 @@ const canRoad = (room, p) => {
   return true;
 };
 
+const unRoad = (room, pos, dry) => {
+  for(let road of pos.lookFor(LOOK_STRUCTURES)) {
+    if(road.structureType === STRUCTURE_ROAD) {
+      if(dry) {
+        room.visual.circle(road.pos, {radius: 0.5, fill: "red"});
+      } else {
+        road.destroy();
+      }
+      return 1;
+    }
+  }
+  return 0;
+};
+
 const layoutStruct = (struct, dirs, dry) => {
   const room = struct.room;
   let made = 0;
@@ -44,16 +59,7 @@ const layoutStruct = (struct, dirs, dry) => {
       made++;
     }
   }
-  for(let road of struct.pos.lookFor(LOOK_STRUCTURES)) {
-    if(road.structureType === STRUCTURE_ROAD) {
-      if(dry) {
-        room.visual.circle(road.pos, {radius: 0.5, fill: "red"});
-      } else {
-        road.destroy();
-      }
-      made++;
-    }
-  }
+  made += unRoad(room, struct.pos, dry);
   return made;
 };
 
@@ -105,6 +111,14 @@ function layoutRoad(from, dest, range=1, dry=true) {
         room.createConstructionSite(p, STRUCTURE_ROAD);
       }
     }
+  }
+  return made;
+}
+
+function layoutExtensions(room, dry) {
+  let made = 0;
+  for(let extn of room.findStructs(STRUCTURE_EXTENSION)){
+    made += unRoad(room, extn.pos, dry);
   }
   return made;
 }

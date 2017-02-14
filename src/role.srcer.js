@@ -1,4 +1,4 @@
-const modutil = require('util');
+const util = require('util');
 
 Creep.prototype.roleSrcer = function() {
   return this.actionTask() ||
@@ -8,11 +8,11 @@ Creep.prototype.roleSrcer = function() {
 
 Creep.prototype.actionStartSrc = function() {
   const srcers = this.team.roleCreeps(this.memory.role);
-  const home = this.home;
-  const srcs = home.find(FIND_SOURCES);
+  const room = this.team.room;
+  const srcs = room.find(FIND_SOURCES);
 
   if( srcers.length === 0) {
-    return this.actionSrc(this.pos.findClosestByRange(srcs));
+    return this.actionSrc(util.pickClosest(this.pos, srcs));
   }
 
   if (srcers.length <= srcs.length) {
@@ -31,7 +31,7 @@ Creep.prototype.actionStartSrc = function() {
         return this.actionSrc(src);
       }
     }
-    console.log('ERR', this.name, 'failed to find src in', this.home.name);
+    console.log('ERR', this.name, 'failed to find src in', room);
     return false;
   }
 
@@ -45,7 +45,7 @@ Creep.prototype.actionSrc = function(src) {
   this.memory.task = {
     task: 'src',
     id: src.id,
-    note: modutil.structNote('src', src.pos),
+    note: util.structNote('src', src.pos),
   };
   return this.taskSrc();
 };
