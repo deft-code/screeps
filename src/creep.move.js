@@ -26,7 +26,10 @@ Creep.prototype.actionHospital = function() {
 Creep.prototype.idleTravel = function(obj) {
   if (!obj) return false;
 
-  if (this.pos.roomName === obj.pos.roomName && !this.pos.exit) {
+  const p = obj.pos;
+  if (this.pos.roomName === p.roomName &&
+   p.x > 1 && p.x < 48 &&
+      p.y > 1 && p.y < 48) {
     return false;
   }
   return this.idleMoveTo(obj);
