@@ -156,7 +156,7 @@ module.exports = function(globalOpts = {}){
             let travelData = creep.memory._travel;
             if (creep.fatigue > 0) {
                 travelData.tick = Game.time;
-                return ERR_BUSY;
+                return ERR_TIRED;
             }
             if (!destination) {
                 return ERR_INVALID_ARGS;

@@ -112,7 +112,11 @@ Flag.prototype.run = function() {
   const fname = _.camelCase('team ' + team);
   const fn = this[fname];
   this.runTeam();
-  this.dlog(fn.call(this));
+  if(fn) {
+    this.dlog(fn.call(this));
+  } else {
+    this.dlog("Missing fn", fname);
+  }
 };
 
 Flag.prototype.teamNull = function() {

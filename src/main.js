@@ -1,8 +1,9 @@
-require('traveler')({exportTraveler: false, installTraveler: true, installPrototype: true, defaultStuckValue: 2});
+require('traveler')({exportTraveler: false, installTraveler: true, installPrototype: true, defaultStuckValue: 2, reportThreshold: 100});
 
 const modutil = require('util');
 const server = require('server');
 const team = require('team');
+require('team.farm');
 const teambase = require('team.base');
 const teamclaim = require('team.claim');
 
@@ -15,6 +16,7 @@ require('container');
 require('controller');
 require('link');
 require('matrix');
+require('road');
 require('room');
 require('source');
 require('spawn');

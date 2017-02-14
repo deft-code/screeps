@@ -1,6 +1,8 @@
 const util = require('util');
 
 Flag.prototype.teamFarm = function() {
+  return "NOT YET";
+  this.dlog("teamFarm", this.creeps);
   this.attacked = this.memory.attacked < Game.time;
   if(!this.attacked) {
     if(this.room && this.room.hostiles.length) {

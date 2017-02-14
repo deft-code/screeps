@@ -65,8 +65,10 @@ Creep.prototype.doMove = function(dir) {
 };
 
 Creep.prototype.doMoveTo = function(target, opts = {}) {
-  if (this.busy(MOVE)) return false;
+  if (this.busy(MOVE)) return this.intents.move;
   if (!target) return false;
+
+  this.dlog("doMoveTo", target);
 
   opts = _.defaults(opts, {
     useFindRoute: true,
@@ -208,6 +210,8 @@ Creep.prototype.doAttack = function(creep) {
 Creep.prototype.doTransfer = function(target, resource, ...amount) {
   if (this.busy('transfer')) return false;
 
+  this.dlog("attempt transfer", target, resource);
+
   const err = this.transfer(target, resource, ...amount);
   if (err == OK) {
     this.intents.transfer = `xfer ${target.pos}`;
@@ -216,6 +220,7 @@ Creep.prototype.doTransfer = function(target, resource, ...amount) {
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveNear(target);
   }
+  this.dlog("doTransfer error!", err);
   return false;
 };
 

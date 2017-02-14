@@ -385,48 +385,6 @@ exports.towerHealPower = (tower, target) =>
 exports.towerRepairPower = (tower, target) =>
     towerPower(TOWER_POWER_REPAIR, tower, target);
 
-//
-// CostMatrix
-//
-
-exports.defaultCostMatrix = (roomName, opts) => {
-  const cost = {
-    plain: opts.plainCost || 1,
-    swamp: opts.swampCost || 5,
-    wall: 255,
-  };
-  const mat = PathFinder.CostMatrix();
-  for (let y = 0; y < 50; y++) {
-    for (let x = 0; x < 50; x++) {
-      const terrain = Game.map.getTerrainAt(x, y, roomName);
-      mat.set(x, y, cost[terrain]);
-    }
-  }
-  return mat;
-};
-
-exports.customCostMatrix = (room, costCb) => {
-  const mat = PathFinder.CostMatrix();
-  const objs = room.lookAtArea(0, 0, 49, 49);
-  let i = 0;
-  for (let y = 0; y < 50; y++) {
-    for (let x = 0; x < 50; x++) {
-      const at = [];
-      let terrain;
-      for (let obj of objs[x][y]) {
-        if (obj.type === 'terrain') {
-          terrain = obj.terrain;
-        } else {
-          at.push(obj);
-        }
-      }
-      const cost = costCb(x, y, terrain, at);
-      mat.set(x, y, cost);
-    }
-  }
-  return mat;
-};
-
 exports.enhanceProto = (klass, re) => {
   for (let fname in exports) {
     const found = re.exec(fname);

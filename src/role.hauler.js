@@ -73,12 +73,10 @@ Creep.prototype.actionTowerCharge = function() {
   const room = this.team.room;
   if(!room) return false;
 
-
-  let tower = _(room.findStructs(STRUCTURE_TOWER))
-                  .filter(s => s.energy < 100)
-                  .sample();
-  this.dlog("actionTowerCharge", tower);
-  return this.actionCharge(tower);
+  const towers = _.filter(
+    room.findStructs(STRUCTURE_TOWER),
+    s => s.energy < 100);
+  return this.actionCharge(util.pickClosest(this.pos, towers));
 };
 
 Creep.prototype.actionChargeAny = function() {
@@ -119,10 +117,11 @@ Creep.prototype.taskCharge = function() {
 
   const lack = Math.min(this.carryFree, dest.energyFree - this.carry.energy);
   this.dlog("charge lacking", lack);
-  if (lack > 50 || this.carry.energy < 50) {
+  if (lack > 50 && this.carry.energy < 50) {
     return this.actionRecharge(lack, dest.pos);
   }
 
+  this.dlog("charge energy", this.carry.energy);
   if (!this.carry.energy) return false;
 
   return this.doTransfer(dest, RESOURCE_ENERGY);

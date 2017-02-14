@@ -1,73 +1,168 @@
-modutil = require('util');
+const lib = require('lib');
 
-let allRoads = {}
+function layout(room, dry=true) {
+  const sites = room.find(FIND_MY_CONSTRUCTION_SITES);
+  if(sites.length > 20) return `too full ${sites.length}`;
 
-const getRoomRoads = r => allRoads[r.name] = allRoads[r.name] || {};
+  return layoutSrc(room, dry) +
+    layoutLink(room, dry) +
+    layoutSpawn(room, dry);
+}
 
-const isGood = p => !_.any(
-    p.look(),
-    l => l.type == LOOK_CONSTRUCTION_SITES ||
-        (l.type == LOOK_STRUCTURES && l.structure == STRUCTURE_ROAD));
-
-Creep.prototype.road = function(ret) {
-  if (ret == ERR_TIRED && this.room.memory.enableRoads) {
-    if (isGood(this.pos)) {
-      let roomRoads = getRoomRoads(this.room);
-      const where = JSON.stringify(_.pick(this.pos, ['x', 'y']));
-      roomRoads[where] = roomRoads[where] + 1 || 1;
-      console.log(
-          modutil.who(this), 'needs a road at', where, ':', roomRoads[where]);
+const canRoad = (room, p) => {
+  for(let entry of room.lookAt(p)) {
+    switch(entry.type) {
+      case 'creep':
+        break;
+      case 'terrain':
+        if(entry.terrain === 'wall') {
+          return false;
+        }
+        break;
+      case 'structure':
+        if(entry.structure.obstacle) return false;
+        if(entry.structure.structureType === STRUCTURE_ROAD) return false;
+        break;
+      default:
+        return false;
     }
   }
-  return ret;
+  return true;
 };
 
-let roadUpkeep = function(room) {
-  var nsites = room.find(FIND_MY_CONSTRUCTION_SITES).length;
-  if (nsites == 0) {
-    const top = head(room);
-    if (top) {
-      room.createConstructionSite(top, STRUCTURE_ROAD);
-      console.log('New Road at', modutil.who(top));
-    }
-  }
-  if (room.memory.roadDebug) {
-    room.memory.roadDebug.roads = getRoomRoads(room);
-  }
-};
-
-
-let head = function(room) {
-  return null;
-  let roomRoads = getRoomRoads(room);
-  while (true) {
-    let max = 0;
-    let tops = [];
-    _.each(roomRoads, (count, where) => {
-      if (count > max) {
-        max = count;
-        tops = [where];
-      } else if (count == max) {
-        tops.push(where);
+const layoutStruct = (struct, dirs, dry) => {
+  const room = struct.room;
+  let made = 0;
+  for(let dir of dirs) {
+    const p = struct.pos.atDirection(dir);
+    if(canRoad(room, p)){
+      if(dry) {
+        room.visual.circle(p);
+      } else {
+        room.createConstructionSite(p, STRUCTURE_ROAD);
       }
-    });
-    // console.log("TOPS", tops);
-
-    let top = _.sample(tops);
-    if (!top) {
-      return null;
+      made++;
     }
-    let where = JSON.parse(top);
-    /*let pos = room.getPositionAt(where.x, where.y);
-    if(isGood(pos)) {
-        return pos;
-    }*/
-
-    console.log('Road at', top.where, 'no longer needed');
-    delete roomRoads[top.where];
   }
+  for(let road of struct.pos.lookFor(LOOK_STRUCTURES)) {
+    if(road.structureType === STRUCTURE_ROAD) {
+      if(dry) {
+        room.visual.circle(road.pos, {radius: 0.5, fill: "red"});
+      } else {
+        road.destroy();
+      }
+      made++;
+    }
+  }
+  return made;
 };
 
-module.exports = {
-  upkeep: roadUpkeep,
-};
+function layoutRoad(from, dest, range=1, dry=true) {
+  let made = 0;
+  const room = from.room;
+  const callback = (roomName) => {
+    if(roomName !== room.name) {
+      console.log("Unexpected room", roomName);
+      return false;
+    }
+    const mat = new PathFinder.CostMatrix();
+    for(let site of room.find(FIND_CONSTRUCTION_SITES)) {
+      const p = site.pos;
+      if(site.structureType === STRUCTURE_ROAD) {
+        mat.set(p.x, p.y, 2);
+      } else if( lib.structObstacle(site)) {
+        mat.set(p.x, p.y, 255);
+      }
+    }
+    for(let struct of room.find(FIND_STRUCTURES)) {
+      const p = struct.pos;
+      if(struct.structureType === STRUCTURE_ROAD) {
+        mat.set(p.x, p.y, 2);
+      } else if(struct.obstacle) {
+        mat.set(p.x, p.y, 255);
+      }
+    }
+    return mat;
+  };
+  const ret = PathFinder.search(
+    from.pos,
+    {pos: dest.pos, range: range},
+    {
+      plainCost: 3,
+      swampCost: 3,
+      maxRooms: 1,
+      roomCallback: callback,
+    });
+  if(dry) {
+    room.visual.poly(ret.path);
+  }
+  for(let p of ret.path) {
+    if(canRoad(room, p)) {
+      made++;
+      if(dry) {
+        room.visual.circle(p);
+      } else {
+        room.createConstructionSite(p, STRUCTURE_ROAD);
+      }
+    }
+  }
+  return made;
+}
+
+function layoutSpawn(room, dry) {
+  let made = 0;
+  for(let spawn of room.findStructs(STRUCTURE_SPAWN)){
+    made += layoutStruct(spawn,
+      [TOP, TOP_LEFT, LEFT, BOTTOM_LEFT, BOTTOM, BOTTOM_RIGHT, RIGHT, TOP_RIGHT],
+      dry);
+    if(room.controller) {
+      made += layoutRoad(spawn, room.controller, 3, dry);
+    }
+    if(room.terminal) {
+      made += layoutRoad(spawn, room.terminal, 1, dry);
+    }
+    for(let src of room.find(FIND_SOURCES)) {
+      made += layoutRoad(spawn, src, 1, dry);
+    }
+    for(let rampart of room.findStructs(STRUCTURE_RAMPART)) {
+      made += layoutRoad(spawn, rampart, 3, dry);
+    }
+    for(let site of room.find(FIND_MY_CONSTRUCTION_SITES)) {
+      console.log("checking road", spawn, site);
+      if(site.structureType === STRUCTURE_RAMPART) {
+        console.log("making road", spawn, site);
+        made += layoutRoad(spawn, site, 3, dry);
+      }
+    }
+  }
+  return made;
+}
+
+function layoutLink(room, dry) {
+  let made = 0;
+  for(let link of room.findStructs(STRUCTURE_LINK)){
+    //made += layoutStruct(link, [TOP, LEFT, BOTTOM, RIGHT], dry);
+    made += layoutStruct(link, [], dry);
+  }
+  return made;
+}
+
+function layoutSrc(room, dry) {
+  let made = 0;
+  for(let src of room.find(FIND_SOURCES)) {
+    for(let spot of src.spots) {
+      if(canRoad(room, spot)){
+        if(dry) {
+          room.visual.circle(spot);
+        } else {
+          room.createConstructionSite(spot, STRUCTURE_ROAD);
+        }
+        made++;
+      }
+    }
+  }
+  return made;
+}
+
+global.layout = layout;
+global.layoutRoad = layoutRoad;
