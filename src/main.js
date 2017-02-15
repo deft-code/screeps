@@ -1,16 +1,19 @@
 require('traveler')({exportTraveler: false, installTraveler: true, installPrototype: true, defaultStuckValue: 2, reportThreshold: 100});
 
-const modutil = require('util');
-const server = require('server');
-const team = require('team');
-require('team.farm');
-const teambase = require('team.base');
-const teamclaim = require('team.claim');
-
 const lib = require('lib');
 lib.enhanceAll();
 
-const modprototypes = require('prototypes');
+const modutil = require('util');
+const server = require('server');
+
+require('team');
+require('team.base');
+require('team.claim');
+require('team.farm');
+require('team.role');
+
+
+require('prototypes');
 
 require('container');
 require('controller');
@@ -22,21 +25,22 @@ require('source');
 require('spawn');
 require('tower');
 
-const modcreep = require('creep');
+require('creep');
 require('creep.move');
 require('role.hauler');
 
-const modrole = require('mod.role');
-const modwork = require('work');
-const modsnipe = require('squad.snipe');
+require('mod.role');
+require('squad.attack');
+require('squad.snipe');
+require('work');
 
-const modguard = require('role.guard');
-const modattack = require('squad.attack');
-const modscout = require('role.scout');
-const modchemist = require('role.chemist');
-const modsrcer = require('role.srcer');
-const medic = require('role.medic');
-const modmisc = require('role.misc');
+require('role.bulldozer');
+require('role.chemist');
+require('role.guard');
+require('role.medic');
+require('role.misc');
+require('role.scout');
+require('role.srcer');
 
 global.structMem = function(id) {
   const s = Game.getObjectById(id);

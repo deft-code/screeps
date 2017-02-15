@@ -81,7 +81,8 @@ Creep.prototype.actionDismantle = function(struct, drop) {
   if (!struct) {
     return false;
   }
-  if (!drop && !this.carryFree) {
+  if (this.carryCapacity && !drop && !this.carryFree) {
+    this.dlog("toofull", this.carryCapacity, drop, this.carryFree);
     return false;
   }
   this.memory.task = {
@@ -94,7 +95,7 @@ Creep.prototype.actionDismantle = function(struct, drop) {
 };
 
 Creep.prototype.taskDismantle = function() {
-  if (!this.carryFree && !this.memory.task.drop) {
+  if (this.carryCapacity && !this.carryFree && !this.memory.task.drop) {
     this.say('Full');
     return false;
   }
@@ -103,14 +104,7 @@ Creep.prototype.taskDismantle = function() {
       console.log("protect mine");
     return false;
   }
-  let err = this.dismantle(structure);
-  if (err == ERR_NOT_IN_RANGE) {
-    return this.idleMoveTo(structure);
-  }
-  if (err == OK) {
-    return structure.hits;
-  }
-  return false;
+  return this.doDismantle(structure) && structure.hits;
 };
 
 Creep.prototype.actionRepairAny = function() {

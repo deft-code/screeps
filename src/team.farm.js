@@ -1,8 +1,9 @@
 const util = require('util');
 
 Flag.prototype.teamFarm = function() {
-  this.dlog("teamFarm", JSON.stringify(_.mapValues(this.creepsByRole, creeps => _.map(creeps, "name"))));
-  this.attacked = this.memory.attacked > Game.time;
+  const delta = this.memory.attacked - Game.time;
+  this.attacked = delta? delta: 0;
+  this.dlog("attack delta:", this.memory.attacked, delta, this.attacked);
   if(!this.attacked) {
     if(this.room && this.room.hostiles.length) {
       this.memory.attacked = Game.time + this.room.hostiles[0].ticksToLive;
@@ -18,13 +19,15 @@ Flag.prototype.teamFarm = function() {
     const nsrcs = this.room.find(FIND_SOURCES).length;
     nfarmer = nsrcs;
     const controller = this.room.controller;
-    const claimed = controller && !controller.my;
+    const claimed = controller && controller.owner && !controller.my;
     canReserve = !this.attacked && controller && !claimed &&
       controller.resTicks < 4000 && this.memory.spawnDist.min < 2;
     if(canReserve) {
       nfarmer++;
     }
   }
+
+  this.dlog(`farmers: ${nfarmer}, reservers: ${canReserve}, guards: ${nguard}`);
 
   return this.upkeepRole("guard", 1,  700, 2, 2) ||
     this.upkeepRole("farmer", nfarmer,  700, 1, 2) ||
@@ -47,13 +50,15 @@ Flag.prototype.roleFarmer = function(spawn) {
     MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
     MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
     MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
+    MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
+    MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
   ];
   return this.createRole(spawn, body, {role: 'farmer'});
 };
 
 Flag.prototype.roleReserver = function(spawn) {
   let body = [MOVE, MOVE, CLAIM, CLAIM, MOVE, CLAIM];
-  return this.createRole(body, 4, {role: 'reserver'});
+  return this.createRole(spawn, body, {role: 'reserver'});
 };
   
 Creep.prototype.roleReserver = function() {
@@ -82,21 +87,26 @@ Creep.prototype.actionRoadUpkeep = function(room) {
 };
 
 Creep.prototype.actionFarm = function(room) {
-    if(!room) return false;
+  if(!room) return false;
 
-    if(!this.carryFree) return false;
+  if(!this.carryFree) return false;
     
-  let resource = _.find(
+  let resources = _.filter(
     room.find(FIND_DROPPED_RESOURCES),
     r => r.resourceType != RESOURCE_ENERGY || r.amount > 20);
-  if(resource) {
-    return this.actionPickup(resource);
-  }
   
-  let store = _.find(
+  let stores = _.filter(
       room.find(FIND_STRUCTURES),
       s => s.storeTotal);
-  if(store) return this.actionUnstore(store);
+
+  const target = _.sample(resources.concat(stores));
+  if(target) {
+    if(target.structureType) {
+      return this.actionUnstore(target);
+    } else {
+      return this.actionPickup(target);
+    }
+  }
   
   return this.actionHarvestAny(room);
 };

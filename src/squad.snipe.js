@@ -61,28 +61,6 @@ Creep.prototype.actionSnipe = function() {
   return false;
 };
 
-StructureSpawn.prototype.roleDismantler = function() {
-  const body = [
-    MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
-    MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
-    MOVE,  WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
-    MOVE,  WORK,  MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
-  ];
-  return this.createRole(body, 4, {role: 'dismantler'});
-};
-
-Creep.prototype.roleDismantler = function() {
-    this.drop(RESOURCE_ENERGY);
-  return this.actionTask() ||
-      this.actionTravelFlag(Game.flags.dismantler) ||
-      this.actionDismantleAt(Game.flags.dismantler);
-};
-
-Creep.prototype.actionDismantleAt = function(obj) {
-  const struct = _.sample(obj.pos.lookFor(LOOK_STRUCTURES));
-  return this.actionDismantle(struct);
-};
-
 Creep.prototype.roleAssassin = function(struct) {
   return this.actionTask() ||
       this.actionTravelFlag(Game.flags.assassin) || this.actionAssassin();

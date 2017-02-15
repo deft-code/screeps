@@ -1,5 +1,4 @@
 Flag.prototype.teamBase = function() {
-  this.dlog("my creeps", this.creeps.length, this.creeps);
 
   const srcers = this.roleCreeps("srcer");
   if(!srcers.length){

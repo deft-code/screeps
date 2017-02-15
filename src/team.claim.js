@@ -47,7 +47,8 @@ StructureSpawn.prototype.roleClaim = function() {
 Creep.prototype.actionHarvestAny = function(room) {
   if(!room) return false;
 
-  const src = util.pickClosest(room.find(FIND_SOURCES_ACTIVE));
+  //const src = util.pickClosest(this.pos, room.find(FIND_SOURCES_ACTIVE));
+  const src = _.sample(room.find(FIND_SOURCES_ACTIVE));
   return this.actionHarvest(src);
 };
 
