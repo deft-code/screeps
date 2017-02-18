@@ -154,9 +154,9 @@ Creep.prototype.actionArcher = function(room) {
         return this.actionKite(this.pos.findClosestByRange(hostiles));
     }
     
-    const enemy = _.find(room.enemies,
-      c => c.getActiveBodyparts(CLAIM) || c.getActiveBodyparts(CARRY) > c.getActiveBodyparts(WORK));
-    return this.actionKite(enemy);
+   // const enemy = _.find(room.enemies,
+     // c => c.getActiveBodyparts(CLAIM) || c.getActiveBodyparts(CARRY) > c.getActiveBodyparts(WORK));
+    return this.actionKite(_.sample(room.enemies));
 };
 
 Creep.prototype.actionKite = function(creep) {
