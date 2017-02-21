@@ -2,7 +2,7 @@ const util = require('util');
 
 Flag.prototype.teamFarm = function() {
   const delta = this.memory.attacked - Game.time;
-  this.attacked = delta? delta: 0;
+  this.attacked = delta > 0? delta: 0;
   this.dlog("attack delta:", this.memory.attacked, delta, this.attacked);
   if(!this.attacked) {
     if(this.room && this.room.hostiles.length) {
@@ -50,8 +50,8 @@ Flag.prototype.roleFarmer = function(spawn) {
     MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
     MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
     MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-    MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-    MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
+    //MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
+    //MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
   ];
   return this.createRole(spawn, body, {role: 'farmer'});
 };

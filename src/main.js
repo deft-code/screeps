@@ -36,6 +36,7 @@ require('work');
 
 require('role.bulldozer');
 require('role.chemist');
+require('role.collector');
 require('role.guard');
 require('role.medic');
 require('role.misc');
