@@ -8,9 +8,9 @@ Creep.prototype.actionBuildRoom = function(room) {
 
 Creep.prototype.actionBuildFinish = function(sites) {
   if (!sites) {
-    sites = this.room.cachedFind(FIND_MY_CONSTRUCTION_SITES);
+    sites = this.room.find(FIND_MY_CONSTRUCTION_SITES);
   }
-  const byProgress = _.groupBy(sites, 'progress');
+  const byProgress = _.groupBy(sites, site => Math.floor(site.progress/300));
   const max = _.max(_.keys(byProgress));
   const site = this.pos.findClosestByRange(byProgress[max]);
   return this.actionBuild(site);
@@ -19,14 +19,14 @@ Creep.prototype.actionBuildFinish = function(sites) {
 Creep.prototype.actionBuildStruct = function(structureType, room) {
   room = room || this.home;
   const sites = _.filter(
-      room.cachedFind(FIND_MY_CONSTRUCTION_SITES),
+      room.find(FIND_MY_CONSTRUCTION_SITES),
       site => site.structureType == structureType);
   return this.actionBuildFinish(sites);
 };
 
 Creep.prototype.actionBuildNear = function() {
   const sites = _.filter(
-      this.home.cachedFind(FIND_MY_CONSTRUCTION_SITES),
+      this.home.find(FIND_MY_CONSTRUCTION_SITES),
       s => this.pos.inRangeTo(s, 3));
   return this.actionBuildFinish(sites);
 };
@@ -66,11 +66,14 @@ Creep.prototype.taskBuild = function() {
 };
 
 Creep.prototype.actionDismantleAny = function() {
+    
+    // TODO fix dismantling
+    return false;
   if (!this.carryFree) {
     return false;
   }
   const target = _(this.room.cachedFind(FIND_STRUCTURES))
-                     .filter(s => s.memory.dismantle)
+                     .filter(s => s.dismantle)
                      .sample(3)
                      .sortBy('hits')
                      .first();
@@ -100,7 +103,7 @@ Creep.prototype.taskDismantle = function() {
     return false;
   }
   let structure = this.taskId;
-  if (!structure || (structure.my && !structure.memory.dismantle)) {
+  if (!structure || (structure.my && !structure.dismantle)) {
       console.log("protect mine");
     return false;
   }
@@ -112,7 +115,7 @@ Creep.prototype.actionRepairAny = function() {
   if(!room) return false;
 
   const target = _(room.find(FIND_STRUCTURES))
-                     .filter(s => s.repairs > 0 && !s.memory.dismantle)
+                     .filter(s => s.repairs > 0)
                      .sample(3)
                      .sortBy('repairs')
                      .last();
@@ -139,7 +142,7 @@ Creep.prototype.actionRepairNear = function() {
           .filter(
               s => s.structureType != STRUCTURE_WALL &&
                   s.structureType != STRUCTURE_RAMPART && s.hits < s.hitsMax &&
-                  this.pos.inRangeTo(s, 3) && !this.memory.dismantle)
+                  this.pos.inRangeTo(s, 3) && !this.dismantle)
           .sample();
   return this.actionRepair(struct);
 };
@@ -158,7 +161,7 @@ Creep.prototype.actionRepair = function(struct) {
 
 Creep.prototype.taskRepair = function() {
   const structure = this.taskId;
-  if (!structure || structure.memory.dismantle) {
+  if (!structure) {
     return false;
   }
   if (structure.hitsMax == structure.hits) {
@@ -191,12 +194,18 @@ Creep.prototype.actionEmergencyUpgrade = function() {
 };
 
 Creep.prototype.roleWorker = function() {
-  return this.idleNom() || this.taskDoubleTime() || this.actionTask() ||
-      this.actionStoreResource() || this.actionBuildStruct(STRUCTURE_TOWER) ||
+  this.idleNom();
+  return this.taskDoubleTime() || this.actionTask() ||
+      this.actionStoreResource() ||
+      this.actionBuildStruct(STRUCTURE_ROAD) ||
+      this.actionBuildStruct(STRUCTURE_TOWER) ||
       this.actionBuildStruct(STRUCTURE_EXTENSION) ||
-      this.actionBuildStruct(STRUCTURE_CONTAINER) || this.actionBuildFinish() ||
-      this.actionRepairAny() || this.actionDismantleAny() ||
-      this.taskUpgrade() || this.actionHarvestAny();
+      this.actionBuildStruct(STRUCTURE_CONTAINER) || 
+      this.actionBuildFinish() ||
+      this.actionRepairAny() || 
+      this.actionDismantleAny() ||
+      this.taskUpgrade() || 
+      this.actionHarvestAny();
 };
 
 Creep.prototype.roleBootstrap = function() {
@@ -257,7 +266,7 @@ const upkeepDismantle = function(room) {
 };
 
 Creep.prototype.actionUpgrade = function(room) {
-  room = room || this.room;
+  room = room || this.team && this.team.room || this.room;
   this.memory.task = {
     task: 'upgrade',
     note: this.pos.roomName,
@@ -266,7 +275,7 @@ Creep.prototype.actionUpgrade = function(room) {
 };
 
 Creep.prototype.taskUpgrade = function() {
-  const controller = this.room.controller;
+  const controller = this.team.room.controller;
   if (!controller) {
     return false;
   }

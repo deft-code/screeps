@@ -16,6 +16,7 @@ Flag.prototype.makeTeam = function(name, force=false) {
   const team = this.memory.team;
   if(!team || force) {
     this.memory.team = name;
+    this.memory.debug = true;
     return true;
   }
   return false;
@@ -104,5 +105,10 @@ Flag.prototype.run = function() {
 
 Flag.prototype.teamNull = function() {
   this.dlog("is Team Null");
+  switch(this.secondaryColor) {
+      case COLOR_GREEN:
+          this.makeTeam("farm");
+          return "farm";
+  }
   return 'null';
 };

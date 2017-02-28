@@ -1,3 +1,5 @@
+const util = require("util");
+
 Flag.prototype.roleBulldozer = function(spawn) {
   const body = [
     MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
@@ -27,7 +29,7 @@ Creep.prototype.actionDismantleAt = function(obj) {
 Creep.prototype.actionDismantleHostile = function(room, ...stypes) {
   if(!room) return false;
 
-  return this.actionDismantle(_(room.find(FIND_HOSTILE_STRUCTURES))
-    .filter(s => _.any(stypes, stype=>!stypes.length || s.structureType === stype))
-    .sample());
+  return this.actionDismantle(util.pickClosest(this.pos, room.find(FIND_HOSTILE_STRUCTURES, {
+      filter: s => !stypes.length || _.any(stypes, stype => s.structureType === stype),
+  })));
 };

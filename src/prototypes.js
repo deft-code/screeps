@@ -14,28 +14,6 @@ modutil.cachedProp(Source, 'note', function() {
   return modutil.structNote('src', this.pos);
 });
 
-Object.defineProperty(RoomObject.prototype, 'memory', {
-  get: function() {
-    if (_.isUndefined(this.room.memory.objects)) {
-      this.room.memory.objects = {};
-    }
-    if (!_.isObject(this.room.memory.objects)) {
-      return undefined;
-    }
-    return this.room.memory.objects[this.id] =
-               this.room.memory.objects[this.id] || {};
-  },
-  set: function(value) {
-    if (_.isUndefined(this.room.memory.objects)) {
-      this.room.memory.objects = {};
-    }
-    if (!_.isObject(this.room.memory.objects)) {
-      throw new Error('Could not set source memory');
-    }
-    this.room.memory.objects[this.id] = value;
-  }
-});
-
 function dlog(...args) {
   if(this.debug) {
     const time = ("00" + (Game.time % 1000)).slice(-3);

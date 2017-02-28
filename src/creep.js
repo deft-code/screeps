@@ -229,7 +229,7 @@ Creep.prototype.doWithdraw = function(target, resource, ...amount) {
 
   const err = this.withdraw(target, resource, ...amount);
   if (err == OK) {
-    return this.intents.withdraw = target;
+    this.intents.withdraw = target;
     return "success";
   }
   if (err == ERR_NOT_IN_RANGE) {

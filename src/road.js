@@ -1,17 +1,8 @@
 const lib = require('lib');
 
-function layout(room, dry=true) {
-  const sites = room.find(FIND_MY_CONSTRUCTION_SITES);
-  if(sites.length > 20) return `too full ${sites.length}`;
 
-  return layoutSrc(room, dry) +
-    layoutLink(room, dry) +
-    layoutSpawn(room, dry) +
-    layoutExtensions(room, dry);
-}
-
-const canRoad = (room, p) => {
-  for(let entry of room.lookAt(p)) {
+const canRoad= (p) => {
+  for(let entry of this.room.lookAt(p)) {
     switch(entry.type) {
       case 'creep':
         break;
@@ -31,10 +22,31 @@ const canRoad = (room, p) => {
   return true;
 };
 
-const unRoad = (room, pos, dry) => {
+
+class Paver {
+    
+    constructor(room, count) {
+        this.room = room;
+        this.count = count;
+         const sites = room.find(FIND_MY_CONSTRUCTION_SITES);
+        this.made = sites.length;
+    }
+}
+
+function layout(room, count=0) {
+    const p = new Paver(room, count);
+    p.layoutSrc();
+  p.layoutLink();
+  p.layoutSpawn();
+  p.layoutExtensions();
+  p.layoutController();
+  return p.made;
+}
+
+const unRoad = (room, pos, made, count) => {
   for(let road of pos.lookFor(LOOK_STRUCTURES)) {
     if(road.structureType === STRUCTURE_ROAD) {
-      if(dry) {
+      if(made >= count) {
         room.visual.circle(road.pos, {radius: 0.5, fill: "red"});
       } else {
         road.destroy();
@@ -45,13 +57,12 @@ const unRoad = (room, pos, dry) => {
   return 0;
 };
 
-const layoutStruct = (struct, dirs, dry) => {
+const layoutStruct = (struct, dirs, made, count) => {
   const room = struct.room;
-  let made = 0;
   for(let dir of dirs) {
     const p = struct.pos.atDirection(dir);
     if(canRoad(room, p)){
-      if(dry) {
+      if(made >= count) {
         room.visual.circle(p);
       } else {
         room.createConstructionSite(p, STRUCTURE_ROAD);
@@ -59,12 +70,11 @@ const layoutStruct = (struct, dirs, dry) => {
       made++;
     }
   }
-  made += unRoad(room, struct.pos, dry);
+  made += unRoad(room, struct.pos, count);
   return made;
 };
-
-function layoutRoad(from, dest, range=1, dry=true) {
-  let made = 0;
+/*
+function layoutRoad(from, dest, range=1, made, count) {
   const room = from.room;
   const callback = (roomName) => {
     if(roomName !== room.name) {
@@ -103,9 +113,9 @@ function layoutRoad(from, dest, range=1, dry=true) {
     room.visual.poly(ret.path);
   }
   for(let p of ret.path) {
-    if(canRoad(room, p)) {
+    if(canRoad(room, p)) 
       made++;
-      if(dry) {
+      if(made >= count) {
         room.visual.circle(p);
       } else {
         room.createConstructionSite(p, STRUCTURE_ROAD);
@@ -113,7 +123,7 @@ function layoutRoad(from, dest, range=1, dry=true) {
     }
   }
   return made;
-}
+}*/
 
 function layoutExtensions(room, dry) {
   let made = 0;
@@ -178,5 +188,14 @@ function layoutSrc(room, dry) {
   return made;
 }
 
+function layoutController(room, dry) {
+    const controller = room.controller;
+    if(!controller) return 0;
+    let made = 0;
+    for(let src of room.find(FIND_SOURCES)) {
+        made += layoutRoad(src, controller, 3, dry);
+    }
+    return made;
+}
+
 global.layout = layout;
-global.layoutRoad = layoutRoad;

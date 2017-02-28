@@ -4,12 +4,12 @@ var doTower = function(tower) {
   const struct =
       _(tower.room.find(FIND_STRUCTURES))
           .filter(
-              s => !s.memory.dismantle &&
+              s => /* TODO re-enable after dismantle is fixed !s.dismantle && */
                   ((s.structureType == STRUCTURE_RAMPART &&
-                    s.hits < RAMPART_DECAY_AMOUNT) ||
-                   (s.structureType == STRUCTURE_ROAD && s.hits < 600) ||
+                    s.hits <= RAMPART_DECAY_AMOUNT) ||
+                   (s.structureType == STRUCTURE_ROAD && s.hits <= 900) ||
                    (s.structureType == STRUCTURE_CONTAINER &&
-                    s.hits < CONTAINER_DECAY) ||
+                    s.hits <= CONTAINER_DECAY) ||
                    (s.structureType == STRUCTURE_WALL && s.hits < 1000)))
           .sample();
   if (struct) {
@@ -18,13 +18,13 @@ var doTower = function(tower) {
     return true;
   }
 
-  const heal = _(tower.room.cachedFind(FIND_MY_CREEPS))
+  const heal = _(tower.room.find(FIND_MY_CREEPS))
                    .filter(c => c.hitsMax - c.hits > 100)
                    .sortBy('hits')
                    .first();
   if (heal) {
     let err = tower.heal(heal);
-    console.log('Tower heal', heal.name, err);
+    console.log(tower.room.name, 'Tower heal', heal.name, err);
     return true;
   }
 
@@ -51,13 +51,13 @@ var doTower = function(tower) {
   if (creeps.length) {
     let hurt = _.sortBy(creeps, 'hits');
     let err = tower.heal(hurt[0]);
-    console.log('Tower full heal', hurt[0].name, err);
+    console.log(tower.room.name, 'Tower full heal', hurt[0].name, err);
     return true;
   }
 
   const surpluss =
       tower.room.storage && tower.room.storage.store.energy > 500000;
-  const dropped = _(tower.room.cachedFind(FIND_DROPPED_ENERGY))
+  const dropped = _(tower.room.find(FIND_DROPPED_ENERGY))
                       .filter(s => s.amount > 1000)
                       .value()
                       .length;
@@ -67,7 +67,7 @@ var doTower = function(tower) {
     let need_repair = _.sample(
         tower.room.find(FIND_STRUCTURES, {
           filter: s => s.hitsMax - s.hits > 800 &&
-              s.structureType != STRUCTURE_ROAD && !s.memory.dismantle
+              s.structureType != STRUCTURE_ROAD
         }),
         3);
     if (need_repair.length) {

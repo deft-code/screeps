@@ -55,7 +55,7 @@ Flag.prototype.roleWorker = function(spawn) {
      
 Flag.prototype.roleUpgrader = function(spawn) {
   const body = [
-    MOVE, WORK, CARRY, MOVE, WORK, CARRY,
+    MOVE, WORK, CARRY, WORK, CARRY, MOVE,
 
     MOVE, WORK, MOVE,  WORK, MOVE, WORK,
 

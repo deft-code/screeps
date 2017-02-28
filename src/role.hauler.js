@@ -30,6 +30,7 @@ Creep.prototype.actionRecharge = function(lack, pos) {
       goodE.push(obj);
     }
   });
+  this.dlog("goodE", goodE);
   let e = util.pickClosest(dest, goodE);
   if (!e) {
     e = util.pickClosest(dest, anyE);
@@ -117,7 +118,7 @@ Creep.prototype.taskCharge = function() {
 
   const lack = Math.min(this.carryFree, dest.energyFree - this.carry.energy);
   this.dlog("charge lacking", lack);
-  if (lack > 50 && this.carry.energy < 50) {
+  if (lack >= 50 && this.carry.energy < 50 || !this.carry.energy) {
     return this.actionRecharge(lack, dest.pos);
   }
 
@@ -195,7 +196,7 @@ Creep.prototype.actionDrain = function() {
 
   let stores = _.filter(
       room.findStructs(STRUCTURE_CONTAINER),
-      s => s.storeTotal && s.memory.bucket);
+      s => s.storeTotal && s.mode === 'src');
 
   let links =
       _.filter(room.findStructs(STRUCTURE_LINK), l => !l.mode() != 'src');
@@ -328,5 +329,6 @@ Creep.prototype.roleHauler = function() {
       this.actionEmptyStore() ||
       this.actionChargeCreep() ||
       this.actionChargeAny() ||
-      this.actionStoreAny();
+      this.actionStoreAny() ||
+      this.idleMoveNear(this.team);
 };

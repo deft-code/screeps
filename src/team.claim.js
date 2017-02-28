@@ -11,8 +11,8 @@ Flag.prototype.teamClaim = function() {
     }
   }
   const hurt = _.any(this.creeps, "hurts");
-  return this.upkeepRole("remote build", nremote, 2000) ||
-    hurt && this.upkeepRole("medic", 1, 1000);
+  return this.upkeepRole("remote build", nremote, 800, 0, 3) ||
+    hurt && this.upkeepRole("medic", 1, 800, 1, 3);
 };
 
 Flag.prototype.roleRemoteBuild = function(spawn) {

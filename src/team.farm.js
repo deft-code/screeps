@@ -1,6 +1,7 @@
 const util = require('util');
 
 Flag.prototype.teamFarm = function() {
+  this.setColor(COLOR_BLUE, COLOR_GREEN);
   const delta = this.memory.attacked - Game.time;
   this.attacked = delta > 0? delta: 0;
   this.dlog("attack delta:", this.memory.attacked, delta, this.attacked);
@@ -29,7 +30,7 @@ Flag.prototype.teamFarm = function() {
 
   this.dlog(`farmers: ${nfarmer}, reservers: ${canReserve}, guards: ${nguard}`);
 
-  return this.upkeepRole("guard", 1,  700, 2, 2) ||
+  return this.upkeepRole("guard", nguard,  700, 2, 2) ||
     this.upkeepRole("farmer", nfarmer,  700, 1, 2) ||
     canReserve && this.upkeepRole("reserver", 1,  1300, 1, 2) ||
     "enough";
@@ -73,6 +74,7 @@ Creep.prototype.roleFarmer = function() {
       this.actionTask() ||
       !this.carryTotal && this.actionTravelFlag(this.team) ||
       this.actionRoadUpkeep(this.team.room) ||
+      this.actionDismantleHostile(this.team.room) ||
       this.actionFarm(this.team.room) ||
       this.carryTotal && this.actionTravel(this.home.controller) ||
       this.actionXferNearest(this.home);
