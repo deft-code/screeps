@@ -31,9 +31,9 @@ StructureLink.prototype.xferHalf = function(target) {
   return this.xferRaw(target, e);
 };
 
-StructureLink.prototype.xfer = function(target, mod = 100) {
-  let e = Math.min(this.energy, target.energyFree * (1 + LINK_LOSS_RATIO));
-  e -= e % mod;
+StructureLink.prototype.xfer = function(target, mod = 33) {
+  let e = Math.min(this.energy, Math.ceil(target.energyFree * (1 + LINK_LOSS_RATIO)));
+  e -= (e % 100) % mod;
   return this.xferRaw(target, e);
 };
 
@@ -47,12 +47,12 @@ StructureLink.prototype.xferRaw = function(target, energy) {
     target.energy += Math.floor(energy * (1 - LINK_LOSS_RATIO));
     this.energy -= energy;
   }
-  return `xfer ${err}`;
+  return `xfer ${energy}: ${err}`;
 };
 
 StructureLink.prototype.run = function() {
   if (this.cooldown) return `cooldown ${this.cooldown}`;
-  if (this.energy < 100) return `empty ${this.energy}`;
+  if (this.energy < 33) return `empty ${this.energy}`;
 
   switch (this.mode()) {
     case 'sink':
@@ -70,14 +70,12 @@ StructureLink.prototype.runSrc = function() {
 
   const sinks = _.filter(links, link => link.mode() === 'sink');
 
-  const sink = _.find(sinks, link => link.energyFree >= 97);
+  const sink = _.find(sinks, link => link.energyFree >= 32);
   if (sink) return this.xfer(sink);
-
-  if (this.energy < 600) return 'waiting';
 
   const buffer = _.find(links, link => link.mode() === 'buffer');
 
-  if (buffer && buffer.energyFree >= 97) return this.xfer(buffer);
+  if (buffer && buffer.energyFree >= 32) return this.xfer(buffer);
 
   if (this.energyFree) return 'not full';
 
@@ -110,8 +108,7 @@ Room.prototype.runLinks = function() {
   for (let id in this.memory.links) {
     const link = Game.getObjectById(id);
     if (!link) {
-      console.log(
-          'Cleared missing link', JSON.stringify(this.memory.links[id]));
+      console.log('Cleared missing link', JSON.stringify(this.memory.links[id]));
       delete this.memory.links[id];
     }
   }

@@ -60,15 +60,11 @@ Object.defineProperty(StructureLink.prototype, 'source', {
 
 Object.defineProperty(Structure.prototype, 'repairs', {
   get: function() {
-    // TODO memory was undefined!
-    if (false && this.memory.dismantle) {
-      return -1;
-    }
     let myMax = this.hitsMax;
     switch (this.structureType) {
       case STRUCTURE_RAMPART:
       case STRUCTURE_WALL:
-        myMax = Math.min(this.hitsMax, this.room.memory.wallMin * 0.8);
+        myMax = Math.min(this.hitsMax, this.room.controller.level * 10000 + Math.pow(10,this.room.controller.level-1));
         break;
       case STRUCTURE_ROAD:
         myMax = this.hitsMax / 5;

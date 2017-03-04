@@ -115,11 +115,14 @@ Creep.prototype.actionRepairAny = function() {
   if(!room) return false;
 
   const target = _(room.find(FIND_STRUCTURES))
+                     .tap(s => this.dlog("repairs",_.map(s, "repairs")))
                      .filter(s => s.repairs > 0)
+                     .tap(s => this.dlog("repairs", s))
                      .sample(3)
                      .sortBy('repairs')
                      .last();
 
+  this.dlog(`repair ${target}`);
   return this.actionRepair(target);
 };
 
@@ -148,6 +151,7 @@ Creep.prototype.actionRepairNear = function() {
 };
 
 Creep.prototype.actionRepair = function(struct) {
+  this.dlog(`repair ${struct}`);
   if (!struct) return false;
 
   this.memory.task = {
@@ -172,7 +176,7 @@ Creep.prototype.taskRepair = function() {
   }
   // Do not do the same for rampart since the reparts are degrading and we need
   // to repair them as much as possible.
-  if (structure.structureType == STRUCTURE_WALL && structure.repairs <= 0) {
+  if (structure.structureType === STRUCTURE_WALL && structure.repairs <= 0) {
     return this.actionRepairNear();
   }
   if (!this.carry.energy) {
@@ -203,7 +207,6 @@ Creep.prototype.roleWorker = function() {
       this.actionBuildStruct(STRUCTURE_CONTAINER) || 
       this.actionBuildFinish() ||
       this.actionRepairAny() || 
-      this.actionDismantleAny() ||
       this.taskUpgrade() || 
       this.actionHarvestAny();
 };
