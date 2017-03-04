@@ -30,8 +30,8 @@ Flag.prototype.teamFarm = function() {
 
   this.dlog(`farmers: ${nfarmer}, reservers: ${canReserve}, guards: ${nguard}`);
 
-  return this.upkeepRole("guard", nguard,  700, 2, 2) ||
-    this.upkeepRole("farmer", nfarmer,  700, 1, 2) ||
+  return this.upkeepRole("guard", nguard,  800, 2, 2) ||
+    this.upkeepRole("farmer", nfarmer,  800, 1, 2) ||
     canReserve && this.upkeepRole("reserver", 1,  1300, 1, 2) ||
     "enough";
 };
