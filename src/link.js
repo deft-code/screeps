@@ -3,7 +3,7 @@ StructureLink.prototype.calcMode = function() {
     return 'buffer';
   }
 
-  const src = this.room.find(FIND_SOURCES, src => this.pos.inRangeTo(src, 2));
+  const src = _.find(this.room.find(FIND_SOURCES), s => this.pos.inRangeTo(s, 2));
   if(src) {
     return 'src';
   }

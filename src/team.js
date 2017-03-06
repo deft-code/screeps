@@ -106,9 +106,12 @@ Flag.prototype.run = function() {
 Flag.prototype.teamNull = function() {
   this.dlog("is Team Null");
   switch(this.secondaryColor) {
-      case COLOR_GREEN:
-          this.makeTeam("farm");
-          return "farm";
+    case COLOR_GREEN:
+      this.makeTeam("farm");
+      return "farm";
+    case COLOR_YELLOW:
+      this.makeTeam("claim");
+      return "claim";
   }
   return 'null';
 };

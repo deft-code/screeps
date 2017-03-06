@@ -295,39 +295,6 @@ Creep.prototype.taskUpgrade = function() {
   return 'upgrade ' + controller.progress;
 };
 
-StructureSpawn.prototype.roleWorker = function() {
-  let body = [
-    CARRY, WORK,  MOVE, CARRY, MOVE,  WORK, CARRY, MOVE,  WORK, CARRY, MOVE,
-    WORK,  CARRY, MOVE, WORK,  CARRY, MOVE, WORK,  CARRY, MOVE, WORK,
-  ];
-  return this.createRole(body, 3, {role: 'worker'});
-};
-
-
-StructureSpawn.prototype.roleUpgrader = function() {
-  let body = [
-    CARRY,
-    CARRY,
-    WORK,
-    MOVE,
-    WORK,
-    MOVE,
-    WORK,
-    MOVE,
-    WORK,
-    MOVE,
-    WORK,
-    MOVE,
-    WORK,
-    MOVE,
-    WORK,
-    MOVE,
-    WORK,
-    MOVE,
-  ];
-  return this.createRole(body, 3, {role: 'upgrader'});
-};
-
 Creep.prototype.roleUpgrader = function() {
   return this.taskDoubleTime() || this.actionTask() || this.actionUpgrade() ||
       this.actionRecharge();

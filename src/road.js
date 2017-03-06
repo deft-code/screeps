@@ -1,6 +1,5 @@
 const lib = require('lib');
 
-
 const canRoad= (p) => {
   for(let entry of this.room.lookAt(p)) {
     switch(entry.type) {
@@ -24,60 +23,66 @@ const canRoad= (p) => {
 
 
 class Paver {
-    
-    constructor(room, count) {
-        this.room = room;
-        this.count = count;
-         const sites = room.find(FIND_MY_CONSTRUCTION_SITES);
-        this.made = sites.length;
-    }
-}
+  constructor(room, count=0) {
+    this.room = room;
+    this.count = count;
+    const sites = room.find(FIND_MY_CONSTRUCTION_SITES);
+    this.made = sites.length;
+  }
 
-function layout(room, count=0) {
-    const p = new Paver(room, count);
-    p.layoutSrc();
-  p.layoutLink();
-  p.layoutSpawn();
-  p.layoutExtensions();
-  p.layoutController();
-  return p.made;
-}
+ canRoad(p) {
+   for(let entry of this.room.lookAt(p)) {
+     switch(entry.type) {
+       case 'creep':
+         break;
+       case 'terrain':
+         if(entry.terrain === 'wall') {
+           return false;
+         }
+         break;
+       case 'structure':
+         if(entry.structure.obstacle) return false;
+         if(entry.structure.structureType === STRUCTURE_ROAD) return false;
+         break;
+       default:
+         return false;
+     }
+   }
+   return true;
+  }
 
-const unRoad = (room, pos, made, count) => {
-  for(let road of pos.lookFor(LOOK_STRUCTURES)) {
-    if(road.structureType === STRUCTURE_ROAD) {
-      if(made >= count) {
-        room.visual.circle(road.pos, {radius: 0.5, fill: "red"});
-      } else {
-        road.destroy();
+  unRoad(struct) {
+    for(let road of struct.pos.lookFor(LOOK_STRUCTURES)) {
+      if(road.structureType === STRUCTURE_ROAD) {
+        if(this.made >= this.count) {
+          this.room.visual.circle(road.pos, {radius: 0.5, fill: "red"});
+        } else {
+          road.destroy();
+        }
+        this.made++;
       }
-      return 1;
     }
   }
-  return 0;
-};
 
-const layoutStruct = (struct, dirs, made, count) => {
-  const room = struct.room;
-  for(let dir of dirs) {
-    const p = struct.pos.atDirection(dir);
-    if(canRoad(room, p)){
-      if(made >= count) {
-        room.visual.circle(p);
-      } else {
-        room.createConstructionSite(p, STRUCTURE_ROAD);
+  layoutStruct(struct, dirs) {
+    const room = struct.room;
+    for(let dir of dirs) {
+      const p = struct.pos.atDirection(dir);
+      if(canRoad(room, p)){
+        if(this.made >= this.count) {
+          room.visual.circle(p);
+        } else {
+          room.createConstructionSite(p, STRUCTURE_ROAD);
+        }
+        this.made++;
       }
-      made++;
     }
-  }
-  made += unRoad(room, struct.pos, count);
-  return made;
-};
-/*
-function layoutRoad(from, dest, range=1, made, count) {
-  const room = from.room;
+    this.unRoad(struct);
+  };
+
+layoutRoad(from, dest, range) {
   const callback = (roomName) => {
-    if(roomName !== room.name) {
+    if(roomName !== this.room.name) {
       console.log("Unexpected room", roomName);
       return false;
     }
@@ -123,79 +128,75 @@ function layoutRoad(from, dest, range=1, made, count) {
     }
   }
   return made;
-}*/
-
-function layoutExtensions(room, dry) {
-  let made = 0;
-  for(let extn of room.findStructs(STRUCTURE_EXTENSION)){
-    made += unRoad(room, extn.pos, dry);
-  }
-  return made;
 }
+*/
 
-function layoutSpawn(room, dry) {
-  let made = 0;
-  for(let spawn of room.findStructs(STRUCTURE_SPAWN)){
-    made += layoutStruct(spawn,
-      [TOP, TOP_LEFT, LEFT, BOTTOM_LEFT, BOTTOM, BOTTOM_RIGHT, RIGHT, TOP_RIGHT],
-      dry);
-    if(room.controller) {
-      made += layoutRoad(spawn, room.controller, 3, dry);
-    }
-    if(room.terminal) {
-      made += layoutRoad(spawn, room.terminal, 1, dry);
-    }
-    for(let src of room.find(FIND_SOURCES)) {
-      made += layoutRoad(spawn, src, 1, dry);
-    }
-    for(let rampart of room.findStructs(STRUCTURE_RAMPART)) {
-      made += layoutRoad(spawn, rampart, 3, dry);
-    }
-    for(let site of room.find(FIND_MY_CONSTRUCTION_SITES)) {
-      console.log("checking road", spawn, site);
-      if(site.structureType === STRUCTURE_RAMPART) {
-        console.log("making road", spawn, site);
-        made += layoutRoad(spawn, site, 3, dry);
+  layoutSpawns() {
+    for(let spawn of this.room.findStructs(STRUCTURE_SPAWN)){
+      this.layoutStruct(spawn,
+        [TOP, TOP_LEFT, LEFT, BOTTOM_LEFT, BOTTOM, BOTTOM_RIGHT, RIGHT, TOP_RIGHT]);
+      if(this.room.controller) {
+        this.layoutRoad(spawn, this.room.controller, 3);
+      }
+      if(this.room.terminal) {
+        this.layoutRoad(spawn, this.room.terminal, 1);
+      }
+      for(let src of this.room.find(FIND_SOURCES)) {
+        this.layoutRoad(spawn, src, 1);
+      }
+      for(let rampart of this.room.findStructs(STRUCTURE_RAMPART)) {
+        this.layoutRoad(spawn, rampart, 3);
       }
     }
   }
-  return made;
-}
 
-function layoutLink(room, dry) {
-  let made = 0;
-  for(let link of room.findStructs(STRUCTURE_LINK)){
-    //made += layoutStruct(link, [TOP, LEFT, BOTTOM, RIGHT], dry);
-    made += layoutStruct(link, [], dry);
+  layoutLinks() {
+    for(let link of this.room.findStructs(STRUCTURE_LINK)){
+      if(link.mode() != 'src') {
+      this.layoutStruct(link, [TOP, LEFT, BOTTOM, RIGHT]);
+    }
   }
-  return made;
-}
 
-function layoutSrc(room, dry) {
-  let made = 0;
-  for(let src of room.find(FIND_SOURCES)) {
-    for(let spot of src.spots) {
-      if(canRoad(room, spot)){
-        if(dry) {
-          room.visual.circle(spot);
-        } else {
-          room.createConstructionSite(spot, STRUCTURE_ROAD);
+  layoutExtensions() {
+    for(let extn of this.room.findStructs(STRUCTURE_EXTENSION)){
+      this.unRoad(extn);
+    }
+  }
+
+  layoutSrc() {
+    for(let src of this.room.find(FIND_SOURCES)) {
+      for(let spot of src.spots) {
+        if(this.canRoad(spot)){
+          if(this.made >= this.count) {
+            this.room.visual.circle(spot);
+          } else {
+            this.room.createConstructionSite(spot, STRUCTURE_ROAD);
+          }
+          this.made++;
         }
-        made++;
       }
     }
   }
-  return made;
+
+  layoutController() {
+    const controller = this.room.controller;
+    if(!controller) return;
+    for(let src of this.room.find(FIND_SOURCES)) {
+        this.layoutRoad(src, controller, 3);
+    }
+  }
 }
 
-function layoutController(room, dry) {
-    const controller = room.controller;
-    if(!controller) return 0;
-    let made = 0;
-    for(let src of room.find(FIND_SOURCES)) {
-        made += layoutRoad(src, controller, 3, dry);
-    }
-    return made;
+function layout(room, count=0) {
+    const p = new Paver(room, count);
+    p.layoutSrc();
+  p.layoutLinks();
+  p.layoutSpawn();
+  p.layoutExtensions();
+  p.layoutController();
+  return p.made;
 }
+
+
 
 global.layout = layout;
