@@ -73,8 +73,6 @@ Flag.prototype.spawnDist = function(spawn) {
   if(!spawn) return Infinity;
 
   const mem = this.memory = this.memory || {};
-  // TODO delete this
-  //delete this.memory.spawnDist;
   let cache = mem.spawnDist;
   if(!cache || !this.pos.isEqualTo(cache.pos)) {
     cache = mem.spawnDist = { pos: this.pos };
@@ -82,7 +80,11 @@ Flag.prototype.spawnDist = function(spawn) {
   let dist = cache[spawn.name];
   if (dist === undefined) {
     dist = cache[spawn.name] = Game.map.findRoute(this.pos.roomName, spawn.room).length;
-    cache.min = Math.min(cache.min||0, dist);
+    if(cache.min === undefined) {
+      cache.min = dist
+    } else {
+      cache.min = Math.min(cache.min, dist);
+    }
   }
   return dist;
 };
