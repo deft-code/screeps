@@ -2,20 +2,23 @@ const lib = require('lib');
 
 const spots = new Map();
 
-const calcSpots = (src) => {
-  //console.log(`Calculating spots for src ${src.pos}`);
-  return _(src.room.lookForAtArea(
-               LOOK_TERRAIN, src.pos.y - 1, src.pos.x - 1, src.pos.y + 1,
-               src.pos.x + 1, true))
+const calcSpots = (obj) => {
+  //console.log(`Calculating spots for obj ${obj.pos}`);
+  return _(obj.room.lookForAtArea(
+               LOOK_TERRAIN, obj.pos.y - 1, obj.pos.x - 1, obj.pos.y + 1,
+               obj.pos.x + 1, true))
       .filter(spot => spot.terrain !== 'wall')
-      .map(spot => new RoomPosition(spot.x, spot.y, src.pos.roomName))
+      .map(spot => new RoomPosition(spot.x, spot.y, obj.pos.roomName))
       .value('');
 };
 
-lib.enhance(Source, 'spots', (src) => {
-  const key = JSON.stringify(src.pos);
+const getSpots = (obj) => {
+  const key = JSON.stringify(obj.pos);
   if (!spots[key]) {
-    spots[key] = Object.freeze(calcSpots(src));
+    spots[key] = Object.freeze(calcSpots(obj));
   }
   return spots[key];
-});
+};
+
+lib.enhance(Mineral, 'spots', getSpots);
+lib.enhance(Source, 'spots', getSpots);
