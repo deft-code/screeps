@@ -2,7 +2,7 @@
 Creep.prototype.roleSnipe = function() {
   return this.actionTask() ||
       this.actionTravelFlag(Game.flags.snipe) ||
-      this.actionSnipe(); 
+      this.actionSnipe();
 };
 
 Creep.prototype.actionSnipe = function() {
@@ -15,7 +15,7 @@ Creep.prototype.actionSnipe = function() {
   if (tower) {
     return this.actionAttackStruct(tower);
   }
-  
+
   const spawn = _(this.room.find(FIND_HOSTILE_STRUCTURES))
                     .filter(s => s.structureType == STRUCTURE_SPAWN)
                     .sample();
@@ -62,8 +62,8 @@ Creep.prototype.actionSnipe = function() {
 };
 
 Creep.prototype.roleAssassin = function(struct) {
-  return this.actionTask() ||
-      this.actionTravelFlag(Game.flags.assassin) || this.actionAssassin();
+  return this.actionTask() || this.actionTravelFlag(Game.flags.assassin) ||
+      this.actionAssassin();
 
 };
 
@@ -82,7 +82,7 @@ Creep.prototype.actionAttackStruct = function(struct) {
   this.memory.task = {
     task: 'attack struct',
     attack: struct.id,
-    //note: modutil.structNote(struct.structureType || 'creep', struct.pos),
+    // note: modutil.structNote(struct.structureType || 'creep', struct.pos),
   };
   return this.taskAttackStruct();
 };
@@ -107,30 +107,26 @@ Creep.prototype.taskAttackStruct = function() {
 
 StructureSpawn.prototype.roleSnipe = function() {
   const body = [
-     TOUGH, MOVE, TOUGH, MOVE, TOUGH, TOUGH, MOVE,
-    ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
-    ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
-    ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
-    ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
-    ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
-    //ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
+    TOUGH, MOVE,   TOUGH, MOVE,   TOUGH, TOUGH,  MOVE, ATTACK, MOVE, ATTACK,
+    MOVE,  ATTACK, MOVE,  ATTACK, MOVE,  ATTACK, MOVE, ATTACK, MOVE, ATTACK,
+    MOVE,  ATTACK, MOVE,  ATTACK, MOVE,  ATTACK, MOVE, ATTACK, MOVE, ATTACK,
+    MOVE,  ATTACK, MOVE,  ATTACK, MOVE,  ATTACK, MOVE, ATTACK, MOVE, ATTACK,
+    MOVE,  ATTACK, MOVE,  ATTACK, MOVE,  ATTACK, MOVE,
+    // ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE, ATTACK, MOVE,
   ];
   return this.createRole(body, 2, {role: 'snipe'});
 };
 
 StructureSpawn.prototype.roleThief = function(flag) {
   const body = [
-    MOVE, ATTACK,
-    MOVE,  CARRY, MOVE,  CARRY, MOVE,  CARRY, MOVE,
-    CARRY, MOVE,  CARRY, MOVE,  CARRY, MOVE,  CARRY, MOVE,  CARRY, MOVE,  CARRY,
+    MOVE, ATTACK, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
+    MOVE, CARRY,  MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
   ];
   return this.createRole(body, 6, {role: 'thief', flag: flag});
 };
 
 Creep.prototype.roleThief = function() {
-  return this.actionTask() ||
-      this.actionHospital() ||
-      this.actionThief();
+  return this.actionTask() || this.actionHospital() || this.actionThief();
 };
 
 Creep.prototype.actionThief = function() {
