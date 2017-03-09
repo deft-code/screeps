@@ -48,6 +48,19 @@ Creep.prototype.busy = function(...intents) {
   return _.any(intents, intent => this.intents[intent]);
 };
 
+Creep.prototype.idleMoveTo = function(obj, opts = {}) {
+  if (!obj) return false;
+  opts = _.defaults(opts, {
+    useFindRoute: true,
+  });
+  const err = this.travelTo(obj, opts);
+  if (err != ERR_NO_PATH) {
+    this.intents.move = lib.getPos(obj);
+    return `moveTo ${err} ${obj.pos}`;
+  }
+  return false;
+};
+
 Creep.prototype.doMove = function(dir) {
   if (this.busy(MOVE)) return this.intents.move;
   if (!target) return false;
@@ -68,10 +81,13 @@ Creep.prototype.doMoveTo = function(target, opts = {}) {
   if (this.busy(MOVE)) return this.intents.move;
   if (!target) return false;
 
-  this.dlog("doMoveTo", target);
+  const weight = this.weight;
+  const fatigue = this.bodyInfo().fatigue;
+  this.dlog("doMoveTo", weight, fatigue, target);
 
   opts = _.defaults(opts, {
-    useFindRoute: true,
+    //useFindRoute: true,
+    ignoreRoads: fatigue > weight,
   });
   const err = this.travelTo(target, opts);
   switch (err) {
