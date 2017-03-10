@@ -1,8 +1,4 @@
 class AttackSquad {
-  constructor(name) {
-    super(name);
-  }
-
   execute() {
     return 'NOT YET';
 

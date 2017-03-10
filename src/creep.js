@@ -254,6 +254,16 @@ Creep.prototype.doWithdraw = function(target, resource, ...amount) {
   return false;
 };
 
+Creep.prototype.doUpgradeController = function(controller) {
+  const err = this.upgradeController(controller);
+  if(err == OK) {
+    return controller.progress
+  }
+  if (err == ERR_NOT_IN_RANGE) {
+    return this.idleMoveNear(controller);
+  }
+};
+
 modutil.cachedProp(
     Creep, 'partsByType',
     creep => _(creep.body).filter(part => part.hits).countBy('type').value());

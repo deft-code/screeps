@@ -234,12 +234,3 @@ Creep.prototype.taskDoubleTime = function() {
   }
   return false;
 };
-
-Creep.prototype.actionRecharge2 = function(lack) {
-  lack = lack || this.carryCapacity;
-  return this.actionPickup(RESOURCE_ENERGY, lack) ||
-      this.actionUncharge(undefined, lack) ||
-      this.actionWithdraw(undefined, RESOURCE_ENERGY, lack) ||
-      this.actionPickup(RESOURCE_ENERGY) || this.actionUncharge() ||
-      this.actionWithdraw(undefined, RESOURCE_ENERGY);
-};
