@@ -27,6 +27,8 @@ require('tower');
 
 require('creep');
 require('creep.move');
+require('creep.role');
+require('creep.task');
 require('role.hauler');
 
 require('mod.role');
@@ -37,6 +39,7 @@ require('work');
 require('role.bulldozer');
 require('role.chemist');
 require('role.collector');
+require('role.farmer');
 require('role.guard');
 require('role.medic');
 require('role.misc');

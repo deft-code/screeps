@@ -22,3 +22,6 @@ const getSpots = (obj) => {
 
 lib.enhance(Mineral, 'spots', getSpots);
 lib.enhance(Source, 'spots', getSpots);
+
+lib.enhance(Source, 'note', (src) => `src${src.pos.x}${src.pos.y}`);
+lib.enhance(Mineral, 'note', (src) => `minral${src.pos.x}${src.pos.y}`);

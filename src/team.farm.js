@@ -45,18 +45,6 @@ Flag.prototype.roleGuard = function(spawn) {
   return this.createRole(spawn, body, {role: 'guard'});
 };
   
-Flag.prototype.roleFarmer = function(spawn) {
-  let body = [
-    MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-    MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-    MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-    MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-    //MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-    //MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-  ];
-  return this.createRole(spawn, body, {role: 'farmer'});
-};
-
 Flag.prototype.roleReserver = function(spawn) {
   let body = [MOVE, MOVE, CLAIM, CLAIM, MOVE, CLAIM];
   return this.createRole(spawn, body, {role: 'reserver'});
@@ -68,49 +56,12 @@ Creep.prototype.roleReserver = function() {
       this.actionReserve(this.team.room);
 };
 
-Creep.prototype.roleFarmer = function() {
-  this.idleNom();
-  return this.actionHospital() ||
-      this.actionTask() ||
-      !this.carryTotal && this.actionTravelFlag(this.team) ||
-      this.actionRoadUpkeep(this.team.room) ||
-      this.actionDismantleHostile(this.team.room) ||
-      this.actionFarm(this.team.room) ||
-      this.carryTotal && this.actionTravel(this.home.controller) ||
-      this.actionXferNearest(this.home);
-};
-
 Creep.prototype.actionRoadUpkeep = function(room) {
     if(!room) return false;
 
     return this.actionRepairStruct(STRUCTURE_ROAD, room) ||
         this.actionBuildStruct(STRUCTURE_ROAD, room) ||
         this.actionBuildRoom(room);
-};
-
-Creep.prototype.actionFarm = function(room) {
-  if(!room) return false;
-
-  if(!this.carryFree) return false;
-    
-  let resources = _.filter(
-    room.find(FIND_DROPPED_RESOURCES),
-    r => r.resourceType != RESOURCE_ENERGY || r.amount > 20);
-  
-  let stores = _.filter(
-      room.find(FIND_STRUCTURES),
-      s => s.storeTotal);
-
-  const target = _.sample(resources.concat(stores));
-  if(target) {
-    if(target.structureType) {
-      return this.actionUnstore(target);
-    } else {
-      return this.actionPickup(target);
-    }
-  }
-  
-  return this.actionHarvestAny(room);
 };
 
 Creep.prototype.actionXferNearest = function(room) {

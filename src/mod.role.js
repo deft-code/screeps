@@ -55,10 +55,6 @@ Creep.prototype.actionRole = function() {
   return roleFunc.apply(this);
 };
 
-Creep.prototype.roleUndefined = function() {
-  this.dlog('Missing Role!');
-};
-
 Creep.prototype.actionTask = function() {
   let task = this.memory.task;
   if (!task) {

@@ -208,7 +208,7 @@ Creep.prototype.roleWorker = function() {
       this.actionBuildFinish() ||
       this.actionRepairAny() || 
       this.taskUpgrade() || 
-      this.actionHarvestAny();
+      this.taskHarvestAny();
 };
 
 Creep.prototype.roleBootstrap = function() {

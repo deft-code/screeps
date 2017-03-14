@@ -48,14 +48,17 @@ Flag.prototype.upkeepRole = function(role, n, energy, priority=0, dist=0) {
 };
 
 Flag.prototype.findSpawn = function(energy=0, dist=0) {
+  if(!this.memory.spawnDist) {
+    this.memory.spawnDist = {};
+  }
+  dist += this.memory.spawnDist.min || 0;
   return _(Game.spawns)
+    .sortBy(spawn => this.spawnDist(spawn))
     .filter(spawn =>
-      spawn.room.energyAvailable >= energy &&
       this.spawnDist(spawn) <= dist &&
-      !spawn.spawning)
-    .shuffle()
-    .concat([null])
-    .min(spawn => this.spawnDist(spawn));
+      !spawn.spawning &&
+      spawn.room.energyAvailable >= energy)
+    .first();
 };
 
 Flag.prototype.createRole = function(spawn, body, mem) {
@@ -108,6 +111,9 @@ Flag.prototype.run = function() {
 Flag.prototype.teamNull = function() {
   this.dlog("is Team Null");
   switch(this.secondaryColor) {
+    case COLOR_BLUE:
+      this.makeTeam("base");
+      return "base";
     case COLOR_GREEN:
       this.makeTeam("farm");
       return "farm";

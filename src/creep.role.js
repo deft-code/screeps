@@ -7,15 +7,18 @@ Creep.prototype.runRole = function() {
   const pre = this[this.memory.pre];
   if(_.isFunction(pre)) pre.apply(this);
 
-  const post = this[this.memory.post];
-  if(_.isFunction(post)) defer post.apply(this);
-
   let what = this.runTask();
-  if(what) return what;
+  if(!what) {
+    const role = _.camelCase('role ' + this.memory.role);
+    const roleFunc = this[role] || this.roleUndefined;
+    return roleFunc.apply(this);
+    what = this.runPreRole();
+  }
 
-  const role = _.camelCase('role ' + this.memory.role);
-  const roleFunc = this[role] || this.roleUndefined;
-  return roleFunc.apply(this);
+  const post = this[this.memory.post];
+  if(_.isFunction(post)) post.apply(this);
+
+  return what;
 };
 
 Creep.prototype.roleUndefined = function() {
@@ -28,7 +31,7 @@ Creep.prototype.runTask = function() {
     return false;
   }
   let taskFunc = this[_.camelCase('task ' + task.task)];
-  if (!taskFunc) {
+  if (!_.isFunction(taskFunc)) {
     console.log('BAD TASK', JSON.stringify(task));
     return false;
   }
@@ -51,6 +54,9 @@ Creep.prototype.taskify = function(name, obj) {
     if(taskmem.id !== obj.id) {
       return false;
     }
+    if(this.debug) {
+      this.room.visual.line(this.pos, obj.pos, {lineStyle: "dotted"});
+    }
     return obj;
   }
 
@@ -70,6 +76,7 @@ Creep.prototype.taskify = function(name, obj) {
     task: name,
     id: obj.id,
   };
+  this.room.visual.line(this.pos, obj.pos);
   return obj;
 };
 
