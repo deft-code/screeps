@@ -1,4 +1,10 @@
-require('traveler')({exportTraveler: false, installTraveler: true, installPrototype: true, defaultStuckValue: 2, reportThreshold: 100});
+require('traveler')({
+  exportTraveler: false,
+  installTraveler: true,
+  installPrototype: true,
+  defaultStuckValue: 2,
+  reportThreshold: 100
+});
 
 const lib = require('lib');
 lib.enhanceAll();
@@ -55,39 +61,43 @@ global.dismantle = (id) => Game.getObjectById(id).dismantle();
 
 global.opposite = lib.oppositeDir;
 
-if(false) {
-    const profiler = require('screeps-profiler');
-    profiler.enable();
-    module.exports.loop = profiler.wrap(main);
+if (false) {
+  const profiler = require('screeps-profiler');
+  profiler.enable();
+  module.exports.loop = profiler.wrap(main);
 } else {
-    module.exports.loop = main;
+  module.exports.loop = main;
 }
 
 function runner(objs) {
-  for(let name in objs) {
-    obj = objs[name];
+  for (let name in objs) {
+    const obj = objs[name];
     try {
       obj.run();
-    }
-    catch( err ) {
+    } catch (err) {
       console.log(err.stack);
       Game.notify(err.stack, 30);
     }
   }
 }
 
-function main() {
-    PathFinder.use(true);
-    runner(Game.rooms);
-    runner(Game.flags);
-    runner(Game.spawns);
-    runner(Game.creeps);
-
-    for (var name in Memory.creeps) {
-        if (!Game.creeps[name]) {
-           delete Memory.creeps[name];
-          console.log('Clearing non-existing creep memory:', name);
-        }
+function clearMem(what) {
+  for (var name in Memory[what]) {
+    if (!Game[what][name]) {
+      console.log(`Clear memory for ${what}[${name}]:`, JSON.stringify(Memory[what][name]));
+      delete Memory[what][name];
     }
-    //console.log(server.run(), server.ticks, server.uptime);
+  }
+}
+
+function main() {
+  PathFinder.use(true);
+
+  runner(Game.rooms);
+  runner(Game.flags);
+  runner(Game.spawns);
+  runner(Game.creeps);
+
+  clearMem('creeps');
+  clearMem('flags');
 }

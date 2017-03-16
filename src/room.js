@@ -3,7 +3,6 @@ let modtower = require('tower');
 let modprototypes = require('prototypes');
 let modutil = require('util');
 let modwork = require('work');
-let modroad = require('road');
 let modmanual = require('role.manual');
 
 Room.prototype.findStructs = function(...types) {
@@ -13,7 +12,7 @@ Room.prototype.findStructs = function(...types) {
   return _.flatten(_.map(types, sType => this.structsByType[sType] || []));
 };
 
-modutil.cachedProp(Room, "enemies", room => room.cachedFind(FIND_HOSTILE_CREEPS));
+modutil.cachedProp(Room, "enemies", room => room.find(FIND_HOSTILE_CREEPS));
 modutil.cachedProp(Room, "hostiles", room => _.filter(room.enemies, e => e.hostile));
 modutil.cachedProp(Room, "assaulters", room => _.filter(room.enemies, e => e.assault))
 
@@ -122,9 +121,7 @@ function upkeepMyRoom(room) {
     modtower.tower(tower);
   }
 
-  //modroad.upkeep(room);
-
-  customFunc = custom[room.name];
+  const customFunc = custom[room.name];
   if (customFunc) {
     customFunc(room);
   }

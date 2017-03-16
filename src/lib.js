@@ -350,9 +350,9 @@ exports.structObstacle = (struct) =>
 // StructureTower
 //
 
-lerp = (ratio, from, to) => from + (to - from) * ratio;
+const lerp = (ratio, from, to) => from + (to - from) * ratio;
 
-towerPower = (power, from, to) => {
+const towerPower = (power, from, to) => {
   const fpos = exports.getPos(from);
   const tpos = exports.getPos(to);
   if (!fpos || !tpos) {

@@ -70,8 +70,6 @@ Object.defineProperty(Structure.prototype, 'repairs', {
         myMax = this.hitsMax / 5;
         break;
     }
-    mem = this.memory || {};
-    myMax = Math.max(mem.hitsMax || 0, myMax);
     return 1 - (this.hits / myMax);
   }
 });

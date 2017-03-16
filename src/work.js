@@ -115,9 +115,9 @@ Creep.prototype.actionRepairAny = function() {
   if(!room) return false;
 
   const target = _(room.find(FIND_STRUCTURES))
-                     .tap(s => this.dlog("repairs",_.map(s, "repairs")))
+                     //.tap(s => this.dlog("repairs",_.map(s, "repairs")))
                      .filter(s => s.repairs > 0)
-                     .tap(s => this.dlog("repairs", s))
+                     //.tap(s => this.dlog("repairs", s))
                      .sample(3)
                      .sortBy('repairs')
                      .last();

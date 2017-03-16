@@ -10,6 +10,11 @@ gulp.task('deploy', function() {
   gulp.src('src/*.js').pipe(screeps(credentials));
 });
 
+gulp.task('sim', function() {
+  credentials.branch = 'sim';
+  gulp.src('src/*.js').pipe(screeps(credentials));
+});
+
 gulp.task('fetch', function() {
   const options = {
     hostname: 'screeps.com',
