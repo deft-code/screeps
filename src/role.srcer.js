@@ -1,9 +1,8 @@
 const util = require('util');
 
 Creep.prototype.roleSrcer = function() {
-  return this.actionTask() ||
-    this.actionTravelFlag(this.team) ||
-    this.actionStartSrc();
+  return this.actionTask() || this.actionTravelFlag(this.team) ||
+      this.actionStartSrc();
 };
 
 Creep.prototype.actionStartSrc = function() {
@@ -11,7 +10,7 @@ Creep.prototype.actionStartSrc = function() {
   const room = this.team.room;
   const srcs = room.find(FIND_SOURCES);
 
-  if( srcers.length === 0) {
+  if (srcers.length === 0) {
     return this.actionSrc(util.pickClosest(this.pos, srcs));
   }
 
@@ -51,12 +50,12 @@ Creep.prototype.actionSrc = function(src) {
 };
 
 Creep.prototype.startShunt = function(...positions) {
-  this.dlog("shunting in ", positions[0], positions[0].roomName);
+  this.dlog('shunting in ', positions[0], positions[0].roomName);
   const room = Game.rooms[positions[0].roomName];
 
   if (!room) return false;
 
-  this.dlog("room is", room);
+  this.dlog('room is', room);
 
   const order = [
     STRUCTURE_TOWER,
@@ -71,7 +70,7 @@ Creep.prototype.startShunt = function(...positions) {
                       .filter(
                           s => _.any(positions, pos => pos.isNearTo(s)) &&
                               _.contains(order, s.structureType))
-                      .sortBy(s=> order.indexOf(s.structureType))
+                      .sortBy(s => order.indexOf(s.structureType))
                       .map('id')
                       .value();
 
@@ -83,19 +82,19 @@ Creep.prototype.idleShunt = function() {
   if (!shunt) return false;
 
   const moveTo = (struct, err) => {
-    this.dlog("shunt moveTo", struct, err);
+    this.dlog('shunt moveTo', struct, err);
     if (!this.intents.move && err == ERR_NOT_IN_RANGE) {
-      this.dlog("moving", struct);
+      this.dlog('moving', struct);
       this.idleMoveNear(struct);
     }
-    return err ==- OK;
+    return err == -OK;
   };
 
   let deficit = false;
 
   for (let id of shunt) {
     if (this.intents.xfer && this.intents.withdraw) {
-      this.dlog("done shunting");
+      this.dlog('done shunting');
       break;
     }
     const struct = Game.getObjectById(id);
@@ -109,58 +108,64 @@ Creep.prototype.idleShunt = function() {
       case STRUCTURE_SPAWN:
       case STRUCTURE_EXTENSION:
         if (this.intents.xfer || struct.energyFree < 25) break;
-        this.dlog("energy check", struct);
+        this.dlog('energy check', struct);
         deficit = struct.energyFree > this.carry.energy;
-        if(!this.carry.energy) break;
-        this.dlog("filling", struct);
-        this.intents.xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+        if (!this.carry.energy) break;
+        this.dlog('filling', struct);
+        this.intents.xfer =
+            moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
         break;
       case STRUCTURE_LINK:
-        if( struct.mode() === 'buffer') {
-          this.dlog("shunting link buffer", struct);
-          if( struct.energy > 250 ) {
-            this.dlog("clearing link buffer", struct);
-            this.intents.withdraw = moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
-          } else if( struct.energy < 200 ) {
-            this.dlog("filling link buffer", struct);
-            this.intents.xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+        if (struct.mode() === 'buffer') {
+          this.dlog('shunting link buffer', struct);
+          if (struct.energy > 250) {
+            this.dlog('clearing link buffer', struct);
+            this.intents.withdraw =
+                moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
+          } else if (struct.energy < 200) {
+            this.dlog('filling link buffer', struct);
+            this.intents.xfer =
+                moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
           }
           break;
         }
 
         if (deficit) {
           if (this.intents.withdraw || !struct.energy) break;
-          this.dlog("withdraw", struct);
-          this.intents.withdraw = moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
+          this.dlog('withdraw', struct);
+          this.intents.withdraw =
+              moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
           break;
         }
 
         if (this.intents.xfer) break;
-        this.intents.xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+        this.intents.xfer =
+            moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
         break;
       case STRUCTURE_STORAGE:
       case STRUCTURE_CONTAINER:
         if (deficit) {
           if (this.intents.withdraw || !struct.store.energy) break;
-          this.intents.withdraw = moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
+          this.intents.withdraw =
+              moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
           break;
         }
 
         if (this.intents.xfer) break;
 
-        this.dlog("xfer to", struct);
-        this.intents.xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+        this.dlog('xfer to', struct);
+        this.intents.xfer =
+            moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
         break;
     }
   }
 };
 
 const findCont = (positions) => {
-  for(let pos of positions) {
+  for (let pos of positions) {
     const cont = _.find(
-      pos.lookFor(LOOK_STRUCTURES),
-      {structureType: STRUCTURE_CONTAINER});
-    if(cont) return cont.id;
+        pos.lookFor(LOOK_STRUCTURES), {structureType: STRUCTURE_CONTAINER});
+    if (cont) return cont.id;
   }
   return false;
 };
@@ -172,7 +177,8 @@ Creep.prototype.taskSrc = function() {
     return false;
   }
   const err = this.harvest(src);
-  if (err == ERR_NOT_IN_RANGE || err == ERR_NOT_ENOUGH_RESOURCES && !this.pos.isNearTo(src)) {
+  if (err == ERR_NOT_IN_RANGE ||
+      err == ERR_NOT_ENOUGH_RESOURCES && !this.pos.isNearTo(src)) {
     return this.idleMoveTo(src);
   }
   if (this.getActiveBodyparts(CARRY)) {
@@ -184,16 +190,25 @@ Creep.prototype.taskSrc = function() {
     this.idleShunt();
   } else {
     let contid = this.memory.task.cont;
-    if(contid === undefined) {
+    if (contid === undefined) {
       contid = this.memory.task.cont = findCont(src.spots);
     }
-    if(contid) {
+    if (contid) {
       const cont = Game.getObjectById(contid);
-      if(!cont) {
+      if (!cont) {
         delete this.memory.task.cont;
       } else {
-        this.dlog("adjusting");
+        this.dlog('adjusting');
         this.idleMoveTo(cont);
+      }
+    }
+  }
+  if (this.getActiveBodyparts(WORK) > 5 &&
+      this.room.energyAvailable == this.room.energyCapacityAvailable) {
+    for (let spawn of this.room.findStructs(STRUCTURE_SPAWN)) {
+      const err = spawn.renewCreep(this);
+      if (err === OK || err === ERR_FULL) {
+        break;
       }
     }
   }

@@ -1,17 +1,31 @@
 const util = require('util');
 
 Flag.prototype.teamClaim = function() {
-  let nremote = 1;
-  if(this.room) {
-    if(this.room.controller.level > 4) {
-      nremote = 0;
-    } else if(this.room.controller.level < 4) {
-      nremote = 2;
+  if (!this.room) return 'no room';
+
+  if (this.room.storage) {
+    nremote = 0;
+    if (!this.creeps.length) {
+      this.remove();
+      return 'removed';
     }
+    return 'done';
   }
-  const hurt = _.any(this.creeps, "hurts");
-  return this.upkeepRole("remote build", nremote, 800, 0, 3) ||
-    hurt && this.upkeepRole("medic", 1, 800, 1, 3);
+
+  let min = 100;
+  _.each(Game.spawns, spawn => {
+    if (spawn.room.controller.level < 3) return;
+    if (spawn.room.controller.level <= this.room.controller.level) return;
+    min = Math.min(this.spawnDist(spawn), min);
+  });
+
+  const nremote = 5 - this.room.controller.level;
+  const e = this.room.energyCapacityAvailable + 1;
+  const d = min + 3;
+
+  const hurt = _.any(this.room.find(FIND_MY_CREEPS), 'hurts');
+  return this.upkeepRole('remote build', nremote, e, 0, d) ||
+      hurt && this.upkeepRole('medic', 1, e, 1, d);
 };
 
 Flag.prototype.roleRemoteBuild = function(spawn) {
@@ -44,12 +58,10 @@ StructureSpawn.prototype.roleClaim = function() {
 };
 
 Creep.prototype.roleRemoteBuild = function() {
-  if(this.room.name == this.team.pos.roomName) this.idleNom();
+  if (this.room.name == this.team.pos.roomName) this.idleNom();
 
-  return this.actionTask() ||
-      this.actionTravelFlag(this.team) ||
+  return this.actionTask() || this.actionTravelFlag(this.team) ||
       this.actionBuildRoom(this.team.room) ||
       this.actionUpgrade(this.team.room) ||
-      this.taskHarvestAny(this.team.room) ||
-      this.idleMoveNear(this.team);
+      this.taskHarvestAny(this.team.room) || this.idleMoveNear(this.team);
 };

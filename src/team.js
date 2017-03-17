@@ -4,17 +4,20 @@ Flag.prototype.runTeam = function() {
   util.markDebug(this);
   this.memory.creeps = this.memory.creeps || [];
   const removed = _.remove(this.memory.creeps, cname => !Game.creeps[cname]);
-  if(removed.length) {
-    this.dlog("Dead Creeps", removed);
+  if (removed.length) {
+    this.dlog('Dead Creeps', removed);
   }
   this.creeps = this.memory.creeps.sort().map(name => Game.creeps[name]);
   this.creepsByRole = _.groupBy(this.creeps, c => c.memory.role);
-  this.dlog("my creeps", JSON.stringify(_.mapValues(this.creepsByRole, creeps => _.map(creeps, "name"))));
+  this.dlog(
+      'my creeps',
+      JSON.stringify(
+          _.mapValues(this.creepsByRole, creeps => _.map(creeps, 'name'))));
 };
 
-Flag.prototype.makeTeam = function(name, force=false) {
+Flag.prototype.makeTeam = function(name, force = false) {
   const team = this.memory.team;
-  if(!team || force) {
+  if (!team || force) {
     this.memory.team = name;
     this.memory.debug = true;
     return true;
@@ -34,38 +37,36 @@ Flag.prototype.memOr = function(key, value) {
   return v;
 };
 
-Flag.prototype.upkeepRole = function(role, n, energy, priority=0, dist=0) {
+Flag.prototype.upkeepRole = function(role, n, priority, filter) {
   const creeps = this.roleCreeps(role);
 
   n = this.memOr('n' + role, n);
   if (creeps.length >= n) return false;
 
-  this.dlog("team upkeepRole", role, n, energy, priority);
+  this.dlog('team upkeepRole', role, n, priority);
 
-  const spawn = this.findSpawn(energy, dist);
+  const spawn = this.findSpawn(priority, filter);
   if (!spawn) return false;
   return spawn.enqueueRole(this, role, priority) && spawn.name;
 };
 
-Flag.prototype.findSpawn = function(energy=0, dist=0) {
-  if(!this.memory.spawnDist) {
+Flag.prototype.findSpawn = function(priority, filter) {
+  if (!this.memory.spawnDist) {
     this.memory.spawnDist = {};
   }
-  dist += this.memory.spawnDist.min || 0;
   return _(Game.spawns)
-    .sortBy(spawn => this.spawnDist(spawn))
-    .filter(spawn =>
-      this.spawnDist(spawn) <= dist &&
-      !spawn.spawning &&
-      spawn.room.energyAvailable >= energy)
-    .first();
+      .sortBy(spawn => this.spawnDist(spawn))
+      .filter(spawn => spawn.room.energyAvailable >= 300 && !spawn.spawning)
+      .filter(spawn => !spawn.nextRole || spawn.nextRole.priority < priority)
+      .filter(spawn => _.isFunction(filter) && filter(spawn))
+      .first();
 };
 
 Flag.prototype.createRole = function(spawn, body, mem) {
   mem.team = this.name;
-  this.dlog("spawning", spawn);
+  this.dlog('spawning', spawn);
   const who = spawn.createRole2(body, mem);
-  if(_.isString(who)){
+  if (_.isString(who)) {
     this.memory.creeps.push(who);
     return who;
   }
@@ -73,17 +74,21 @@ Flag.prototype.createRole = function(spawn, body, mem) {
 };
 
 Flag.prototype.spawnDist = function(spawn) {
-  if(!spawn) return Infinity;
+  if (!spawn) return Infinity;
+  if (!this.memory.spawnDist) {
+    this.memory.spawnDist = {};
+  }
 
   const mem = this.memory = this.memory || {};
   let cache = mem.spawnDist;
-  if(!cache || !this.pos.isEqualTo(cache.pos)) {
-    cache = mem.spawnDist = { pos: this.pos };
+  if (!cache || !this.pos.isEqualTo(cache.pos)) {
+    cache = mem.spawnDist = {pos: this.pos};
   }
   let dist = cache[spawn.name];
   if (dist === undefined) {
-    dist = cache[spawn.name] = Game.map.findRoute(this.pos.roomName, spawn.room).length;
-    if(cache.min === undefined) {
+    dist = cache[spawn.name] =
+        Game.map.findRoute(this.pos.roomName, spawn.room).length;
+    if (cache.min === undefined) {
       cache.min = dist
     } else {
       cache.min = Math.min(cache.min, dist);
@@ -101,25 +106,25 @@ Flag.prototype.run = function() {
   const fname = _.camelCase('team ' + team);
   const fn = this[fname];
   this.runTeam();
-  if(fn) {
+  if (fn) {
     this.dlog(fn.call(this));
   } else {
-    this.dlog("Missing fn", fname);
+    this.dlog('Missing fn', fname);
   }
 };
 
 Flag.prototype.teamNull = function() {
-  this.dlog("is Team Null");
-  switch(this.secondaryColor) {
+  this.dlog('is Team Null');
+  switch (this.secondaryColor) {
     case COLOR_BLUE:
-      this.makeTeam("base");
-      return "base";
+      this.makeTeam('base');
+      return 'base';
     case COLOR_GREEN:
-      this.makeTeam("farm");
-      return "farm";
+      this.makeTeam('farm');
+      return 'farm';
     case COLOR_YELLOW:
-      this.makeTeam("claim");
-      return "claim";
+      this.makeTeam('claim');
+      return 'claim';
   }
   return 'null';
 };
