@@ -1,5 +1,24 @@
 const util = require('util');
 
+Flag.prototype.roleHauler = function(spawn) {
+  const cap = this.room.energyCapacityAvailable;
+  const n = Math.floor(cap/100) * 3;
+  const body = [
+    MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
+    
+    MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
+    
+    MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
+    
+    MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
+
+    MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
+
+    MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
+  ];
+ return this.createRole(spawn, body.slice(0, n), {role: 'hauler'});
+};
+
 Creep.prototype.actionRecharge = function(lack, pos) {
   let room = this.team.room;
   if(pos) {

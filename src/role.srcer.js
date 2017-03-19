@@ -1,5 +1,10 @@
 const util = require('util');
 
+Flag.prototype.roleSrcer = function(spawn) {
+  const body = [MOVE, WORK, WORK, CARRY, WORK, WORK, WORK, WORK, MOVE, MOVE];
+  return this.createRole(spawn, body, {role: "srcer"});
+};
+
 Creep.prototype.roleSrcer = function() {
   return this.actionTask() || this.actionTravelFlag(this.team) ||
       this.actionStartSrc();

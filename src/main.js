@@ -39,18 +39,19 @@ require('role.hauler');
 
 require('mod.role');
 require('squad.attack');
-require('squad.snipe');
-require('work');
 
 require('role.bulldozer');
 require('role.chemist');
 require('role.collector');
+require('role.dropper');
 require('role.farmer');
 require('role.guard');
 require('role.medic');
 require('role.misc');
 require('role.scout');
+require('role.snipe');
 require('role.srcer');
+require('role.worker');
 
 global.structMem = function(id) {
   const s = Game.getObjectById(id);

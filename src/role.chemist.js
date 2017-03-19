@@ -88,7 +88,7 @@ Creep.prototype.taskStoreLab = function() {
 };
 
 Creep.prototype.actionResortMinerals = function() {
-    const labs = this.home.Structures(STRUCTURE_LAB);
+    const labs = this.home.findStructs(STRUCTURE_LAB);
     for(let lab of labs) {
         if(lab.mineralAmount && lab.mineralType != lab.memory.planType) {
             return this.actionWithdrawLab(lab);
@@ -102,7 +102,7 @@ Creep.prototype.actionResortMinerals = function() {
     
     const cont = this.pos.findClosestByRange(
         _.filter(
-            this.home.Structures(STRUCTURE_CONTAINER), 
+            this.home.findStructs(STRUCTURE_CONTAINER), 
             c => c.storeTotal > c.store.energy));
     return this.actionWithdrawMinerals(cont);
 };

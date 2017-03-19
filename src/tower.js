@@ -63,7 +63,7 @@ var doTower = function(tower) {
                       .length;
 
 
-  if ((surpluss || dropped) && tower.energy > 800) {
+  if ((surpluss || dropped) && tower.energy > 800 && tower.room.energyAvailable === tower.room.energyCapacityAvailable ) {
     let need_repair = _.sample(
         tower.room.find(FIND_STRUCTURES, {
           filter: s => s.hitsMax - s.hits > 800 &&

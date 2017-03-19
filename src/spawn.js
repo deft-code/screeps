@@ -37,7 +37,7 @@ StructureSpawn.prototype.enqueueRole = function(obj, role, priority) {
   return false;
 };
 
-StructureSpawn.prototype.createRole2 = function(body, memory) {
+StructureSpawn.prototype.createRole = function(body, memory) {
   memory.spawn = this.name;
   memory.birth = Game.time;
   let myParts = body;
@@ -47,26 +47,4 @@ StructureSpawn.prototype.createRole2 = function(body, memory) {
   const optParts = modutil.optimizeBody(myParts);
   this.dlog("spawning", JSON.stringify(memory), optParts);
   return this.createCreep(optParts, undefined, memory);
-};
-
-StructureSpawn.prototype.createRole = function(body, min, memory) {
-  memory.spawn = this.name;
-  memory.birth = Game.time;
-  if (this.spawning) {
-    this.dlog('spawning; ignored', JSON.stringify(memory));
-    return ERR_BUSY;
-  }
-  let myParts = body;
-  while (myParts.length >= min) {
-    const optParts = modutil.optimizeBody(myParts);
-    const ret = this.createCreep(optParts, undefined, memory);
-    if (_.isString(ret)) {
-      return ret;
-    }
-    if (ret != ERR_NOT_ENOUGH_ENERGY) {
-      return ret;
-    }
-    myParts = myParts.slice(0, -1);
-  }
-  return ERR_NOT_ENOUGH_ENERGY;
 };

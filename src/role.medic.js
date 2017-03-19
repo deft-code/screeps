@@ -10,7 +10,7 @@ Creep.prototype.roleMedic = function() {
 
 Creep.prototype.actionRoomHeal= function(room) {
   if(!room) return false;
-  return this.actionHealCreeps(room.cachedFind(FIND_MY_CREEPS));
+  return this.actionHealCreeps(room.find(FIND_MY_CREEPS));
 };
 
 Creep.prototype.actionTeamHeal = function(team) {
@@ -50,7 +50,7 @@ Creep.prototype.taskHeal = function() {
 };
 
 Creep.prototype.actionLocalHeal = function() {
-  const heal = _(this.room.cachedFind(FIND_MY_CREEPS))
+  const heal = _(this.room.find(FIND_MY_CREEPS))
                    .filter(c => c.hits < c.hitsMax)
                    .sample();
   if (!heal) {

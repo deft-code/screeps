@@ -236,7 +236,7 @@ Creep.prototype.taskKite = function() {
 };
 
 Creep.prototype.actionMassAttackStructs = function(structType) {
-  const s = this.room.cachedFind(FIND_HOSTILE_STRUCTURES);
+  const s = this.room.find(FIND_HOSTILE_STRUCTURES);
   const targets = _.filter(s, s => s.structureType == structType);
   return this.actionMassAttackStruct(_.sample(targets));
 };

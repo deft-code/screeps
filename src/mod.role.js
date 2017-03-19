@@ -100,7 +100,7 @@ Creep.prototype.roleRanged = function() {
     return 'Attacked ' + enemy.id.slice(-4);
   }
   const spawn =
-      _.sample(this.room.Structures(STRUCTURE_SPAWN)) || Game.spawns.Third;
+      _.sample(this.room.findStructs(STRUCTURE_SPAWN)) || Game.spawns.Third;
   const err = spawn.recycleCreep(this);
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveTo(spawn);

@@ -24,40 +24,6 @@ Flag.prototype.teamBase = function() {
     "enough";
 };
 
-Flag.prototype.roleSrcer = function(spawn) {
-  const body = [MOVE, WORK, WORK, CARRY, WORK, WORK, WORK, WORK, MOVE, MOVE];
-  return this.createRole(spawn, body, {role: "srcer"});
-};
-
-Flag.prototype.roleHauler = function(spawn) {
-  const cap = this.room.energyCapacityAvailable;
-  const n = Math.floor(cap/100) * 3;
-  const body = [
-    MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
-    
-    MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
-    
-    MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
-    
-    MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
-
-    MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
-
-    MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
-  ];
- return this.createRole(spawn, body.slice(0, n), {role: 'hauler'});
-};
-
-Flag.prototype.roleWorker = function(spawn) {
-  const body = [
-    CARRY, WORK, MOVE, CARRY, MOVE, WORK, CARRY, MOVE, WORK,
-    CARRY, MOVE, WORK, CARRY, MOVE, WORK, CARRY, MOVE, WORK,
-    CARRY, MOVE, WORK, CARRY, MOVE, WORK, WORK,  MOVE, WORK,
-    MOVE,  WORK, MOVE, WORK,  MOVE, WORK, MOVE,
-  ];
-  return this.createRole(spawn, body, {role: 'worker'});
-};
-     
 Flag.prototype.roleUpgrader = function(spawn) {
   const body = [
     MOVE, WORK, CARRY, WORK, CARRY, MOVE,

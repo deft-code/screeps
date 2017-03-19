@@ -12,7 +12,7 @@ Creep.prototype.idleNom = function() {
   if (!this.carryFree) {
     return false;
   }
-  const src = _(this.room.cachedFind(FIND_DROPPED_ENERGY))
+  const src = _(this.room.find(FIND_DROPPED_ENERGY))
                   .filter(e => e.pos.isNearTo(this))
                   .sample();
   if (src) {
@@ -33,9 +33,9 @@ Creep.prototype.actionPickup = function(resource, amount) {
   resource = resource || RESOURCE_ENERGY;
   amount = amount || 0;
   if (_.isString(resource)) {
-    resources = this.room.cachedFind(FIND_DROPPED_RESOURCES);
+    resources = this.room.find(FIND_DROPPED_RESOURCES);
     const rtype = resource;
-    resource = _(this.room.cachedFind(FIND_DROPPED_RESOURCES))
+    resource = _(this.room.find(FIND_DROPPED_RESOURCES))
                    .filter(r => r.resourceType == rtype && r.amount > amount)
                    .sample();
   }
@@ -64,9 +64,7 @@ Creep.prototype.taskPickup = function() {
 Creep.prototype.actionWithdraw = function(structure, resource, amount) {
   amount = amount || 0;
   if (!structure) {
-    let structures = this.room.Structures(STRUCTURE_CONTAINER)
-                         .concat(this.room.Structures(STRUCTURE_STORAGE))
-                         .concat(this.room.Structures(STRUCTURE_TERMINAL));
+    let structures = this.room.findStructs(STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_TERMINAL);
     if (resource) {
       structure =
           _(structures).filter(s => s.store[resource] > amount).sample();
@@ -105,8 +103,7 @@ Creep.prototype.taskWithdraw = function() {
 Creep.prototype.actionUncharge = function(structure, amount) {
   amount = amount || 0;
   if (!structure) {
-    const structures = this.room.Structures(STRUCTURE_LINK)
-                           .concat(this.room.Structures(STRUCTURE_LAB));
+    const structures = this.room.findStructs(STRUCTURE_LINK, STRUCTURE_LAB);
     structure = _(structures).filter(s => s.energy > amount).sample();
   }
   this.memory.task = {
@@ -145,7 +142,7 @@ function goodLabTransfer(creep, lab, resource) {
 Creep.prototype.actionTransfer = function(resource, dest) {
   rtype = resource || modutil.randomResource(this.carry);
   if (!dest) {
-    dest = _(this.room.Structures(STRUCTURE_LAB))
+    dest = _(this.room.findStructs(STRUCTURE_LAB))
                .filter(l => goodLabTransfer(this, lab, rtype))
                .sample();
     return this.actionTransferLab(dest);
@@ -183,18 +180,13 @@ Creep.prototype.taskTransferLab = function() {
   return false;
 };
 
-Creep.prototype.taskGraze = function() {
-  const energies = this.room.cachedFind(FIND_DROPPED_ENERGY);
-
-};
-
 // Only start to double time once long running work is succeeding.
 Creep.prototype.actionDoubleTime = function() {
   if (!this.memory.task || this.memory.task.double != undefined) {
     return false;
   }
 
-  const links = this.room.Structures(STRUCTURE_LINK);
+  const links = this.room.findStructs(STRUCTURE_LINK);
   for (var i = 0; i < links.length; i++) {
     if (links[i].pos.isNearTo(this)) {
       this.memory.task.double = links[i].id;
@@ -202,9 +194,7 @@ Creep.prototype.actionDoubleTime = function() {
     }
   }
 
-  const stores = this.room.Structures(STRUCTURE_CONTAINER)
-                     .concat(this.room.Structures(STRUCTURE_STORAGE))
-                     .concat(this.room.Structures(STRUCTURE_TERMINAL));
+  const stores = this.room.findStructs(STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_TERMINAL);
   for (var i = 0; i < stores.length; i++) {
     if (stores[i].store.energy && stores[i].pos.isNearTo(this)) {
       this.memory.task.double = stores[i].id;

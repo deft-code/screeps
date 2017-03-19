@@ -4,8 +4,13 @@ Flag.prototype.roleFarmer = function(spawn) {
     MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
     MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
     MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
+
     MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-    //MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
+    MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
+    MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
+    MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
+
+    MOVE, CARRY,
   ];
   return this.createRole(spawn, body, {role: 'farmer'});
 };
