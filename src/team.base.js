@@ -1,14 +1,16 @@
 Flag.prototype.teamBase = function() {
 
+  const close = (spawn) => this.spawnDist(spawn) === 0 && spawn.room.energyAvailable >= 300;
+  }
   const srcers = this.roleCreeps("srcer");
   if(!srcers.length){
-    const where = this.upkeepRole("srcer", 1, 300, 4);
+    const where = this.upkeepRole("srcer", 1, 4, close);
     if(where) return where;
   }
 
   const haulers = this.roleCreeps("hauler");
   if(!haulers.length){
-    const where = this.upkeepRole("hauler", 1, 300, 4);
+    const where = this.upkeepRole("hauler", 1, 4, close);
     if(where) return where;
   }
 
@@ -24,15 +26,3 @@ Flag.prototype.teamBase = function() {
     "enough";
 };
 
-Flag.prototype.roleUpgrader = function(spawn) {
-  const body = [
-    MOVE, WORK, CARRY, WORK, CARRY, MOVE,
-
-    MOVE, WORK, MOVE,  WORK, MOVE, WORK,
-
-    MOVE, WORK, MOVE,  WORK, MOVE, WORK,
-
-    MOVE, WORK, MOVE,  WORK, MOVE, WORK,
-  ];
-  return this.createRole(spawn, body, {role: 'upgrader'});
-};

@@ -1,4 +1,5 @@
 const lib = require('lib');
+const util = require('util');
 
 const spots = new Map();
 
@@ -25,3 +26,8 @@ lib.enhance(Source, 'spots', getSpots);
 
 lib.enhance(Source, 'note', (src) => `src${src.pos.x}${src.pos.y}`);
 lib.enhance(Mineral, 'note', (src) => `minral${src.pos.x}${src.pos.y}`);
+
+util.cachedProp(Source, 'note', function() {
+  return modutil.structNote('src', this.pos);
+});
+

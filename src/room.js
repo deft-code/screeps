@@ -1,8 +1,5 @@
-let modrole = require('mod.role');
 let modtower = require('tower');
-let modprototypes = require('prototypes');
 let modutil = require('util');
-let modwork = require('work');
 let modmanual = require('role.manual');
 
 Room.prototype.findStructs = function(...types) {
@@ -12,36 +9,9 @@ Room.prototype.findStructs = function(...types) {
   return _.flatten(_.map(types, sType => this.structsByType[sType] || []));
 };
 
-modutil.cachedProp(Room, "enemies", room => room.find(FIND_HOSTILE_CREEPS));
-modutil.cachedProp(Room, "hostiles", room => _.filter(room.enemies, e => e.hostile));
-modutil.cachedProp(Room, "assaulters", room => _.filter(room.enemies, e => e.assault))
-
 Room.prototype.roleCreeps = function(role) {
   return this.find(FIND_MY_CREEPS, {memory: {role: role}});
 };
-
-modutil.cachedProp(Room, 'sources', function() {
-  return this.find(FIND_SOURCES);
-});
-
-Object.defineProperty(Room.prototype, 'droppedEnergy', {
-  get: function() {
-    if (!this._droppedEnergy) {
-      this._droppedEnergy = this.find(FIND_DROPPED_ENERGY);
-    }
-    return this._droppedEnergy;
-  },
-});
-
-Object.defineProperty(Room.prototype, 'workCreeps', {
-  get: function() {
-    if (!this._workCreeps) {
-      this._workCreeps =
-          this.find(FIND_MY_CREEPS, {filter: c => c.memory.role == 'worker'});
-    }
-    return this._workCreeps;
-  },
-});
 
 const custom = {
   W23S79(room) {
@@ -76,40 +46,34 @@ Room.prototype.cycleRampart = function(rampart) {
 };
 
 function upkeepMyRoom(room) {
-  for(let tower of room.findStructs(STRUCTURE_TOWER)) {
-    modtower.tower(tower);
-  }
+}
 
-  const customFunc = custom[room.name];
-  if (customFunc) {
-    customFunc(room);
-  }
+const allies = ['tynstar'];
+
+Room.prototype.run = function() {
+  this.enemies = _.filter(
+    this.find(FIND_HOSTILE_CREEPS), 
+    c => c.owner.username in allies);
+  this.hostiles = _.filter(this.enemies, 'hostile');
+  this.assaulters = _.filter(this.enemies, 'assault');
 
   if (room.controller && room.controller.my) {
-    const hostiles = room.find(FIND_HOSTILE_CREEPS);
-    if (hostiles.length) {
+    for(let tower of this.findStructs(STRUCTURE_TOWER)) {
+      tower.run();
+    }
 
-      const hurt_structs = _.filter(
-        room.findStructs(STRUCTURE_TOWER, STRUCTURE_SPAWN, STRUCTURE_EXTENSION),
-        s => s.hits < s.hitsMax);
-      if (hurt_structs.length) {
+    this.runLinks();
+
+    const customFunc = custom[room.name];
+    if (customFunc) {
+      customFunc(room);
+    }
+
+    if (this.assaulters.length) {
+      const structs = this.findStructs(STRUCTURE_TOWER, STRUCTURE_SPAWN, STRUCTURE_EXTENSION);
+      if( _.find(structs, s => s.hits < s.hitsMax)) {
         console.log('SAFE MODE!', room.controller.activateSafeMode());
       }
     }
   }
-};
-
-function roomUpkeep(room) {
-  if (room.controller && room.controller.my) {
-    upkeepMyRoom(room);
-  }
-  let cleaned = _.remove(
-      room.memory.objects,
-      (mem, id) => _.isEmpty(mem) || !Game.getObjectById(id));
-  // console.log("Cleaned memory for", JSON.stringify(cleaned));
-}
-
-Room.prototype.run = function() {
-  this.runLinks();
-  roomUpkeep(this);
 };
