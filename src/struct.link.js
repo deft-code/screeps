@@ -44,8 +44,10 @@ StructureLink.prototype.xferAll = function(target) {
 StructureLink.prototype.xferRaw = function(target, energy) {
   const err = this.transferEnergy(target, energy);
   if (err == OK) {
-    target.energy += Math.floor(energy * (1 - LINK_LOSS_RATIO));
-    this.energy -= energy;
+    if(this.room.name !== 'sim') {
+      target.energy += Math.floor(energy * (1 - LINK_LOSS_RATIO));
+      this.energy -= energy;
+    }
   }
   return `xfer ${energy}: ${err}`;
 };

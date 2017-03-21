@@ -1,7 +1,3 @@
-let modtower = require('tower');
-let modutil = require('util');
-let modmanual = require('role.manual');
-
 Room.prototype.findStructs = function(...types) {
   if(!this.structsByType) {
     this.structsByType =  _.groupBy(this.find(FIND_STRUCTURES), "structureType");
@@ -20,18 +16,18 @@ const custom = {
 };
 
 Room.prototype.cycleRamparts = function() {
-  const hostiles = room.find(FIND_HOSTILE_CREEPS);
+  const hostiles = this.find(FIND_HOSTILE_CREEPS);
   if (!hostiles.length) {
   }
 
   if (hostiles.length) {
-    const ramparts = room.findStructs(STRUCTURE_RAMPART);
+    const ramparts = this.findStructs(STRUCTURE_RAMPART);
     for (const r of ramparts) {
       let pub = true;
       for (const h of hostiles) {
         if (pub && h.pos.isNearTo(r)) {
           pub = false;
-          room.lastLock = r.id;
+          this.lastLock = r.id;
         }
       }
       const ret = r.setPublic(pub);
@@ -57,14 +53,14 @@ Room.prototype.run = function() {
   this.hostiles = _.filter(this.enemies, 'hostile');
   this.assaulters = _.filter(this.enemies, 'assault');
 
-  if (room.controller && room.controller.my) {
+  if (this.controller && this.controller.my) {
     for(let tower of this.findStructs(STRUCTURE_TOWER)) {
       tower.run();
     }
 
     this.runLinks();
 
-    const customFunc = custom[room.name];
+    const customFunc = custom[this.name];
     if (customFunc) {
       customFunc(room);
     }
@@ -72,7 +68,7 @@ Room.prototype.run = function() {
     if (this.assaulters.length) {
       const structs = this.findStructs(STRUCTURE_TOWER, STRUCTURE_SPAWN, STRUCTURE_EXTENSION);
       if( _.find(structs, s => s.hits < s.hitsMax)) {
-        console.log('SAFE MODE!', room.controller.activateSafeMode());
+        console.log('SAFE MODE!', this.controller.activateSafeMode());
       }
     }
   }

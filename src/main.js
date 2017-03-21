@@ -3,7 +3,7 @@ require('traveler')({
   installTraveler: true,
   installPrototype: true,
   defaultStuckValue: 2,
-  reportThreshold: 150
+  reportThreshold: 150,
 });
 
 const lib = require('lib');

@@ -4,9 +4,6 @@ Creep.prototype.runRole = function() {
   }
   if(this.spawning) return 'Spawning';
 
-  const pre = this[this.memory.pre];
-  if(_.isFunction(pre)) pre.apply(this);
-
   let what = this.runTask();
   if(!what) {
     const role = _.camelCase('role ' + this.memory.role);
@@ -14,10 +11,6 @@ Creep.prototype.runRole = function() {
     return roleFunc.apply(this);
     what = this.runPreRole();
   }
-
-  const post = this[this.memory.post];
-  if(_.isFunction(post)) post.apply(this);
-
   return what;
 };
 

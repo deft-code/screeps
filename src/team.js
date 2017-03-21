@@ -1,5 +1,10 @@
 const util = require('util');
 
+Flag.prototype.localSpawn = function(energy) {
+  return (spawn) => this.spawnDist(spawn) === 0 &&
+      spawn.room.energyAvailable >= energy;
+};
+
 Flag.prototype.runTeam = function() {
   util.markDebug(this);
   this.memory.creeps = this.memory.creeps || [];
@@ -65,7 +70,7 @@ Flag.prototype.findSpawn = function(priority, filter) {
 Flag.prototype.createRole = function(spawn, body, mem) {
   mem.team = this.name;
   this.dlog('spawning', spawn);
-  const who = spawn.createRole2(body, mem);
+  const who = spawn.createRole(body, mem);
   if (_.isString(who)) {
     this.memory.creeps.push(who);
     return who;
