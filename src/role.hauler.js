@@ -218,8 +218,8 @@ Creep.prototype.actionDrain = function() {
       s => s.storeTotal && s.mode === 'src');
 
   let links =
-      _.filter(room.findStructs(STRUCTURE_LINK), l => !l.mode() != 'src');
-      
+      _.filter(room.findStructs(STRUCTURE_LINK), l => l.mode() === 'src' && l.energyFree < 30);
+
   let srcs = resources.concat(stores).concat(links);
   if(room.terminal && room.terminal.store.energy * 2 > room.terminal.storeCapacity) {
       srcs.push(room.terminal);

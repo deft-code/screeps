@@ -12,8 +12,8 @@ Creep.prototype.idleNom = function() {
   if (!this.carryFree) {
     return false;
   }
-  const src = _(this.room.find(FIND_DROPPED_ENERGY))
-                  .filter(e => e.pos.isNearTo(this))
+  const src = _(this.room.find(FIND_DROPPED_RESOURCES))
+                  .filter(r => r.resourceType == RESOURCE_ENERGY && r.pos.isNearTo(this))
                   .sample();
   if (src) {
     const err = this.pickup(src);

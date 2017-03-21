@@ -58,7 +58,7 @@ Flag.prototype.findSpawn = function(priority, filter) {
       .sortBy(spawn => this.spawnDist(spawn))
       .filter(spawn => spawn.room.energyAvailable >= 300 && !spawn.spawning)
       .filter(spawn => !spawn.nextRole || spawn.nextRole.priority < priority)
-      .filter(spawn => _.isFunction(filter) && filter(spawn))
+      .filter(filter)
       .first();
 };
 
@@ -75,9 +75,6 @@ Flag.prototype.createRole = function(spawn, body, mem) {
 
 Flag.prototype.spawnDist = function(spawn) {
   if (!spawn) return Infinity;
-  if (!this.memory.spawnDist) {
-    this.memory.spawnDist = {};
-  }
 
   const mem = this.memory = this.memory || {};
   let cache = mem.spawnDist;

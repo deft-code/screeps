@@ -4,7 +4,6 @@ Flag.prototype.teamClaim = function() {
   if (!this.room) return 'no room';
 
   if (this.room.storage) {
-    nremote = 0;
     if (!this.creeps.length) {
       this.remove();
       return 'removed';
