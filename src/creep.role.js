@@ -1,28 +1,11 @@
-Creep.prototype.runRole = function() {
-  if (!this.memory.home) {
-    this.memory.home = this.room.name;
-  }
-  if(this.spawning) return 'Spawning';
-
-  let what = this.runTask();
-  if(!what) {
-    const role = _.camelCase('role ' + this.memory.role);
-    const roleFunc = this[role] || this.roleUndefined;
-    return roleFunc.apply(this);
-    what = this.runPreRole();
-  }
-  return what;
-};
-
 Creep.prototype.roleUndefined = function() {
   this.dlog('Missing Role!');
 };
 
 Creep.prototype.runTask = function() {
-  let task = this.memory.task;
-  if (!task) {
-    return false;
-  }
+  const task = this.memory.task;
+  if (!task) return false;
+  
   let taskFunc = this[_.camelCase('task ' + task.task)];
   if (!_.isFunction(taskFunc)) {
     console.log('BAD TASK', JSON.stringify(task));

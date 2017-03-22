@@ -1,39 +1,46 @@
-const modutil = require('util');
+const util = require('util');
 
-modutil.cachedProp(Creep, 'home', function() {
+util.cachedProp(Creep, 'home', function() {
   return Game.rooms[this.memory.home];
 });
 
-modutil.cachedProp(Creep, 'team', function() {
+util.cachedProp(Creep, 'team', function() {
   return Game.flags[this.memory.team];
 });
 
-modutil.roProp(Creep, 'taskId', function() {
+util.roProp(Creep, 'taskId', function() {
   const task = this.memory.task || {};
   return Game.getObjectById(task.id);
 });
 
-modutil.roProp(Creep, 'taskFlag', function() {
+util.roProp(Creep, 'taskFlag', function() {
   const task = this.memory.task || {};
   return Game.flags[task.flag];
 });
 
-modutil.roProp(Creep, 'taskCreep', function() {
+util.roProp(Creep, 'taskCreep', function() {
   const task = this.memory.task || {};
   return Game.creeps[task.creep];
 });
 
 Creep.prototype.run = function() {
+  if(this.spawning) {
+    this.memory.home = this.room.name;
+    this.memory.cpu = 0;
+    return 'spawning';
+  }
+
   const start = Game.cpu.getUsed();
-  modutil.markDebug(this);
+  util.markDebug(this);
   this.intents = {
     move: this.fatigue > 0 ? 'tired' : false,
   };
-  let what = this.actionSpawning() || this.actionRole();
-  const total = Math.floor(1000* (Game.cpu.getUsed() - start));
-  if (!this.memory.cpu) {
-    this.memory.cpu = 0;
-  }
+
+  const role = _.camelCase('role ' + this.memory.role);
+  const roleFunc = this[role] || this.roleUndefined;
+  const what = roleFunc.apply(this);
+
+  const total = Math.floor(1000 * (Game.cpu.getUsed() - start));
   this.memory.cpu += total;
   let rate = this.memory.cpu;
   const age = CREEP_LIFE_TIME - this.ticksToLive;
@@ -46,19 +53,6 @@ Creep.prototype.run = function() {
 
 Creep.prototype.busy = function(...intents) {
   return _.any(intents, intent => this.intents[intent]);
-};
-
-Creep.prototype.idleMoveTo = function(obj, opts = {}) {
-  if (!obj) return false;
-  opts = _.defaults(opts, {
-    useFindRoute: true,
-  });
-  const err = this.travelTo(obj, opts);
-  if (err != ERR_NO_PATH) {
-    this.intents.move = lib.getPos(obj);
-    return `moveTo ${err} ${obj.pos}`;
-  }
-  return false;
 };
 
 Creep.prototype.doMove = function(dir) {
@@ -264,19 +258,19 @@ Creep.prototype.doUpgradeController = function(controller) {
   }
 };
 
-modutil.cachedProp(
+util.cachedProp(
     Creep, 'partsByType',
     creep => _(creep.body).filter(part => part.hits).countBy('type').value());
 
-modutil.cachedProp(
+util.cachedProp(
     Creep, 'ignoreRoads',
     creep => creep.body.length >= 2 * creep.getActiveBodyparts(MOVE));
-modutil.cachedProp(
+util.cachedProp(
     Creep, 'hostile',
     creep => creep.getActiveBodyparts(ATTACK) ||
         creep.getActiveBodyparts(RANGED_ATTACK));
 
-modutil.cachedProp(
+util.cachedProp(
     Creep, 'assault',
     creep => creep.hostile || creep.getActiveBodyparts(WORK) ||
         creep.getActiveBodyparts(CLAIM) >= 5);

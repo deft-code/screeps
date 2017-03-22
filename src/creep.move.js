@@ -1,5 +1,18 @@
 const lib = require('lib');
 
+Creep.prototype.idleMoveTo = function(obj, opts = {}) {
+  if (!obj) return false;
+  opts = _.defaults(opts, {
+    useFindRoute: true,
+  });
+  const err = this.travelTo(obj, opts);
+  if (err != ERR_NO_PATH) {
+    this.intents.move = lib.getPos(obj);
+    return `moveTo ${err} ${obj.pos}`;
+  }
+  return false;
+};
+
 Creep.prototype.actionChase = function(creep) {
   if (this.pos.inRangeTo(creep, 3)) {
     this.move(this.pos.getDirectionTo(creep));
@@ -48,19 +61,6 @@ Creep.prototype.idleMoveRange = function(target, opts = {}) {
   if (!target || this.pos.inRangeTo(target, opts.range)) return false;
 
   return this.doMoveTo(target, opts);
-};
-
-Creep.prototype.idleMoveTo = function(obj, opts = {}) {
-  if (!obj) return false;
-  opts = _.defaults(opts, {
-    useFindRoute: true,
-  });
-  const err = this.travelTo(obj, opts);
-  if (err != ERR_NO_PATH) {
-    this.intents.move = lib.getPos(obj);
-    return `moveTo ${err} ${obj.pos}`;
-  }
-  return false;
 };
 
 Creep.prototype.actionTravel = function(obj) {

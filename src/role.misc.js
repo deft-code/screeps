@@ -225,14 +225,6 @@ Creep.prototype.taskDoubleTime = function() {
   return false;
 };
 
-
-Creep.prototype.run = function() {
-  modutil.markDebug(this);
-  this.intents = {};
-  let what = this.actionSpawning() || this.actionRole();
-  this.dlog(what);
-};
-
 Creep.prototype.actionReplaceOldest = function(creeps) {
     let min = this;
     for(let creep of creeps) {
@@ -273,12 +265,6 @@ Creep.prototype.actionSpawning = function() {
     this.memory.home = this.room.name;
   }
   return this.spawning && 'Spawning';
-};
-
-Creep.prototype.actionRole = function() {
-  let role = _.camelCase('role ' + this.memory.role);
-  let roleFunc = this[role] || this.roleUndefined;
-  return roleFunc.apply(this);
 };
 
 Creep.prototype.actionTask = function() {

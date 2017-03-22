@@ -49,7 +49,7 @@ const allies = ['tynstar'];
 Room.prototype.run = function() {
   this.enemies = _.filter(
     this.find(FIND_HOSTILE_CREEPS), 
-    c => c.owner.username in allies);
+    c => !(c.owner.username in allies));
   this.hostiles = _.filter(this.enemies, 'hostile');
   this.assaulters = _.filter(this.enemies, 'assault');
 

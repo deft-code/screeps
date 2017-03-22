@@ -35,9 +35,9 @@ StructureTower.prototype.run = function() {
       this.room.assaulters,
       c => c.pos.x != 0 && c.pos.y != 0 && c.pos.x != 49 && c.pos.y != 49);
 
-  if (aggressive.length) {
+  if (this.room.assaulters.length) {
     // let enemy = this.pos.findClosestByRange(enemies);
-    let enemy = _(aggressive).sortBy('hits').last();
+    let enemy = _(this.room.assaulters).sortBy('hits').last();
     if (enemy) {
       this.attack(enemy);
       return enemy.hits;
