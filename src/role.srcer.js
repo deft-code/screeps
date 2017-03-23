@@ -125,12 +125,14 @@ Creep.prototype.idleShunt = function() {
           this.dlog('shunting link buffer', struct);
           if (struct.energy > 250) {
             this.dlog('clearing link buffer', struct);
-            this.intents.withdraw =
-                moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
+            this.intents.withdraw = moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
           } else if (struct.energy < 200) {
-            this.dlog('filling link buffer', struct);
-            this.intents.xfer =
-                moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+            if(this.room.storage && this.room.storage.store.energy < 2 * this.room.energyCapacityAvailable ) {
+              this.dlog('Storage is too low', JSON.stringify(this.room.storage.store));
+            } else {
+              this.dlog('filling link buffer', struct);
+              this.intents.xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+            }
           }
           break;
         }

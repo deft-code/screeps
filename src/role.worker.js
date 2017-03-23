@@ -75,21 +75,6 @@ Creep.prototype.taskBuild = function() {
   return false;
 };
 
-Creep.prototype.actionDismantleAny = function() {
-    
-    // TODO fix dismantling
-    return false;
-  if (!this.carryFree) {
-    return false;
-  }
-  const target = _(this.room.find(FIND_STRUCTURES))
-                     .filter(s => s.dismantle)
-                     .sample(3)
-                     .sortBy('hits')
-                     .first();
-  return this.actionDismantle(target, true);
-};
-
 Creep.prototype.actionDismantle = function(struct, drop) {
   if (!struct) {
     return false;
