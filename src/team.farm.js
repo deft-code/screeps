@@ -31,9 +31,16 @@ Flag.prototype.teamFarm = function() {
 
   this.dlog(`farmers: ${nfarmer}, reservers: ${canReserve}, guards: ${nguard}`);
 
-  return this.upkeepRole('guard', nguard, 800, 2, 2) ||
-      this.upkeepRole('farmer', nfarmer, 800, 1, 2) ||
-      canReserve && this.upkeepRole('reserver', 1, 1300, 1, 2) || 'enough';
+  return this.upkeepRole('guard', nguard, 2, this.closeSpawn(800)) ||
+      this.upkeepRole('farmer', nfarmer, 2, this.closeSpawn(800)) ||
+      canReserve && this.upkeepRole('reserver', 1, 2, this.closeSpawn(1300)) ||
+      'enough';
+};
+
+Flag.prototype.closeSpawn = function(energy) {
+  const min = this.memory.spawnDist.min || 0;
+  return (spawn) => this.spawnDist(spawn) <= min+1 &&
+      spawn.room.energyAvailable >= energy;
 };
 
 Flag.prototype.roleGuard = function(spawn) {
