@@ -78,6 +78,13 @@ Flag.prototype.createRole = function(spawn, body, mem) {
   return false;
 };
 
+Flag.prototype.minSpawnDist = function() {
+  if(!this.memory.spawnDist) {
+    this.memory.spawnDist = {}
+  }
+  return this.memory.spawnDist.min || 0;
+}
+
 Flag.prototype.spawnDist = function(spawn) {
   if (!spawn) return Infinity;
 

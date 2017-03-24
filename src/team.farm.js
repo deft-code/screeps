@@ -38,8 +38,7 @@ Flag.prototype.teamFarm = function() {
 };
 
 Flag.prototype.closeSpawn = function(energy) {
-  const min = this.memory.spawnDist.min || 0;
-  return (spawn) => this.spawnDist(spawn) <= min+1 &&
+  return (spawn) => this.spawnDist(spawn) <= this.minSpawnDist() + 1 &&
       spawn.room.energyAvailable >= energy;
 };
 
@@ -84,14 +83,14 @@ Creep.prototype.actionXferNearest = function(room) {
 
   let stores = room.findStructs(
       STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL);
-  stores = _.filter(stores, s => s.storeFree > this.carryTotal);
+  stores = _.filter(stores, s => s.storeFree * 2 > this.carryTotal);
 
   const store = util.pickClosest(this.pos, stores);
   this.dlog('closest store', store);
 
   const batteries = _.filter(
       room.findStructs(STRUCTURE_LAB, STRUCTURE_TOWER, STRUCTURE_LINK),
-      b => b.energyFree > this.carryTotal);
+      b => b.energyFree * 2 > this.carryTotal);
 
   const battery = util.pickClosest(this.pos, batteries);
 

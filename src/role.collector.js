@@ -9,8 +9,7 @@ Flag.prototype.roleCollector = function(spawn) {
 
 Creep.prototype.roleCollector = function() {
   this.idleNom();
-  return this.idleRetreat(CARRY) ||
-      this.actionTask() ||
+  return this.idleRetreat(CARRY) || this.actionTask() ||
       !this.carryTotal && this.actionTravelFlag(this.team) ||
       this.actionCollect(this.team.room) ||
       this.carryTotal && this.actionTravel(this.home.controller) ||
@@ -18,21 +17,19 @@ Creep.prototype.roleCollector = function() {
 };
 
 Creep.prototype.actionCollect = function(room) {
-  if(!room) return false;
+  if (!room) return false;
 
-  if(!this.carryFree) return false;
-    
+  if (!this.carryFree) return false;
+
   let resources = _.filter(
-    room.find(FIND_DROPPED_RESOURCES),
-    r => r.resourceType != RESOURCE_ENERGY || r.amount > 20);
-  
-  let stores = _.filter(
-      room.find(FIND_STRUCTURES),
-      s => s.storeTotal);
+      room.find(FIND_DROPPED_RESOURCES),
+      r => r.resourceType != RESOURCE_ENERGY || r.amount > 20);
+
+  let stores = _.filter(room.find(FIND_STRUCTURES), s => s.storeTotal);
 
   const target = _.sample(resources.concat(stores));
-  if(target) {
-    if(target.structureType) {
+  if (target) {
+    if (target.structureType) {
       return this.actionUnstore(target);
     } else {
       return this.actionPickup(target);
@@ -40,4 +37,3 @@ Creep.prototype.actionCollect = function(room) {
   }
   return false;
 };
-
