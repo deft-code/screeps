@@ -2,37 +2,35 @@ const util = require('util');
 
 Flag.prototype.roleHauler = function(spawn) {
   const cap = this.room.energyCapacityAvailable;
-  const n = Math.floor(cap/100) * 3;
+  const n = Math.floor(cap / 100) * 3;
   const body = [
     MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
-    
+
     MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
-    
+
     MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
-    
+
     MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
 
     MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
 
     MOVE, CARRY, CARRY, MOVE, CARRY, CARRY,
   ];
- return this.createRole(spawn, body.slice(0, n), {role: 'hauler'});
+  return this.createRole(spawn, body.slice(0, n), {role: 'hauler'});
 };
 
 Creep.prototype.actionRecharge = function(lack, pos) {
   let room = this.team.room;
-  if(pos) {
+  if (pos) {
     room = Game.rooms[pos.roomName];
   }
-  if(!room) return false;
+  if (!room) return false;
 
   const energies = room.find(FIND_DROPPED_RESOURCES);
-  let chargers = _.filter(
-    room.findStructs(STRUCTURE_LINK, STRUCTURE_LAB),
-    "energy");
+  let chargers =
+      _.filter(room.findStructs(STRUCTURE_LINK, STRUCTURE_LAB), 'energy');
   let stores = _.filter(
-    room.findStructs(STRUCTURE_STORAGE, STRUCTURE_CONTAINER),
-    "store.energy");
+      room.findStructs(STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL), 'store.energy');
 
   let dest = pos;
   if (!dest) {
@@ -49,7 +47,7 @@ Creep.prototype.actionRecharge = function(lack, pos) {
       goodE.push(obj);
     }
   });
-  this.dlog("goodE", goodE);
+  this.dlog('goodE', goodE);
   let e = util.pickClosest(dest, goodE);
   if (!e) {
     e = util.pickClosest(dest, anyE);
@@ -76,7 +74,7 @@ Creep.prototype.actionRecharge = function(lack, pos) {
 
 Creep.prototype.actionPoolCharge = function() {
   const room = this.team.room;
-  if(!room) return false;
+  if (!room) return false;
 
   if (room.energyAvailable >= room.energyCapacityAvailable) {
     return false;
@@ -89,19 +87,18 @@ Creep.prototype.actionPoolCharge = function() {
 };
 
 Creep.prototype.actionTowerCharge = function() {
-  this.dlog("actionTowerCharge");
+  this.dlog('actionTowerCharge');
   const room = this.team.room;
-  if(!room) return false;
+  if (!room) return false;
 
-  const towers = _.filter(
-    room.findStructs(STRUCTURE_TOWER),
-    s => s.energy < 100);
+  const towers =
+      _.filter(room.findStructs(STRUCTURE_TOWER), s => s.energy < 100);
   return this.actionCharge(util.pickClosest(this.pos, towers));
 };
 
 Creep.prototype.actionChargeAny = function() {
   const room = this.team.room;
-  if(!room) return false;
+  if (!room) return false;
 
   let need =
       //_(room.findStructs(STRUCTURE_LAB, STRUCTURE_TOWER))
@@ -136,12 +133,12 @@ Creep.prototype.taskCharge = function() {
   }
 
   const lack = Math.min(this.carryFree, dest.energyFree - this.carry.energy);
-  this.dlog("charge lacking", lack);
+  this.dlog('charge lacking', lack);
   if (lack >= 50 && this.carry.energy < 50 || !this.carry.energy) {
     return this.actionRecharge(lack, dest.pos);
   }
 
-  this.dlog("charge energy", this.carry.energy);
+  this.dlog('charge energy', this.carry.energy);
   if (!this.carry.energy) return false;
 
   return this.doTransfer(dest, RESOURCE_ENERGY);
@@ -153,11 +150,9 @@ const creepNeedsCharge = (creep) => creep.carryFree > creep.carry.energy &&
 Creep.prototype.actionChargeCreep = function(creep) {
   if (!creep) {
     const room = this.team.room;
-    if(!room) return false;
+    if (!room) return false;
 
-    creep = _(room.find(FIND_MY_CREEPS))
-                .filter(creepNeedsCharge)
-                .sample();
+    creep = _(room.find(FIND_MY_CREEPS)).filter(creepNeedsCharge).sample();
   }
   if (!creep) return false;
 
@@ -179,7 +174,7 @@ Creep.prototype.taskChargeCreep = function() {
 
 Creep.prototype.actionDischarge = function() {
   const room = this.team.room;
-  if(!room) return false;
+  if (!room) return false;
 
   let structures = [];
   let workers = _.filter(
@@ -199,7 +194,7 @@ Creep.prototype.actionDischarge = function() {
 
 Creep.prototype.taskDischarge = function() {
   const target = this.taskId;
-  if(!target) return false;
+  if (!target) return false;
 
   if (!this.carry.energy) return false;
 
@@ -208,7 +203,7 @@ Creep.prototype.taskDischarge = function() {
 
 Creep.prototype.actionDrain = function() {
   const room = this.team.room;
-  if(!room) return false;
+  if (!room) return false;
   if (!this.carryFree) return false;
 
   let resources = room.find(FIND_DROPPED_RESOURCES);
@@ -217,12 +212,14 @@ Creep.prototype.actionDrain = function() {
       room.findStructs(STRUCTURE_CONTAINER),
       s => s.storeTotal && s.mode === 'src');
 
-  let links =
-      _.filter(room.findStructs(STRUCTURE_LINK), l => l.mode() === 'src' && l.energyFree < 30);
+  let links = _.filter(
+      room.findStructs(STRUCTURE_LINK),
+      l => l.mode() === 'src' && l.energyFree < 30);
 
   let srcs = resources.concat(stores).concat(links);
-  if(room.terminal && room.terminal.store.energy * 2 > room.terminal.storeCapacity) {
-      srcs.push(room.terminal);
+  if (room.terminal &&
+      room.terminal.store.energy * 2 > room.terminal.storeCapacity) {
+    srcs.push(room.terminal);
   }
 
   let src = _.sample(srcs);
@@ -243,15 +240,15 @@ Creep.prototype.actionDrain = function() {
 
 Creep.prototype.actionUnstoreAny = function() {
   const room = this.team.room;
-  if(!room) return false;
+  if (!room) return false;
 
   const store = _.sample(room.findStructs(STRUCTURE_CONTAINER));
   return this.actionUnstore(store);
 };
 
 Creep.prototype.actionUnstore = function(struct, resource) {
-  this.dlog("action unstore", ...arguments);
-  if(!struct) return false;
+  this.dlog('action unstore', ...arguments);
+  if (!struct) return false;
 
   this.memory.task = {
     task: 'unstore',
@@ -268,13 +265,13 @@ Creep.prototype.taskUnstore = function() {
     return false;
   }
   const resource = this.memory.task.resource || util.randomResource(src.store);
-  this.dlog("task unstore", src, resource);
+  this.dlog('task unstore', src, resource);
   return this.doWithdraw(src, resource);
 };
 
 Creep.prototype.actionStoreAny = function() {
   const room = this.team.room;
-  if(!room) return false;
+  if (!room) return false;
 
   let stores = _.filter(
       room.findStructs(STRUCTURE_CONTAINER),
@@ -287,13 +284,13 @@ Creep.prototype.actionStoreAny = function() {
 
 Creep.prototype.actionEmptyStore = function() {
   const room = this.team.room;
-  if(!room) return false;
+  if (!room) return false;
 
   if (!this.carry.energy) {
     return false;
   }
-  const stores = _.filter(
-      room.findStructs(STRUCTURE_CONTAINER), s => s.mode() !== 'src');
+  const stores =
+      _.filter(room.findStructs(STRUCTURE_CONTAINER), s => s.mode() !== 'src');
   if (room.storage) {
     stores.push(room.storage);
   }
@@ -303,9 +300,9 @@ Creep.prototype.actionEmptyStore = function() {
 
 Creep.prototype.actionStoreResource = function(resource) {
   const room = this.team.room;
-  if(!room) return false;
+  if (!room) return false;
 
-  if(this.carryTotal <= this.carry.energy) return false;
+  if (this.carryTotal <= this.carry.energy) return false;
 
   if (room.terminal && room.terminal.storeFree) {
     return this.actionStore(room.terminal);
@@ -341,13 +338,9 @@ Creep.prototype.taskStore = function() {
 
 Creep.prototype.roleHauler = function() {
   this.idleNom();
-  return this.actionTask() ||
-      this.actionTowerCharge() ||
-      this.actionPoolCharge() ||
-      this.actionDrain() ||
-      this.actionEmptyStore() ||
-      this.actionChargeCreep() ||
-      this.actionChargeAny() ||
-      this.actionStoreAny() ||
+  return this.actionTask() || this.actionTowerCharge() ||
+      this.actionPoolCharge() || this.actionDrain() ||
+      this.actionEmptyStore() || this.actionChargeCreep() ||
+      this.actionChargeAny() || this.actionStoreAny() ||
       this.idleMoveNear(this.team);
 };
