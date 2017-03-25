@@ -50,6 +50,16 @@ exports.enhance = (klass, prop, fn) => {
   }
 };
 
+exports.merge = (klass, extra) => {
+  const props = Object.getOwnPropertyNames(extra.prototype);
+  for(let prop of props) {
+    if(prop === 'constructor') continue;
+
+    const desc = Object.getOwnPropertyDescriptor(extra.prototype, prop);
+    Object.defineProperty(klass.prototype, prop, desc);
+  }
+};
+
 exports.cache = (opts, fn) => {
   return function(...args) {
     const cache = opts.getcache(this);

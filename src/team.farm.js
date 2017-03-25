@@ -1,7 +1,6 @@
 const util = require('util');
 
 Flag.prototype.teamFarm = function() {
-  this.setColor(COLOR_BLUE, COLOR_GREEN);
   const delta = this.memory.attacked - Game.time;
   this.attacked = delta > 0 ? delta : 0;
   this.dlog('attack delta:', this.memory.attacked, delta, this.attacked);
@@ -66,7 +65,7 @@ Flag.prototype.roleReserver = function(spawn) {
 };
 
 Creep.prototype.roleReserver = function() {
-  return this.actionTask() || this.actionTravelFlag(this.team) ||
+  return this.actionTask() || this.taskTravelFlag(this.team) ||
       this.actionReserve(this.team.room);
 };
 

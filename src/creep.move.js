@@ -1,5 +1,9 @@
 const lib = require('lib');
 
+Creep.prototype.idleMoveAt = function(obj, opts = {}) {
+
+};
+
 Creep.prototype.idleMoveTo = function(obj, opts = {}) {
   if (!obj) return false;
   opts = _.defaults(opts, {
@@ -63,41 +67,12 @@ Creep.prototype.idleMoveRange = function(target, opts = {}) {
   return this.doMoveTo(target, opts);
 };
 
-Creep.prototype.actionTravel = function(obj) {
-  if (!obj) {
-    return false;
-  }
-  this.memory.task = {
-    task: 'travel',
-    id: obj.id,
-    note: obj.pos.roomName,
-  };
-  return this.taskTravel();
+Creep.prototype.taskTravel = function(obj) {
+  obj = this.checkId('travel', obj);
+  return this.idleTravel(obj);
 };
 
-Creep.prototype.taskTravel = function() {
-  const obj = this.taskId;
-  if (!obj) {
-    return false;
-  }
-  if (this.pos.roomName === obj.pos.roomName && !this.pos.exit) {
-    return false;
-  }
-  return this.idleMoveTo(obj);
-};
-
-Creep.prototype.actionTravelFlag = function(flag) {
-  if (!flag) {
-    return false;
-  }
-  this.memory.task = {
-    task: 'travel flag',
-    flag: flag.name,
-    note: flag.note,
-  };
-  return this.taskTravelFlag();
-};
-
-Creep.prototype.taskTravelFlag = function() {
-  return this.idleTravel(this.taskFlag);
+Creep.prototype.taskTravelFlag = function(flag) {
+  flag = this.checkFlag('travel flag', flag);
+  return this.idleTravel(flag);
 };

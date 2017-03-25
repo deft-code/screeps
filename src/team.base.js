@@ -1,4 +1,12 @@
 Flag.prototype.teamBase = function() {
+  if(!this.room || !this.room.controller.my) {
+    const ctrl = this.room.controller;
+    if(ctrl.owner) return 'already owned';
+    if(ctrl.reservation && ctrl.reservation.username !== 'deft-code') return 'reserved';
+
+    return this.upkeepRole("claimer", 1, 5, this.closeSpawn(650));
+  }
+
   const srcers = this.roleCreeps("srcer");
   if(!srcers.length){
     const where = this.upkeepRole("srcer", 1, 4, this.localSpawn(300));

@@ -23,6 +23,7 @@ require('source');
 require('struct');
 require('struct.container');
 require('struct.controller');
+require('struct.lab');
 require('struct.link');
 require('struct.spawn');
 require('struct.tower');
@@ -36,6 +37,7 @@ require('role.archer');
 require('role.bulldozer');
 require('role.caboose');
 require('role.chemist');
+require('role.claimer');
 require('role.collector');
 require('role.dropper');
 require('role.farmer');
@@ -77,6 +79,24 @@ function clearMem(what) {
     }
   }
 }
+
+class ExtractorStuff {
+  get foo() {
+    return "foo" + this.hits;
+  }
+
+  bar() {
+    return "bar"+this.hits;
+  }
+
+  baz(x) {
+    return "baz" + x;
+  }
+}
+
+lib.merge(StructureExtractor, ExtractorStuff);
+
+
 
 function main() {
   PathFinder.use(true);

@@ -14,11 +14,11 @@ Flag.prototype.roleFarmer = function(spawn) {
 Creep.prototype.roleFarmer = function() {
   this.idleNom();
   return this.actionHospital() || this.actionTask() ||
-      !this.carryTotal && this.actionTravelFlag(this.team) ||
+      !this.carryTotal && this.taskTravelFlag(this.team) ||
       this.actionRoadUpkeep(this.team.room) ||
       this.actionDismantleHostile(this.team.room) ||
       this.actionFarm(this.team.room) ||
-      this.carryTotal && this.actionTravel(this.home.controller) ||
+      this.carryTotal && this.taskTravel(this.home.controller) ||
       this.actionXferNearest(this.home);
 };
 

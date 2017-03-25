@@ -1,27 +1,31 @@
 const util = require('util');
+const lib = require('lib');
 
-util.cachedProp(Creep, 'home', function() {
+lib.cachedProp(Creep, 'home', function() {
   return Game.rooms[this.memory.home];
 });
 
-util.cachedProp(Creep, 'team', function() {
+lib.cachedProp(Creep, 'team', function() {
   return Game.flags[this.memory.team];
 });
 
-util.roProp(Creep, 'taskId', function() {
+lib.roProp(Creep, 'taskId', function() {
   const task = this.memory.task || {};
   return Game.getObjectById(task.id);
 });
 
-util.roProp(Creep, 'taskFlag', function() {
+lib.roProp(Creep, 'taskFlag', function() {
   const task = this.memory.task || {};
   return Game.flags[task.flag];
 });
 
-util.roProp(Creep, 'taskCreep', function() {
+lib.roProp(Creep, 'taskCreep', function() {
   const task = this.memory.task || {};
   return Game.creeps[task.creep];
 });
+
+lib.cachedProp(Creep, 'atTeam', creep => this.room.name === this.team.pos.roomName);
+lib.cachedProp(Creep, 'atHome', creep => this.room.name === this.memory.home);
 
 Creep.prototype.run = function() {
   if(this.spawning) {
@@ -39,6 +43,14 @@ Creep.prototype.run = function() {
   const role = _.camelCase('role ' + this.memory.role);
   const roleFunc = this[role] || this.roleUndefined;
   const what = roleFunc.apply(this);
+
+  if(this.memory.task) {
+    const first = this.memory.task.first;
+    if(first && first.roomName === this.room.name) {
+      this.room.visual.line(this.pos, first);
+    }
+    delete this.memory.task.first;
+  }
 
   const total = Math.floor(1000 * (Game.cpu.getUsed() - start));
   this.memory.cpu += total;
@@ -258,19 +270,20 @@ Creep.prototype.doUpgradeController = function(controller) {
   }
 };
 
-util.cachedProp(
+lib.cachedProp(
     Creep, 'partsByType',
     creep => _(creep.body).filter(part => part.hits).countBy('type').value());
 
-util.cachedProp(
+lib.cachedProp(
     Creep, 'ignoreRoads',
     creep => creep.body.length >= 2 * creep.getActiveBodyparts(MOVE));
-util.cachedProp(
+
+lib.cachedProp(
     Creep, 'hostile',
     creep => creep.getActiveBodyparts(ATTACK) ||
         creep.getActiveBodyparts(RANGED_ATTACK));
 
-util.cachedProp(
+lib.cachedProp(
     Creep, 'assault',
     creep => creep.hostile || creep.getActiveBodyparts(WORK) ||
         creep.getActiveBodyparts(CLAIM) >= 5);

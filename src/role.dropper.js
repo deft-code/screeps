@@ -25,10 +25,10 @@ Creep.prototype.roleDropper = function() {
       if(this.room.name === this.team.pos.roomName) {
           return this.idleMoveTo(this.team);
       }
-      return this.actionTravelFlag(this.team);
+      return this.taskTravelFlag(this.team);
     }
     
-    what = this.actionTravel(this.home.storage);
+    what = this.taskTravel(this.home.storage);
     if(what) return what;
     
     return this.actionRecharge(this.carryCapacity, this.pos);

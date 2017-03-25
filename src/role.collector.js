@@ -10,9 +10,9 @@ Flag.prototype.roleCollector = function(spawn) {
 Creep.prototype.roleCollector = function() {
   this.idleNom();
   return this.idleRetreat(CARRY) || this.actionTask() ||
-      !this.carryTotal && this.actionTravelFlag(this.team) ||
+      !this.carryTotal && this.taskTravelFlag(this.team) ||
       this.actionCollect(this.team.room) ||
-      this.carryTotal && this.actionTravel(this.home.controller) ||
+      this.carryTotal && this.taskTravel(this.home.controller) ||
       this.actionXferNearest(this.home);
 };
 

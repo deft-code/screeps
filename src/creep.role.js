@@ -2,62 +2,68 @@ Creep.prototype.roleUndefined = function() {
   this.dlog('Missing Role!');
 };
 
-Creep.prototype.runTask = function() {
-  const task = this.memory.task;
-  if (!task) return false;
-  
-  let taskFunc = this[_.camelCase('task ' + task.task)];
-  if (!_.isFunction(taskFunc)) {
-    console.log('BAD TASK', JSON.stringify(task));
-    return false;
-  }
-  let what = taskFunc.apply(this);
-  if (!what || what == 'success') {
+Creep.prototype.checkMem = function(name) {
+  let mem = this.memory.task;
+  if(mem && mem.task !== name) {
     delete this.memory.task;
+    mem = undefined;
   }
-  return what;
+  return mem;
 };
 
-Creep.prototype.taskify = function(name, obj) {
-  let taskmem = this.memory.task;
-  if(taskmem && taskmem.task !== name) {
-    console.log("BAD TASK", name, JSON.stringify(this.memory));
-    delete this.memory.task;
-    taskmem = undefined;
+Creep.prototype.checkFlag = function(name, flag) {
+  if(_.isString(flag)) flag = Game.flags[flag];
+
+  if(flag) {
+    this.memory.task = {
+      task: name,
+      flag: flag.name,
+      first: flag.pos,
+    };
+    return flag;
   }
 
-  if(taskmem && obj) {
-    if(taskmem.id !== obj.id) {
-      return false;
+  const mem = this.checkMem(name);
+  if(mem) {
+    flag = Game.flags[this.memory.task.flag];
+    if(!flag) return false;
+    if(this.debug) {
+      this.room.visual.line(this.pos, flag.pos, {lineStyle: "dotted"});
     }
+    return flag;
+  }
+
+  return false;
+};
+
+Creep.prototype.checkId = function(name, obj) {
+  if(_.isString(obj)) obj = Game.getObjectById(obj);
+
+  if(obj) {
+    this.memory.task = {
+      task: name,
+      id: obj.id,
+      first: obj.pos,
+    };
+    return obj;
+  }
+
+  const mem = this.checkMem(name);
+  if(mem) {
+    obj = Game.getObjectById(this.memory.task.id);
+    if(!obj) return false;
+
     if(this.debug) {
       this.room.visual.line(this.pos, obj.pos, {lineStyle: "dotted"});
     }
     return obj;
   }
 
-  if(taskmem) {
-    obj = Game.getObjectById(taskmem.id);
-    if(!obj) {
-      delete this.memory.task;
-      return false;
-    }
-  }
-
-  if(_.isString(obj)) obj = Game.getObjectById(obj);
-
-  if(!obj || !obj.id) return false;
-
-  this.memory.task = {
-    task: name,
-    id: obj.id,
-  };
-  this.room.visual.line(this.pos, obj.pos);
-  return obj;
+  return false;
 };
 
 Creep.prototype.taskUpgradeController = function(controller) {
-  controller = this.taskify("updgrade controller", controller);
+  controller = this.checkId("updgrade controller", controller);
   if(!controller || !controller.my) return false;
 
   if (!this.carry.energy) {

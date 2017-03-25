@@ -11,7 +11,7 @@ Flag.prototype.roleSnipe = function(spawn) {
 
 Creep.prototype.roleSnipe = function() {
   return this.actionTask() ||
-      this.actionTravelFlag(Game.flags.snipe) ||
+      this.taskTravelFlag(Game.flags.snipe) ||
       this.actionSnipe();
 };
 

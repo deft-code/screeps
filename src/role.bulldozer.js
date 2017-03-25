@@ -13,7 +13,7 @@ Flag.prototype.roleBulldozer = function(spawn) {
 Creep.prototype.roleBulldozer = function() {
   return this.idleRetreat(WORK) ||
       this.actionTask() ||
-      this.actionTravelFlag(this.team) ||
+      this.taskTravelFlag(this.team) ||
       this.actionDismantleAt(this.team) ||
       this.actionDismantleHostile(this.team.room, STRUCTURE_TOWER) ||
       this.actionDismantleHostile(this.team.room,

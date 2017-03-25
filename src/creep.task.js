@@ -12,7 +12,7 @@ Creep.prototype.taskHarvestAny = function(room) {
 Creep.prototype.taskHarvest = function(src) {
   if (!this.carryFree) return false;
 
-  src = this.taskify('harvest', src);
+  src = this.checkId('harvest', src);
   if (!src || !src.energy) {
     return false;
   }

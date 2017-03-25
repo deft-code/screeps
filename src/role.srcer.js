@@ -6,7 +6,7 @@ Flag.prototype.roleSrcer = function(spawn) {
 };
 
 Creep.prototype.roleSrcer = function() {
-  return this.actionTask() || this.actionTravelFlag(this.team) ||
+  return this.actionTask() || this.taskTravelFlag(this.team) ||
       this.actionStartSrc();
 };
 

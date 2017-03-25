@@ -115,10 +115,15 @@ Flag.prototype.run = function() {
   const fname = _.camelCase('team ' + team);
   const fn = this[fname];
   this.runTeam();
-  if (fn) {
+  if (_.isFunction(fn)) {
     this.dlog(fn.call(this));
   } else {
     this.dlog('Missing fn', fname);
+  }
+
+  const customF = this['custom' + this.name];
+  if(_.isFunction(customF)) {
+    this.dlog('custom', this.name, customF.call(this));
   }
 };
 
