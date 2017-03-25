@@ -123,7 +123,7 @@ class Paver {
 
   layoutLinks() {
     for (let link of this.room.findStructs(STRUCTURE_LINK)) {
-      if (link.mode() != 'src') {
+      if (link.mode != 'src') {
         this.layoutStruct(link, [TOP, LEFT, BOTTOM, RIGHT]);
       }
     }

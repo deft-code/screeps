@@ -214,7 +214,7 @@ Creep.prototype.actionDrain = function() {
 
   let links = _.filter(
       room.findStructs(STRUCTURE_LINK),
-      l => l.mode() === 'src' && l.energyFree < 30);
+      l => l.mode === 'src' && l.energyFree < 30);
 
   let srcs = resources.concat(stores).concat(links);
   if (room.terminal &&
@@ -275,7 +275,7 @@ Creep.prototype.actionStoreAny = function() {
 
   let stores = _.filter(
       room.findStructs(STRUCTURE_CONTAINER),
-      s => !s.mode() != 'src' && s.storeFree);
+      s => !s.mode != 'src' && s.storeFree);
   if (room.storage && room.storage.storeFree) {
     stores.push(room.storage);
   }
@@ -290,7 +290,7 @@ Creep.prototype.actionEmptyStore = function() {
     return false;
   }
   const stores =
-      _.filter(room.findStructs(STRUCTURE_CONTAINER), s => s.mode() !== 'src');
+      _.filter(room.findStructs(STRUCTURE_CONTAINER), s => s.mode !== 'src');
   if (room.storage) {
     stores.push(room.storage);
   }

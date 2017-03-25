@@ -121,7 +121,7 @@ Creep.prototype.idleShunt = function() {
             moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
         break;
       case STRUCTURE_LINK:
-        if (struct.mode() === 'buffer') {
+        if (struct.mode === 'buffer') {
           this.dlog('shunting link buffer', struct);
           if (struct.energy > 250) {
             this.dlog('clearing link buffer', struct);
