@@ -5,29 +5,10 @@ Flag.prototype.localSpawn = function(energy) {
       spawn.room.energyAvailable >= energy;
 };
 
-Flag.prototype.runTeam = function() {
-  util.markDebug(this);
-  this.memory.creeps = this.memory.creeps || [];
-  const removed = _.remove(this.memory.creeps, cname => !Game.creeps[cname]);
-  if (removed.length) {
-    this.dlog('Dead Creeps', removed);
-  }
-  this.creeps = this.memory.creeps.sort().map(name => Game.creeps[name]);
-  this.creepsByRole = _.groupBy(this.creeps, c => c.memory.role);
-  this.dlog(
-      'my creeps',
-      JSON.stringify(
-          _.mapValues(this.creepsByRole, creeps => _.map(creeps, 'name'))));
-};
-
-Flag.prototype.makeTeam = function(name, force = false) {
-  const team = this.memory.team;
-  if (!team || force) {
-    this.memory.team = name;
-    this.memory.debug = true;
-    return true;
-  }
-  return false;
+Flag.prototype.remoteSpawn = function() {
+  return (spawn) => this.spawnDist(spawn) > 0 &&
+      spawn.room.energyFreeAvailable === 0 && 
+      (!this.room || spawn.room.energyCapacityAvailable > this.room.energyCapacityAvailable);
 };
 
 Flag.prototype.roleCreeps = function(role) {
@@ -107,38 +88,42 @@ Flag.prototype.spawnDist = function(spawn) {
 };
 
 Flag.prototype.run = function() {
-  if (this.color != COLOR_BLUE) {
-    return;
+  if (this.color !== COLOR_BLUE) {
+    return "no team";
   }
-  const mem = this.memory = this.memory || {};
-  const team = mem.team || 'null';
-  const fname = _.camelCase('team ' + team);
-  const fn = this[fname];
-  this.runTeam();
-  if (_.isFunction(fn)) {
-    this.dlog(fn.call(this));
-  } else {
-    this.dlog('Missing fn', fname);
+
+  if(!this.memory) {
+    this.memory = {
+      debug = true;
+    };
   }
+
+  util.markDebug(this);
+  this.memory.creeps = this.memory.creeps || [];
+  const removed = _.remove(this.memory.creeps, cname => !Game.creeps[cname]);
+  if (removed.length) {
+    this.dlog('Dead Creeps', removed);
+  }
+  this.creeps = this.memory.creeps.sort().map(name => Game.creeps[name]);
+  this.creepsByRole = _.groupBy(this.creeps, c => c.memory.role);
+  this.dlog(
+      'my creeps',
+      JSON.stringify(
+          _.mapValues(this.creepsByRole, creeps => _.map(creeps, 'name'))));
 
   const customF = this['custom' + this.name];
   if(_.isFunction(customF)) {
     this.dlog('custom', this.name, customF.call(this));
   }
-};
-
-Flag.prototype.teamNull = function() {
-  this.dlog('is Team Null');
   switch (this.secondaryColor) {
     case COLOR_BLUE:
-      this.makeTeam('base');
-      return 'base';
+      return this.teamBase();
     case COLOR_GREEN:
-      this.makeTeam('farm');
-      return 'farm';
+      return this.teamFarm();
     case COLOR_YELLOW:
-      this.makeTeam('claim');
-      return 'claim';
+      return this.teamClaim();
+    case COLOR_GREY:
+      return this.teamRole();
   }
   return 'null';
 };

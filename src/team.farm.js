@@ -41,24 +41,6 @@ Flag.prototype.closeSpawn = function(energy) {
       spawn.room.energyAvailable >= energy;
 };
 
-Flag.prototype.roleGuard = function(spawn) {
-  let body = [
-    MOVE,
-    TOUGH,
-    MOVE,
-    TOUGH,
-    MOVE,
-    RANGED_ATTACK,
-    MOVE,
-    HEAL,
-    MOVE,
-    RANGED_ATTACK,
-    MOVE,
-    RANGED_ATTACK,
-  ];
-  return this.createRole(spawn, body, {role: 'guard'});
-};
-
 Flag.prototype.roleReserver = function(spawn) {
   let body = [MOVE, MOVE, CLAIM, CLAIM, MOVE, CLAIM];
   return this.createRole(spawn, body, {role: 'reserver'});
