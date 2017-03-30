@@ -47,24 +47,24 @@ Creep.prototype.taskRepairRoads = function() {
   return this.taskRepair(road);
 };
 
-Creep.prototype.taskRepairNear = function() {
+Creep.prototype.taskRepairNear = function(again = true) {
   if (!this.teamRoom) return false;
 
   const struct = _.min(
       _.filter(
           this.teamRoom.find(FIND_STRUCTURES),
-          s => s.structureType !== STRUCTURE_WALL &&
-              s.structureType !== STRUCTURE_RAMPART && s.hurts &&
+          s => s.hurts && s.structureType !== STRUCTURE_WALL &&
+              s.structureType !== STRUCTURE_RAMPART &&
               this.pos.inRangeTo(s, 3)),
       'hits');
-  return this.taskRepair(struct);
+  return this.taskRepair(struct, again);
 };
 
-Creep.prototype.taskRepair = function(struct) {
+Creep.prototype.taskRepair = function(struct, again = true) {
   struct = this.checkId('repair', struct);
   if (!struct) return false;
 
-  if (!struct.hurts) return this.taskRepairNear();
+  if (!struct.hurts) return this.taskRepairNear(false);
 
   const what = this.doRepair(struct);
   if (what) {
