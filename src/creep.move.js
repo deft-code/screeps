@@ -1,9 +1,5 @@
 const lib = require('lib');
 
-Creep.prototype.idleMoveAt = function(obj, opts = {}) {
-
-};
-
 Creep.prototype.idleMoveTo = function(obj, opts = {}) {
   if (!obj) return false;
   opts = _.defaults(opts, {

@@ -1,12 +1,19 @@
 const lib = require('lib');
 
-lib.roProp(Room, 'energyFreeAvailable', (room) => room.energyCapacityAvailable - room.energyAvailable);
+lib.roProp(
+    Room, 'energyFreeAvailable',
+    (room) => room.energyCapacityAvailable - room.energyAvailable);
 
 lib.cachedProp(Room, 'claimable', (room) => room.controller.reservable);
 
+lib.cachedProp(
+    Room, 'wallMax',
+    (room) => room.controller.level * 10000 +
+        Math.pow(10, room.controller.level - 1));
+
 Room.prototype.findStructs = function(...types) {
-  if(!this.structsByType) {
-    this.structsByType =  _.groupBy(this.find(FIND_STRUCTURES), "structureType");
+  if (!this.structsByType) {
+    this.structsByType = _.groupBy(this.find(FIND_STRUCTURES), 'structureType');
   }
   return _.flatten(_.map(types, sType => this.structsByType[sType] || []));
 };
@@ -26,7 +33,7 @@ Room.prototype.cycleRamparts = function() {
           this.lastLock = r.id;
         }
       }
-      if(r.isPublic !== pub) {
+      if (r.isPublic !== pub) {
         const ret = r.setPublic(pub);
         console.log(r.note, 'pub', pub, ret);
       }
@@ -41,12 +48,10 @@ Room.prototype.cycleRampart = function(rampart) {
 const allies = ['tynstar'];
 
 Room.prototype.run = function() {
-  this.allies = _.filter(
-    this.find(FIND_HOSTILE_CREEPS), 
-    c => c.owner.username in allies);
+  this.allies =
+      _.filter(this.find(FIND_HOSTILE_CREEPS), c => c.owner.username in allies);
   this.enemies = _.filter(
-    this.find(FIND_HOSTILE_CREEPS), 
-    c => !(c.owner.username in allies));
+      this.find(FIND_HOSTILE_CREEPS), c => !(c.owner.username in allies));
   this.hostiles = _.filter(this.enemies, 'hostile');
   this.assaulters = _.filter(this.enemies, 'assault');
 
@@ -56,8 +61,9 @@ Room.prototype.run = function() {
     this.runLabs();
 
     if (this.assaulters.length) {
-      const structs = this.findStructs(STRUCTURE_TOWER, STRUCTURE_SPAWN, STRUCTURE_EXTENSION);
-      if( _.find(structs, s => s.hits < s.hitsMax)) {
+      const structs = this.findStructs(
+          STRUCTURE_TOWER, STRUCTURE_SPAWN, STRUCTURE_EXTENSION);
+      if (_.find(structs, s => s.hits < s.hitsMax)) {
         console.log('SAFE MODE!', this.controller.activateSafeMode());
       }
     }

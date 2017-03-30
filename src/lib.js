@@ -355,6 +355,8 @@ exports.structEnergyFree = (struct) => struct.energyCapacity - struct.energy;
 exports.structObstacle = (struct) =>
     _.contains(OBSTACLE_OBJECT_TYPES, struct.structureType);
 
+exports.structHurts = exports.creepHurts
+
 
 //
 // StructureTower

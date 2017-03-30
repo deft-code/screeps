@@ -60,7 +60,7 @@ Creep.prototype.roleRemoteBuild = function() {
   if (this.room.name == this.team.pos.roomName) this.idleNom();
 
   return this.actionTask() || this.taskTravelFlag(this.team) ||
-      this.actionBuildRoom(this.team.room) ||
+      this.taskBuildAny() ||
       this.actionUpgrade(this.team.room) ||
       this.taskHarvestAny(this.team.room) || this.idleMoveNear(this.team);
 };

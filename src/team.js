@@ -5,10 +5,16 @@ Flag.prototype.localSpawn = function(energy) {
       spawn.room.energyAvailable >= energy;
 };
 
+Flag.prototype.closeSpawn = function(energy) {
+  return (spawn) => this.spawnDist(spawn) <= this.minSpawnDist() + 1 &&
+      spawn.room.energyAvailable >= energy;
+};
+
 Flag.prototype.remoteSpawn = function() {
   return (spawn) => this.spawnDist(spawn) > 0 &&
-      spawn.room.energyFreeAvailable === 0 && 
-      (!this.room || spawn.room.energyCapacityAvailable > this.room.energyCapacityAvailable);
+      spawn.room.energyFreeAvailable === 0 &&
+      (!this.room ||
+       spawn.room.energyCapacityAvailable > this.room.energyCapacityAvailable);
 };
 
 Flag.prototype.roleCreeps = function(role) {
@@ -60,11 +66,11 @@ Flag.prototype.createRole = function(spawn, body, mem) {
 };
 
 Flag.prototype.minSpawnDist = function() {
-  if(!this.memory.spawnDist) {
+  if (!this.memory.spawnDist) {
     this.memory.spawnDist = {}
   }
   return this.memory.spawnDist.min || 0;
-}
+};
 
 Flag.prototype.spawnDist = function(spawn) {
   if (!spawn) return Infinity;
@@ -89,13 +95,11 @@ Flag.prototype.spawnDist = function(spawn) {
 
 Flag.prototype.run = function() {
   if (this.color !== COLOR_BLUE) {
-    return "no team";
+    return 'no team';
   }
 
-  if(!this.memory) {
-    this.memory = {
-      debug = true;
-    };
+  if (!this.memory) {
+    this.memory = {debug: true};
   }
 
   util.markDebug(this);
@@ -112,7 +116,7 @@ Flag.prototype.run = function() {
           _.mapValues(this.creepsByRole, creeps => _.map(creeps, 'name'))));
 
   const customF = this['custom' + this.name];
-  if(_.isFunction(customF)) {
+  if (_.isFunction(customF)) {
     this.dlog('custom', this.name, customF.call(this));
   }
   switch (this.secondaryColor) {
@@ -124,6 +128,13 @@ Flag.prototype.run = function() {
       return this.teamClaim();
     case COLOR_GREY:
       return this.teamRole();
+    case COLOR_BROWN:
+      if (!this.creeps.length) {
+        this.remove();
+        console.log(this, 'Good Bye');
+      }
+      console.log(this, 'Good Bye', this.memory.creeps, _.sum(this.creeps, 'ticksToLive'));
+      return `Slow Delete ${this.memory.creeps} x ${_.sum(this.creeps, 'ticksToLive')}`;
   }
   return 'null';
 };

@@ -24,8 +24,10 @@ lib.roProp(Creep, 'taskCreep', function() {
   return Game.creeps[task.creep];
 });
 
-lib.cachedProp(Creep, 'atTeam', creep => this.room.name === this.team.pos.roomName);
-lib.cachedProp(Creep, 'atHome', creep => this.room.name === this.memory.home);
+lib.cachedProp(Creep, 'atTeam', creep => creep.room.name === creep.team.pos.roomName);
+lib.cachedProp(Creep, 'atHome', creep => creep.room.name === creep.memory.home);
+
+lib.cachedProp(Creep, 'teamRoom', creep => creep.team && creep.team.room);
 
 Creep.prototype.run = function() {
   if(this.spawning) {
@@ -128,7 +130,7 @@ Creep.prototype.doBuild = function(site) {
   const err = this.build(site);
   if (err == OK) {
     this.intents.melee = this.intents.range = site;
-    return site.progressTotal - site.progress + 1;
+    return site.progressTotal - site.progress;
   }
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveRange(site);

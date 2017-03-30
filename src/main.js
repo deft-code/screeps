@@ -29,11 +29,14 @@ require('struct.spawn');
 require('struct.tower');
 
 require('creep');
+require('creep.build');
 require('creep.move');
+require('creep.repair');
 require('creep.role');
 require('creep.task');
 
 require('role.archer');
+require('role.bootstrap');
 require('role.bulldozer');
 require('role.caboose');
 require('role.chemist');
@@ -80,24 +83,6 @@ function clearMem(what) {
   }
 }
 
-class ExtractorStuff {
-  get foo() {
-    return "foo" + this.hits;
-  }
-
-  bar() {
-    return "bar"+this.hits;
-  }
-
-  baz(x) {
-    return "baz" + x;
-  }
-}
-
-lib.merge(StructureExtractor, ExtractorStuff);
-
-
-
 function main() {
   PathFinder.use(true);
 
@@ -109,3 +94,15 @@ function main() {
   clearMem('creeps');
   clearMem('flags');
 }
+
+Flag.prototype.customAir = function() {
+  if(!this.room) return;
+
+  for(creep of this.room.find(FIND_MY_CREEPS)) {
+    const err = Game.spawns.Air.renewCreep(creep);
+    if(err === OK) {
+      console.log("Renewed", creep);
+      return;
+    }
+  }
+};

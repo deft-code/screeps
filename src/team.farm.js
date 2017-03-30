@@ -36,11 +36,6 @@ Flag.prototype.teamFarm = function() {
       'enough';
 };
 
-Flag.prototype.closeSpawn = function(energy) {
-  return (spawn) => this.spawnDist(spawn) <= this.minSpawnDist() + 1 &&
-      spawn.room.energyAvailable >= energy;
-};
-
 Flag.prototype.roleReserver = function(spawn) {
   let body = [MOVE, MOVE, CLAIM, CLAIM, MOVE, CLAIM];
   return this.createRole(spawn, body, {role: 'reserver'});
@@ -54,9 +49,9 @@ Creep.prototype.roleReserver = function() {
 Creep.prototype.actionRoadUpkeep = function(room) {
   if (!room) return false;
 
-  return this.actionRepairStruct(STRUCTURE_ROAD, room) ||
-      this.actionBuildStruct(STRUCTURE_ROAD, room) ||
-      this.actionBuildRoom(room);
+  return this.taskRepairRoads() ||
+      this.taskBuildStructs(STRUCTURE_ROAD) ||
+      this.taskBuildAny();
 };
 
 Creep.prototype.actionXferNearest = function(room) {

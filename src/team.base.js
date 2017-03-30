@@ -5,7 +5,12 @@ Flag.prototype.teamBase = function() {
     return this.upkeepRole("claimer", 1, 5, this.closeSpawn(650));
   }
 
+  if(!this.room.find(FIND_MY_CREEPS).length && this.room.findStructs(STRUCTURE_SPAWN).length) {
+    return this.upkeepRole("bootstrap", 1, 5, this.localSpawn(300));
+  }
+
   if(!this.room.storage) {
+    return this.upkeepRole("bootstrap", 4, 3, this.remoteSpawn());
   }
 
   const srcers = this.roleCreeps("srcer");
