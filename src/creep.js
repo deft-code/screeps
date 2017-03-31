@@ -231,6 +231,85 @@ Creep.prototype.doAttack = function(creep) {
   return false;
 };
 
+Creep.prototype.slurp = function() {
+  if(!this.carryFree) return false;
+  if(this.intents.withdraw) return false;
+
+  const p = this.pos;
+  const structs = this.room.lookForAtArea(
+    LOOK_STRUCTURES, p.y-1, p.x-1, p.y+1, p.x+1, true);
+
+  const types = [
+    STRUCTURE_CONTAINER,
+    STRUCTURE_LINK,
+    STRUCTURE_STORAGE,
+    STRUCTURE_TERMINAL,
+    STRUCUTRE_LAB,
+  ];
+
+  const struct = _.find(structs,
+    s => s.structureType in types && (
+      s.energy > 0 || s.store.energy > 0));
+
+  const err = this.withdraw(struct, RESOURCE_ENERGY);
+  if(err === OK) {
+    this.intents.withdraw = struct;
+    return struct.note;
+  }
+  return false;
+};
+
+Creep.prototype.share = function() {
+  if(this.carryFree) return false;
+  if(this.intents.transfer) return false;
+
+  const p = this.pos;
+  const structs = this.teamRoom.lookForAtArea(
+    LOOK_STRUCTURES, p.y-1, p.x-1, p.y+1, p.x+1, true);
+
+  const types = [
+    STRUCTURE_CONTAINER,
+    STRUCTURE_LINK,
+    STRUCTURE_STORAGE,
+    STRUCTURE_TERMINAL,
+    STRUCUTRE_LAB,
+  ];
+
+  const struct = _.find(structs,
+    s => s.structureType in types && (
+      s.energy > 0 || s.store.energy > 0));
+
+  const err = this.withdraw(struct, RESOURCE_ENERGY);
+  if(err === OK) {
+    this.intents.withdraw = struct;
+    return struct.note;
+  }
+  return false;
+};
+
+Creep.prototype.slurp = function() {
+  if(!this.teamRoom) return false;
+  if(!this.carryFree) return false;
+  if(this.intents.withdraw) return false;
+
+  const structs = this.teamRoom.findStructs(
+    STRUCTURE_STORAGE,
+    STRUCTURE_CONTAINER,
+    STRUCTURE_TERMINAL,
+    STRUCUTRE_LAB,
+    STRUCTURE_LINK);
+
+  const struct = _.find(structs,
+    store => this.pos.isNearTo(store) && (store.energy > 0 || store.store.energy > 0));
+
+  const err = this.withdraw(struct, RESOURCE_ENERGY);
+  if(err === OK) {
+    this.intents.withdraw = struct;
+    return struct.note;
+  }
+  return false;
+};
+
 Creep.prototype.doTransfer = function(target, resource, ...amount) {
   if (this.busy('transfer')) return false;
 
@@ -238,7 +317,7 @@ Creep.prototype.doTransfer = function(target, resource, ...amount) {
 
   const err = this.transfer(target, resource, ...amount);
   if (err == OK) {
-    this.intents.transfer = `xfer ${target.pos}`;
+    this.intents.transfer = target;
     return "success";
   }
   if (err == ERR_NOT_IN_RANGE) {
@@ -248,10 +327,11 @@ Creep.prototype.doTransfer = function(target, resource, ...amount) {
   return false;
 };
 
-Creep.prototype.doWithdraw = function(target, resource, ...amount) {
+
+Creep.prototype.doWithdraw = function(target, resource, amount) {
   if (this.busy('withdraw')) return false;
 
-  const err = this.withdraw(target, resource, ...amount);
+  const err = this.withdraw(target, resource, amount);
   if (err == OK) {
     this.intents.withdraw = target;
     return "success";
