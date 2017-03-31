@@ -11,7 +11,6 @@ lib.enhanceAll();
 
 require('team');
 require('team.base');
-require('team.claim');
 require('team.farm');
 require('team.role');
 

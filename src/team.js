@@ -124,8 +124,6 @@ Flag.prototype.run = function() {
       return this.teamBase();
     case COLOR_GREEN:
       return this.teamFarm();
-    case COLOR_YELLOW:
-      return this.teamClaim();
     case COLOR_GREY:
       return this.teamRole();
     case COLOR_BROWN:

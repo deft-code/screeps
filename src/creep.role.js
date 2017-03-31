@@ -1,10 +1,18 @@
+const lib = require('lib');
+
 Creep.prototype.roleUndefined = function() {
   this.dlog('Missing Role!');
 };
 
+lib.enhance(
+    Creep, 'roleIndex',
+    creep => _.findIndex(
+        creep.team.roleCreeps(creep.memory.role),
+        rc => rc.name === creep.name));
+
 Creep.prototype.checkMem = function(name) {
   let mem = this.memory.task;
-  if(mem && mem.task !== name) {
+  if (mem && mem.task !== name) {
     delete this.memory.task;
     mem = undefined;
   }
@@ -12,9 +20,9 @@ Creep.prototype.checkMem = function(name) {
 };
 
 Creep.prototype.checkFlag = function(name, flag) {
-  if(_.isString(flag)) flag = Game.flags[flag];
+  if (_.isString(flag)) flag = Game.flags[flag];
 
-  if(flag) {
+  if (flag) {
     this.memory.task = {
       task: name,
       flag: flag.name,
@@ -24,11 +32,11 @@ Creep.prototype.checkFlag = function(name, flag) {
   }
 
   const mem = this.checkMem(name);
-  if(mem) {
+  if (mem) {
     flag = Game.flags[this.memory.task.flag];
-    if(!flag) return false;
-    if(this.debug) {
-      this.room.visual.line(this.pos, flag.pos, {lineStyle: "dotted"});
+    if (!flag) return false;
+    if (this.debug) {
+      this.room.visual.line(this.pos, flag.pos, {lineStyle: 'dotted'});
     }
     return flag;
   }
@@ -37,9 +45,9 @@ Creep.prototype.checkFlag = function(name, flag) {
 };
 
 Creep.prototype.checkId = function(name, obj) {
-  if(_.isString(obj)) obj = Game.getObjectById(obj);
+  if (_.isString(obj)) obj = Game.getObjectById(obj);
 
-  if(obj) {
+  if (obj) {
     this.memory.task = {
       task: name,
       id: obj.id,
@@ -49,12 +57,12 @@ Creep.prototype.checkId = function(name, obj) {
   }
 
   const mem = this.checkMem(name);
-  if(mem) {
+  if (mem) {
     obj = Game.getObjectById(this.memory.task.id);
-    if(!obj) return false;
+    if (!obj) return false;
 
-    if(this.debug) {
-      this.room.visual.line(this.pos, obj.pos, {lineStyle: "dotted"});
+    if (this.debug) {
+      this.room.visual.line(this.pos, obj.pos, {lineStyle: 'dotted'});
     }
     return obj;
   }
@@ -63,8 +71,8 @@ Creep.prototype.checkId = function(name, obj) {
 };
 
 Creep.prototype.taskUpgradeController = function(controller) {
-  controller = this.checkId("updgrade controller", controller);
-  if(!controller || !controller.my) return false;
+  controller = this.checkId('updgrade controller', controller);
+  if (!controller || !controller.my) return false;
 
   if (!this.carry.energy) {
     return this.actionRecharge(undefined, controller.pos);
@@ -73,7 +81,7 @@ Creep.prototype.taskUpgradeController = function(controller) {
 };
 
 Creep.prototype.preNom = function() {
-  if(!this.carryFree) return;
+  if (!this.carryFree) return;
 
   const src = _(this.room.find(FIND_DROPPED_RESOURCES))
                   .filter(e => e.pos.isNearTo(this))
@@ -89,34 +97,37 @@ Creep.prototype.preNom = function() {
 };
 
 Creep.prototype.postPump = function() {
-  if(this.carryFree < this.carry.energy) return;
+  if (this.carryFree < this.carry.energy) return;
 
-  if(this.intents.withdraw) return;
+  if (this.intents.withdraw) return;
 
   let pump = this.memory.pump;
-  if(!pump) {
+  if (!pump) {
     pump = this.memory.pump = {};
   }
   let p = RoomPosition.FromMemory(pump.pos);
-  if(!p || p.isEqualTo(this.pos)) {
+  if (!p || p.isEqualTo(this.pos)) {
     p = pump.pos = this.pos;
     pump.when = Game.time;
   }
-  if(pump.when < Game.time) {
-    if(pump.id === false) return;
+  if (pump.when < Game.time) {
+    if (pump.id === false) return;
 
     let target = Game.getObjectById(pump.id);
-    if(!target) {
-      target = _.find(this.room.findStructs(STRUCTURE_LINK, STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_TERMINAL),
+    if (!target) {
+      target = _.find(
+          this.room.findStructs(
+              STRUCTURE_LINK, STRUCTURE_CONTAINER, STRUCTURE_STORAGE,
+              STRUCTURE_TERMINAL),
           s => this.pos.isNearTo(s));
     }
 
-    if(!target) pump.id = false;
+    if (!target) pump.id = false;
 
-    if(target) {
+    if (target) {
       this.intents.withdraw = target;
       const err = this.withdraw(target, RESOURCE_ENERGY);
-      if(err !== OK) {
+      if (err !== OK) {
         pump.id = false;
       }
     }

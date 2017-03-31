@@ -64,7 +64,7 @@ Creep.prototype.taskRepair = function(struct, again = true) {
   struct = this.checkId('repair', struct);
   if (!struct) return false;
 
-  if (!struct.hurts) return this.taskRepairNear(false);
+  if (!struct.hurts) return again && this.taskRepairNear(false);
 
   const what = this.doRepair(struct);
   if (what) {
