@@ -19,10 +19,12 @@ Creep.prototype.roleBootstrap = function() {
   }
 
   this.idleNom();
-  const room = this.team && this.team.room;
-  if (!room) return false;
+  if (!this.teamRoom) return false;
 
-  return this.actionTask() || this.taskBuildOrdered() ||
-      this.taskRepairOrdered() || this.actionUpgrade(this.team.room) ||
-      this.taskHarvestAny(this.team.room);
+  return this.actionTask() ||
+      this.actionTowerCharge() ||
+      this.actionPoolCharge() ||
+      this.taskBuildOrdered() ||
+      this.taskRepairOrdered() || this.actionUpgrade(this.teamRoom) ||
+      this.taskHarvestAny(this.teamRoom);
 };

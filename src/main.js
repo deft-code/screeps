@@ -76,7 +76,9 @@ function runner(objs) {
 function clearMem(what) {
   for (var name in Memory[what]) {
     if (!Game[what][name]) {
-      console.log(`Clear memory for ${what}[${name}]:`, JSON.stringify(Memory[what][name]));
+      console.log(
+          `Clear memory for ${what}[${name}]:`,
+          JSON.stringify(Memory[what][name]));
       delete Memory[what][name];
     }
   }
@@ -92,16 +94,4 @@ function main() {
 
   clearMem('creeps');
   clearMem('flags');
-}
-
-Flag.prototype.customAir = function() {
-  if(!this.room) return;
-
-  for(creep of this.room.find(FIND_MY_CREEPS)) {
-    const err = Game.spawns.Air.renewCreep(creep);
-    if(err === OK) {
-      console.log("Renewed", creep);
-      return;
-    }
-  }
 };
