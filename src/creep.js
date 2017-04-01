@@ -24,13 +24,14 @@ lib.roProp(Creep, 'taskCreep', function() {
   return Game.creeps[task.creep];
 });
 
-lib.cachedProp(Creep, 'atTeam', creep => creep.room.name === creep.team.pos.roomName);
+lib.cachedProp(
+    Creep, 'atTeam', creep => creep.room.name === creep.team.pos.roomName);
 lib.cachedProp(Creep, 'atHome', creep => creep.room.name === creep.memory.home);
 
 lib.cachedProp(Creep, 'teamRoom', creep => creep.team && creep.team.room);
 
 Creep.prototype.run = function() {
-  if(this.spawning) {
+  if (this.spawning) {
     this.memory.home = this.room.name;
     this.memory.cpu = 0;
     return 'spawning';
@@ -46,9 +47,9 @@ Creep.prototype.run = function() {
   const roleFunc = this[role] || this.roleUndefined;
   const what = roleFunc.apply(this);
 
-  if(this.memory.task) {
+  if (this.memory.task) {
     const first = this.memory.task.first;
-    if(first && first.roomName === this.room.name) {
+    if (first && first.roomName === this.room.name) {
       this.room.visual.line(this.pos, first);
     }
     delete this.memory.task.first;
@@ -91,10 +92,10 @@ Creep.prototype.doMoveTo = function(target, opts = {}) {
 
   const weight = this.weight;
   const fatigue = this.bodyInfo().fatigue;
-  this.dlog("doMoveTo", weight, fatigue, target);
+  this.dlog('doMoveTo', weight, fatigue, target);
 
   opts = _.defaults(opts, {
-    //useFindRoute: true,
+    // useFindRoute: true,
     ignoreRoads: fatigue > weight,
   });
   const err = this.travelTo(target, opts);
@@ -110,7 +111,7 @@ Creep.prototype.doMoveTo = function(target, opts = {}) {
 };
 
 Creep.prototype.doHarvest = function(src) {
-  if(this.busy('melee')) return false;
+  if (this.busy('melee')) return false;
 
   const err = this.harvest(src);
   if (err == OK) {
@@ -231,80 +232,104 @@ Creep.prototype.doAttack = function(creep) {
   return false;
 };
 
-Creep.prototype.slurp = function() {
-  if(!this.carryFree) return false;
-  if(this.intents.withdraw) return false;
+Creep.prototype.slurpWithdraw = function(struct) {
+  const err = this.withdraw(struct, RESOURCE_ENERGY);
+  if (err === OK) {
+    this.intents.withdraw = struct;
+    return struct.note;
+  }
+  return false;
+};
+
+Creep.prototype.slurpSrc = function() {
+  if (!this.carryFree) return false;
+  if (this.intents.withdraw) return false;
 
   const p = this.pos;
   const structs = this.room.lookForAtArea(
-    LOOK_STRUCTURES, p.y-1, p.x-1, p.y+1, p.x+1, true);
+      LOOK_STRUCTURES, p.y - 1, p.x - 1, p.y + 1, p.x + 1, true);
 
-  const types = [
-    STRUCTURE_CONTAINER,
-    STRUCTURE_LINK,
-    STRUCTURE_STORAGE,
-    STRUCTURE_TERMINAL,
-    STRUCUTRE_LAB,
-  ];
+  const struct = _.find(structs, spot => {
+    const s = spot.structure;
+    switch (s.structureType) {
+      case STRUCTURE_CONTAINER:
+      case STRUCTURE_LINK:
+        return s.mode === 'src' && (s.energy > 0 || s.store.energy > 0);
+      case STRUCTURE_STORAGE:
+        return s.store.energy > 100000;
+    }
+    return false;
+  });
 
-  const struct = _.find(structs,
-    s => s.structureType in types && (
-      s.energy > 0 || s.store.energy > 0));
-
-  const err = this.withdraw(struct, RESOURCE_ENERGY);
-  if(err === OK) {
-    this.intents.withdraw = struct;
-    return struct.note;
-  }
-  return false;
-};
-
-Creep.prototype.share = function() {
-  if(this.carryFree) return false;
-  if(this.intents.transfer) return false;
-
-  const p = this.pos;
-  const structs = this.teamRoom.lookForAtArea(
-    LOOK_STRUCTURES, p.y-1, p.x-1, p.y+1, p.x+1, true);
-
-  const types = [
-    STRUCTURE_CONTAINER,
-    STRUCTURE_LINK,
-    STRUCTURE_STORAGE,
-    STRUCTURE_TERMINAL,
-    STRUCUTRE_LAB,
-  ];
-
-  const struct = _.find(structs,
-    s => s.structureType in types && (
-      s.energy > 0 || s.store.energy > 0));
-
-  const err = this.withdraw(struct, RESOURCE_ENERGY);
-  if(err === OK) {
-    this.intents.withdraw = struct;
-    return struct.note;
-  }
-  return false;
+  return this.slurpWithdraw(struct);
 };
 
 Creep.prototype.slurp = function() {
-  if(!this.teamRoom) return false;
-  if(!this.carryFree) return false;
-  if(this.intents.withdraw) return false;
+  if (!this.carryFree) return false;
+  if (this.intents.withdraw) return false;
 
-  const structs = this.teamRoom.findStructs(
-    STRUCTURE_STORAGE,
-    STRUCTURE_CONTAINER,
-    STRUCTURE_TERMINAL,
-    STRUCUTRE_LAB,
-    STRUCTURE_LINK);
+  const p = this.pos;
+  const spots = this.room.lookForAtArea(
+      LOOK_STRUCTURES, p.y - 1, p.x - 1, p.y + 1, p.x + 1, true);
 
-  const struct = _.find(structs,
-    store => this.pos.isNearTo(store) && (store.energy > 0 || store.store.energy > 0));
+  const types = [
+    STRUCTURE_ROAD,
+    STRUCTURE_WALL,
+    STRUCTURE_RAMPARTS,
+    STRUCTURE_SPAWN,
+    STRUCTURE_EXTENSION,
+  ];
 
-  const err = this.withdraw(struct, RESOURCE_ENERGY);
-  if(err === OK) {
-    this.intents.withdraw = struct;
+  const struct = _.find(
+      spots,
+      spot => !_.contains(types, spot.structure.structureType) &&
+          (spot.structure.energy > 0 ||
+           (spot.structure.store && spot.structure.store.energy > 0)));
+
+  return this.slurpWithdraw(struct);
+};
+
+Creep.prototype.shareSrc = function() {
+  if (!this.carry.energy) return false;
+  if (this.intents.transfer) return false;
+
+  const p = this.pos;
+  const spots = this.teamRoom.lookForAtArea(
+      LOOK_STRUCTURES, p.y - 1, p.x - 1, p.y + 1, p.x + 1, true);
+
+  const struct = _.find(spots, spot => {
+    const s = spot.structure;
+    switch(s.structureType) {
+      case STRUCTURE_CONTAINER:
+        return !this.room.energyFreeAvailable && s.mode === 'sink';
+      case STRUCTURE_SPAWN:
+      case STRUCTURE_EXTENSION:
+      case STRUCTURE_TOWER:
+        return this.energyFree;
+    }
+    return false;
+  });
+  return this.shareTransfer(struct);
+};
+
+Creep.prototype.share = function() {
+  if (!this.carry.energy) return false;
+  if (this.intents.transfer) return false;
+
+  const p = this.pos;
+  const spots = this.teamRoom.lookForAtArea(
+      LOOK_STRUCTURES, p.y - 1, p.x - 1, p.y + 1, p.x + 1, true);
+
+  const struct = _.find(
+      spots, spot => spot.structure.energyFree || spot.structure.storeFree;);
+
+  return this.shareTransfer(struct);
+};
+
+Creep.prototype.shareTransfer = function(struct) {
+  const err = this.transfer(struct, RESOURCE_ENERGY);
+  if (err === OK) {
+    this.intents.transfer = struct;
     return struct.note;
   }
   return false;
@@ -313,17 +338,17 @@ Creep.prototype.slurp = function() {
 Creep.prototype.doTransfer = function(target, resource, ...amount) {
   if (this.busy('transfer')) return false;
 
-  this.dlog("attempt transfer", target, resource);
+  this.dlog('attempt transfer', target, resource);
 
   const err = this.transfer(target, resource, ...amount);
   if (err == OK) {
     this.intents.transfer = target;
-    return "success";
+    return 'success';
   }
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveNear(target);
   }
-  this.dlog("doTransfer error!", err);
+  this.dlog('doTransfer error!', err);
   return false;
 };
 
@@ -334,7 +359,7 @@ Creep.prototype.doWithdraw = function(target, resource, amount) {
   const err = this.withdraw(target, resource, amount);
   if (err == OK) {
     this.intents.withdraw = target;
-    return "success";
+    return 'success';
   }
   if (err == ERR_NOT_IN_RANGE) {
     return this.idleMoveNear(target);
@@ -344,7 +369,7 @@ Creep.prototype.doWithdraw = function(target, resource, amount) {
 
 Creep.prototype.doUpgradeController = function(controller) {
   const err = this.upgradeController(controller);
-  if(err == OK) {
+  if (err == OK) {
     return controller.progress
   }
   if (err == ERR_NOT_IN_RANGE) {
