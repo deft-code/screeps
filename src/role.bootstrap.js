@@ -10,9 +10,9 @@ Flag.prototype.roleBootstrap = function(spawn) {
 };
 
 Creep.prototype.roleBootstrap = function() {
-  const what = this.roleBootstrap();
+  const what = this.roleBootstrap2();
 
-  if(this.atTeam) {
+  if(false && this.atTeam) {
     if(this.carryTotal < this.carryFree) {
       this.say(this.slurp());
     }

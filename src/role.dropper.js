@@ -10,7 +10,7 @@ Flag.prototype.roleDropper = function(spawn) {
 };
 
 Creep.prototype.roleDropper = function() {
-  if(this.room.name !== this.team.pos.roomName) {
+  if(!this.atTeam) {
       this.idleNom();
   }
   
@@ -32,5 +32,18 @@ Creep.prototype.roleDropper = function() {
     if(what) return what;
     
     return this.actionRecharge(this.carryCapacity, this.pos);
+};
+
+Creep.prototype.taskDrop = function(flag) {
+  if(!this.carry.energy) return false;
+  flag = this.checkFlag('drop', flag);
+  if(!flag) return false;
+
+  if(this.pos.isNearTo(flag)) {
+    const err = this.drop(RESOURCE_ENERGY);
+    return err === OK && 'success';
+  }
+
+  return this.idleMoveTo(flag);
 };
 

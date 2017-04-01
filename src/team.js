@@ -13,6 +13,7 @@ Flag.prototype.closeSpawn = function(energy) {
 Flag.prototype.remoteSpawn = function() {
   return (spawn) => this.spawnDist(spawn) > 0 &&
       spawn.room.energyFreeAvailable === 0 &&
+      spawn.room.storage && spawn.room.storage.energy > 100000 &&
       (!this.room ||
        spawn.room.energyCapacityAvailable > this.room.energyCapacityAvailable);
 };

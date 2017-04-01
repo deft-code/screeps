@@ -271,6 +271,14 @@ exports.creepBodyInfo = (creep, all) => {
 exports.roomEnergyOpen = (room) =>
     room.energyCapacityAvailable - room.energyAvailable;
 
+exports.roomLookForAtRange = (room, look, pos, range, array) =>
+  room.lookForAtArea(look,
+    Math.max(0, pos.y - range),
+    Math.max(0, pos.x - range),
+    Math.min(49, pos.y + range),
+    Math.min(49, pos.x + range),
+    array);
+
 // RoomPosition enhancers
 
 const oppositeLookup = new Map();

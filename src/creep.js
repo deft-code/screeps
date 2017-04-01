@@ -245,9 +245,7 @@ Creep.prototype.slurpSrc = function() {
   if (!this.carryFree) return false;
   if (this.intents.withdraw) return false;
 
-  const p = this.pos;
-  const structs = this.room.lookForAtArea(
-      LOOK_STRUCTURES, p.y - 1, p.x - 1, p.y + 1, p.x + 1, true);
+  const structs = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true);
 
   const struct = _.find(structs, spot => {
     const s = spot.structure;
@@ -268,9 +266,8 @@ Creep.prototype.slurp = function() {
   if (!this.carryFree) return false;
   if (this.intents.withdraw) return false;
 
-  const p = this.pos;
-  const spots = this.room.lookForAtArea(
-      LOOK_STRUCTURES, p.y - 1, p.x - 1, p.y + 1, p.x + 1, true);
+  const spots = this.room.lookForAtRange(
+      LOOK_STRUCTURES,this.pos, 1, true);
 
   const types = [
     STRUCTURE_ROAD,
@@ -293,9 +290,8 @@ Creep.prototype.shareSrc = function() {
   if (!this.carry.energy) return false;
   if (this.intents.transfer) return false;
 
-  const p = this.pos;
-  const spots = this.teamRoom.lookForAtArea(
-      LOOK_STRUCTURES, p.y - 1, p.x - 1, p.y + 1, p.x + 1, true);
+  const spots = this.teamRoom.lookForAtRange(
+      LOOK_STRUCTURES, this.pos, 1, true);
 
   const struct = _.find(spots, spot => {
     const s = spot.structure;
@@ -317,11 +313,11 @@ Creep.prototype.share = function() {
   if (this.intents.transfer) return false;
 
   const p = this.pos;
-  const spots = this.teamRoom.lookForAtArea(
-      LOOK_STRUCTURES, p.y - 1, p.x - 1, p.y + 1, p.x + 1, true);
+  const spots = this.teamRoom.lookForAtRange(
+      LOOK_STRUCTURES, this.pos, 1, true);
 
   const struct = _.find(
-      spots, spot => spot.structure.energyFree || spot.structure.storeFree;);
+      spots, spot => spot.structure.energyFree || spot.structure.storeFree);
 
   return this.shareTransfer(struct);
 };

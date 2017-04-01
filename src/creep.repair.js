@@ -19,22 +19,22 @@ Creep.prototype.taskRepairStructs = function(structs, recurse = false) {
       case STRUCTURE_RAMPART:
       case STRUCTURE_WALL:
         if (this.teamRoom && struct.hits < (0.9 * this.teamRoom.wallMax)) {
-          return this.taskRepairWall(struct, again);
+          return this.taskRepairWall(struct, recurse);
         }
         break;
       case STRUCTURE_CONTAINER:
         if (struct.hurts > 100000 || (recurse && struct.hurts > 0)) {
-          return this.taskRepair(struct, again);
+          return this.taskRepair(struct, recurse);
         }
         break;
       case STRUCTURE_ROAD:
-        if (struct.hits < 1000 || (recurse && struct.hurts > 0)) {
-          return this.taskRepair(struct, again);
+        if (struct.hits <= 1000 || (recurse && struct.hurts > 0)) {
+          return this.taskRepair(struct, recurse);
         }
         break;
       default:
         if (struct.hurts > 0) {
-          return this.taskRepair(struct, again);
+          return this.taskRepair(struct, recurse);
         }
         break;
     }
@@ -45,9 +45,8 @@ Creep.prototype.taskRepairStructs = function(structs, recurse = false) {
 Creep.prototype.taskRepairRecurse = function() {
   if (!this.teamRoom) return false;
 
-  const p = this.pos;
   const spots = this.room.lookForAtArea(
-      LOOK_STRUCTURES, p.y - 3, p.x - 3, p.y + 3, p.x + 3, true);
+      LOOK_STRUCTURES, this.pos, 3, true);
 
   const structs = _.map(spots, spot => spot.structure);
 
