@@ -136,6 +136,8 @@ class Paver {
   }
 
   layoutSrcs() {
+    return;
+    // Not needed!
     for (let src of this.room.find(FIND_SOURCES)) {
       for (let spot of src.spots) {
         if (this.canRoad(spot)) {
@@ -169,7 +171,7 @@ class Paver {
     const controller = this.room.controller;
     if (!controller) return;
     for (let src of this.room.find(FIND_SOURCES)) {
-      this.layoutRoad(src, controller, 3);
+      this.layoutRoad(src, controller, 4);
     }
   }
 }

@@ -1,20 +1,35 @@
 const util = require('util');
 
-Creep.prototype.taskHarvestAny = function(room) {
-  if(!room) return false;
-
-  const src = util.pickClosest(this.pos, room.find(FIND_SOURCES_ACTIVE));
-  // Too much ping pong when random.
-  //const src = _.sample(room.find(FIND_SOURCES_ACTIVE));
-  return this.taskHarvest(src);
+Creep.prototype.taskHarvestAny = function() {
+  if(!this.atTeam) return false;
+  return this.taskHarvest(this.pickSrc());
 };
 
 Creep.prototype.taskHarvest = function(src) {
   if (!this.carryFree) return false;
-
   src = this.checkId('harvest', src);
-  if (!src || !src.energy) {
-    return false;
-  }
   return this.doHarvest(src) && src.energy + 1;
+};
+
+Creep.prototype.pickSrc = function() {
+  let srcs = this.room.find(FIND_SOURCES_ACTIVE);
+  if(!srcs.length) {
+    srcs = this.room.find(FIND_SOURCES);
+  }
+  if(srcs.length === 1) return _.first(srcs);
+
+  let min = 100;
+  let minSrc = null;
+  let range = 100;
+  for(let src of srcs) {
+    const spots = this.room.lookForAtRange(LOOK_CREEPS, src.pos, 1, true);
+    const l = spots.length;
+    const r = this.pos.getRangeTo(src);
+    if(l < min || l === min && r < range) {
+      min = spots.length;
+      minSrc = src;
+      range = r;
+    }
+  }
+  return src;
 };

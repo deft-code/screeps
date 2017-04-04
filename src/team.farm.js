@@ -31,6 +31,7 @@ Flag.prototype.teamFarm = function() {
   this.dlog(`farmers: ${nfarmer}, reservers: ${canReserve}, guards: ${nguard}`);
 
   return this.upkeepRole('guard', nguard, 2, this.closeSpawn(800)) ||
+      this.upkeepRole('miner', 1, 2, this.closeSpawn(950)) ||
       this.upkeepRole('farmer', nfarmer, 2, this.closeSpawn(800)) ||
       canReserve && this.upkeepRole('reserver', 1, 2, this.closeSpawn(1300)) ||
       'enough';

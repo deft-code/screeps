@@ -28,6 +28,7 @@ require('struct.spawn');
 require('struct.tower');
 
 require('creep');
+require('creep.action');
 require('creep.build');
 require('creep.move');
 require('creep.repair');
@@ -45,8 +46,8 @@ require('role.dropper');
 require('role.farmer');
 require('role.guard');
 require('role.hauler');
+require('role.miner');
 require('role.medic');
-require('role.misc');
 require('role.scout');
 require('role.snipe');
 require('role.srcer');

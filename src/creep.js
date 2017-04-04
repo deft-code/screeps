@@ -114,15 +114,14 @@ Creep.prototype.doHarvest = function(src) {
   if (this.busy('melee')) return false;
 
   const err = this.harvest(src);
-  if (err == OK) {
+  if (err === OK) {
     this.intents.melee = src;
     return src.energy + 1;
   }
-  if (err == ERR_NOT_IN_RANGE) {
+  if (err === ERR_NOT_IN_RANGE) {
     return this.idleMoveNear(src);
   }
   return false;
-
 };
 
 Creep.prototype.doBuild = function(site) {

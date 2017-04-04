@@ -15,8 +15,8 @@ Creep.prototype.actionStartSrc = function() {
   const room = this.team.room;
   const srcs = room.find(FIND_SOURCES);
 
-  if (srcers.length === 0) {
-    return this.actionSrc(util.pickClosest(this.pos, srcs));
+  if (srcers.length < 2) {
+    return this.actionSrc(util.pickClosest(this.pos, this.teamRoom.find(FIND_SOURCES_ACTIVE)));
   }
 
   if (srcers.length <= srcs.length) {
