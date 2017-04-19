@@ -32,7 +32,7 @@ Creep.prototype.actionCollect = function(room) {
     if (target.structureType) {
       return this.actionUnstore(target);
     } else {
-      return this.actionPickup(target);
+      return this.taskPickup(target);
     }
   }
   return false;

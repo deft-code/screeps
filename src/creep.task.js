@@ -1,5 +1,3 @@
-const util = require('util');
-
 Creep.prototype.taskHarvestAny = function() {
   if(!this.atTeam) return false;
   return this.taskHarvest(this.pickSrc());
@@ -8,7 +6,7 @@ Creep.prototype.taskHarvestAny = function() {
 Creep.prototype.taskHarvest = function(src) {
   if (!this.carryFree) return false;
   src = this.checkId('harvest', src);
-  return this.doHarvest(src) && src.energy + 1;
+  return this.goHarvest(src) && src.energy + 1;
 };
 
 Creep.prototype.pickSrc = function() {
@@ -31,5 +29,5 @@ Creep.prototype.pickSrc = function() {
       range = r;
     }
   }
-  return src;
+  return minSrc;
 };

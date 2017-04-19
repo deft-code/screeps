@@ -98,7 +98,7 @@ Creep.prototype.taskXferStore = function() {
     return false;
   }
   const resource = util.randomResource(this.carry);
-  return this.doTransfer(store, resource) && resource;
+  return this.goTransfer(store, resource) && resource;
 };
 
 Creep.prototype.actionXferEnergy = function(battery) {
@@ -118,5 +118,5 @@ Creep.prototype.taskXferEnergy = function() {
   if (!battery || !battery.energyFree || !this.carry.energy) {
     return false;
   }
-  return this.doTransfer(battery, RESOURCE_ENERGY) && 'success';
+  return this.goTransfer(battery, RESOURCE_ENERGY);
 };

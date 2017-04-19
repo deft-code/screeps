@@ -29,11 +29,14 @@ require('struct.tower');
 
 require('creep');
 require('creep.action');
+require('creep.attack');
 require('creep.build');
+require('creep.carry');
 require('creep.move');
 require('creep.repair');
 require('creep.role');
 require('creep.task');
+require('creep.work');
 
 require('role.archer');
 require('role.bootstrap');

@@ -13,7 +13,7 @@ Flag.prototype.closeSpawn = function(energy) {
 Flag.prototype.remoteSpawn = function() {
   return (spawn) => this.spawnDist(spawn) > 0 &&
       spawn.room.energyFreeAvailable === 0 &&
-      spawn.room.storage && spawn.room.storage.energy > 100000 &&
+      spawn.room.storage && spawn.room.storage.store.energy > 100000 &&
       (!this.room ||
        spawn.room.energyCapacityAvailable > this.room.energyCapacityAvailable);
 };
@@ -115,6 +115,10 @@ Flag.prototype.run = function() {
       'my creeps',
       JSON.stringify(
           _.mapValues(this.creepsByRole, creeps => _.map(creeps, 'name'))));
+
+  if(!this.creeps.length) {
+    this.memory.debug = true;
+  }
 
   const customF = this['custom' + this.name];
   if (_.isFunction(customF)) {

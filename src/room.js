@@ -69,3 +69,25 @@ Room.prototype.run = function() {
     }
   }
 };
+
+const upkeepWalls = function(room) {
+  if (room.memory.freezeWalls) {
+    return;
+  }
+  if (!room.memory.wallMin) {
+    room.memory.wallMin = 10000;
+  }
+  if (Game.time % 100 == 0) {
+    let walls = room.findStructs(STRUCTURE_WALL);
+    if (!walls.length) {
+      return false;
+    }
+    const m = Math.floor(walls.length / 2);
+    let s = _.sortBy(walls, 'hits');
+    const old = room.memory.wallMin;
+    room.memory.wallMin = walls[m].hits;
+
+    console.log(room.name, 'wallMin:', old, '=>', room.memory.wallMin);
+  }
+};
+

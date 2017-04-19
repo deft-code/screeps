@@ -70,16 +70,6 @@ Creep.prototype.checkId = function(name, obj) {
   return false;
 };
 
-Creep.prototype.taskUpgradeController = function(controller) {
-  controller = this.checkId('updgrade controller', controller);
-  if (!controller || !controller.my) return false;
-
-  if (!this.carry.energy) {
-    return this.actionRecharge(undefined, controller.pos);
-  }
-  return this.doUpgradeController(controller);
-};
-
 Creep.prototype.preNom = function() {
   if (!this.carryFree) return;
 

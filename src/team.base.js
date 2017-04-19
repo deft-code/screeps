@@ -1,6 +1,6 @@
 Flag.prototype.teamBase = function() {
   if (!this.room || !this.room.controller.my) {
-    if (!this.room.claimable) return 'not claimable';
+    if (!this.room || !this.room.claimable) return 'not claimable';
 
     return this.upkeepRole('claimer', 1, 5, this.closeSpawn(650));
   }

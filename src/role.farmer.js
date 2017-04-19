@@ -38,7 +38,7 @@ Creep.prototype.actionFarm = function(room) {
     if (target.structureType) {
       return this.actionUnstore(target);
     } else {
-      return this.actionPickup(target);
+      return this.taskPickup(target);
     }
   }
 
