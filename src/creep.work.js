@@ -29,7 +29,7 @@ class CreepClaim {
     return false;
   }
 
-  goUpgradeController(controller, move=true) {
+  goUpgradeController(controller, move = true) {
     const err = this.upgradeController(controller);
     if (err === OK) {
       this.intents.upgrade = controller;
@@ -46,37 +46,37 @@ lib.merge(Creep, CreepClaim);
 
 class CreepHarvest {
   taskHarvestAny() {
-    if(!this.atTeam) return false;
+    if (!this.atTeam) return false;
     return this.taskHarvest(this.pickSrc());
   }
 
   taskHarvest(src) {
     if (!this.carryFree) return false;
     src = this.checkId('harvest', src);
-    return this.goHarvest(src); 
+    return this.goHarvest(src);
   }
 
   pickSrc() {
     let srcs = _.filter(
-      this.room.find(FIND_SOURCES),
-      src => src.energy || this.pos.inRangeTo(src, src.ticksToRegeneration));
-    if(!srcs.length) {
+        this.room.find(FIND_SOURCES),
+        src => src.energy || this.pos.inRangeTo(src, src.ticksToRegeneration));
+    if (!srcs.length) {
       srcs = this.room.find(FIND_SOURCES);
     }
-    if(srcs.length === 1) return _.first(srcs);
+    if (srcs.length === 1) return _.first(srcs);
 
     let min = 100;
     let minSrc = null;
     let range = 100;
-    for(let src of srcs) {
+    for (let src of srcs) {
       const spots = this.room.lookForAtRange(LOOK_CREEPS, src.pos, 1, true);
       let l = spots.length;
       // Don't count self.
-      if(_.find(spots, spot => spot.creep.name === this.name)) {
+      if (_.find(spots, spot => spot.creep.name === this.name)) {
         l -= 1;
       }
       const r = this.pos.getRangeTo(src);
-      if(l < min || l === min && r < range) {
+      if (l < min || l === min && r < range) {
         min = spots.length;
         minSrc = src;
         range = r;
@@ -85,7 +85,7 @@ class CreepHarvest {
     return minSrc;
   }
 
-  goHarvest(src, move=true) {
+  goHarvest(src, move = true) {
     const err = this.harvest(src);
     if (err === OK) {
       this.intents.melee = src;
@@ -99,4 +99,3 @@ class CreepHarvest {
 }
 
 lib.merge(Creep, CreepHarvest);
-

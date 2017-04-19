@@ -44,7 +44,7 @@ class CreepBuild {
     return this.goBuild(site);
   }
 
-  goBuild(site, move=true) {
+  goBuild(site, move = true) {
     const err = this.build(site);
     if (err === OK) {
       this.intents.melee = this.intents.range = site;

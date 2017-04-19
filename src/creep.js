@@ -47,7 +47,7 @@ Creep.prototype.run = function() {
 
   const after = _.camelCase('after ' + this.memory.role);
   const afterFunc = this[after] || this.afterUndefined;
-  if(_.isFunction(afterFunc)) afterFunc.apply(this);
+  if (_.isFunction(afterFunc)) afterFunc.apply(this);
 
   if (this.memory.task) {
     const first = this.memory.task.first;

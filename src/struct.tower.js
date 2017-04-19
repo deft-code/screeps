@@ -1,16 +1,17 @@
 Room.prototype.runTowers = function() {
-  for(let tower of this.findStructs(STRUCTURE_TOWER)) {
+  for (let tower of this.findStructs(STRUCTURE_TOWER)) {
     tower.run();
   }
 };
 
 StructureTower.prototype.run = function() {
-  if(!this.energy) return false;
+  if (!this.energy) return false;
 
   const struct =
       _(this.room.find(FIND_STRUCTURES))
           .filter(
-              s => ((s.structureType == STRUCTURE_RAMPART &&
+              s =>
+                  ((s.structureType == STRUCTURE_RAMPART &&
                     s.hits <= RAMPART_DECAY_AMOUNT) ||
                    (s.structureType == STRUCTURE_ROAD && s.hits <= 900) ||
                    (s.structureType == STRUCTURE_CONTAINER &&
@@ -57,11 +58,12 @@ StructureTower.prototype.run = function() {
                       .value()
                       .length;
 
-  if ((surpluss || dropped) && this.energy > 800 && this.room.energyAvailable === this.room.energyCapacityAvailable ) {
+  if ((surpluss || dropped) && this.energy > 800 &&
+      this.room.energyAvailable === this.room.energyCapacityAvailable) {
     let need_repair = _.sample(
         this.room.find(FIND_STRUCTURES, {
-          filter: s => s.hitsMax - s.hits > 800 &&
-              s.structureType != STRUCTURE_ROAD
+          filter: s =>
+              s.hitsMax - s.hits > 800 && s.structureType != STRUCTURE_ROAD
         }),
         3);
     if (need_repair.length) {

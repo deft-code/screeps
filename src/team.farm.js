@@ -50,8 +50,7 @@ Creep.prototype.roleReserver = function() {
 Creep.prototype.actionRoadUpkeep = function(room) {
   if (!room) return false;
 
-  return this.taskRepairRoads() ||
-      this.taskBuildStructs(STRUCTURE_ROAD) ||
+  return this.taskRepairRoads() || this.taskBuildStructs(STRUCTURE_ROAD) ||
       this.taskBuildAny();
 };
 

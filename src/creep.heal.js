@@ -1,7 +1,7 @@
 const lib = require('lib');
 
 class CreepHeal {
-  goHeal(creep, move=true) {
+  goHeal(creep, move = true) {
     const err = this.heal(creep);
     if (err === OK) {
       this.intents.melee = creep;
@@ -13,7 +13,7 @@ class CreepHeal {
     return false;
   }
 
-  goRangedHeal(creep, move=true) {
+  goRangedHeal(creep, move = true) {
     const err = this.rangeHeal(struct);
     if (err === OK) {
       this.intents.melee = this.intents.range = creep;
@@ -27,4 +27,3 @@ class CreepHeal {
 }
 
 lib.merge(Creep, CreepHeal);
-

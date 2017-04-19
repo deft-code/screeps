@@ -52,8 +52,8 @@ exports.enhance = (klass, prop, fn) => {
 
 exports.merge = (klass, extra) => {
   const props = Object.getOwnPropertyNames(extra.prototype);
-  for(let prop of props) {
-    if(prop === 'constructor') continue;
+  for (let prop of props) {
+    if (prop === 'constructor') continue;
 
     const desc = Object.getOwnPropertyDescriptor(extra.prototype, prop);
     Object.defineProperty(klass.prototype, prop, desc);
@@ -162,7 +162,7 @@ exports.creepWeight = (creep) => {
         break;
     }
   }
-  return weight*2;
+  return weight * 2;
 };
 
 // Returns resource amounts from `creep` creation.
@@ -272,12 +272,9 @@ exports.roomEnergyOpen = (room) =>
     room.energyCapacityAvailable - room.energyAvailable;
 
 exports.roomLookForAtRange = (room, look, pos, range, array) =>
-  room.lookForAtArea(look,
-    Math.max(0, pos.y - range),
-    Math.max(0, pos.x - range),
-    Math.min(49, pos.y + range),
-    Math.min(49, pos.x + range),
-    array);
+    room.lookForAtArea(
+        look, Math.max(0, pos.y - range), Math.max(0, pos.x - range),
+        Math.min(49, pos.y + range), Math.min(49, pos.x + range), array);
 
 // RoomPosition enhancers
 

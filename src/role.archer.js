@@ -1,18 +1,18 @@
 Flag.prototype.roleArcher = function(spawn) {
   let body = [
-    MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
-    MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
-    MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
-    MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
-    MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
-    MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
-    MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
-    MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
+    MOVE, TOUGH,         MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
+    MOVE, TOUGH,         MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
+    MOVE, TOUGH,         MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
+    MOVE, TOUGH,         MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
+    MOVE, TOUGH,         MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
+    MOVE, TOUGH,         MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
+    MOVE, TOUGH,         MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
+    MOVE, TOUGH,         MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK,
     MOVE, RANGED_ATTACK,
   ];
   const nparts = this.memOr('nparts', body.length);
   body = body.slice(0, nparts);
-  return this.createRole(spawn, body,{role: 'archer'});
+  return this.createRole(spawn, body, {role: 'archer'});
 };
 
 Creep.prototype.roleArcher = function() {

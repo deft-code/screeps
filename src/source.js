@@ -4,7 +4,7 @@ const util = require('util');
 const spots = new Map();
 
 const calcSpots = (obj) => {
-  //console.log(`Calculating spots for obj ${obj.pos}`);
+  // console.log(`Calculating spots for obj ${obj.pos}`);
   return _(obj.room.lookForAtRange(LOOK_TERRAIN, obj.pos, 1, true))
       .filter(spot => spot.terrain !== 'wall')
       .map(spot => new RoomPosition(spot.x, spot.y, obj.pos.roomName))
@@ -28,4 +28,3 @@ lib.enhance(Mineral, 'note', (src) => `minral${src.pos.x}${src.pos.y}`);
 util.cachedProp(Source, 'note', function() {
   return modutil.structNote('src', this.pos);
 });
-

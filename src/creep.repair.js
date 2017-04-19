@@ -43,8 +43,7 @@ class CreepRepair {
   }
 
   taskRepairRecurse() {
-    const spots = this.room.lookForAtArea(
-        LOOK_STRUCTURES, this.pos, 3, true);
+    const spots = this.room.lookForAtArea(LOOK_STRUCTURES, this.pos, 3, true);
 
     const structs = _.map(spots, spot => spot.structure);
 
@@ -75,7 +74,7 @@ class CreepRepair {
     return what;
   }
 
-  goRepair(struct, move=true) {
+  goRepair(struct, move = true) {
     const err = this.repair(struct);
     if (err === OK) {
       this.intents.melee = this.intents.range = struct;

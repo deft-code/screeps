@@ -1,5 +1,5 @@
 
- Flag.prototype.roleCaboose = function(spawn) {
+Flag.prototype.roleCaboose = function(spawn) {
   let body = [
     MOVE, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, TOUGH, MOVE, HEAL, MOVE, HEAL,
     MOVE, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, TOUGH, MOVE, HEAL, MOVE, HEAL,
@@ -78,4 +78,3 @@ Creep.prototype.taskCaboose = function() {
     return 'chase';
   }
 };
-

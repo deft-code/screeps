@@ -11,7 +11,8 @@ Creep.prototype.taskGoHome = function() {
 Creep.prototype.actionWithdraw = function(structure, resource, amount) {
   amount = amount || 0;
   if (!structure) {
-    let structures = this.room.findStructs(STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_TERMINAL);
+    let structures = this.room.findStructs(
+        STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_TERMINAL);
     if (resource) {
       structure =
           _(structures).filter(s => s.store[resource] > amount).sample();
@@ -141,7 +142,8 @@ Creep.prototype.actionDoubleTime = function() {
     }
   }
 
-  const stores = this.room.findStructs(STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_TERMINAL);
+  const stores = this.room.findStructs(
+      STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_TERMINAL);
   for (var i = 0; i < stores.length; i++) {
     if (stores[i].store.energy && stores[i].pos.isNearTo(this)) {
       this.memory.task.double = stores[i].id;
@@ -173,39 +175,39 @@ Creep.prototype.taskDoubleTime = function() {
 };
 
 Creep.prototype.actionReplaceOldest = function(creeps) {
-    let min = this;
-    for(let creep of creeps) {
-        if(creep.ticksToLive < min.ticksToLive) {
-            min = creep;
-        }
+  let min = this;
+  for (let creep of creeps) {
+    if (creep.ticksToLive < min.ticksToLive) {
+      min = creep;
     }
-    return this.actionReplace(min);
-}
+  }
+  return this.actionReplace(min);
+};
 
 Creep.prototype.actionReplace = function(creep) {
-    if(!creep || creep.name === this.name) {
-        return false;
-    }
-    this.memory.task = {
-        task: "replace",
-        creep: creep.name,
-    };
-    return this.taskReplace();
-}
+  if (!creep || creep.name === this.name) {
+    return false;
+  }
+  this.memory.task = {
+    task: 'replace',
+    creep: creep.name,
+  };
+  return this.taskReplace();
+};
 
 Creep.prototype.taskReplace = function() {
-    const creep = this.taskCreep;
-    if(!creep) {
-        return false;
-    }
-    if(this.pos.isNearTo(creep)) {
-        this.memory.task = creep.memory.task;
-        delete creep.memory.task;
-        creep.actionRecycle();
-        return this.actionTask();
-    }
-    return this.idleMoveTo(creep);
-}
+  const creep = this.taskCreep;
+  if (!creep) {
+    return false;
+  }
+  if (this.pos.isNearTo(creep)) {
+    this.memory.task = creep.memory.task;
+    delete creep.memory.task;
+    creep.actionRecycle();
+    return this.actionTask();
+  }
+  return this.idleMoveTo(creep);
+};
 
 Creep.prototype.actionSpawning = function() {
   if (!this.memory.home) {

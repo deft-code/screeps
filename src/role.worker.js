@@ -12,20 +12,13 @@ Flag.prototype.roleWorker = function(spawn) {
 class CreepWorker {
   roleWorker() {
     let what = this.actionTask();
-    if(what) return what;
+    if (what) return what;
 
-    if(this.carry.energy) {
-      return this.taskBuildOrdered() ||
-        this.taskRepairOrdered() ||
-        this.goUpgrade();
+    if (this.carry.energy) {
+      return this.taskBuildOrdered() || this.taskRepairOrdered() ||
+          this.goUpgrade();
     }
-
-
-    const what = 
-  return this.taskDoubleTime() || this.actionTask() ||
-      this.actionStoreResource() ||
-      this.taskBuildOrdered() ||
-      this.taskRepairOrdered() || this.taskUpgrade() || this.taskHarvestAny();
+    return this.taskRecharge() || this.taskHarvestAny();
   }
 
   afterWorker() {
@@ -34,19 +27,4 @@ class CreepWorker {
   }
 }
 
-Creep.prototype.roleWorker = function() {
-  this.idleNom();
-  return this.taskDoubleTime() || this.actionTask() ||
-      this.actionStoreResource() ||
-      this.taskBuildOrdered() ||
-      this.taskRepairOrdered() || this.taskUpgrade() || this.taskHarvestAny();
-};
-
-Creep.prototype.actionEmergencyUpgrade = function() {
-  const room = Game.rooms[this.memory.home] || this.room;
-  if (room.controller.ticksToDowngrade < 3000) {
-    return actionUpgrade(creep);
-  }
-  return false;
-};
-
+lib.merge(Creep, CreepWorker);

@@ -90,4 +90,3 @@ const upkeepWalls = function(room) {
     console.log(room.name, 'wallMin:', old, '=>', room.memory.wallMin);
   }
 };
-

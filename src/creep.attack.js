@@ -1,7 +1,7 @@
 const lib = require('lib');
 
 class CreepAttack {
-  goRangedAttack(target, move=true) {
+  goRangedAttack(target, move = true) {
     const err = this.rangedAttack(target);
     if (err === OK) {
       this.intents.range = target;
@@ -21,7 +21,7 @@ class CreepAttack {
     return false;
   }
 
-  goAttack(target, move=true) {
+  goAttack(target, move = true) {
     const err = this.attack(target);
     if (err === OK) {
       return this.intents.melee = target;
@@ -34,5 +34,3 @@ class CreepAttack {
 }
 
 lib.merge(Creep, CreepAttack);
-
-

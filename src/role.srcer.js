@@ -2,7 +2,7 @@ const util = require('util');
 
 Flag.prototype.roleSrcer = function(spawn) {
   const body = [MOVE, WORK, WORK, CARRY, WORK, WORK, WORK, WORK, MOVE, MOVE];
-  return this.createRole(spawn, body, {role: "srcer"});
+  return this.createRole(spawn, body, {role: 'srcer'});
 };
 
 Creep.prototype.roleSrcer = function() {
@@ -16,7 +16,8 @@ Creep.prototype.actionStartSrc = function() {
   const srcs = room.find(FIND_SOURCES);
 
   if (srcers.length < 2) {
-    return this.actionSrc(util.pickClosest(this.pos, this.teamRoom.find(FIND_SOURCES_ACTIVE)));
+    return this.actionSrc(
+        this.pos.closestByRange(this.room.find(FIND_SOURCES_ACTIVE)));
   }
 
   if (srcers.length <= srcs.length) {
@@ -125,13 +126,19 @@ Creep.prototype.idleShunt = function() {
           this.dlog('shunting link buffer', struct);
           if (struct.energy > 250) {
             this.dlog('clearing link buffer', struct);
-            this.intents.withdraw = moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
+            this.intents.withdraw =
+                moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
           } else if (struct.energy < 200) {
-            if(this.room.storage && this.room.storage.store.energy < 2 * this.room.energyCapacityAvailable ) {
-              this.dlog('Storage is too low', JSON.stringify(this.room.storage.store));
+            if (this.room.storage &&
+                this.room.storage.store.energy <
+                    2 * this.room.energyCapacityAvailable) {
+              this.dlog(
+                  'Storage is too low',
+                  JSON.stringify(this.room.storage.store));
             } else {
               this.dlog('filling link buffer', struct);
-              this.intents.xfer = moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
+              this.intents.xfer =
+                  moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
             }
           }
           break;

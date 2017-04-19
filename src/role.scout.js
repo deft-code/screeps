@@ -1,18 +1,15 @@
 Creep.prototype.roleScout = function() {
-    return this.actionTask() ||
-        this.actionHospital() ||
-        this.idleMoveTo(Game.flags.scout);
-}
+  return this.actionTask() || this.actionHospital() ||
+      this.idleMoveTo(Game.flags.scout);
+};
 
 StructureSpawn.prototype.roleScout = function() {
   const body = [TOUGH, MOVE, MOVE];
   return this.createCreep(body, undefined, {role: 'scout'});
 };
- 
+
 Creep.prototype.roleDistraction = function() {
-    return this.actionTask() ||
-        this.actionHospital() ||
-        this.actionDistraction();
+  return this.actionTask() || this.actionHospital() || this.actionDistraction();
 };
 
 Creep.prototype.actionDistraction = function() {
@@ -46,9 +43,8 @@ StructureSpawn.prototype.roleDistraction = function() {
 };
 
 Creep.prototype.roleBait = function() {
-    return this.actionTask() ||
-        this.actionHospital() ||
-        this.idleMoveTo(Game.flags.bait);
+  return this.actionTask() || this.actionHospital() ||
+      this.idleMoveTo(Game.flags.bait);
 };
 
 StructureSpawn.prototype.roleBait = function() {
@@ -66,5 +62,3 @@ StructureSpawn.prototype.roleBait = function() {
   ];
   return this.createCreep(body, undefined, {role: 'bait'});
 };
-
-

@@ -2,14 +2,7 @@ const lib = require('lib');
 
 class CreepDismantle {
   taskDismantleAny() {
-    // TODO fix dismantling
-    return false;
-
-    if (!this.carryFree) {
-      return false;
-    }
-    const target = _(this.room.find(FIND_STRUCTURES))
-                       .filter(s => s.dismantle)
+    const target = _(this.room.find(FIND_HOSTILE_STRUCTURES))
                        .sample(3)
                        .sortBy('hits')
                        .first();
@@ -27,7 +20,7 @@ class CreepDismantle {
     return this.goDismantle(structure)
   }
 
-  goDismantle(struct, move=true) {
+  goDismantle(struct, move = true) {
     const err = this.dismantle(struct);
     if (err === OK) {
       this.intents.melee = struct;
@@ -38,5 +31,4 @@ class CreepDismantle {
     }
     return false;
   }
-
 }

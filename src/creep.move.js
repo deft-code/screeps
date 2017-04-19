@@ -40,10 +40,9 @@ Creep.prototype.idleTravel = function(obj) {
   if (!obj) return false;
 
   const p = this.pos;
-  this.dlog("idle travel", p);
-  if (obj.pos.roomName === p.roomName &&
-   p.x > 1 && p.x < 48 &&
-      p.y > 1 && p.y < 48) {
+  this.dlog('idle travel', p);
+  if (obj.pos.roomName === p.roomName && p.x > 1 && p.x < 48 && p.y > 1 &&
+      p.y < 48) {
     return false;
   }
   return this.idleMoveTo(obj);

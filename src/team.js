@@ -12,8 +12,8 @@ Flag.prototype.closeSpawn = function(energy) {
 
 Flag.prototype.remoteSpawn = function() {
   return (spawn) => this.spawnDist(spawn) > 0 &&
-      spawn.room.energyFreeAvailable === 0 &&
-      spawn.room.storage && spawn.room.storage.store.energy > 100000 &&
+      spawn.room.energyFreeAvailable === 0 && spawn.room.storage &&
+      spawn.room.storage.store.energy > 100000 &&
       (!this.room ||
        spawn.room.energyCapacityAvailable > this.room.energyCapacityAvailable);
 };
@@ -116,7 +116,7 @@ Flag.prototype.run = function() {
       JSON.stringify(
           _.mapValues(this.creepsByRole, creeps => _.map(creeps, 'name'))));
 
-  if(!this.creeps.length) {
+  if (!this.creeps.length) {
     this.memory.debug = true;
   }
 
@@ -136,8 +136,10 @@ Flag.prototype.run = function() {
         this.remove();
         console.log(this, 'Good Bye');
       }
-      console.log(this, 'Good Bye', this.memory.creeps, _.sum(this.creeps, 'ticksToLive'));
-      return `Slow Delete ${this.memory.creeps} x ${_.sum(this.creeps, 'ticksToLive')}`;
+      console.log(
+          this, 'Good Bye', this.memory.creeps,
+          _.sum(this.creeps, 'ticksToLive'));
+      return 'Slow Delete';
   }
   return 'null';
 };

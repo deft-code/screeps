@@ -115,7 +115,7 @@ class Paver {
       for (let src of this.room.find(FIND_SOURCES)) {
         this.layoutRoad(spawn, src, 1);
       }
-      //for (let rampart of this.room.findStructs(STRUCTURE_RAMPART)) {
+      // for (let rampart of this.room.findStructs(STRUCTURE_RAMPART)) {
       //  this.layoutRoad(spawn, rampart, 3);
       //}
     }
@@ -155,7 +155,7 @@ class Paver {
   layoutTerminal() {
     const storage = this.room.storage;
     const mineral = _.first(this.room.find(FIND_MINERALS));
-    if(storage) {
+    if (storage) {
       this.layoutRoad(storage, mineral, 1);
     }
 

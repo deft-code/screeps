@@ -7,10 +7,11 @@ class Container {
     }
 
     const src = this.room.find(FIND_SOURCES, src => this.pos.inRangeTo(src, 2));
-    if(src) return 'src';
+    if (src) return 'src';
 
-    const mineral = this.room.find(FIND_MINERALS, mineral => this.pos.inRangeTo(mineral, 2));
-    if(mineral) return 'src';
+    const mineral = this.room.find(
+        FIND_MINERALS, mineral => this.pos.inRangeTo(mineral, 2));
+    if (mineral) return 'src';
 
     return 'sink'
   }
@@ -25,7 +26,7 @@ class Container {
   }
 
   get mode() {
-    if(!this.room.memory.containers) {
+    if (!this.room.memory.containers) {
       this.room.memory.containers = {};
     }
     let mem = this.room.memory.containers[this.id];

@@ -10,8 +10,7 @@ Flag.prototype.roleSnipe = function(spawn) {
 };
 
 Creep.prototype.roleSnipe = function() {
-  return this.actionTask() ||
-      this.taskTravelFlag(Game.flags.snipe) ||
+  return this.actionTask() || this.taskTravelFlag(Game.flags.snipe) ||
       this.actionSnipe();
 };
 
@@ -49,8 +48,7 @@ Creep.prototype.actionSnipe = function() {
   }
 
   const neutrals = _.filter(
-      this.room.find(FIND_STRUCTURES),
-      s => s.structureType == STRUCTURE_ROAD);
+      this.room.find(FIND_STRUCTURES), s => s.structureType == STRUCTURE_ROAD);
 
   this.dlog('snipe neutrals', neutrals);
   const neutral = this.pos.findClosestByRange(neutrals);
@@ -59,8 +57,7 @@ Creep.prototype.actionSnipe = function() {
   }
 
   const walls = _.filter(
-      this.room.find(FIND_STRUCTURES),
-      s => s.structureType == STRUCTURE_WALL);
+      this.room.find(FIND_STRUCTURES), s => s.structureType == STRUCTURE_WALL);
 
   this.dlog('snipe neutrals', neutrals);
   const wall = this.pos.findClosestByRange(neutrals);

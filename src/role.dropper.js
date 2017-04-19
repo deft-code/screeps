@@ -10,40 +10,39 @@ Flag.prototype.roleDropper = function(spawn) {
 };
 
 Creep.prototype.roleDropper = function() {
-  if(!this.atTeam) {
-      this.idleNom();
+  if (!this.atTeam) {
+    this.idleNom();
   }
-  
+
   let what = this.actionTask();
-  if(what) return what;
-  
-  if(this.carryTotal) {
-      if(this.pos.isNearTo(this.team)) {
-          const err = this.drop(RESOURCE_ENERGY);
-          return err === OK && this.carry.energy;
-      }
-      if(this.room.name === this.team.pos.roomName) {
-          return this.idleMoveTo(this.team);
-      }
-      return this.taskTravelFlag(this.team);
+  if (what) return what;
+
+  if (this.carryTotal) {
+    if (this.pos.isNearTo(this.team)) {
+      const err = this.drop(RESOURCE_ENERGY);
+      return err === OK && this.carry.energy;
     }
-    
-    what = this.taskTravel(this.home.storage);
-    if(what) return what;
-    
-    return this.actionRecharge(this.carryCapacity, this.pos);
+    if (this.room.name === this.team.pos.roomName) {
+      return this.idleMoveTo(this.team);
+    }
+    return this.taskTravelFlag(this.team);
+  }
+
+  what = this.taskTravel(this.home.storage);
+  if (what) return what;
+
+  return this.actionRecharge(this.carryCapacity, this.pos);
 };
 
 Creep.prototype.taskDrop = function(flag) {
-  if(!this.carry.energy) return false;
+  if (!this.carry.energy) return false;
   flag = this.checkFlag('drop', flag);
-  if(!flag) return false;
+  if (!flag) return false;
 
-  if(this.pos.isNearTo(flag)) {
+  if (this.pos.isNearTo(flag)) {
     const err = this.drop(RESOURCE_ENERGY);
     return err === OK && 'success';
   }
 
   return this.idleMoveTo(flag);
 };
-

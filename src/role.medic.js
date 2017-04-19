@@ -4,28 +4,25 @@ Flag.prototype.roleMedic = function(spawn) {
 };
 
 Creep.prototype.roleMedic = function() {
-  return this.actionTask() ||
-    this.actionTeamHeal(this.team);
+  return this.actionTask() || this.actionTeamHeal(this.team);
 };
 
-Creep.prototype.actionRoomHeal= function(room) {
-  if(!room) return false;
+Creep.prototype.actionRoomHeal = function(room) {
+  if (!room) return false;
   return this.actionHealCreeps(room.find(FIND_MY_CREEPS));
 };
 
 Creep.prototype.actionTeamHeal = function(team) {
-  if(!team) return false;
+  if (!team) return false;
   return this.actionHealCreeps(team.creeps);
 };
 
 Creep.prototype.actionHealCreeps = function(creeps) {
-  return this.actionHeal(_(creeps)
-    .filter("hurts")
-    .sample());
+  return this.actionHeal(_(creeps).filter('hurts').sample());
 };
 
 Creep.prototype.actionHeal = function(creep) {
-  if(!creep) return false;
+  if (!creep) return false;
 
   this.memory.task = {
     task: 'heal',
@@ -80,4 +77,3 @@ Creep.prototype.taskLocalHeal = function() {
   return false;
 
 };
-

@@ -6,8 +6,9 @@ class Link {
       return 'buffer';
     }
 
-    const src = _.find(this.room.find(FIND_SOURCES), s => this.pos.inRangeTo(s, 2));
-    if(src) {
+    const src =
+        _.find(this.room.find(FIND_SOURCES), s => this.pos.inRangeTo(s, 2));
+    if (src) {
       return 'src';
     }
 
@@ -35,7 +36,8 @@ class Link {
   }
 
   xfer(target, mod = 33) {
-    let e = Math.min(this.energy, Math.ceil(target.energyFree * (1 + LINK_LOSS_RATIO)));
+    let e = Math.min(
+        this.energy, Math.ceil(target.energyFree * (1 + LINK_LOSS_RATIO)));
     e -= (e % 100) % mod;
     return this.xferRaw(target, e);
   }
@@ -47,7 +49,7 @@ class Link {
   xferRaw(target, energy) {
     const err = this.transferEnergy(target, energy);
     if (err == OK) {
-      //if(this.room.name !== 'sim') {
+      // if(this.room.name !== 'sim') {
       //  target.energy += Math.floor(energy * (1 - LINK_LOSS_RATIO));
       //  this.energy -= energy;
       //}
@@ -116,13 +118,14 @@ Room.prototype.runLinks = function() {
   for (let id in this.memory.links) {
     const link = Game.getObjectById(id);
     if (!link) {
-      console.log('Cleared missing link', JSON.stringify(this.memory.links[id]));
+      console.log(
+          'Cleared missing link', JSON.stringify(this.memory.links[id]));
       delete this.memory.links[id];
     }
   }
   for (let link of this.findStructs(STRUCTURE_LINK)) {
     let mode = link.mode;
     let act = link.run();
-    this.visual.text(`${mode} ${act}`, link.pos, {align: "left"});
+    this.visual.text(`${mode} ${act}`, link.pos, {align: 'left'});
   }
 };
