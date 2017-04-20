@@ -21,6 +21,49 @@ Creep.prototype.actionChase = function(creep) {
   return this.idleMoveTo(creep);
 };
 
+Creep.prototype.idleFlee = function(creeps, range) {
+  const room = this.room;
+  const callback = (roomName) => {
+    if (roomName !== room.name) {
+      console.log('Unexpected room', roomName);
+      return false;
+    }
+    const mat = new PathFinder.CostMatrix();
+    for (let struct of room.find(FIND_STRUCTURES)) {
+      const p = struct.pos;
+      if (struct.structureType === STRUCTURE_ROAD) {
+        mat.set(p.x, p.y, 1);
+      } else if (struct.obstacle) {
+        mat.set(p.x, p.y, 255);
+      }
+    }
+    return mat;
+  };
+  const ret = PathFinder.search(
+      this.pos, _.map(creeps, creep => ({pos: creep.pos, range: range})), {
+        flee: true,
+        roomCallback: callback,
+      });
+
+  const next = _.first(ret.path);
+  if (!next) return false;
+
+  const err = this.move(this.pos.getDirectionTo(next));
+  if (err == OK) return `flee ${next.x} ${next.y}`;
+
+  return false;
+};
+
+Creep.prototype.idleAway = function(creep) {
+  if (!creep) return false;
+
+  const dir = this.pos.getDirectionAway(creep);
+  const err = this.move(dir);
+  if (err == OK) return `move away ${dir}`;
+
+  return false;
+};
+
 Creep.prototype.idleRetreat = function(part) {
   if (this.getActiveBodyparts(part)) {
     return false;

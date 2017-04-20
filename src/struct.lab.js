@@ -1,6 +1,14 @@
 const lib = require('lib');
 
 class LabExtra {
+  get planType() {
+    return this.memory.planType;
+  }
+
+  get mineralFree() {
+    return this.mineralCapacity - this.mineralAmount;
+  }
+
   get memory() {
     const labmem = this.room.memory.labs;
     let mem = labmem[this.id];

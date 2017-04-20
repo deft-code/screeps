@@ -1,48 +1,109 @@
 const lib = require('lib');
 
-lib.roProp(
-    Room, 'energyFreeAvailable',
-    (room) => room.energyCapacityAvailable - room.energyAvailable);
-
-lib.cachedProp(Room, 'claimable', (room) => room.controller.reservable);
-
-lib.cachedProp(
-    Room, 'wallMax',
-    (room) => room.controller.level * 10000 +
-        Math.pow(10, room.controller.level - 1));
-
-Room.prototype.findStructs = function(...types) {
-  if (!this.structsByType) {
-    this.structsByType = _.groupBy(this.find(FIND_STRUCTURES), 'structureType');
+class RoomExtra {
+  findStructs(...types) {
+    if (!this.structsByType) {
+      this.structsByType =
+          _.groupBy(this.find(FIND_STRUCTURES), 'structureType');
+    }
+    return _.flatten(_.map(types, sType => this.structsByType[sType] || []));
   }
-  return _.flatten(_.map(types, sType => this.structsByType[sType] || []));
-};
 
-Room.prototype.roleCreeps = function(role) {
-  return this.find(FIND_MY_CREEPS, {memory: {role: role}});
-};
+  findActive = function(...types) {
+    if (!this.activeByType) {
+      this.activeByType = _.groupBy(_.filter(this.find(FIND_MY_STRUCTURES), s => s.isActive()), 'structureType');
+    }
+    return _.flatten(_.map(types, sType => this.activeByType[sType] || []));
+  }
+
+  get myStorage() {
+    if (this.storage && this.storage.my && this.storage.isActive()) {
+      return this.storage;
+    }
+    return false;
+  }
+
+  get myTerminal() {
+    if (this.terminal && this.terminal.my && this.terminal.isActive()) {
+      return this.terminal;
+    }
+    return false;
+  }
+
+  get myLabs() {
+    return this.findActive(STRUCTURE_EXTENSION);
+  }
+
+  get myExtns() {
+    return this.findActive(STRUCTURE_EXTENSION);
+  }
+
+  get energyFreeAvailable() {
+    return this.energyCapacityAvailable - this.energyAvailable);
+  }
+
+  get claimable() {
+    return room.controller.reservable;
+  }
+
+  get wallMax() {
+    const scale = this.memory.wallScale || 1;
+    const max = scale * (
+      room.controller.level * 10000 +
+        Math.pow(10, room.controller.level - 1)));
+
+    const memMax = this.memory.wallMax;
+
+    if (memMax) {
+      if (memMax <= max) {
+        delete this.memory.wallMax;
+      } else {
+        return memMax;
+      }
+    }
+
+    return max;
+  }
+}
+
+lib.merge(Room, RoomExtra);
 
 Room.prototype.cycleRamparts = function() {
   if (this.assaulters.length) {
-    const ramparts = this.findStructs(STRUCTURE_RAMPART);
+    const ramparts = _.filter(
+        this.findStructs(STRUCTURE_RAMPART),
+        r => _.any(
+            this.lookForAt(r.pos, LOOK_STRUCTURE),
+            s => s.structureType === STRUCTURE_ROAD));
     for (const r of ramparts) {
+      let priv = false;
       let pub = true;
-      for (const h of assaulters) {
-        if (pub && h.pos.isNearTo(r)) {
-          pub = false;
-          this.lastLock = r.id;
-        }
+      for (const h of this.enemies) {
+        priv = priv || h.pos.isNearTo(r);
+        pub = pub && !h.pos.inRangeTo(r, 6);
       }
-      if (r.isPublic !== pub) {
-        const ret = r.setPublic(pub);
-        console.log(r.note, 'pub', pub, ret);
+      if (priv) {
+        if (r.isPublic) {
+          console.log(r.note, 'lock', r.setPublic(false));
+        }
+      } else if (pub) {
+        if (!r.isPublic) {
+          console.log(r.note, 'unlock', r.setPublic(true));
+        }
       }
     }
   }
 };
 
-Room.prototype.cycleRampart = function(rampart) {
+Room.prototype.closeRamparts = function(mod) {
+  if (Game.time % mod !== 0) return;
+  if (this.enemies.length) return;
 
+  for (let r of this.findStructs(STRUCTURE_RAMPART)) {
+    if (r.isPublic) {
+      console.log(r.note, 'lock', r.setPublic(false));
+    }
+  }
 };
 
 const allies = ['tynstar'];
@@ -56,10 +117,6 @@ Room.prototype.run = function() {
   this.assaulters = _.filter(this.enemies, 'assault');
 
   if (this.controller && this.controller.my) {
-    this.runTowers();
-    this.runLinks();
-    this.runLabs();
-
     if (this.assaulters.length) {
       const structs = this.findStructs(
           STRUCTURE_TOWER, STRUCTURE_SPAWN, STRUCTURE_EXTENSION);
@@ -67,6 +124,12 @@ Room.prototype.run = function() {
         console.log('SAFE MODE!', this.controller.activateSafeMode());
       }
     }
+
+    // this.cycleRamparts();
+    this.runTowers();
+    this.runLinks();
+    this.runLabs();
+    // this.closeRamparts();
   }
 };
 

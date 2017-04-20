@@ -35,7 +35,6 @@ require('creep.carry');
 require('creep.move');
 require('creep.repair');
 require('creep.role');
-require('creep.task');
 require('creep.work');
 
 require('role.archer');

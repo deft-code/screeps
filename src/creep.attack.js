@@ -7,13 +7,16 @@ class CreepAttack {
       this.intents.range = target;
       return target.hits;
     }
-    if (move && err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveRange(target);
+    if (err === ERR_NOT_IN_RANGE) {
+      return move && this.idleMoveRange(target);
     }
     return false;
   }
 
-  goMassAttack() {
+  goMassAttack(target, move = true) {
+    if(!this.pos.inRangeTo(target, 3)) {
+      return move && this.idleMoveNear(target);
+    }
     const err = this.rangedMassAttack();
     if (err === OK) {
       return this.intents.range = 'mass attack';
@@ -26,8 +29,8 @@ class CreepAttack {
     if (err === OK) {
       return this.intents.melee = target;
     }
-    if (move && err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveNear(target);
+    if (err === ERR_NOT_IN_RANGE) {
+      return move && this.idleMoveNear(target);
     }
     return false;
   }

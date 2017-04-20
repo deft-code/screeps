@@ -1,28 +1,15 @@
 const util = require('util');
 const lib = require('lib');
 
-lib.cachedProp(Creep, 'home', function() {
-  return Game.rooms[this.memory.home];
-});
+class CreepExtra {
+  get home() {
+    return Game.rooms[this.memory.home];
+  }
 
-lib.cachedProp(Creep, 'team', function() {
-  return Game.flags[this.memory.team];
-});
-
-lib.roProp(Creep, 'taskId', function() {
-  const task = this.memory.task || {};
-  return Game.getObjectById(task.id);
-});
-
-lib.roProp(Creep, 'taskFlag', function() {
-  const task = this.memory.task || {};
-  return Game.flags[task.flag];
-});
-
-lib.roProp(Creep, 'taskCreep', function() {
-  const task = this.memory.task || {};
-  return Game.creeps[task.creep];
-});
+  get team() {
+    return Game.flags[this.memory.team];
+  }
+}
 
 lib.cachedProp(
     Creep, 'atTeam', creep => creep.room.name === creep.team.pos.roomName);

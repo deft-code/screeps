@@ -241,19 +241,6 @@ Creep.prototype.actionRecycle = function() {
   return this.taskRecycle();
 };
 
-Creep.prototype.taskRecycle = function() {
-  let spawn = this.taskId;
-  if (!spawn) {
-    return false;
-  }
-  let err = spawn.recycleCreep(this);
-  if (err == ERR_NOT_IN_RANGE) {
-    this.moveTo(spawn);
-    return 'moveTo recycle';
-  }
-  return err == OK && 'recycled';
-};
-
 Creep.prototype.roleRecycle = function() {
   return this.actionTask() || this.actionRecycle();
 };

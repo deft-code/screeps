@@ -347,6 +347,8 @@ exports.srcPositions = (src) => {
 // Structure
 //
 
+exports.structMine = (struct) => struct && struct.my && struct.isActive();
+
 // Total amount of stored resources.
 exports.structStoreTotal = (struct) => _.sum(struct.store);
 
