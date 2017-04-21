@@ -16,17 +16,17 @@ Flag.prototype.roleArcher = function(spawn) {
 };
 
 Creep.prototype.roleArcher = function() {
-  return this.actionTask() || this.actionArcher() ||
+  return this.actionTask() || this.taskArcher() ||
       this.idleMoveNear(this.team);
 };
 
 Creep.prototype.taskArcher = function() {
   const hostiles = this.room.hostiles;
   if (hostiles.length) {
-    return this.actionKite(this.pos.findClosestByRange(hostiles));
+    return this.taskKite(this.pos.findClosestByRange(hostiles));
   }
 
-  return this.actionKite(_.sample(this.room.enemies));
+  return this.taskKite(_.sample(this.room.enemies));
 };
 
 Creep.prototype.taskKite = function(creep) {
@@ -63,19 +63,3 @@ Creep.prototype.taskKite = function(creep) {
   return false;
 };
 
-Creep.prototype.taskMassAttackStructs = function(structType) {
-  const s = this.room.find(FIND_HOSTILE_STRUCTURES);
-  const targets = _.filter(s, s => s.structureType === structType);
-  return this.actionMassAttackStruct(_.sample(targets));
-};
-
-Creep.prototype.taskMassAttack = function(struct) {
-  struct = this.checkId('mass attack struct', struct);
-  if (this.room.hostiles.length) return false;
-  return this.goMassAttack(struct);
-};
-
-Creep.prototype.taskRangedAttack = function(target) {
-  target = this.checkId('ranged attack', target);
-  return this.goRangedAttack(target);
-};

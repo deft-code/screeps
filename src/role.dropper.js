@@ -10,10 +10,6 @@ Flag.prototype.roleDropper = function(spawn) {
 };
 
 Creep.prototype.roleDropper = function() {
-  if (!this.atTeam) {
-    this.idleNom();
-  }
-
   let what = this.actionTask();
   if (what) return what;
 
@@ -31,18 +27,14 @@ Creep.prototype.roleDropper = function() {
   what = this.taskTravel(this.home.storage);
   if (what) return what;
 
-  return this.actionRecharge(this.carryCapacity, this.pos);
+  return this.taskRecharge();
 };
 
-Creep.prototype.taskDrop = function(flag) {
-  if (!this.carry.energy) return false;
-  flag = this.checkFlag('drop', flag);
-  if (!flag) return false;
-
-  if (this.pos.isNearTo(flag)) {
-    const err = this.drop(RESOURCE_ENERGY);
-    return err === OK && 'success';
+Creep.prototype.afterDropper = function() {
+  if (!this.atTeam) {
+    this.idleNom();
   }
+}
 
-  return this.idleMoveTo(flag);
-};
+
+

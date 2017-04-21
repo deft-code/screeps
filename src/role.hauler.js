@@ -25,7 +25,7 @@ class CreepHauler {
 
     if (this.room.energyFreeAvailable) {
       if (!this.carry.energy) return this.taskRecharge();
-      return this.taskChargePool();
+      return this.taskTransferPool();
     }
 
     if (this.carryFree) {

@@ -46,7 +46,6 @@ lib.merge(Creep, CreepClaim);
 
 class CreepHarvest {
   taskHarvestAny() {
-    if (!this.atTeam) return false;
     return this.taskHarvest(this.pickSrc());
   }
 

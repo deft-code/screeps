@@ -1,4 +1,3 @@
-
 Flag.prototype.roleCaboose = function(spawn) {
   let body = [
     MOVE, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, TOUGH, MOVE, HEAL, MOVE, HEAL,
@@ -12,44 +11,32 @@ Flag.prototype.roleCaboose = function(spawn) {
 };
 
 Creep.prototype.roleCaboose = function() {
-  return this.actionTask() || this.actionCabooseFind() ||
-      this.actionSelfHeal() || this.idleMoveNear(this.team);
+  return this.actionTask() || this.taskCabooseFind() ||
+      this.taskSelfHeal() || this.idleMoveNear(this.team);
 };
 
-Creep.prototype.actionSelfHeal = function() {
+Creep.prototype.taskSelfHeal = function() {
   if (this.hurts) {
     this.heal(this);
   }
   return false;
 };
 
-Creep.prototype.actionCabooseFind = function() {
+Creep.prototype.taskCabooseFind = function() {
   if (this.team.creeps.length < 2) {
     return false;
   }
   this.dlog('caboose find');
   for (let creep of this.team.creeps) {
     if (creep.hostile) {
-      return this.actionCaboose(creep);
+      return this.taskCaboose(creep);
     }
   }
   return false;
 };
 
-Creep.prototype.actionCaboose = function(creep) {
-  this.dlog('actionCaboose', creep);
-  if (!creep) {
-    return false;
-  }
-  this.memory.task = {
-    task: 'caboose',
-    creep: creep.name,
-  };
-  return this.taskCaboose();
-};
-
-Creep.prototype.taskCaboose = function() {
-  const creep = this.taskCreep;
+Creep.prototype.taskCaboose = function(creep) {
+  creep = this.checkId('caboose', creep);
   this.dlog('task caboose', creep);
   if (!creep) {
     if (this.hurts) {

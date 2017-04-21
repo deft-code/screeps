@@ -301,6 +301,19 @@ class CreepPickup {
     }
     return false;
   }
+
+  taskDrop(flag) {
+    if (!this.carry.energy) return false;
+    flag = this.checkFlag('drop', flag);
+    if (!flag) return false;
+
+    if (this.pos.isNearTo(flag)) {
+      const err = this.drop(RESOURCE_ENERGY);
+      return err === OK && 'success';
+    }
+
+    return this.idleMoveTo(flag);
+  }
 }
 
 lib.merge(Creep, CreepPickup);

@@ -34,6 +34,23 @@ class CreepAttack {
     }
     return false;
   }
+
+  taskMassAttackStructs(structType) {
+    const s = this.room.find(FIND_HOSTILE_STRUCTURES);
+    const targets = _.filter(s, s => s.structureType === structType);
+    return this.taskMassAttackStruct(_.sample(targets));
+  }
+
+  taskMassAttack(struct) {
+    struct = this.checkId('mass attack struct', struct);
+    if (this.room.hostiles.length) return false;
+    return this.goMassAttack(struct);
+  }
+
+  taskRangedAttack(target) {
+    target = this.checkId('ranged attack', target);
+    return this.goRangedAttack(target);
+  }
 }
 
 lib.merge(Creep, CreepAttack);

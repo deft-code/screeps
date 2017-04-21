@@ -13,14 +13,6 @@ Creep.prototype.idleMoveTo = function(obj, opts = {}) {
   return false;
 };
 
-Creep.prototype.actionChase = function(creep) {
-  if (this.pos.inRangeTo(creep, 3)) {
-    this.move(this.pos.getDirectionTo(creep));
-    return 'nudge';
-  }
-  return this.idleMoveTo(creep);
-};
-
 Creep.prototype.idleFlee = function(creeps, range) {
   const room = this.room;
   const callback = (roomName) => {

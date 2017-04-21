@@ -10,11 +10,8 @@ Flag.prototype.roleBootstrap = function(spawn) {
 };
 
 Creep.prototype.roleBootstrap = function() {
-  if (creep.atTeam) {
-    if (creep.carryTotal < creep.carryFree) {
-      this.after = () => this.say(this.slurp());
-    }
-  }
+  const what = this.actionTask();
+  if(what) return what;
 
   if (!this.atTeam) {
     if (this.carryTotal) {
@@ -24,11 +21,10 @@ Creep.prototype.roleBootstrap = function() {
     return this.taskTravelFlag(this.team);
   }
 
-  this.idleNom();
   if (!this.teamRoom) return false;
 
-  return this.actionTask() || this.actionTowerCharge() ||
-      this.actionPoolCharge() || this.taskBuildOrdered() ||
-      this.taskRepairOrdered() || this.actionUpgrade(this.teamRoom) ||
-      this.taskHarvestAny(this.teamRoom);
+  return this.taskTransferTowers(100) ||
+      this.taskTransferPool() || this.taskBuildOrdered() ||
+      this.taskRepairOrdered() || this.taskUpgradeRoom() ||
+      this.taskHarvestAny();
 };

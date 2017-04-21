@@ -9,13 +9,21 @@ class CreepExtra {
   get team() {
     return Game.flags[this.memory.team];
   }
+
+  get atTeam() {
+    return this.room.name === this.team.pos.roomName;
+  }
+
+  get atHome() {
+    return this.room.name === this.memory.home;
+  }
+
+  get teamRoom() {
+    return this.team && this.team.room;
+  }
 }
 
-lib.cachedProp(
-    Creep, 'atTeam', creep => creep.room.name === creep.team.pos.roomName);
-lib.cachedProp(Creep, 'atHome', creep => creep.room.name === creep.memory.home);
-
-lib.cachedProp(Creep, 'teamRoom', creep => creep.team && creep.team.room);
+lib.merge(Creep, CreepExtra);
 
 Creep.prototype.run = function() {
   if (this.spawning) {
