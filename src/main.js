@@ -28,10 +28,11 @@ require('struct.spawn');
 require('struct.tower');
 
 require('creep');
-require('creep.action');
 require('creep.attack');
 require('creep.build');
 require('creep.carry');
+require('creep.dismantle');
+require('creep.heal');
 require('creep.move');
 require('creep.repair');
 require('creep.role');
@@ -63,6 +64,8 @@ if (false) {
 } else {
   module.exports.loop = main;
 }
+
+global.debug = (obj, val = true) => obj.memory.debug = val;
 
 function runner(objs) {
   for (let name in objs) {

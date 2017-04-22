@@ -10,7 +10,7 @@ Flag.prototype.roleBootstrap = function(spawn) {
 };
 
 Creep.prototype.roleBootstrap = function() {
-  const what = this.actionTask();
+  const what = this.taskTask();
   if(what) return what;
 
   if (!this.atTeam) {

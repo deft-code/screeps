@@ -9,14 +9,14 @@ Flag.prototype.roleCollector = function(spawn) {
 
 Creep.prototype.roleCollector = function() {
   this.idleNom();
-  return this.idleRetreat(CARRY) || this.actionTask() ||
+  return this.idleRetreat(CARRY) || this.taskTask() ||
       !this.carryTotal && this.taskTravelFlag(this.team) ||
-      this.actionCollect(this.team.room) ||
+      this.taskCollect(this.team.room) ||
       this.carryTotal && this.taskTravel(this.home.controller) ||
-      this.actionXferNearest(this.home);
+      this.taskXferNearest(this.home);
 };
 
-Creep.prototype.actionCollect = function(room) {
+Creep.prototype.taskCollect = function(room) {
   if (!room) return false;
 
   if (!this.carryFree) return false;
@@ -30,7 +30,7 @@ Creep.prototype.actionCollect = function(room) {
   const target = _.sample(resources.concat(stores));
   if (target) {
     if (target.structureType) {
-      return this.actionUnstore(target);
+      return this.taskWithdraw(target, RESOURCE_ENERGY);
     } else {
       return this.taskPickup(target);
     }

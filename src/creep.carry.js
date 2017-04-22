@@ -43,11 +43,12 @@ class CreepTransfer {
   taskTransferTowers(amount) {
     const towers = this.room.findStructs(STRUCTURE_TOWER);
     const tower = _.find(towers, t => t.energy < amount);
-    return this.taskTranferEnergy(tower);
+    return this.taskTransferEnergy(tower);
   }
 
   taskTransferPool() {
-    if (this.room.energyFreeAvailable) return false;
+    this.dlog('taskTransferPool');
+    if (!this.room.energyFreeAvailable) return false;
 
     const pools = _.filter(
         this.room.findStructs(STRUCTURE_SPAWN, STRUCTURE_EXTENSION),
@@ -63,6 +64,29 @@ class CreepTransfer {
     const mineral = _.find(_.keys(this.carry), m => m !== RESOURCE_ENERGY);
 
     return this.taskTransfer(store, mineral);
+  }
+
+  taskTransferNearest = function(room) {
+    let stores = this.room.findStructs(
+        STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL);
+    stores = _.filter(stores, s => s.storeFree * 2 > this.carryTotal);
+
+    const store = this.pos.findClosestByRange(stores);
+    this.dlog('closest store', store);
+
+    const batteries = _.filter(
+        room.findStructs(STRUCTURE_LAB, STRUCTURE_TOWER, STRUCTURE_LINK),
+        b => b.energyFree * 2 > this.carryTotal);
+
+    const battery = this.pos.findClosestByRange(batteries);
+
+    if (store) {
+      if (battery && this.pos.getRangeTo(battery) < this.pos.getRangeTo(store)) {
+        return this.taskTransferEnergy(battery);
+      }
+      return this.taskTransfer(store, RESOURCE_ENERGY);
+    }
+    return this.taskTransferEnergy(battery);
   }
 
   taskTransfer(struct, resource) {
@@ -81,7 +105,7 @@ class CreepTransfer {
     return this.goTransfer(struct, resource);
   }
 
-  taskTranferEnergy(struct) {
+  taskTransferEnergy(struct) {
     struct = this.checkId('transfer energy', struct);
     if (!struct) return false;
     if (!struct.energyFree) return false;
@@ -267,10 +291,10 @@ class CreepPickup {
 
     const spot =
         _.sample(this.room.lookForAtRange(LOOK_ENERGY, this.pos, 1, true));
-    if (spot.energy.resourceType !== RESOURCE_ENERGY) {
+    if (spot && spot.energy.resourceType !== RESOURCE_ENERGY) {
       console.log('Non-Energy!', spot.energy);
     }
-    return this.goPickup(spot.energy, false);
+    return this.goPickup(spot && spot.energy, false);
   }
 
   taskPickupAny() {
@@ -287,7 +311,7 @@ class CreepPickup {
     if (!this.pos.inRangeTo(resource, resource.amount)) return false;
     if (!this.carryFree) return false;
 
-    return this.goPickup(e);
+    return this.goPickup(resource);
   }
 
   goPickup(resource, move = true) {

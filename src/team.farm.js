@@ -43,79 +43,14 @@ Flag.prototype.roleReserver = function(spawn) {
 };
 
 Creep.prototype.roleReserver = function() {
-  return this.actionTask() || this.taskTravelFlag(this.team) ||
-      this.actionReserve(this.team.room);
+  return this.taskTask() || this.taskTravelFlag(this.team) ||
+      this.taskReserve(this.team.room);
 };
 
-Creep.prototype.actionRoadUpkeep = function(room) {
+Creep.prototype.taskRoadUpkeep = function(room) {
   if (!room) return false;
 
   return this.taskRepairRoads() || this.taskBuildStructs(STRUCTURE_ROAD) ||
       this.taskBuildAny();
 };
 
-Creep.prototype.actionXferNearest = function(room) {
-  if (!room) return false;
-
-  let stores = room.findStructs(
-      STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL);
-  stores = _.filter(stores, s => s.storeFree * 2 > this.carryTotal);
-
-  const store = util.pickClosest(this.pos, stores);
-  this.dlog('closest store', store);
-
-  const batteries = _.filter(
-      room.findStructs(STRUCTURE_LAB, STRUCTURE_TOWER, STRUCTURE_LINK),
-      b => b.energyFree * 2 > this.carryTotal);
-
-  const battery = util.pickClosest(this.pos, batteries);
-
-  if (store) {
-    if (battery && this.pos.getRangeTo(battery) < this.pos.getRangeTo(store)) {
-      return this.actionXferEnergy(battery);
-    }
-    return this.actionXferStore(store);
-  }
-  return this.actionXferEnergy(battery);
-};
-
-Creep.prototype.actionXferStore = function(store) {
-  this.dlog('xfer store', store);
-  if (!store) return false;
-
-  this.memory.task = {
-    task: 'xfer store',
-    id: store.id,
-    note: store.note,
-  };
-  return this.taskXferEnergy();
-};
-
-Creep.prototype.taskXferStore = function() {
-  const store = this.taskId;
-  if (!store || !store.storeFree || !this.carryTotal) {
-    return false;
-  }
-  const resource = util.randomResource(this.carry);
-  return this.goTransfer(store, resource) && resource;
-};
-
-Creep.prototype.actionXferEnergy = function(battery) {
-  this.dlog('xfer energy', battery);
-  if (!battery) return false;
-
-  this.memory.task = {
-    task: 'xfer energy',
-    id: battery.id,
-    note: battery.note,
-  };
-  return this.taskXferEnergy();
-};
-
-Creep.prototype.taskXferEnergy = function() {
-  const battery = this.taskId;
-  if (!battery || !battery.energyFree || !this.carry.energy) {
-    return false;
-  }
-  return this.goTransfer(battery, RESOURCE_ENERGY);
-};

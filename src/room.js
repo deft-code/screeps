@@ -11,7 +11,9 @@ class RoomExtra {
 
   findActive(...types) {
     if (!this.activeByType) {
-      this.activeByType = _.groupBy(_.filter(this.find(FIND_MY_STRUCTURES), s => s.isActive()), 'structureType');
+      this.activeByType = _.groupBy(
+          _.filter(this.find(FIND_MY_STRUCTURES), s => s.isActive()),
+          'structureType');
     }
     return _.flatten(_.map(types, sType => this.activeByType[sType] || []));
   }
@@ -39,7 +41,7 @@ class RoomExtra {
   }
 
   get energyFreeAvailable() {
-    return this.energyCapacityAvailable - this.energyAvailable);
+    return this.energyCapacityAvailable - this.energyAvailable;
   }
 
   get claimable() {
@@ -50,7 +52,7 @@ class RoomExtra {
     const scale = this.memory.wallScale || 1;
     const max = scale * (
       room.controller.level * 10000 +
-        Math.pow(10, room.controller.level - 1)));
+        Math.pow(10, room.controller.level - 1));
 
     const memMax = this.memory.wallMax;
 
@@ -129,7 +131,7 @@ Room.prototype.run = function() {
     this.runTowers();
     this.runLinks();
     this.runLabs();
-    // this.closeRamparts();
+    // this.closeRamparts(100);
   }
 };
 

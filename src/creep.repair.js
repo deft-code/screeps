@@ -67,11 +67,7 @@ class CreepRepair {
 
     if (!struct.hurts) return !recursing && this.taskRepairRecurse();
 
-    const what = this.goRepair(struct);
-    if (what) {
-      this.actionDoubleTime();
-    }
-    return what;
+    return this.goRepair(struct);
   }
 
   goRepair(struct, move = true) {
@@ -86,3 +82,5 @@ class CreepRepair {
     return false;
   }
 }
+
+lib.merge(Creep, CreepRepair);

@@ -27,8 +27,8 @@ Room.prototype.contForMineral = function(mineral) {
 
 class CreepChemist {
   roleChemist() {
-    return this.actionTask() || this.taskResortMinerals() ||
-        this.actionSortAllMinerals();
+    return this.taskTask() || this.taskResortMinerals() ||
+        this.taskSortAllMinerals();
   }
 
   taskTransferMinerals() {
@@ -37,7 +37,7 @@ class CreepChemist {
 
     const lab = this.room.labForMineral(mineral);
 
-    return this.taskTransferLab(this.room.labForMineral(mineral) ||
+    return this.taskTransferLab(this.room.labForMineral(mineral)) ||
         this.taskTransfer(this.room.myTerminal, mineral) ||
         this.taskTransfer(this.room.myStorage, mineral) ||
         this.taskTransfer(this.room.contForMineral(mineral));
@@ -61,16 +61,16 @@ class CreepChemist {
     return this.goWithdraw(lab, lab.mineralType);
   }
 
-  taskWithdrawMinerals = function(store) {
+  taskWithdrawMinerals(store) {
     if (!store) return false;
     const mineral = nonenergy(store.store);
     return this.taskWithdraw(store, mineral);
-  };
+  }
 
-  Creep.prototype.taskResortMinerals = function() {
+  taskResortMinerals() {
     for (let lab of this.room.myLabs) {
       if (lab.mineralAmount && lab.mineralType != lab.memory.planType) {
-        return this.actionWithdrawLab(lab);
+        return this.taskWithdrawLab(lab);
       }
     }
 
@@ -79,9 +79,10 @@ class CreepChemist {
       return this.taskWithdrawMinerals(store);
     }
 
-    const cont = this.pos.findClosestByRange(_.filter(
-        this.room.myConts,
-        c => c.storeTotal > c.store.energy));
+    const cont = this.pos.findClosestByRange(
+        _.filter(this.room.myConts, c => c.storeTotal > c.store.energy));
     return this.taskWithdrawMinerals(cont);
-  };
+  }
 }
+
+lib.merge(Creep, CreepChemist);

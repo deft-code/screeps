@@ -10,7 +10,7 @@ Flag.prototype.roleDropper = function(spawn) {
 };
 
 Creep.prototype.roleDropper = function() {
-  let what = this.actionTask();
+  let what = this.taskTask();
   if (what) return what;
 
   if (this.carryTotal) {

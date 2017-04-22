@@ -1,5 +1,5 @@
 Creep.prototype.roleScout = function() {
-  return this.actionTask() || this.actionHospital() ||
+  return this.taskTask() || this.actionHospital() ||
       this.idleMoveTo(Game.flags.scout);
 };
 
@@ -9,10 +9,10 @@ StructureSpawn.prototype.roleScout = function() {
 };
 
 Creep.prototype.roleDistraction = function() {
-  return this.actionTask() || this.actionHospital() || this.actionDistraction();
+  return this.taskTask() || this.actionHospital() || this.taskDistraction();
 };
 
-Creep.prototype.actionDistraction = function() {
+Creep.prototype.taskDistraction = function() {
   if (this.memory.duck || !Game.flags.distraction) {
     const dirs = [TOP, BOTTOM];
     this.move(_.sample(dirs));
@@ -43,7 +43,7 @@ StructureSpawn.prototype.roleDistraction = function() {
 };
 
 Creep.prototype.roleBait = function() {
-  return this.actionTask() || this.actionHospital() ||
+  return this.taskTask() || this.actionHospital() ||
       this.idleMoveTo(Game.flags.bait);
 };
 

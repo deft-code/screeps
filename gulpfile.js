@@ -15,6 +15,12 @@ gulp.task('sim', function() {
   gulp.src('src/*.js').pipe(screeps(credentials));
 });
 
+gulp.task('ptr', function() {
+  credentials.branch = 'ptr';
+  credentials.ptr = true;
+  gulp.src('src/*.js').pipe(screeps(credentials));
+});
+
 gulp.task('fetch', function() {
   const options = {
     hostname: 'screeps.com',

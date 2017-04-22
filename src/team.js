@@ -117,7 +117,7 @@ Flag.prototype.run = function() {
           _.mapValues(this.creepsByRole, creeps => _.map(creeps, 'name'))));
 
   if (!this.creeps.length) {
-    this.memory.debug = true;
+    this.memory.debug = false;
   }
 
   const customF = this['custom' + this.name];

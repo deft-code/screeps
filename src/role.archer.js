@@ -16,7 +16,7 @@ Flag.prototype.roleArcher = function(spawn) {
 };
 
 Creep.prototype.roleArcher = function() {
-  return this.actionTask() || this.taskArcher() ||
+  return this.taskTask() || this.taskArcher() ||
       this.idleMoveNear(this.team);
 };
 

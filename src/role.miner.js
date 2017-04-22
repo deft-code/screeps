@@ -18,7 +18,7 @@ Flag.prototype.roleMiner = function(spawn) {
 };
 
 Creep.prototype.roleMiner = function() {
-  let what = this.actionTask();
+  let what = this.taskTask();
   if (what) return what;
 
   if (this.atTeam) {

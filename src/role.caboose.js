@@ -11,7 +11,7 @@ Flag.prototype.roleCaboose = function(spawn) {
 };
 
 Creep.prototype.roleCaboose = function() {
-  return this.actionTask() || this.taskCabooseFind() ||
+  return this.taskTask() || this.taskCabooseFind() ||
       this.taskSelfHeal() || this.idleMoveNear(this.team);
 };
 

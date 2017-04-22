@@ -11,7 +11,7 @@ Flag.prototype.roleWorker = function(spawn) {
 
 class CreepWorker {
   roleWorker() {
-    let what = this.actionTask();
+    let what = this.taskTask();
     if (what) return what;
 
     if (this.carry.energy) {

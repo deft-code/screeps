@@ -14,7 +14,7 @@ class CreepAttack {
   }
 
   goMassAttack(target, move = true) {
-    if(!this.pos.inRangeTo(target, 3)) {
+    if (!this.pos.inRangeTo(target, 3)) {
       return move && this.idleMoveNear(target);
     }
     const err = this.rangedMassAttack();

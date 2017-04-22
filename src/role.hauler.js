@@ -1,4 +1,5 @@
 const util = require('util');
+const lib = require('lib');
 
 Flag.prototype.roleHauler = function(spawn) {
   const cap = this.room.energyCapacityAvailable;
@@ -15,7 +16,7 @@ Flag.prototype.roleHauler = function(spawn) {
 
 class CreepHauler {
   roleHauler() {
-    let what = this.actionTask();
+    let what = this.taskTask();
     if (what) return what;
 
     if (!this.atTeam) return this.taskTravelFlag(this.team);
@@ -105,3 +106,5 @@ class CreepHauler {
     this.idleTransferExtra();
   }
 }
+
+lib.merge(Creep, CreepHauler);

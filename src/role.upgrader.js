@@ -10,6 +10,5 @@ Flag.prototype.roleUpgrader = function(spawn) {
 };
 
 Creep.prototype.roleUpgrader = function() {
-  return this.taskDoubleTime() || this.actionTask() || this.actionUpgrade() ||
-      this.actionRecharge();
+  return this.taskTask() || this.taskUpgrade() || this.taskRecharge();
 };

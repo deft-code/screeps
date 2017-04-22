@@ -6,18 +6,18 @@ class CreepDismantle {
                        .sample(3)
                        .sortBy('hits')
                        .first();
-    return this.taskDismantle(target, true);
+    return this.taskDismantle(target);
   }
 
-  taskDismantle(struct, drop) {
+  taskDismantle(struct, drop = true) {
     struct = this.checkId('dismantle', struct);
     drop = this.checkOther('drop', drop);
 
-    if (this.carryCapacity && !this.carryFree && !this.memory.task.drop) {
+    if (this.carryCapacity && !this.carryFree && !drop) {
       this.say('Full');
       return false;
     }
-    return this.goDismantle(structure)
+    return this.goDismantle(struct)
   }
 
   goDismantle(struct, move = true) {
@@ -32,3 +32,5 @@ class CreepDismantle {
     return false;
   }
 }
+
+lib.merge(Creep, CreepDismantle);

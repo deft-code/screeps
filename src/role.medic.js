@@ -4,49 +4,24 @@ Flag.prototype.roleMedic = function(spawn) {
 };
 
 Creep.prototype.roleMedic = function() {
-  return this.actionTask() || this.actionTeamHeal(this.team);
+  return this.taskTask() || this.taskTeamHeal(this.team);
 };
 
-Creep.prototype.actionRoomHeal = function(room) {
+Creep.prototype.taskRoomHeal = function(room) {
   if (!room) return false;
-  return this.actionHealCreeps(room.find(FIND_MY_CREEPS));
+  return this.taskHealCreeps(room.find(FIND_MY_CREEPS));
 };
 
-Creep.prototype.actionTeamHeal = function(team) {
+Creep.prototype.taskTeamHeal = function(team) {
   if (!team) return false;
-  return this.actionHealCreeps(team.creeps);
+  return this.taskHealCreeps(team.creeps);
 };
 
-Creep.prototype.actionHealCreeps = function(creeps) {
-  return this.actionHeal(_(creeps).filter('hurts').sample());
+Creep.prototype.taskHealCreeps = function(creeps) {
+  return this.taskHeal(_(creeps).filter('hurts').sample());
 };
 
-Creep.prototype.actionHeal = function(creep) {
-  if (!creep) return false;
-
-  this.memory.task = {
-    task: 'heal',
-    creep: creep.name,
-  };
-  return this.taskHeal();
-};
-
-Creep.prototype.taskHeal = function() {
-  const creep = this.taskCreep;
-  if (!creep || !creep.hurts) return false;
-
-  const err = this.heal(creep);
-  if (err == ERR_NOT_IN_RANGE) {
-    return this.idleMoveTo(creep);
-  }
-  if (err == OK) {
-    this.move(this.pos.getDirectionTo(creep));
-    return creep.hits;
-  }
-  return false;
-};
-
-Creep.prototype.actionLocalHeal = function() {
+Creep.prototype.taskLocalHeal = function() {
   const heal = _(this.room.find(FIND_MY_CREEPS))
                    .filter(c => c.hits < c.hitsMax)
                    .sample();

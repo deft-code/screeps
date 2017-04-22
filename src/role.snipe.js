@@ -10,11 +10,11 @@ Flag.prototype.roleSnipe = function(spawn) {
 };
 
 Creep.prototype.roleSnipe = function() {
-  return this.actionTask() || this.taskTravelFlag(Game.flags.snipe) ||
-      this.actionSnipe();
+  return this.taskTask() || this.taskTravelFlag(Game.flags.snipe) ||
+      this.taskSnipe();
 };
 
-Creep.prototype.actionSnipe = function() {
+Creep.prototype.taskSnipe = function() {
   if (this.room.controller.my) {
     return false;
   }
@@ -22,20 +22,20 @@ Creep.prototype.actionSnipe = function() {
                     .filter(s => s.structureType == STRUCTURE_TOWER)
                     .sample();
   if (tower) {
-    return this.actionAttackStruct(tower);
+    return this.taskAttackStruct(tower);
   }
 
   const spawn = _(this.room.find(FIND_HOSTILE_STRUCTURES))
                     .filter(s => s.structureType == STRUCTURE_SPAWN)
                     .sample();
   if (spawn) {
-    return this.actionAttackStruct(spawn);
+    return this.taskAttackStruct(spawn);
   }
 
   const creeps = this.room.find(FIND_HOSTILE_CREEPS);
   const creep = this.pos.findClosestByRange(creeps);
   if (creep) {
-    return this.actionAttackStruct(creep);
+    return this.taskAttackStruct(creep);
   }
 
   const extns = _.filter(
@@ -44,7 +44,7 @@ Creep.prototype.actionSnipe = function() {
 
   const extn = this.pos.findClosestByRange(extns);
   if (extn) {
-    return this.actionAttackStruct(extn);
+    return this.taskAttackStruct(extn);
   }
 
   const neutrals = _.filter(
@@ -53,7 +53,7 @@ Creep.prototype.actionSnipe = function() {
   this.dlog('snipe neutrals', neutrals);
   const neutral = this.pos.findClosestByRange(neutrals);
   if (neutral) {
-    return this.actionAttackStruct(neutral);
+    return this.taskAttackStruct(neutral);
   }
 
   const walls = _.filter(
@@ -62,13 +62,13 @@ Creep.prototype.actionSnipe = function() {
   this.dlog('snipe neutrals', neutrals);
   const wall = this.pos.findClosestByRange(neutrals);
   if (wall) {
-    return this.actionAttackStruct(wall);
+    return this.taskAttackStruct(wall);
   }
 
   return false;
 };
 
-Creep.prototype.actionAttackStruct = function(struct) {
+Creep.prototype.taskAttackStruct = function(struct) {
   if (!struct) {
     return false;
   }
