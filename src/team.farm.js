@@ -53,4 +53,3 @@ Creep.prototype.taskRoadUpkeep = function(room) {
   return this.taskRepairRoads() || this.taskBuildStructs(STRUCTURE_ROAD) ||
       this.taskBuildAny();
 };
-

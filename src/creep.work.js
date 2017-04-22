@@ -25,7 +25,7 @@ class CreepClaim {
     if (err == ERR_NOT_IN_RANGE) {
       return this.idleMoveNear(room.controller);
     }
-    this.say(modutil.sprint('bad reserve', err));
+    this.say(`bad reserve ${err}`);
     return false;
   }
 

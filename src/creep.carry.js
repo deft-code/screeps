@@ -66,7 +66,7 @@ class CreepTransfer {
     return this.taskTransfer(store, mineral);
   }
 
-  taskTransferNearest = function(room) {
+  taskTransferNearest(room) {
     let stores = this.room.findStructs(
         STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL);
     stores = _.filter(stores, s => s.storeFree * 2 > this.carryTotal);
