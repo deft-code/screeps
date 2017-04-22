@@ -9,7 +9,7 @@ class RoomExtra {
     return _.flatten(_.map(types, sType => this.structsByType[sType] || []));
   }
 
-  findActive = function(...types) {
+  findActive(...types) {
     if (!this.activeByType) {
       this.activeByType = _.groupBy(_.filter(this.find(FIND_MY_STRUCTURES), s => s.isActive()), 'structureType');
     }
@@ -31,7 +31,7 @@ class RoomExtra {
   }
 
   get myLabs() {
-    return this.findActive(STRUCTURE_EXTENSION);
+    return this.findActive(STRUCTURE_LAB);
   }
 
   get myExtns() {
