@@ -16,7 +16,7 @@ class CreepWorker {
 
     if (this.carry.energy) {
       return this.taskBuildOrdered() || this.taskRepairOrdered() ||
-          this.goUpgrade();
+          this.goUpgradeController(this.room.controller);
     }
     return this.taskRecharge() || this.taskHarvestAny();
   }

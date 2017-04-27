@@ -35,7 +35,7 @@ class CreepRole {
     if (mem) {
       flag = Game.flags[this.memory.task.flag];
       if (!flag) return false;
-      if (this.debug) {
+      if (this.debug && this.pos.roomName === flag.pos.roomName) {
         this.room.visual.line(this.pos, flag.pos, {lineStyle: 'dotted'});
       }
       return flag;
@@ -61,7 +61,7 @@ class CreepRole {
       obj = Game.getObjectById(this.memory.task.id);
       if (!obj) return false;
 
-      if (this.debug) {
+      if (this.debug && this.pos.roomName === obj.pos.roomName) {
         this.room.visual.line(this.pos, obj.pos, {lineStyle: 'dotted'});
       }
       return obj;

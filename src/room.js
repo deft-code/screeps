@@ -45,17 +45,11 @@ class RoomExtra {
   }
 
   get claimable() {
-    return room.controller.reservable;
+    return this.controller.reservable;
   }
 
   get wallMax() {
-    const scale = this.memory.wallScale || 1;
-    const max = scale * (
-      room.controller.level * 10000 +
-        Math.pow(10, room.controller.level - 1));
-
     const memMax = this.memory.wallMax;
-
     if (memMax) {
       if (memMax <= max) {
         delete this.memory.wallMax;
@@ -64,7 +58,16 @@ class RoomExtra {
       }
     }
 
-    return max;
+    const scale = this.memory.wallScale || 1;
+    const level = this.controller.level;
+    switch(level) {
+      case 8: return scale * 3000000;
+      case 7: return scale * 1000000;
+      case 6: return scale * 300000;
+      case 5: return scale * 100000;
+      case 4: return scale * 30000;
+    }
+    return scale * 10000;
   }
 }
 

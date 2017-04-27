@@ -49,8 +49,9 @@ require('role.dropper');
 require('role.farmer');
 require('role.guard');
 require('role.hauler');
-require('role.miner');
 require('role.medic');
+require('role.miner');
+require('role.reserver');
 require('role.scout');
 require('role.snipe');
 require('role.srcer');
@@ -65,7 +66,42 @@ if (false) {
   module.exports.loop = main;
 }
 
+function stack() {
+  const orig = Error.prepareStackTrace;
+  Error.prepareStackTrace = (error, stack_array) => stack_array;
+  const obj = {};
+  Error.captureStackTrace(obj, arguments.callee);
+  const s = obj.stack;
+  Error.prepareStackTrace = orig;
+  return s;
+};
+ 
+eglog = (msg) => {
+  const ss = stack();
+  const frame = ss[1]
+  console.log(`${frame.getFileName()}:${frame.getLineNumber()} ${msg}`);
+}
+
 global.debug = (obj, val = true) => obj.memory.debug = val;
+
+global.purgeWalls = (room, dry=true) => {
+  let n = 0;
+  for(const wall of room.findStructs(STRUCTURE_WALL)) {
+    const p = wall.pos;
+    if(p.x < 4) continue;
+    if(p.y < 4) continue;
+    if(p.x > 45) continue;
+    if(p.y > 45) continue;
+
+    n++;
+    if(dry) {
+      room.visual.circle(p, {radius: 0.5, fill: 'red'});
+    } else {
+      wall.destroy();
+    }
+  }
+  return n;
+}
 
 function runner(objs) {
   for (let name in objs) {
@@ -92,6 +128,7 @@ function clearMem(what) {
 
 function main() {
   PathFinder.use(true);
+  eglog(Game.cpu.bucket);
 
   runner(Game.rooms);
   runner(Game.flags);

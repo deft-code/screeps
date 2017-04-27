@@ -1,3 +1,5 @@
+const lib = require('lib');
+
 Flag.prototype.roleBootstrap = function(spawn) {
   const body = [
     MOVE, WORK, CARRY, MOVE, WORK, MOVE, WORK, CARRY, MOVE, WORK,
@@ -9,22 +11,33 @@ Flag.prototype.roleBootstrap = function(spawn) {
   return this.createRole(spawn, body, {role: 'bootstrap'});
 };
 
-Creep.prototype.roleBootstrap = function() {
-  const what = this.taskTask();
-  if(what) return what;
+class CreepBootstrap {
+  roleBootstrap() {
+    let what = this.taskTask();
+    if(what) return what;
 
-  if (!this.atTeam) {
-    if (this.carryTotal) {
-      this.drop(RESOURCE_ENERGY);
-      this.say('Dump!');
+    if (!this.atTeam) {
+      if (this.carryTotal) {
+        this.drop(RESOURCE_ENERGY);
+        this.say('Dump!');
+      }
+      return this.taskMoveFlag(this.team);
     }
-    return this.taskTravelFlag(this.team);
+
+    if(this.carryFree) {
+      what = this.taskRecharge() || this.taskHarvestAny();
+      if(what) return what;
+    }
+
+    return this.taskTransferTowers(100) ||
+        this.taskTransferPool() || this.taskBuildOrdered() ||
+        this.taskRepairOrdered() || this.taskUpgradeRoom() ||
+        this.taskHarvestNext();
   }
 
-  if (!this.teamRoom) return false;
+  afterBootstrap() {
+    this.idleNom();
+  }
+}
 
-  return this.taskTransferTowers(100) ||
-      this.taskTransferPool() || this.taskBuildOrdered() ||
-      this.taskRepairOrdered() || this.taskUpgradeRoom() ||
-      this.taskHarvestAny();
-};
+lib.merge(Creep, CreepBootstrap);

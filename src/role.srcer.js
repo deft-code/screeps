@@ -17,12 +17,12 @@ function findCont(positions) {
 
 class CreepSrcer {
   roleSrcer() {
-    const what = this.taskTask() || this.taskTravelFlag(this.team);
+    this.dlog("srcer index", this.roleIndex());
+    const what = this.taskTask() || this.taskMoveFlag(this.team);
     if (what) return what;
 
     const srcers = this.team.roleCreeps(this.memory.role);
-    const room = this.team.room;
-    const srcs = room.find(FIND_SOURCES);
+    const srcs = this.room.find(FIND_SOURCES);
 
     if (srcers.length < 2) {
       return this.taskSrc(
@@ -36,7 +36,7 @@ class CreepSrcer {
           if (srcer.name === this.name) {
             continue;
           }
-          if (srcer.taskId && srcer.taskId.id === src.id) {
+          if (srcer.memory.task && srcer.memory.task.id === src.id) {
             taken = true;
             break;
           }

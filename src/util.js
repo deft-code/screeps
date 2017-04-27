@@ -29,6 +29,8 @@ function errString(err) {
       return 'OK';
     case ERR_NOT_IN_RANGE:
       return 'ERR_NOT_IN_RANGE';
+    case ERR_TIRED:
+      return 'ERR_TIRED';
     case ERR_BUSY:
       return 'ERR_BUSY';
     case ERR_INVALID_TARGET:
@@ -125,7 +127,7 @@ function roProp(klass, prop, func) {
 function randomResource(resources) {
   let r = {};
   Object.assign(r, resources);
-  if (r.energy == 0) {
+  if (r.energy === 0) {
     delete r.energy;
   }
   return _.sample(_.keys(r));
@@ -133,6 +135,7 @@ function randomResource(resources) {
 
 module.exports = {
   cachedProp: cachedProp,
+  errString: errString,
   markDebug: markDebug,
   optimizeBody: optimizeBody,
   pickClosest: pickClosest,

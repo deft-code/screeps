@@ -36,8 +36,9 @@ class Link {
   }
 
   xfer(target, mod = 33) {
-    let e = Math.min(
-        this.energy, Math.ceil(target.energyFree * (1 + LINK_LOSS_RATIO)));
+    // sad trombone
+    // let e = Math.min(this.energy, Math.ceil(target.energyFree * (1 + LINK_LOSS_RATIO)));
+    let e = Math.min(this.energy, target.energyFree);
     e -= (e % 100) % mod;
     return this.xferRaw(target, e);
   }
@@ -58,8 +59,8 @@ class Link {
   }
 
   run() {
-    if (this.cooldown) return `cooldown ${this.cooldown}`;
-    if (this.energy < 33) return `empty ${this.energy}`;
+    if (this.cooldown) return `t-${this.cooldown}`;
+    if (this.energy < 33) return this.energy;
 
     switch (this.mode) {
       case 'sink':
@@ -95,7 +96,7 @@ class Link {
       return this.xferHalf(balance);
     }
 
-    return 'everything is full!';
+    return 'full!';
   }
 
   runBuffer() {
@@ -103,7 +104,7 @@ class Link {
         this.room.findStructs(STRUCTURE_LINK),
         link => link.mode === 'sink' && !link.energy);
     if (sink) return this.xfer(sink);
-    return 'nothing';
+    return '';
   }
 }
 

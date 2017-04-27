@@ -1,6 +1,12 @@
 const lib = require('lib');
 
 class CreepBuild {
+  idleBuildNear() {
+    if(this.intent.melee || this.intent.range) return false;
+    const site = _.sample(this.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3));
+    return this.goBuild(site, false);
+  }
+
   taskBuildOrdered() {
     return this.taskBuildStructs(STRUCTURE_ROAD) ||
         this.taskBuildStructs(STRUCTURE_TOWER) ||

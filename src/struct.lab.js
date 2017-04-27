@@ -18,6 +18,7 @@ class LabExtra {
       };
       console.log('Creating lab memory for:', this.note);
     }
+    return mem;
   }
 
   run() {}

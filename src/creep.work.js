@@ -19,11 +19,11 @@ class CreepClaim {
     controller = this.checkId('reserve', controller);
 
     const err = this.reserveController(controller);
-    if (err == OK) {
+    if (err === OK) {
       return this.room.controller.resTicks;
     }
-    if (err == ERR_NOT_IN_RANGE) {
-      return this.idleMoveNear(room.controller);
+    if (err === ERR_NOT_IN_RANGE) {
+      return this.idleMoveNear(this.room.controller);
     }
     this.say(`bad reserve ${err}`);
     return false;
@@ -47,6 +47,11 @@ lib.merge(Creep, CreepClaim);
 class CreepHarvest {
   taskHarvestAny() {
     return this.taskHarvest(this.pickSrc());
+  }
+
+  taskHarvestNext() {
+    // move near the src, sleep till it refills.
+    return false;
   }
 
   taskHarvest(src) {

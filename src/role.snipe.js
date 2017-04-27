@@ -10,7 +10,7 @@ Flag.prototype.roleSnipe = function(spawn) {
 };
 
 Creep.prototype.roleSnipe = function() {
-  return this.taskTask() || this.taskTravelFlag(Game.flags.snipe) ||
+  return this.taskTask() || this.taskMoveFlag(Game.flags.snipe) ||
       this.taskSnipe();
 };
 

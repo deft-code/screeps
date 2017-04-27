@@ -10,10 +10,21 @@ Flag.prototype.roleBulldozer = function(spawn) {
 
 Creep.prototype.roleBulldozer = function() {
   return this.idleRetreat(WORK) || this.taskTask() ||
-      this.taskTravelFlag(this.team) || this.taskDismantleAt(this.team) ||
+      this.taskMoveFlag(this.team, {allowHostile:true}) ||
+      this.taskDismantleAt(this.team) ||
       this.taskDismantleHostile(STRUCTURE_TOWER) ||
-      this.taskDismantleHostile(
-          this.team.room, STRUCTURE_RAMPART, STRUCTURE_EXTENSION);
+      this.taskDismantleHostile(this.room, STRUCTURE_RAMPART, STRUCTURE_EXTENSION) ||
+      this.taskStompAll();
+};
+
+Creep.prototype.taskStompAll = function() {
+  return this.taskStomp(this.pos.findClosestByRange(FIND_HOSTILE_CONSTRUCTION_SITES));
+};
+
+Creep.prototype.taskStomp = function(site) {
+  site = this.checkId('stomp', site);
+  if(!site) return false;
+  return this.idleMoveTo(site, {range: 0, allowHostile: true, ignoreCreeps: false});
 };
 
 Creep.prototype.taskDismantleAt = function(obj) {

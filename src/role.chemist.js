@@ -5,12 +5,12 @@ function nonenergy(carry) {
 }
 
 Room.prototype.labForMineral = function(mineral) {
-  for (let lab of this.labs) {
+  for (let lab of this.findStructs(STRUCTURE_LAB)) {
     if (lab.memory.planType === mineral && lab.mineralFree) {
       return lab;
     }
   }
-  for (let lab of this.labs) {
+  for (let lab of this.findStructs(STRUCTURE_LAB)) {
     if (!lab.memory.planType) {
       lab.memory.planType = mineral;
       return lab;
@@ -34,13 +34,16 @@ class CreepChemist {
   taskTransferMinerals() {
     const mineral = nonenergy(this.carry);
     if (!mineral) return false;
+    return this.taskTransferMineral(mineral);
+  }
 
+  taskTransferMineral(mineral) {
     const lab = this.room.labForMineral(mineral);
 
     return this.taskTransferLab(this.room.labForMineral(mineral)) ||
-        this.taskTransfer(this.room.myTerminal, mineral) ||
-        this.taskTransfer(this.room.myStorage, mineral) ||
-        this.taskTransfer(this.room.contForMineral(mineral));
+        this.taskTransferStore(this.room.myTerminal, mineral) ||
+        this.taskTransferStore(this.room.myStorage, mineral) ||
+        this.taskTransferStore(this.room.contForMineral(mineral));
   }
 
   taskTransferLab(lab) {
@@ -64,7 +67,7 @@ class CreepChemist {
   taskWithdrawMinerals(store) {
     if (!store) return false;
     const mineral = nonenergy(store.store);
-    return this.taskWithdraw(store, mineral);
+    return this.taskWithdrawStore(store, mineral);
   }
 
   taskResortMinerals() {

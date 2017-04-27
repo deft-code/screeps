@@ -1,4 +1,5 @@
-const lib = require('lib');
+const lib = require('lib'); 
+const util = require('util'); 
 
 class CreepTransfer {
   idleTransferAny() {
@@ -43,21 +44,29 @@ class CreepTransfer {
   taskTransferTowers(amount) {
     const towers = this.room.findStructs(STRUCTURE_TOWER);
     const tower = _.find(towers, t => t.energy < amount);
-    return this.taskTransferEnergy(tower);
+    return this.taskTransfer(tower, RESOURCE_ENERGY);
   }
 
   taskTransferPool() {
     this.dlog('taskTransferPool');
     if (!this.room.energyFreeAvailable) return false;
 
-    const pools = _.filter(
-        this.room.findStructs(STRUCTURE_SPAWN, STRUCTURE_EXTENSION),
+    const extns = _.filter(
+        this.room.findStructs(STRUCTURE_EXTENSION),
         p => p.energyFree);
-    const pool = this.pos.findClosestByRange(pools);
-    return this.taskTransferEnergy(pool);
+    const extn = this.pos.findClosestByRange(extns);
+
+    // fill spawns last to give srcers a chance to fill them.
+    const spawns = _.filter(
+      this.room.findStructs(STRUCTURE_SPAWN),
+        p => p.energyFree);
+    const spawn = this.pos.findClosestByRange(spawns);
+
+    return this.taskTransfer(extn || spawn, RESOURCE_ENERGY);
   }
 
   taskTransferMinerals() {
+    this.dlog('taskTransferMinerals');
     const store = this.room.terminal || this.room.storage;
     if (!store) return false;
 
@@ -66,34 +75,61 @@ class CreepTransfer {
     return this.taskTransfer(store, mineral);
   }
 
-  taskTransferNearest(room) {
+  taskTransferEnergy() {
+    this.dlog('taskTransferEnergy');
     let stores = this.room.findStructs(
         STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL);
-    stores = _.filter(stores, s => s.storeFree * 2 > this.carryTotal);
+    stores = _.filter(stores, s => s.storeFree * 2 > this.carry.energy);
 
     const store = this.pos.findClosestByRange(stores);
     this.dlog('closest store', store);
 
     const batteries = _.filter(
-        room.findStructs(STRUCTURE_LAB, STRUCTURE_TOWER, STRUCTURE_LINK),
-        b => b.energyFree * 2 > this.carryTotal);
+        this.room.find(FIND_STRUCTURES),
+        b => b.energyFree * 2 > this.carry.energy);
 
     const battery = this.pos.findClosestByRange(batteries);
 
     if (store) {
-      if (battery && this.pos.getRangeTo(battery) < this.pos.getRangeTo(store)) {
-        return this.taskTransferEnergy(battery);
+      if (battery && this.pos.getRangeTo(battery) <= this.pos.getRangeTo(store)) {
+        return this.taskTransfer(battery, RESOURCE_ENERGY);
       }
-      return this.taskTransfer(store, RESOURCE_ENERGY);
+      return this.taskTransferStore(store, RESOURCE_ENERGY);
     }
-    return this.taskTransferEnergy(battery);
+    return this.taskTransfer(battery, RESOURCE_ENERGY);
+  }
+
+  taskTransferResources() {
+    this.dlog('taskTransferResources');
+    const resource = util.randomResource(this.carry);
+    switch(resource) {
+      case RESOURCE_ENERGY:
+        return this.taskTransferEnergy();
+      case RESOURCE_POWER:
+        const ps = _.first(this.findActive(STRUCTURE_NUKER));
+        return this.taskTransfer(ps, resource) || this.taskTransferMineral(resource);
+      case RESOURCE_GHODIUM:
+        const nuker = _.first(this.findActive(STRUCTURE_NUKER));
+        return this.taskTransfer(nuker, resource) || this.taskTransferMineral(resource);
+    }
+    return this.taskTransferMinerals(resource);
+  }
+
+  taskTransferStore(struct, resource) {
+    struct = this.checkId('transfer store', struct);
+    if (!struct) return false;
+    if (!struct.storeFree) return false;
+    return this.taskTransferHelper(struct, resource);
   }
 
   taskTransfer(struct, resource) {
     struct = this.checkId('transfer', struct);
     if (!struct) return false;
-    if (!struct.storeFree) return false;
+    if (struct[resource] >= struct[_.camelCase(resource + ' capacity')]) return false;
+    return this.taskTransferHelper(struct, resource);
+  }
 
+  taskTransferHelper(struct, resource) {
     if (!resource) {
       resource = this.memory.task.resource;
     } else {
@@ -101,17 +137,7 @@ class CreepTransfer {
     }
 
     if (!this.carry[resource]) return false;
-
     return this.goTransfer(struct, resource);
-  }
-
-  taskTransferEnergy(struct) {
-    struct = this.checkId('transfer energy', struct);
-    if (!struct) return false;
-    if (!struct.energyFree) return false;
-    if (!this.carry.energy) return false;
-
-    return this.goTransfer(struct, RESOURCE_ENERGY);
   }
 
   goTransfer(target, resource, move = true) {
@@ -221,7 +247,7 @@ class CreepWithdraw {
     this.dlog('goodE', goodE);
     let e = this.pos.findClosestByRange(goodE);
     if (!e) {
-      e = this.poc.findClosestByRange(anyE);
+      e = this.pos.findClosestByRange(anyE);
     }
     if (!e) {
       this.dlog('recharge fail');
@@ -234,10 +260,10 @@ class CreepWithdraw {
       case STRUCTURE_CONTAINER:
       case STRUCTURE_STORAGE:
       case STRUCTURE_TERMINAL:
-        return this.taskWithdraw(e, RESOURCE_ENERGY);
+        return this.taskWithdrawStore(e, RESOURCE_ENERGY);
       case STRUCTURE_LAB:
       case STRUCTURE_LINK:
-        return this.taskWithdrawEnergy(e);
+        return this.taskWithdraw(e, RESOURCE_ENERGY);
       default:
         return this.taskPickup(e);
     }
@@ -245,6 +271,22 @@ class CreepWithdraw {
 
   taskWithdraw(struct, resource) {
     struct = this.checkId('withdraw', struct);
+    if (!struct) return false;
+    if (!this.carryFree) return false;
+
+    if (!resource) {
+      resource = this.memory.task.resource;
+    } else {
+      this.memory.task.resource = resource;
+    }
+
+    if(!struct[resource]) return false;
+
+    return this.goWithdraw(struct, resource);
+  }
+
+  taskWithdrawStore(struct, resource) {
+    struct = this.checkId('withdraw store', struct);
     if (!struct) return false;
     if (!this.carryFree) return false;
 
@@ -282,7 +324,7 @@ class CreepPickup {
 
     const spot =
         _.sample(this.room.lookForAtRange(LOOK_RESOURCES, this.pos, 1, true));
-    return this.goPickup(spot.resource, false);
+    return this.goPickup(spot && spot.resource, false);
   }
 
   idleNom() {

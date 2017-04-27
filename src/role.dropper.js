@@ -21,13 +21,10 @@ Creep.prototype.roleDropper = function() {
     if (this.room.name === this.team.pos.roomName) {
       return this.idleMoveTo(this.team);
     }
-    return this.taskTravelFlag(this.team);
+    return this.taskMoveFlag(this.team);
   }
 
-  what = this.taskTravel(this.home.storage);
-  if (what) return what;
-
-  return this.taskRecharge();
+  return this.taskMoveRoom(this.home.storage) || this.taskRecharge();
 };
 
 Creep.prototype.afterDropper = function() {

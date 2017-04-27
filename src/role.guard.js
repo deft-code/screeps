@@ -21,5 +21,5 @@ Creep.prototype.roleGuard = function() {
   return this.idleRetreat(TOUGH) || this.taskTask() ||
       this.taskArcher(this.team.room) ||
       // this.actionRoomHeal(this.team.room) ||
-      this.idleTravel(this.team);
+      this.idleMoveRoom(this.team);
 };

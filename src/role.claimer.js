@@ -11,9 +11,9 @@ Creep.prototype.roleClaimer = function() {
 
   if (!this.atTeam) {
     if (this.teamRoom) {
-      return this.taskTravel(this.team.room.controller);
+      return this.taskMoveRoom(this.team.room.controller);
     } else {
-      return this.taskTravelFlag(this.team);
+      return this.taskMoveFlag(this.team);
     }
   }
 

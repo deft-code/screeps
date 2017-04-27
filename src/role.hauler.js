@@ -19,7 +19,7 @@ class CreepHauler {
     let what = this.taskTask();
     if (what) return what;
 
-    if (!this.atTeam) return this.taskTravelFlag(this.team);
+    if (!this.atTeam) return this.taskMoveFlag(this.team);
 
     what = this.taskTransferTowers(100);
     if (what) return what;
@@ -48,7 +48,7 @@ class CreepHauler {
           });
 
       const drain = this.pos.findClosestByRange(drains);
-      if (drain) return this.taskWithdraw(drain, RESOURCE_ENERGY);
+      if (drain) return this.taskWithdrawStore(drain, RESOURCE_ENERGY);
     }
 
     const nonE = this.carryTotal - this.carry.energy;
@@ -56,7 +56,7 @@ class CreepHauler {
 
     if (!this.carry.energy) {
       if (this.room.storage && this.room.storage.store.energy > 100000) {
-        return this.taskWithdraw(this.room.storage, RESOURCE_ENERGY);
+        return this.taskWithdrawStore(this.room.storage, RESOURCE_ENERGY);
       }
       return false;
     }
@@ -66,24 +66,27 @@ class CreepHauler {
 
     const structs = _.shuffle(this.room.findStructs(
         STRUCTURE_CONTAINER, STRUCTURE_LAB, STRUCTURE_TERMINAL,
-        STRUCTURE_TOWER));
+        STRUCTURE_TOWER, STRUCTURE_NUKER, STRUCTURE_POWER_SPAWN));
 
     for (let struct of structs) {
       switch (struct.structureType) {
         case STRUCTURE_CONTAINER:
           if (struct.mode === 'sink' && struct.storeFree) {
-            return this.taskTransfer(struct, RESOURCE_ENERGY);
+            return this.taskTransferStore(struct, RESOURCE_ENERGY);
           }
           break;
         case STRUCTURE_TERMINAL:
           const e = struct.store.energy;
           const nonE = struct.storeTotal - e;
-          if (e < nonE || e < 10000)
-            return this.taskTransfer(struct, RESOURCE_ENERGY);
+          if (e < nonE || e < 10000) {
+            return this.taskTransferStore(struct, RESOURCE_ENERGY);
+          }
           break;
         case STRUCTURE_TOWER:
         case STRUCTURE_LAB:
-          if (struct.energyFree) this.taskTransferEnergy(struct);
+        case STRUCTURE_NUKER:
+        case STRUCTURE_POWER_SPAWN:
+          if (struct.energyFree) return this.taskTransfer(struct, RESOURCE_ENERGY);
           break;
       }
     }

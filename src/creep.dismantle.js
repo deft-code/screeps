@@ -27,7 +27,7 @@ class CreepDismantle {
       return struct.hits;
     }
     if (move && err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveNear(struct);
+      return this.idleMoveNear(struct, {allowHostile:true});
     }
     return false;
   }
