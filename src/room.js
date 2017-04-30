@@ -49,24 +49,18 @@ class RoomExtra {
   }
 
   get wallMax() {
-    const memMax = this.memory.wallMax;
-    if (memMax) {
-      if (memMax <= max) {
-        delete this.memory.wallMax;
-      } else {
-        return memMax;
-      }
+    const scale = this.memory.wallScale || 1;
+
+    let pct = 0;
+    if(this.storage) {
+      pct = Math.floor(this.storage.storeTotal/10000);
     }
 
-    const scale = this.memory.wallScale || 1;
-    const level = this.controller.level;
-    switch(level) {
-      case 8: return scale * 3000000;
-      case 7: return scale * 1000000;
-      case 6: return scale * 300000;
-      case 5: return scale * 100000;
-      case 4: return scale * 30000;
-    }
+    if(pct === 100) return 300000000;
+    if(pct > 70) return scale * 3000000;
+    if(pct > 50) return scale * 1000000;
+    if(pct > 20) return scale * 5000000;
+    if(pct > 10  return scale * 100000;
     return scale * 10000;
   }
 }

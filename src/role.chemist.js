@@ -41,9 +41,9 @@ class CreepChemist {
     const lab = this.room.labForMineral(mineral);
 
     return this.taskTransferLab(this.room.labForMineral(mineral)) ||
-        this.taskTransferStore(this.room.myTerminal, mineral) ||
-        this.taskTransferStore(this.room.myStorage, mineral) ||
-        this.taskTransferStore(this.room.contForMineral(mineral));
+        this.taskTransfer(this.room.myTerminal, mineral) ||
+        this.taskTransfer(this.room.myStorage, mineral) ||
+        this.taskTransfer(this.room.contForMineral(mineral));
   }
 
   taskTransferLab(lab) {
@@ -67,7 +67,7 @@ class CreepChemist {
   taskWithdrawMinerals(store) {
     if (!store) return false;
     const mineral = nonenergy(store.store);
-    return this.taskWithdrawStore(store, mineral);
+    return this.taskWithdraw(store, mineral);
   }
 
   taskResortMinerals() {

@@ -1,6 +1,21 @@
 const lib = require('lib');
 
 class CreepClaim {
+  idleEmergencyUpgrade() {
+    if(!this.carry.energy) return false;
+    const controller = this.room.controller;
+    if(!controller || !constroller.my) return false;
+    if(controller.ticksToDowngrade > 2000) return false;
+
+    return this.goUpgradeController(controller);
+  }
+
+  idleUpgrade() {
+    if(this.intents.upgrade) return false;
+
+    return this.goUpgradeController(this.room.controller, false);
+  }
+
   taskUpgradeRoom() {
     return this.taskUpgrade(this.room.controller);
   }

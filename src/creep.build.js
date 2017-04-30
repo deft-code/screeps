@@ -1,7 +1,7 @@
 const lib = require('lib');
 
 class CreepBuild {
-  idleBuildNear() {
+  idleBuild() {
     if(this.intent.melee || this.intent.range) return false;
     const site = _.sample(this.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3));
     return this.goBuild(site, false);

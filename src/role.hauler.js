@@ -72,14 +72,14 @@ class CreepHauler {
       switch (struct.structureType) {
         case STRUCTURE_CONTAINER:
           if (struct.mode === 'sink' && struct.storeFree) {
-            return this.taskTransferStore(struct, RESOURCE_ENERGY);
+            return this.taskTransfer(struct, RESOURCE_ENERGY);
           }
           break;
         case STRUCTURE_TERMINAL:
           const e = struct.store.energy;
           const nonE = struct.storeTotal - e;
           if (e < nonE || e < 10000) {
-            return this.taskTransferStore(struct, RESOURCE_ENERGY);
+            return this.taskTransfer(struct, RESOURCE_ENERGY);
           }
           break;
         case STRUCTURE_TOWER:

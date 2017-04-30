@@ -18,6 +18,7 @@ class CreepMove {
         case 'W77S52':
         case 'W77S56':
         case 'W78S52':
+        case 'W78S55':
         case 'W79S55':
         case 'W79S58':
           return 20;
@@ -97,11 +98,20 @@ class CreepMove {
 
   idleMoveRoom(obj, opts={}) {
     if (!obj) return false;
-    const p = this.pos;
-    if (obj.pos.roomName === p.roomName && p.x > 1 && p.x < 48 && p.y > 1 &&
-        p.y < 48) {
+    if (obj.pos.roomName === p.roomName) {
+      const p = this.pos;
+      if(p.x === 0) {
+        this.idleMove(RIGHT);
+      } else if (p.x === 49) {
+        this.idleMove(LEFT);
+      } else  if(p.y === 0) {
+        this.idleMove(BOTTOM);
+      } else if (p.y === 49) {
+        this.idleMove(TOP);
+      }
       return false;
     }
+    opts = _.defaults(opts, {range: 50});
     return this.idleMoveTo(obj, opts);
   }
 

@@ -3,19 +3,24 @@ const lib = require('lib');
 class CreepRepair {
   idleRepair() {
     if(this.intent.melee || this.intent.range) return false;
-
-    const power = this.getBodyInfo().repair;
-    const spots = this.pos.lookForAtRange(LOOK_STRUCTURES, this.pos, 3);
-    for(const spot of spots) {
-      const struct = spot[LOOK_STRUCTURES];
-      if(struct.structureType === STRUCTURE_WALL || structureType === STRUCTURE_RAMPART) {
-        if (struct.hits > this.room.wallMax) continue;
-      } else {
-        if(this.hurts < power && this.hitsMax > power) continue;
-      }
-      return this.goRepair(struct, false);
+    let repair = Game.getObjectById(this.memory.repair);
+    if(!repair) {
+      const power = this.getBodyInfo().repair;
+      repair = _(this.pos.lookForAtRange(LOOK_STRUCTURES, this.pos, 3))
+        .map(spot => spot[LOOK_STRUCTURE])
+        .find(struct => {
+          if(struct.structureType === STRUCTURE_WALL || structureType === STRUCTURE_RAMPART) {
+            return struct.hits < this.room.wallMax;
+          }
+          return this.hurts >= power || this.hitsMax > power;
+      });
+      this.memory.repair = repair && repair.id;
     }
-    return false;
+    const what = this.goRepair(repair, false);
+    if(!what) {
+      delete this.memory.repair;
+    }
+    return what;
   }
 
   taskRepairOrdered() {

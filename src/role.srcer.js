@@ -51,6 +51,10 @@ class CreepSrcer {
     return false;
   }
 
+  afterSrcer() {
+    this.idleBuild() || this.idleRepair();
+  }
+
   startShunt(...positions) {
     this.dlog('shunting in ', positions[0], positions[0].roomName);
     const room = Game.rooms[positions[0].roomName];

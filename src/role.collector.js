@@ -23,10 +23,10 @@ class CreepCollector {
     }
 
     if(this.carryTotal) {
-      if(this.atHome) {
+      if(this.pos.roomName === this.dropRoom().name) {
         return this.taskTransferResources();
       }
-      return this.taskMoveRoom(this.home.controller);
+      return this.taskMoveRoom(this.dropRoom().controller);
     }
 
     return this.taskMoveFlag(this.team);
@@ -40,24 +40,16 @@ class CreepCollector {
     this.dlog('collect')
     if (!this.carryFree) return false;
 
-    let resources = _.filter(
-        this.room.find(FIND_DROPPED_RESOURCES),
-        r => r.resourceType != RESOURCE_ENERGY || r.amount > 20);
+    return this.taskPickupAny() || this.taskWithdrawAny();
 
-    let stores = _.filter(this.room.find(FIND_STRUCTURES), s => s.store && s.store.energy);
-
-    const batteries = []; //_.filter(this.room.find(FIND_STRUCTURES), s => s.energy);
+    const batteries = _.filter(this.room.find(FIND_STRUCTURES), s => s.energy);
 
     const target = _.sample(resources.concat(stores).concat(batteries));
     if (target) {
-      if (target.storeTotal) {
-        this.dlog("collect store", target);
-        return this.taskWithdrawStore(target, RESOURCE_ENERGY);
-      } else if(target.energyCapacity) {
+      if (target.structureType) {
         return this.taskWithdraw(target, RESOURCE_ENERGY);
-      } else {
-        return this.taskPickup(target);
       }
+      return this.taskPickup(target);
     }
     return false;
   }

@@ -11,7 +11,7 @@ Flag.prototype.roleWorker = function(spawn) {
 
 class CreepWorker {
   roleWorker() {
-    let what = this.taskTask();
+    let what = this.idleEmergencyUpgrade() || this.taskTask();
     if (what) return what;
 
     if (this.carry.energy) {
@@ -24,6 +24,10 @@ class CreepWorker {
   afterWorker() {
     this.idleNom();
     this.idleRecharge();
+    this.idleBuild() || this.idleRepair();
+    if(this.carryTotal < this.carryFree) {
+      this.idleUpgrade();
+    }
   }
 }
 

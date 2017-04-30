@@ -94,7 +94,7 @@ class CreepTransfer {
       if (battery && this.pos.getRangeTo(battery) <= this.pos.getRangeTo(store)) {
         return this.taskTransfer(battery, RESOURCE_ENERGY);
       }
-      return this.taskTransferStore(store, RESOURCE_ENERGY);
+      return this.taskTransfer(store, RESOURCE_ENERGY);
     }
     return this.taskTransfer(battery, RESOURCE_ENERGY);
   }
@@ -115,21 +115,15 @@ class CreepTransfer {
     return this.taskTransferMinerals(resource);
   }
 
-  taskTransferStore(struct, resource) {
-    struct = this.checkId('transfer store', struct);
-    if (!struct) return false;
-    if (!struct.storeFree) return false;
-    return this.taskTransferHelper(struct, resource);
-  }
-
   taskTransfer(struct, resource) {
     struct = this.checkId('transfer', struct);
     if (!struct) return false;
-    if (struct[resource] >= struct[_.camelCase(resource + ' capacity')]) return false;
-    return this.taskTransferHelper(struct, resource);
-  }
+    if(struct.store) {
+      if(!struct.storeFree) return false;
+    } else {
+      if (struct[resource] >= struct[`${resource}Capacity`]) return false;
+    }
 
-  taskTransferHelper(struct, resource) {
     if (!resource) {
       resource = this.memory.task.resource;
     } else {
@@ -192,81 +186,51 @@ class CreepWithdraw {
     if (this.carryFree < this.carry.energy) return false;
     if (this.intents.withdraw) return false;
 
-    const spots =
-        _.shuffle(this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true));
+    const spots = _.shuffle(this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true));
 
     for (let spot of spots) {
       const s = spot.structure;
-      switch (spot.structure.structureType) {
-        case STRUCTURE_LAB:
-        case STRUCTURE_LINK:
-          if (s.energy) return this.goWithdraw(s, RESOURCE_ENERGY, false);
-          break;
-        case STRUCTURE_STORAGE:
-        case STRUCTURE_TERMINAL:
-        case STRUCTURE_CONTAINER:
-          if (s.store.energy) return this.goWithdraw(s, RESOURCE_ENERGY, false);
-          break;
+      if(s.structureType === STRUCTURE_SPAWN) continue;
+      if(s.structureType === STRUCTURE_EXTENSION) continue;
+      if(s.structureType === STRUCTURE_TOWER) continue;
+      if(s.store && s.store.energy || s.energy) {
+        return this.goWithdraw(s, RESOURCE_ENERGY, false);
       }
     }
     return false;
   }
 
+  taskRechargeLimit(limit) {
+    if(!this.carryFree) return false;
+
+    let all = _.filter(
+      this.room.find(FIND_DROPPED_RESOURCES),
+      r => r.resourceType === RESOURCE_ENERGY && this.pos.inRangeTo(r, r.amount) && r.amount >= limit);
+    
+
+    all = all.concat(_.filter(
+      this.room.findStructs(
+        STRUCTURE_CONTAINER,
+        STRUCTURE_LAB,
+        STRUCTURE_LINK,
+        STRUCTURE_NUKER,
+        STRUCTURE_POWER_SPAWN,
+        STRUCTURE_STORAGE,
+        STRUCTURE_TERMINAL
+      ),
+      s => s.store && s.store.energy >= limit || s.energy >= limit
+    ));
+
+    let e = this.pos.findClosestByRange(all);
+
+    if(e.structureType) {
+      return this.taskWithdraw(e, RESOURCE_ENERGY);
+    }
+    return this.taskPickup(e);
+  }
+
   taskRecharge() {
-    let anyE = [];
-    let goodE = [];
-    const limit = this.carryFree / 2;
-
-    for (let r of this.room.find(FIND_DROPPED_RESOURCES)) {
-      if (r.resourceType !== RESOURCE_ENERGY) continue;
-      if (this.pos.inRangeTo(r, r.amount)) continue;
-      if (r.amount < limit) {
-        anyE.push(r);
-      } else {
-        goodE.push(r);
-      }
-    }
-
-    for (let s of this.room.findStructs(STRUCTURE_LINK, STRUCTURE_LAB)) {
-      if (s.energy >= limit) {
-        goodE.push(s);
-      } else if (s.energy) {
-        anyE.push(s);
-      }
-    }
-
-    for (let s of this.room.findStructs(
-             STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL)) {
-      if (s.store.energy >= limit) {
-        goodE.push(s);
-      } else if (s.store.energy) {
-        anyE.push(s);
-      }
-    }
-
-    this.dlog('goodE', goodE);
-    let e = this.pos.findClosestByRange(goodE);
-    if (!e) {
-      e = this.pos.findClosestByRange(anyE);
-    }
-    if (!e) {
-      this.dlog('recharge fail');
-      return false;
-    }
-
-    this.dlog('recharge from', e);
-
-    switch (e.structureType) {
-      case STRUCTURE_CONTAINER:
-      case STRUCTURE_STORAGE:
-      case STRUCTURE_TERMINAL:
-        return this.taskWithdrawStore(e, RESOURCE_ENERGY);
-      case STRUCTURE_LAB:
-      case STRUCTURE_LINK:
-        return this.taskWithdraw(e, RESOURCE_ENERGY);
-      default:
-        return this.taskPickup(e);
-    }
+    return this.taskRechargeLimit(this.carryFree/2) || this.taskRechargeLimit(1);
   }
 
   taskWithdraw(struct, resource) {
@@ -280,22 +244,11 @@ class CreepWithdraw {
       this.memory.task.resource = resource;
     }
 
-    if(!struct[resource]) return false;
-
-    return this.goWithdraw(struct, resource);
-  }
-
-  taskWithdrawStore(struct, resource) {
-    struct = this.checkId('withdraw store', struct);
-    if (!struct) return false;
-    if (!this.carryFree) return false;
-
-    if (!resource) {
-      resource = this.memory.task.resource;
-    } else {
-      this.memory.task.resource = resource;
+    if (struct.store && !struct.store[resource]) {
+      return false;
+    } else if(!struct[resource]) {
+      return false;
     }
-    if (!struct.store[resource]) return false;
 
     return this.goWithdraw(struct, resource);
   }
@@ -331,12 +284,8 @@ class CreepPickup {
     if (!this.carryFree) return false;
     if (this.intents.pickup) return false;
 
-    const spot =
-        _.sample(this.room.lookForAtRange(LOOK_ENERGY, this.pos, 1, true));
-    if (spot && spot.energy.resourceType !== RESOURCE_ENERGY) {
-      console.log('Non-Energy!', spot.energy);
-    }
-    return this.goPickup(spot && spot.energy, false);
+    const spot = _.sample(this.room.lookForAtRange(LOOK_ENERGY, this.pos, 1, true));
+    return this.goPickup(spot && spot[LOOK_ENERGY], false);
   }
 
   taskPickupAny() {

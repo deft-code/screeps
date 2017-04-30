@@ -13,7 +13,7 @@ Flag.prototype.roleBootstrap = function(spawn) {
 
 class CreepBootstrap {
   roleBootstrap() {
-    let what = this.taskTask();
+    let what = this.idleEmergencyUpgrade() || this.taskTask();
     if(what) return what;
 
     if (!this.atTeam) {
@@ -24,7 +24,7 @@ class CreepBootstrap {
       return this.taskMoveFlag(this.team);
     }
 
-    if(this.carryFree) {
+    if(!this.carry.energy) {
       what = this.taskRecharge() || this.taskHarvestAny();
       if(what) return what;
     }

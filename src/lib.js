@@ -175,8 +175,8 @@ exports.creepBodyCost = (creep, current) => {
   for (let part of creep.body) {
     claim = claim || part.type == CLAIM;
     cost.energy += BODYPART_COST[part.type];
-    if (part.boosted) {
-      cost[part.boosted] = 30 + cost[part.boosted] || 0;
+    if (part.boost) {
+      cost[part.boost] = 30 + cost[part.boost] || 0;
     }
   }
   if (current) {
@@ -224,8 +224,8 @@ power[WORK] = {
 
 function getPartInfo(part) {
   const partInfo = _.clone(power[part.type]);
-  if (part.boosted) {
-    const boost = BOOSTS[part.type][part.boosted];
+  if (part.boost) {
+    const boost = BOOSTS[part.type][part.boost];
     for (let action in boost) {
       if (action == 'damage') {
         partInfo.hits += Math.floor(part.hits * (1 - boost[action]));
@@ -258,9 +258,9 @@ exports.creepBodyInfo = (creep, all) => {
   for (let i = 0; i < creep.body.length; i++) {
     const part = creep.body[i];
     if (!all && !part.hits) continue;
-    const p = power[part.type];
-    for (let action in p) {
-      info[action] += p[action];
+    const pinfo = getPartInfo(part);
+    for (let action in pinfo) {
+      info[action] += pinfo[action];
     }
   }
   return info;
