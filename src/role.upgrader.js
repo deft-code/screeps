@@ -18,10 +18,10 @@ Flag.prototype.roleUpgrader = function(spawn) {
 
 class CreepUpgrader {
   roleUpgraderfunction() {
-    this.goUpgradeController(this.team.room.controller)
+    this.goUpgradeController(this.team.room.controller);
 
     const struct = Game.getObjectById(this.memory.struct) ||
-      _(this.room.lookForAtRange(LOOK_STRUCTURES, this.room.controller.pos, 4))
+      _(this.room.lookForAtRange(LOOK_STRUCTURES, this.room.controller.pos, 4, true))
         .map(spot => spot[LOOK_STRUCTURES])
         .find(s => s.energy || s.store && s.store.energy);
 

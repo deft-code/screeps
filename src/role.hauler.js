@@ -48,7 +48,7 @@ class CreepHauler {
           });
 
       const drain = this.pos.findClosestByRange(drains);
-      if (drain) return this.taskWithdrawStore(drain, RESOURCE_ENERGY);
+      if (drain) return this.taskWithdraw(drain, RESOURCE_ENERGY);
     }
 
     const nonE = this.carryTotal - this.carry.energy;
@@ -56,7 +56,7 @@ class CreepHauler {
 
     if (!this.carry.energy) {
       if (this.room.storage && this.room.storage.store.energy > 100000) {
-        return this.taskWithdrawStore(this.room.storage, RESOURCE_ENERGY);
+        return this.taskWithdraw(this.room.storage, RESOURCE_ENERGY);
       }
       return false;
     }

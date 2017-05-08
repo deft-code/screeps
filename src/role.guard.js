@@ -13,8 +13,34 @@ Flag.prototype.roleGuard = function(spawn) {
     MOVE,
     RANGED_ATTACK,
   ];
+
+  def = {
+    move: 1,
+    nocarry: true,
+    level: [CARRY, WORK],
+    mem: {role: 'bootstrap'},
+  };
+
+  def = {
+    move: 2,
+    nocarry: true,
+    prefix: [CARRY, WORK],
+    level: [WORK],
+    max: 5,
+    mem: {role: 'srcer'},
+  };
+
+  def = {
+    move: 1,
+    prefix: [HEAL],
+    level: [TOUGH, RANGED_ATTACK],
+    mem: {role: 'guard'},
+  };
+
   return this.createRole(spawn, body, {role: 'guard'});
 };
+
+
 
 Creep.prototype.roleGuard = function() {
   this.taskSelfHeal();

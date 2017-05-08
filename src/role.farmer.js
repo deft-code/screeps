@@ -41,8 +41,9 @@ class CreepFarmer {
       let minD = Infinity;
       let minE = Infinity;
 
-      for(const r of Game.rooms) {
-        if(!r.controller.my) continue;
+      for(const rName in Game.rooms) {
+        const r = Game.rooms[rName];
+        if(!r.controller || !r.controller.my) continue;
         const d = Game.map.findRoute(this.room, r).length;
         if(d > minD) continue;
         if(d === minD) {

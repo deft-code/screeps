@@ -1,55 +1,96 @@
 const util = require('util');
 const lib = require('lib');
 
+const partsOrdered = [TOUGH, CARRY, 'premove', WORK, ATTACK, RANGED_ATTACK, MOVE, CLAIM, HEAL];
+const partPriority = (part) => _.indexOf(partsOrdered, part);
+const orderParts = (l, r) => partPriority(l) - partPriority(r);
+
+const defCost => (def, level) {
+  let parts = 0;
+  let cost = 0;
+  if(def.prefix) {
+    parts += def.prefix.length;
+    cost += _.sum(def.prefix, part => BODYPART_COST[part]);
+  }
+  cost += level * _.sum(def.level, part => BODYPART_COST[part]);
+  parts += level * def.level.length;
+
+  const move = Math.ceil(parts / def.move);
+  parts += move;
+  if(parts > 50) {
+    return Infinity;
+  }
+  return cost + BODYPART_COST[MOVE] * move;
+};
+
+ const defBody => (def, level) {
+  let parts = (def.prefix || []).slice();
+  for(const i=0; i<level; i++) {
+    def.level.forEach(part => parts.push(part));
+  }
+  const move = Math.ceil(parts.length / def.move);
+  for(const i=0; i<move; i++){
+    if(i < move/2) {
+      part.push('premove');
+    } else {
+      part.push(MOVE);
+    }
+  }
+
+  parts.sort(orderParts);
+  parts = _.map(parts, part => {
+    if(part === 'premove') return MOVE;
+    return part;
+  });
+  return parts;
+};
+
 class Spawn {
   run() {
     if (this.spawning) {
       const mem = Memory.creeps[this.spawning.name];
       this.dlog(
-          'Spawning', JSON.stringify(this.spawning), mem.role,
-          mem.team || mem.squad);
+          'Spawning', JSON.stringify(this.spawning), mem.role, mem.team);
     } else {
-      this.dlog('Start Spawning', this.dequeueRole());
+      if (this.nextDef) {
+        this.dlog('Start Spawning', this.createDef(this.nextDef));
+      }
     }
   }
 
-  dequeueRole() {
-    if (!this.nextRole) {
-      return false;
-    }
-    const fname = _.camelCase('role ' + this.nextRole.role);
-    const fn = this.nextRole.obj[fname];
-    if (!fn) {
-      console.log('Bad enqueued role', JSON.stringify(obj));
-      return false;
-    }
-    return fn.call(this.nextRole.obj, this);
-  }
-
-  enqueueRole(obj, role, priority) {
+  enqueueDef(def) {
     if (this.spawning) return false;
 
-    if (!this.nextRole || !this.nextRole.priority > priority) {
-      this.nextRole = {
-        obj: obj,
-        role: role,
-        priority: priority,
-      };
+    maybeDef = _.defaults(def, {
+      priority: 0,
+    });
+
+    if (!this.nextDef || !this.nextDef.priority > maybeDef.priority) {
+      this.nextDef = maybeDef;
       return true;
     }
     return false;
   }
 
-  createRole(body, memory) {
+  createDef(def) {
+    const memory = def.mem;
     memory.spawn = this.name;
     memory.birth = Game.time;
-    let myParts = body;
-    while (lib.partsCost(myParts) > this.room.energyAvailable) {
-      myParts.pop();
+
+    let level = def.min || 1;
+    const max = def.max || 50;
+
+    for(;level <= max; level++) {
+      const cost = this.defCost(def, level);
+      if(cost > this.room.energyAvailable) break;
     }
-    const optParts = util.optimizeBody(myParts);
-    this.dlog('spawning', JSON.stringify(memory), optParts);
-    return this.createCreep(optParts, undefined, memory);
+
+    const body = this.defBody(def, level);
+    const who = this.createCreep(body, undefined, memory);
+    if(who) {
+      Game.flags[memory.team].memory.creeps.push(who);
+    }
+    return who;
   }
 }
 

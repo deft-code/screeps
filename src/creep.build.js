@@ -2,7 +2,7 @@ const lib = require('lib');
 
 class CreepBuild {
   idleBuild() {
-    if(this.intent.melee || this.intent.range) return false;
+    if(this.intents.melee || this.intents.range) return false;
     const site = _.sample(this.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3));
     return this.goBuild(site, false);
   }

@@ -60,7 +60,7 @@ class RoomExtra {
     if(pct > 70) return scale * 3000000;
     if(pct > 50) return scale * 1000000;
     if(pct > 20) return scale * 5000000;
-    if(pct > 10  return scale * 100000;
+    if(pct > 10) return scale * 100000;
     return scale * 10000;
   }
 }

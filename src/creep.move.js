@@ -2,14 +2,74 @@ const lib = require('lib');
 const util = require('util');
 
 class CreepMove {
-  idleMove(dir) {
+  idleOffRoad() {
+    if(this.intents.move) return false;
+    if(this.fatigue) return false;
+
+    if(this.memory.offroad) {
+      const offroad = lib.roomposFromMem(this.memory.offroad);
+      if(this.pos.isEqualTo(offroad)) {
+        return false;
+      }
+      delete this.memory.offroad;
+    }
+
+    const stuff = this.room.lookForAt(LOOK_STRUCTURES, this);
+    if(!_.any(stuff, s => s.structureType === STRUCTURE_ROAD)) {
+      this.memory.offroad = this.pos;
+    }
+
+    const offset = Math.floor(Math.random()*8)
+    for(const d = TOP; dir <= TOP_LEFT; dir++) {
+      const dir = (d + offset) % TOP_LEFT;
+      const pos = this.pos.atDirection(dir);
+      if(pos.exit) continue;
+
+      const spots = this.room.lookAt(pos);
+      const badSpot = (spot) => {
+        switch(spot.type) {
+          case LOOK_TERRAIN:
+            return spot[LOOK_TERRAIN] === 'wall';
+          case LOOK_STRUCTURES:
+            const struct = spot[LOOK_STRUCTURES];
+            return struct.obstacle || struct.structureType === STRUCTURE_ROAD;
+          case LOOK_CREEPS:
+          case LOOK_CONSTRUCTION_SITES:
+            return true;
+        }
+        return false;
+      };
+      if(_.any(spots, badSpot)) continue;
+
+      return this.moveDir(dir);
+    }
+  }
+
+  moveDir(dir) {
     return this.moveHelper(this.move(dir), dir);
   }
 
-  idleMoveTo(target, opts = {}) {
+  movePos(target, opts = {}) {
+    opts = _.defaults(opts, {range: 0});
+    return this.moveTarget(target, opts);
+  }
+
+  moveNear(target, opts = {}) {
+    opts = _.defaults(opts, {range: 1});
+    return this.moveTarget(target, opts);
+  }
+
+  moveRange(target, opts = {}) {
+    opts = _.defaults(opts, {range: 3});
+    return this.moveTarget(target, opts);
+  }
+
+  moveTarget(target, opts = {}) {
+    if (!target || this.pos.inRangeTo(target, opts.range)) return false;
+
     const weight = this.weight;
     const fatigue = this.bodyInfo().fatigue;
-    this.dlog('doMoveTo', weight, fatigue, target);
+    this.dlog('moveTarget', weight, fatigue, target);
 
     const routeCB = (roomName) => {
       switch(roomName) {
@@ -74,12 +134,12 @@ class CreepMove {
     const next = _.first(ret.path);
     if (!next) return false;
 
-    return this.idleMove(this.pos.getDirectionTo(next));
+    return this.moveDir(this.pos.getDirectionTo(next));
   }
 
   idleAway(creep) {
     if (!creep) return false;
-    return this.idleMove(this.pos.getDirectionAway(creep));
+    return this.moveDir(this.pos.getDirectionAway(creep));
   }
 
   idleRetreat(part) {
@@ -98,16 +158,16 @@ class CreepMove {
 
   idleMoveRoom(obj, opts={}) {
     if (!obj) return false;
+    const p = this.pos;
     if (obj.pos.roomName === p.roomName) {
-      const p = this.pos;
       if(p.x === 0) {
-        this.idleMove(RIGHT);
+        this.moveDir(RIGHT);
       } else if (p.x === 49) {
-        this.idleMove(LEFT);
+        this.moveDir(LEFT);
       } else  if(p.y === 0) {
-        this.idleMove(BOTTOM);
+        this.moveDir(BOTTOM);
       } else if (p.y === 49) {
-        this.idleMove(TOP);
+        this.moveDir(TOP);
       }
       return false;
     }

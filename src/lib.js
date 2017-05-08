@@ -293,9 +293,9 @@ exports.oppositeDir = function(dir) {
 };
 
 exports.roomposExit = (pos) =>
-    pos.x == 0 || pos.y == 0 || pos.x == 49 || pos.y == 49;
+    pos.x <= 0 || pos.y <= 0 || pos.x >= 49 || pos.y >= 49;
 
-exports.roomposFromMem = (obj) => new RoomPosition(obj.x, obj.y, obj.roomName);
+exports.roomposFromMem = (obj) => _.isObject(obj) && new RoomPosition(obj.x, obj.y, obj.roomName);
 
 exports.roomposGetDirectionAway = (pos, dest) =>
     exports.oppositeDir(pos.getDirectionTo(dest));
@@ -354,10 +354,10 @@ exports.structStoreTotal = (struct) => _.sum(struct.store);
 
 // Available storeing capacity.
 exports.structStoreFree = (struct) =>
-    struct.storeCapacity - exports.structStoreTotal(struct);
+    Math.max(0, struct.storeCapacity - exports.structStoreTotal(struct));
 
 // Available energy capacity.
-exports.structEnergyFree = (struct) => struct.energyCapacity - struct.energy;
+exports.structEnergyFree = (struct) => Math.max(0, struct.energyCapacity - struct.energy);
 
 exports.structObstacle = (struct) =>
     _.contains(OBSTACLE_OBJECT_TYPES, struct.structureType);

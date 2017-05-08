@@ -118,16 +118,20 @@ class CreepTransfer {
   taskTransfer(struct, resource) {
     struct = this.checkId('transfer', struct);
     if (!struct) return false;
-    if(struct.store) {
-      if(!struct.storeFree) return false;
-    } else {
-      if (struct[resource] >= struct[`${resource}Capacity`]) return false;
-    }
 
     if (!resource) {
       resource = this.memory.task.resource;
     } else {
       this.memory.task.resource = resource;
+    }
+
+    if(struct.store) {
+      if(!struct.storeFree) return false;
+    } else {
+      const r = struct[resource];
+      const rCap = struct[`${resource}Capacity`];
+      console.log(`${this.name} taskTransfer ${resource}: ${r}, ${rCap}`);
+      if (r >= rCap) return false;
     }
 
     if (!this.carry[resource]) return false;
@@ -231,6 +235,43 @@ class CreepWithdraw {
 
   taskRecharge() {
     return this.taskRechargeLimit(this.carryFree/2) || this.taskRechargeLimit(1);
+  }
+
+  taskWithdrawAny() {
+    if(!this.carryFree) return false;
+
+    const structs = _.shuffle(this.room.find(FIND_STRUCTURES));
+    for(const struct of structs) {
+      const what = this.taskWithdrawResource(struct);
+      if(what) return what;
+    }
+    return false;
+  }
+
+  taskWithdrawResource(struct) {
+    if(!struct) return false;
+    switch(struct.structureType) {
+      case STRUCTURE_CONTAINER:
+      case STRUCTURE_TERMINAL:
+      case STRUCTURE_STORAGE:
+        if(!struct.storeTotal) return false;
+        return this.taskWithdraw(struct, util.randomResource(struct.store));
+      case STRUCTURE_EXTENSION:
+      case STRUCTURE_TOWER:
+      case STRUCTURE_LINK:
+        if(!struct.energy) return false;
+        return this.taskWithdraw(struct, RESOURCE_ENERGY);
+      case STRUCTURE_LAB:
+        return this.taskWithdrawLab(struct) ||
+          this.taskWithdraw(struct, RESOURCE_ENERGY);
+      case STRUCTURE_POWER_SPAWN:
+        return this.taskWithdraw(struct, RESOURCE_POWER) ||
+          this.taskWithdraw(struct, RESOURCE_ENERGY);
+      case STRUCTURE_NUKER:
+        return this.taskWithdraw(struct, RESOURCE_GHODIUM) ||
+          this.taskWithdraw(struct, RESOURCE_ENERGY);
+    }
+    return false;
   }
 
   taskWithdraw(struct, resource) {

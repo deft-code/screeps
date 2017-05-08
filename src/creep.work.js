@@ -4,7 +4,7 @@ class CreepClaim {
   idleEmergencyUpgrade() {
     if(!this.carry.energy) return false;
     const controller = this.room.controller;
-    if(!controller || !constroller.my) return false;
+    if(!controller || !controller.my) return false;
     if(controller.ticksToDowngrade > 2000) return false;
 
     return this.goUpgradeController(controller);
@@ -60,60 +60,46 @@ class CreepClaim {
 lib.merge(Creep, CreepClaim);
 
 class CreepHarvest {
-  taskHarvestAny() {
-    return this.taskHarvest(this.pickSrc());
+  taskHarvestSpots() {
+    for(const src of this.room.find(FIND_SOURCES_ACTIVE)) {
+      if(!this.pos.isNearTo(src)) continue;
+      return this.taskHarvestSpot(src, this.pos);
+    }
+
+    const srcs = _(this.room.find(FIND_SOURCES))
+      .filter(s => s.energy || this.pos.getRangeTo(s) > s.ticksToRegeneration)
+      .shuffle()
+      .value();
+    console.log("taskHarvestSpots", srcs.length, srcs);
+    for(const src of srcs) {
+      const spots = _.shuffle(src.spots);
+      for(const spot of spots) {
+        const creeps = this.room.lookForAt(LOOK_CREEPS, spot);
+        if(creeps.length) continue;
+        return this.taskHarvestSpot(src, spot);
+      }
+    }
   }
 
-  taskHarvestNext() {
-    // move near the src, sleep till it refills.
-    return false;
-  }
-
-  taskHarvest(src) {
+  taskHarvestSpot(src, spot) {
     if (!this.carryFree) return false;
-    src = this.checkId('harvest', src);
-    return this.goHarvest(src);
-  }
 
-  pickSrc() {
-    let srcs = _.filter(
-        this.room.find(FIND_SOURCES),
-        src => src.energy || this.pos.inRangeTo(src, src.ticksToRegeneration));
-    if (!srcs.length) {
-      srcs = this.room.find(FIND_SOURCES);
+    src = this.checkId('harvest spot', src);
+    if(!src || !src.energy) return false;
+
+    if(this.memory.task.spot) {
+      spot = lib.roomposFromMem(this.memory.task.spot);
+    } else {
+      this.memory.task.spot = spot;
     }
-    if (srcs.length === 1) return _.first(srcs);
 
-    let min = 100;
-    let minSrc = null;
-    let range = 100;
-    for (let src of srcs) {
-      const spots = this.room.lookForAtRange(LOOK_CREEPS, src.pos, 1, true);
-      let l = spots.length;
-      // Don't count self.
-      if (_.find(spots, spot => spot.creep.name === this.name)) {
-        l -= 1;
-      }
-      const r = this.pos.getRangeTo(src);
-      if (l < min || l === min && r < range) {
-        min = spots.length;
-        minSrc = src;
-        range = r;
-      }
-    }
-    return minSrc;
-  }
-
-  goHarvest(src, move = true) {
+    const where = this.movePos(spot);
     const err = this.harvest(src);
     if (err === OK) {
       this.intents.melee = src;
       return src.energy;
     }
-    if (move && err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveNear(src);
-    }
-    return false;
+    return where;
   }
 }
 

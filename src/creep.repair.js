@@ -2,14 +2,14 @@ const lib = require('lib');
 
 class CreepRepair {
   idleRepair() {
-    if(this.intent.melee || this.intent.range) return false;
+    if(this.intents.melee || this.intents.range) return false;
     let repair = Game.getObjectById(this.memory.repair);
     if(!repair) {
-      const power = this.getBodyInfo().repair;
-      repair = _(this.pos.lookForAtRange(LOOK_STRUCTURES, this.pos, 3))
-        .map(spot => spot[LOOK_STRUCTURE])
+      const power = this.bodyInfo().repair;
+      repair = _(this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 3, true))
+        .map(spot => spot[LOOK_STRUCTURES])
         .find(struct => {
-          if(struct.structureType === STRUCTURE_WALL || structureType === STRUCTURE_RAMPART) {
+          if(struct.structureType === STRUCTURE_WALL || struct.structureType === STRUCTURE_RAMPART) {
             return struct.hits < this.room.wallMax;
           }
           return this.hurts >= power || this.hitsMax > power;
