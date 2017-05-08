@@ -91,7 +91,7 @@ class CreepSrcer {
       this.dlog('shunt moveTo', struct, err);
       if (!this.intents.move && err == ERR_NOT_IN_RANGE) {
         this.dlog('moving', struct);
-        this.idleMoveNear(struct);
+        this.moveNear(struct);
       }
       return err == -OK;
     };

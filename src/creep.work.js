@@ -38,7 +38,7 @@ class CreepClaim {
       return this.room.controller.resTicks;
     }
     if (err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveNear(this.room.controller);
+      return this.moveNear(this.room.controller);
     }
     this.say(`bad reserve ${err}`);
     return false;
@@ -51,7 +51,7 @@ class CreepClaim {
       return controller.progress
     }
     if (move && err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveRange(controller);
+      return this.moveRange(controller);
     }
     return false;
   }

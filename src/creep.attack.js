@@ -8,14 +8,14 @@ class CreepAttack {
       return target.hits;
     }
     if (err === ERR_NOT_IN_RANGE) {
-      return move && this.idleMoveRange(target);
+      return move && this.moveRange(target);
     }
     return false;
   }
 
   goMassAttack(target, move = true) {
     if (!this.pos.inRangeTo(target, 3)) {
-      return move && this.idleMoveNear(target);
+      return move && this.moveNear(target);
     }
     const err = this.rangedMassAttack();
     if (err === OK) {
@@ -30,7 +30,7 @@ class CreepAttack {
       return this.intents.melee = target;
     }
     if (err === ERR_NOT_IN_RANGE) {
-      return move && this.idleMoveNear(target);
+      return move && this.moveNear(target);
     }
     return false;
   }

@@ -90,7 +90,7 @@ class CreepRepair {
       return struct.hits;
     }
     if (move && err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveRange(struct);
+      return this.moveRange(struct);
     }
     return false;
   }

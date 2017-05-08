@@ -17,7 +17,7 @@ Flag.prototype.roleArcher = function(spawn) {
 
 Creep.prototype.roleArcher = function() {
   return this.taskTask() || this.taskArcher() ||
-      this.idleMoveNear(this.team);
+      this.moveNear(this.team);
 };
 
 Creep.prototype.taskArcher = function() {
@@ -45,7 +45,7 @@ Creep.prototype.taskKite = function(creep) {
       err = this.goRangedAttack(creep, false);
       break;
     default:
-      return this.idleMoveRange(creep);
+      return this.moveRange(creep);
   }
 
   if (err === OK) {

@@ -146,12 +146,12 @@ class CreepMove {
     if (this.getActiveBodyparts(part)) {
       return false;
     }
-    return this.idleMoveRange(this.home.controller);
+    return this.moveRange(this.home.controller);
   }
 
   actionHospital() {
     if (this.hurts > 100 || this.hits < 100) {
-      return this.idleMoveRange(this.home.controller);
+      return this.moveRange(this.home.controller);
     }
     return false;
   }
@@ -173,20 +173,6 @@ class CreepMove {
     }
     opts = _.defaults(opts, {range: 50});
     return this.idleMoveTo(obj, opts);
-  }
-
-  idleMoveNear(target, opts = {}) {
-    opts = _.defaults(opts, {range: 1});
-    if (!target || this.pos.inRangeTo(target, opts.range)) return false;
-
-    return this.idleMoveTo(target, opts);
-  }
-
-  idleMoveRange(target, opts = {}) {
-    opts = _.defaults(opts, {range: 3});
-    if (!target || this.pos.inRangeTo(target, opts.range)) return false;
-
-    return this.idleMoveTo(target, opts);
   }
 
   taskMoveRoom(obj) {

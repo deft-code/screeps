@@ -57,7 +57,7 @@ class CreepBuild {
       return site.progressTotal - site.progress;
     }
     if (move && err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveRange(site);
+      return this.moveRange(site);
     }
     return false;
   }

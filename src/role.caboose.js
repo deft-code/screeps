@@ -12,7 +12,7 @@ Flag.prototype.roleCaboose = function(spawn) {
 
 Creep.prototype.roleCaboose = function() {
   return this.taskTask() || this.taskCabooseFind() ||
-      this.taskSelfHeal() || this.idleMoveNear(this.team);
+      this.taskSelfHeal() || this.moveNear(this.team);
 };
 
 Creep.prototype.taskSelfHeal = function() {

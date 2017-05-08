@@ -19,6 +19,6 @@ Creep.prototype.roleClaimer = function() {
 
   const err = this.claimController(this.teamRoom.controller);
   if (err == ERR_NOT_IN_RANGE) {
-    return this.idleMoveNear(this.teamRoom.controller);
+    return this.moveNear(this.teamRoom.controller);
   }
 };

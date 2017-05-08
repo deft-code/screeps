@@ -8,7 +8,7 @@ class CreepHeal {
       return creep.hurts;
     }
     if (move && err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveNear(creep);
+      return this.moveNear(creep);
     }
     return false;
   }
@@ -20,7 +20,7 @@ class CreepHeal {
       return creep.hurts;
     }
     if (move && err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveRange(creep);
+      return this.moveRange(creep);
     }
     return false;
   }

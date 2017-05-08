@@ -28,7 +28,7 @@ class CreepUpgrader {
     if(struct) {
       this.memory.struct = struct.id;
       if(!this.intents.move && !this.fatigue) {
-        this.idleMoveNear(struct);
+        this.moveNear(struct);
       }
       if(this.carryTotal < this.carryFree) {
         if(!this.doWithdraw(struct, RESOURCE_ENERGY, false)) {

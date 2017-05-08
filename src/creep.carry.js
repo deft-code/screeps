@@ -146,7 +146,7 @@ class CreepTransfer {
       return 'success';
     }
     if (move && err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveNear(target);
+      return this.moveNear(target);
     }
     this.dlog('goTransfer error!', err);
     return false;
@@ -302,7 +302,7 @@ class CreepWithdraw {
       return 'success';
     }
     if (move && err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveNear(target);
+      return this.moveNear(target);
     }
     this.dlog('goWithdraw error!', err);
     return false;
@@ -353,7 +353,7 @@ class CreepPickup {
       return 'success';
     }
     if (move && err === ERR_NOT_IN_RANGE) {
-      return this.idleMoveNear(resource);
+      return this.moveNear(resource);
     }
     return false;
   }
