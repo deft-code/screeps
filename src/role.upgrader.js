@@ -1,21 +1,5 @@
 const lib = require('lib');
 
-Flag.prototype.roleUpgrader = function(spawn) {
-  let body = [
-    MOVE, WORK, CARRY, MOVE, WORK, CARRY, MOVE, WORK, WORK,  MOVE,
-    WORK, WORK, MOVE,  WORK, WORK, MOVE,  WORK, WORK, MOVE,  WORK,
-    WORK, MOVE, WORK,  WORK, MOVE, WORK,  WORK, MOVE, WORK,  WORK,
-    MOVE, WORK, WORK,  MOVE, WORK, WORK,  MOVE, WORK, WORK,  MOVE,
-    WORK, WORK, MOVE,  WORK, WORK, MOVE,  WORK, WORK, CARRY, CARRY,
-  ];
-  const level = spawn.room.controller.level;
-  if(level > 7) {
-    body = body.slice(0, 24);
-  }
-
-  return this.createRole(spawn, body, {role: 'upgrader'});
-};
-
 class CreepUpgrader {
   roleUpgraderfunction() {
     this.goUpgradeController(this.team.room.controller);

@@ -1,14 +1,3 @@
-Flag.prototype.roleDropper = function(spawn) {
-  let body = [
-    MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
-    MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
-    MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
-    MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
-    MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
-  ];
-  return this.createRole(spawn, body, {role: 'dropper'});
-};
-
 Creep.prototype.roleDropper = function() {
   let what = this.taskTask();
   if (what) return what;

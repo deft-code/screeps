@@ -1,8 +1,3 @@
-Flag.prototype.roleMedic = function(spawn) {
-  let body = [MOVE, HEAL];
-  return this.createRole(spawn, body, {role: 'medic'});
-};
-
 Creep.prototype.roleMedic = function() {
   return this.taskTask() || this.taskTeamHeal(this.team);
 };
@@ -50,5 +45,4 @@ Creep.prototype.taskLocalHeal = function() {
     return c.hits;
   }
   return false;
-
 };

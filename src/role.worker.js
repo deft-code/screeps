@@ -1,15 +1,6 @@
 let lib = require('lib');
 
-Flag.prototype.roleWorker = function(spawn) {
-  const body = [
-    CARRY, WORK, MOVE, CARRY, MOVE, WORK, CARRY, MOVE, WORK, CARRY, MOVE, WORK,
-    CARRY, MOVE, WORK, CARRY, MOVE, WORK, CARRY, MOVE, WORK, CARRY, MOVE, WORK,
-    WORK,  MOVE, WORK, MOVE,  WORK, MOVE, WORK,  MOVE, WORK, MOVE,
-  ];
-  return this.createRole(spawn, body, {role: 'worker'});
-};
-
-class CreepWorker {
+module.exports = class CreepWorker {
   roleWorker() {
     let what = this.idleEmergencyUpgrade() || this.taskTask();
     if (what) return what;
@@ -29,6 +20,6 @@ class CreepWorker {
       this.idleUpgrade();
     }
   }
-}
+};
 
-lib.merge(Creep, CreepWorker);
+//lib.merge(Creep, CreepWorker);

@@ -2,27 +2,14 @@ const lib = require('lib');
 
 class Container {
   calcMode() {
-    if (this.room.storage && this.pos.inRangeTo(this.room.storage, 2)) {
-      return 'buffer';
+    if(_.any(this.room.find(FIND_SOURCES), src => this.pos.inRangeTo(src, 2))) {
+      return 'src';
     }
 
-    const src = this.room.find(FIND_SOURCES, src => this.pos.inRangeTo(src, 2));
-    if (src) return 'src';
-
-    const mineral = this.room.find(
-        FIND_MINERALS, mineral => this.pos.inRangeTo(mineral, 2));
-    if (mineral) return 'src';
-
+    if(_.any(this.room.find(FIND_MINERALS), src => this.pos.inRangeTo(src, 2))) {
+      return 'src';
+    }
     return 'sink'
-  }
-
-  get source() {
-    if (_.isUndefined(this.memory.source)) {
-      let srcs = this.pos.findInRange(FIND_SOURCES, 1);
-      let mines = this.pos.findInRange(FIND_MINERALS, 1);
-      this.memory.source = srcs.length > 0 || mines.length > 0;
-    }
-    return this.memory.source;
   }
 
   get mode() {

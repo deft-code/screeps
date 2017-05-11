@@ -1,18 +1,5 @@
 const lib = require('lib');
 
-Flag.prototype.roleCollector = function(spawn) {
-  const body = [
-    MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
-    MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
-    MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
-    MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
-    MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
-    MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY,
-    MOVE, CARRY,
-  ];
-  return this.createRole(spawn, body, {role: 'collector'});
-};
-
 class CreepCollector {
   roleCollector() {
     let what = this.idleRetreat(CARRY) || this.taskTask();

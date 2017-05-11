@@ -1,16 +1,5 @@
 const lib = require('lib');
 
-Flag.prototype.roleBootstrap = function(spawn) {
-  const body = [
-    MOVE, WORK, CARRY, MOVE, WORK, MOVE, WORK, CARRY, MOVE, WORK,
-    MOVE, WORK, CARRY, MOVE, WORK, MOVE, WORK, CARRY, MOVE, WORK,
-    MOVE, WORK, CARRY, MOVE, WORK, MOVE, WORK, CARRY, MOVE, WORK,
-    MOVE, WORK, CARRY, MOVE, WORK, MOVE, WORK, CARRY, MOVE, WORK,
-    MOVE, WORK, CARRY, MOVE, WORK, MOVE, WORK, CARRY, MOVE, WORK,
-  ];
-  return this.createRole(spawn, body, {role: 'bootstrap'});
-};
-
 class CreepBootstrap {
   roleBootstrap() {
     let what = this.idleEmergencyUpgrade() || this.taskTask();
@@ -25,14 +14,14 @@ class CreepBootstrap {
     }
 
     if(!this.carry.energy) {
-      what = this.taskRecharge() || this.taskHarvestAny();
+      what = this.taskRecharge() || this.taskHarvestSpots();
       if(what) return what;
     }
 
     return this.taskTransferTowers(100) ||
         this.taskTransferPool() || this.taskBuildOrdered() ||
         this.taskRepairOrdered() || this.taskUpgradeRoom() ||
-        this.taskHarvestNext();
+        this.taskCampSrcs();
   }
 
   afterBootstrap() {

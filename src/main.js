@@ -36,7 +36,7 @@ require('creep.heal');
 require('creep.move');
 require('creep.repair');
 require('creep.role');
-require('creep.work');
+//require('creep.work');
 
 require('role.archer');
 require('role.bootstrap');
@@ -52,11 +52,18 @@ require('role.hauler');
 require('role.medic');
 require('role.miner');
 require('role.reserver');
-require('role.scout');
-require('role.snipe');
 require('role.srcer');
 require('role.upgrader');
-require('role.worker');
+//require('role.worker');
+
+mods = [
+  'creep.work',
+  'role.worker',
+];
+
+for(const mod of mods) {
+  lib.merge(Creep, require(mod));
+}
 
 if (false) {
   const profiler = require('screeps-profiler');
@@ -132,7 +139,6 @@ function main() {
 
   runner(Game.rooms);
   runner(Game.flags);
-  runner(Game.spawns);
   runner(Game.creeps);
 
   clearMem('creeps');

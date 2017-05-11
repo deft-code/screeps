@@ -1,40 +1,108 @@
-const util = require('util');
 const lib = require('lib');
+
+const bodies = {
+  carry: {
+    move: 2,
+    level: [CARRY],
+  },
+
+  carryFar: {
+    move: 1,
+    level: [CARRY],
+  },
+
+  claim: {
+    move: 0,
+    base: [CLAIM],
+    level: [MOVE],
+    max: 5
+  },
+
+  defender: {
+    move: 2,
+    level: [ATTACK],
+  },
+
+  dismantle: {
+    move: 1,
+    level: [WORK],
+  },
+
+  farmer: {
+    move: 1,
+    level: [WORK, CARRY, CARRY],
+  },
+
+  guard: {
+    move: 1,
+    base: [MOVE, HEAL],
+    level: [TOUGH, RANGED_ATTACK],
+  },
+
+  reserve: {
+    move: 1,
+    base: [MOVE, CLAIM],
+    level: [CLAIM],
+  },
+
+  srcer: {
+    move: 2,
+    base: [CARRY],
+    level: [WORK],
+    max: 6,
+  },
+
+  upgrader: {
+    move: 2,
+    base: [CARRY, CARRY],
+    level: [WORK],
+  },
+
+  worker: {
+    move: 2,
+    base: [MOVE, CARRY],
+    level: [WORK, CARRY],
+  },
+};
 
 const partsOrdered = [TOUGH, CARRY, 'premove', WORK, ATTACK, RANGED_ATTACK, MOVE, CLAIM, HEAL];
 const partPriority = (part) => _.indexOf(partsOrdered, part);
 const orderParts = (l, r) => partPriority(l) - partPriority(r);
 
-const defCost => (def, level) {
+const defCost = (def, level) => {
   let parts = 0;
   let cost = 0;
-  if(def.prefix) {
-    parts += def.prefix.length;
-    cost += _.sum(def.prefix, part => BODYPART_COST[part]);
+  let max = 50;
+  if(def.base) {
+    max -= def.base.length;
+    cost += _.sum(def.base, part => BODYPART_COST[part]);
   }
   cost += level * _.sum(def.level, part => BODYPART_COST[part]);
-  parts += level * def.level.length;
+  const nparts = level * def.level.length;
 
-  const move = Math.ceil(parts / def.move);
-  parts += move;
-  if(parts > 50) {
+  const nmove = Math.ceil(parts / def.move);
+  if(nparts + nmove > max) {
     return Infinity;
   }
-  return cost + BODYPART_COST[MOVE] * move;
+  return cost + BODYPART_COST[MOVE] * nmove;
 };
 
- const defBody => (def, level) {
-  let parts = (def.prefix || []).slice();
-  for(const i=0; i<level; i++) {
-    def.level.forEach(part => parts.push(part));
+const defBody = (def, level) => {
+  let parts = [];
+  for(let i=0; i<level; i++) {
+    parts = parts.concat(def.level);
   }
   const move = Math.ceil(parts.length / def.move);
-  for(const i=0; i<move; i++){
+  for(let i=0; i<move; i++){
     if(i < move/2) {
-      part.push('premove');
+      parts.push('premove');
     } else {
-      part.push(MOVE);
+      parts.push(MOVE);
     }
+  }
+
+  if(def.base) {
+    parts = parts.concat(def.base);
   }
 
   parts.sort(orderParts);
@@ -46,51 +114,40 @@ const defCost => (def, level) {
 };
 
 class Spawn {
-  run() {
-    if (this.spawning) {
-      const mem = Memory.creeps[this.spawning.name];
-      this.dlog(
-          'Spawning', JSON.stringify(this.spawning), mem.role, mem.team);
-    } else {
-      if (this.nextDef) {
-        this.dlog('Start Spawning', this.createDef(this.nextDef));
-      }
-    }
+  levelCreep(priority, level, mem) {
+    if(this.nextPriority >= priority) return false;
+
+    const def = bodies[mem.body];
+    if(!def) return false;
+
+    const parts = defBody(def, level);
+
+    mem.level = level;
+    mem.spawn = this.name;
+    mem.birth = Game.time;
+
+    console.log("levelCreep", parts, JSON.stringify(mem));
+
+    return this.createCreep(parts, undefined, mem);
   }
 
-  enqueueDef(def) {
-    if (this.spawning) return false;
+  maxCreep(priority, mem) {
+    if(this.nextPriority >= priority) return false;
 
-    maybeDef = _.defaults(def, {
-      priority: 0,
-    });
+    const def = bodies[mem.body];
+    if(!def) return false;
 
-    if (!this.nextDef || !this.nextDef.priority > maybeDef.priority) {
-      this.nextDef = maybeDef;
-      return true;
+    let level = 2;
+    let cost = defCost(def, level);
+    while(cost < this.room.energyAvailable) {
+      level++;
+      cost = defCost(def, level);
     }
-    return false;
-  }
+    level--;
 
-  createDef(def) {
-    const memory = def.mem;
-    memory.spawn = this.name;
-    memory.birth = Game.time;
+    console.log("maxCreep", priority, level, JSON.stringify(mem));
 
-    let level = def.min || 1;
-    const max = def.max || 50;
-
-    for(;level <= max; level++) {
-      const cost = this.defCost(def, level);
-      if(cost > this.room.energyAvailable) break;
-    }
-
-    const body = this.defBody(def, level);
-    const who = this.createCreep(body, undefined, memory);
-    if(who) {
-      Game.flags[memory.team].memory.creeps.push(who);
-    }
-    return who;
+    return this.levelCreep(priority, level, mem);
   }
 }
 

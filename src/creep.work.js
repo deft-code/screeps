@@ -1,6 +1,6 @@
 const lib = require('lib');
 
-class CreepClaim {
+module.exports = class CreepWork {
   idleEmergencyUpgrade() {
     if(!this.carry.energy) return false;
     const controller = this.room.controller;
@@ -55,11 +55,7 @@ class CreepClaim {
     }
     return false;
   }
-}
 
-lib.merge(Creep, CreepClaim);
-
-class CreepHarvest {
   taskHarvestSpots() {
     for(const src of this.room.find(FIND_SOURCES_ACTIVE)) {
       if(!this.pos.isNearTo(src)) continue;
@@ -101,6 +97,20 @@ class CreepHarvest {
     }
     return where;
   }
-}
 
-lib.merge(Creep, CreepHarvest);
+  taskCampSrcs() {
+    const src = _.min(
+      this.room.find(FIND_SOURCES),
+      s => s.ticksToRegeneration);
+    return this.taskCampSrc(src);
+  }
+
+  taskCampSrc(src) {
+    if(this.carry.energy) return false;
+
+    src = this.checkId('camp src', src);
+    if(src.energy) return false;
+
+    return this.moveNear(src);
+  }
+}

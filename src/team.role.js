@@ -1,5 +1,8 @@
 Flag.prototype.teamRole = function() {
-  return this.upkeepRole(
-             _.camelCase(this.name.toLowerCase()), 1, 1, this.remoteSpawn()) ||
-      'enough';
+  const words = _.words(this.name);
+  const mem = {
+    role: _.first(words).toLowerCase(),
+    body: _.last(words).toLowerCase(),
+  };
+  return this.upkeepRole(1, mem, 1, this.closeSpawn()) || 'enough';
 };

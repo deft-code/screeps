@@ -1,18 +1,5 @@
 const lib = require('lib');
 
-Flag.prototype.roleFarmer = function(spawn) {
-  let body = [
-    MOVE, WORK,  MOVE, CARRY, MOVE, CARRY, MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-    MOVE, WORK,  MOVE, CARRY, MOVE, CARRY, MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-
-    MOVE, WORK,  MOVE, CARRY, MOVE, CARRY, MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-    MOVE, WORK,  MOVE, CARRY, MOVE, CARRY, MOVE, WORK, MOVE, CARRY, MOVE, CARRY,
-
-    MOVE, CARRY,
-  ];
-  return this.createRole(spawn, body, {role: 'farmer'});
-};
-
 class CreepFarmer {
   roleFarmer() {
     const what = this.idleRetreat(CARRY) || this.taskTask();
@@ -60,7 +47,7 @@ class CreepFarmer {
   taskFarm() {
     if (!this.carryFree) return false;
 
-    return this.taskCollect() || this.taskHarvestAny();
+    return this.taskCollect() || this.taskHarvestSpots();
   }
 }
 

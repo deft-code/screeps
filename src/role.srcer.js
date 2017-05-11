@@ -1,11 +1,6 @@
 const util = require('util');
 const lib = require('lib');
 
-Flag.prototype.roleSrcer = function(spawn) {
-  const body = [MOVE, WORK, WORK, CARRY, WORK, WORK, WORK, WORK, MOVE, MOVE];
-  return this.createRole(spawn, body, {role: 'srcer'});
-};
-
 function findCont(positions) {
   for (let pos of positions) {
     const cont = _.find(

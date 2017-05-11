@@ -227,7 +227,7 @@ class CreepWithdraw {
 
     let e = this.pos.findClosestByRange(all);
 
-    if(e.structureType) {
+    if(e && e.structureType) {
       return this.taskWithdraw(e, RESOURCE_ENERGY);
     }
     return this.taskPickup(e);

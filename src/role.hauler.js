@@ -1,18 +1,4 @@
-const util = require('util');
 const lib = require('lib');
-
-Flag.prototype.roleHauler = function(spawn) {
-  const cap = this.room.energyCapacityAvailable;
-  const n = Math.floor(cap / 100) * 3;
-  const body = [
-    MOVE,  CARRY, CARRY, MOVE,  CARRY, CARRY, MOVE,  CARRY, CARRY, MOVE,
-    CARRY, CARRY, MOVE,  CARRY, CARRY, MOVE,  CARRY, CARRY, MOVE,  CARRY,
-    CARRY, MOVE,  CARRY, CARRY, MOVE,  CARRY, CARRY, MOVE,  CARRY, CARRY,
-    MOVE,  CARRY, CARRY, MOVE,  CARRY, CARRY, MOVE,  CARRY, CARRY, MOVE,
-    CARRY, CARRY, MOVE,  CARRY, CARRY, MOVE,  CARRY, CARRY,
-  ];
-  return this.createRole(spawn, body.slice(0, n), {role: 'hauler'});
-};
 
 class CreepHauler {
   roleHauler() {

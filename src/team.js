@@ -1,4 +1,5 @@
 const util = require('util');
+const lib = require('lib');
 
 class FlagTeam {
   localSpawn(energy) {
@@ -8,7 +9,7 @@ class FlagTeam {
 
   closeSpawn(energy) {
     return (spawn) => this.spawnDist(spawn) <= this.minSpawnDist() + 1 &&
-        spawn.room.energyAvailable >= energy;
+        spawn.room.energyAvailable >= (energy || spawn.room.energyCapacityAvailable);
   }
 
   remoteSpawn() {
@@ -19,7 +20,7 @@ class FlagTeam {
          spawn.room.energyCapacityAvailable > this.room.energyCapacityAvailable);
   }
 
-  roleCreeps = function(role) {
+  roleCreeps(role) {
     return this.creepsByRole[role] || [];
   }
 
@@ -31,17 +32,26 @@ class FlagTeam {
     return v;
   }
 
-  upkeepRole(role, n, priority, filter) {
-    const creeps = this.roleCreeps(role);
+  upkeepRole(n, mem, priority, filter) {
+    const creeps = this.roleCreeps(mem.role);
 
-    n = this.memOr('n' + role, n);
+    n = this.memOr('n' + mem.role, n);
     if (creeps.length >= n) return false;
 
-    this.dlog('team upkeepRole', role, n, priority);
+    this.dlog(`team upkeepRole: ${n} ${JSON.stringify(mem)}`);
 
     const spawn = this.findSpawn(priority, filter);
     if (!spawn) return false;
-    return spawn.enqueueRole(this, role, priority) && spawn.name;
+
+    mem.team = this.name;
+
+    const who = spawn.maxCreep(priority, mem);
+
+    if(_.isString(who)) {
+      this.memory.creeps.push(who);
+    }
+
+    return `${spawn}:${who}`;
   }
 
   findSpawn(priority, filter) {
@@ -49,9 +59,10 @@ class FlagTeam {
       this.memory.spawnDist = {};
     }
     return _(Game.spawns)
+        .filter(spawn => this.spawnDist(spawn) <= 10)
         .sortBy(spawn => this.spawnDist(spawn))
         .filter(spawn => spawn.room.energyAvailable >= 300 && !spawn.spawning)
-        .filter(spawn => !spawn.nextRole || spawn.nextRole.priority < priority)
+        .filter(spawn => !spawn.nextPriority || spawn.nextPriority < priority)
         .filter(filter)
         .first();
   }

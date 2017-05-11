@@ -1,13 +1,3 @@
-Flag.prototype.roleBulldozer = function(spawn) {
-  const body = [
-    MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
-    MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
-    MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
-    MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK, MOVE, WORK,
-  ];
-  return this.createRole(spawn, body, {role: 'bulldozer'});
-};
-
 Creep.prototype.roleBulldozer = function() {
   return this.idleRetreat(WORK) || this.taskTask() ||
       this.taskMoveFlag(this.team, {allowHostile:true}) ||

@@ -19,7 +19,7 @@ class CreepMove {
       this.memory.offroad = this.pos;
     }
 
-    const offset = Math.floor(Math.random()*8)
+    const offset = Math.floor(Math.random()*8);
     for(const d = TOP; dir <= TOP_LEFT; dir++) {
       const dir = (d + offset) % TOP_LEFT;
       const pos = this.pos.atDirection(dir);
