@@ -15,7 +15,7 @@ class FlagTeam {
   remoteSpawn() {
     return (spawn) => this.spawnDist(spawn) > 0 &&
         spawn.room.energyFreeAvailable === 0 && spawn.room.storage &&
-        spawn.room.storage.store.energy > 100000 &&
+        spawn.room.storage.store.energy > 10000 &&
         (!this.room ||
          spawn.room.energyCapacityAvailable > this.room.energyCapacityAvailable);
   }
@@ -32,24 +32,62 @@ class FlagTeam {
     return v;
   }
 
-  upkeepRole(n, mem, priority, filter) {
-    const creeps = this.roleCreeps(mem.role);
-
+  ensureRole(n, mem, priority, filter) {
     n = this.memOr('n' + mem.role, n);
-    if (creeps.length >= n) return false;
+    if(!n) return false;
 
-    this.dlog(`team upkeepRole: ${n} ${JSON.stringify(mem)}`);
+    const creeps = this.roleCreeps(mem.role);
+    if (creeps.length < n) return this.makeRole(mem, priority, filter);
+
+    if (creeps.length === n) {
+      for(const creep of creeps) {
+        if(!creep.ticksToLive) continue;
+        const ctime = 3 * creep.body.length + 50;
+        if(creep.ticksToLive < ctime) {
+          console.log(`Preemptive Creep: ${ctime} < ${creep.ticksToLive}: ${JSON.stringify(mem)}`);
+          return this.makeRole(mem, priority, filter);
+        }
+      }
+    }
+    return false;
+  }
+
+  upkeepRole(n, mem, priority, filter) {
+    n = this.memOr('n' + mem.role, n);
+    if(!n) return false;
+
+    const when = this.memory.when[mem.role];
+    if(!when) return this.makeRole(mem, priority, filter);
+
+    const delta = CREEP_LIFE_TIME / n;
+    const elapsed = Game.time - when;
+    if(elapsed > delta) return this.makeRole(mem, priority, filter);
+
+    this.dlog(`Wait ${delta - elapsed}: ${JSON.stringify(mem)}`);
+
+    return false;
+  }
+
+  makeRole(mem, priority, filter) {
+    this.dlog(`makeRole ${JSON.stringify(mem)}`);
 
     const spawn = this.findSpawn(priority, filter);
+    this.makeRoleSpawn(mem, spawn);
+  }
+
+  makeRoleSpawn(mem, spawn) {
     if (!spawn) return false;
 
     mem.team = this.name;
 
-    const who = spawn.maxCreep(priority, mem);
+    const who = spawn.maxCreep(10, mem);
 
     if(_.isString(who)) {
       this.memory.creeps.push(who);
+      this.memory.when[mem.role] = Game.time;
     }
+
+    console.log(`${spawn} spawned ${who}`);
 
     return `${spawn}:${who}`;
   }
@@ -112,8 +150,18 @@ class FlagTeam {
     }
 
     if (!this.memory) {
-      this.memory = {debug: true};
+      this.memory = {
+        debug: true,
+        when: {},
+      };
     }
+
+    // TODO delete me.
+    if(!this.memory.when) this.memory.when = {};
+    if(!this.memory.spawnDist) {
+      this.memory.spawnDist = {min: 0};
+    }
+
 
     util.markDebug(this);
     this.memory.creeps = this.memory.creeps || [];
@@ -129,7 +177,7 @@ class FlagTeam {
             _.mapValues(this.creepsByRole, creeps => _.map(creeps, 'name'))));
 
     if (!this.creeps.length) {
-      this.memory.debug = true;
+      this.memory.debug = this.memory.debug || true;
     }
 
     const customF = this['custom' + this.name];
@@ -143,6 +191,12 @@ class FlagTeam {
         return this.teamFarm();
       case COLOR_GREY:
         return this.teamRole();
+      case COLOR_WHITE:
+        return this.teamEnsure();
+      case COLOR_CYAN:
+        return this.teamOccupy();
+      case COLOR_PURPLE:
+        return this.teamBlock();
       case COLOR_BROWN:
         if (!this.creeps.length) {
           this.remove();
@@ -150,7 +204,7 @@ class FlagTeam {
         }
         console.log(
             this, 'Good Bye', this.memory.creeps,
-            _.sum(this.creeps, 'ticksToLive'));
+            Math.floor(_.sum(this.creeps, 'ticksToLive') / (this.memory.creeps.length || 1)));
         return 'Slow Delete';
     }
     return 'null';

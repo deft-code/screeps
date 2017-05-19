@@ -15,6 +15,8 @@ class CreepArcher {
     return this.taskKite(_.sample(this.room.enemies));
   }
 
+
+
   taskKite(creep) {
     creep = this.checkId('kite', creep);
     if (!creep) return false;
@@ -41,7 +43,7 @@ class CreepArcher {
         }
       } else {
         if (range > 1) {
-          return this.idleMoveTo(creep);
+          return this.moveNear(creep);
         }
       }
       return 'stay';

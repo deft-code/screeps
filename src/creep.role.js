@@ -53,6 +53,7 @@ class CreepRole {
         id: obj.id,
         first: obj.pos,
       };
+      this.dlog(`start ${name} ${obj}`);
       return obj;
     }
 
@@ -64,6 +65,7 @@ class CreepRole {
       if (this.debug && this.pos.roomName === obj.pos.roomName) {
         this.room.visual.line(this.pos, obj.pos, {lineStyle: 'dotted'});
       }
+      this.dlog(`again ${name} ${obj}`);
       return obj;
     }
 

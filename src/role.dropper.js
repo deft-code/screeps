@@ -8,7 +8,7 @@ Creep.prototype.roleDropper = function() {
       return err === OK && this.carry.energy;
     }
     if (this.room.name === this.team.pos.roomName) {
-      return this.idleMoveTo(this.team);
+      return this.moveNear(this.team);
     }
     return this.taskMoveFlag(this.team);
   }

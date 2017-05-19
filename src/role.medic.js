@@ -1,48 +1,25 @@
-Creep.prototype.roleMedic = function() {
-  return this.taskTask() || this.taskTeamHeal(this.team);
-};
-
-Creep.prototype.taskRoomHeal = function(room) {
-  if (!room) return false;
-  return this.taskHealCreeps(room.find(FIND_MY_CREEPS));
-};
-
-Creep.prototype.taskTeamHeal = function(team) {
-  if (!team) return false;
-  return this.taskHealCreeps(team.creeps);
-};
-
-Creep.prototype.taskHealCreeps = function(creeps) {
-  return this.taskHeal(_(creeps).filter('hurts').sample());
-};
-
-Creep.prototype.taskLocalHeal = function() {
-  const heal = _(this.room.find(FIND_MY_CREEPS))
-                   .filter(c => c.hits < c.hitsMax)
-                   .sample();
-  if (!heal) {
-    return false;
+module.exports = class CreepMedic {
+  roleMedic() {
+    return this.idleRetreat(TOUGH) || this.idleMoveRoom(this.team) ||
+      this.taskTask() || this.taskHealTeam(this.team) ||
+      this.taskHealRoom();
   }
-  this.say(heal.name);
-  this.memory.task = {
-    task: 'local heal',
-    creep: heal.name,
-  };
-  return this.taskLocalHeal();
-};
 
-Creep.prototype.taskLocalHeal = function() {
-  const c = Game.creeps[this.memory.task.creep];
-  if (!c || c.pos.roomName != this.pos.roomName || c.hits == c.hitsMax) {
-    return false;
+  taskHealTeam() {
+    return this.taskHealCreeps(this.team.creeps);
   }
-  const err = this.heal(c);
-  if (err == ERR_NOT_IN_RANGE) {
-    return this.idleMoveTo(c);
+
+  taskHealRoom() {
+    return this.taskHealCreeps(this.room.find(FIND_MY_CREEPS));
   }
-  if (err == OK) {
-    this.move(this.pos.getDirectionTo(c));
-    return c.hits;
+
+  taskHealCreeps(creeps) {
+    return this.taskHeal(_.find(creeps, 'hurts'));
   }
-  return false;
+
+  taskHeal(creep) {
+    creep = this.checkId('heal', creep);
+    if(!creep || !creep.hurts) return false;
+    return this.goHeal(creep);
+  }
 };

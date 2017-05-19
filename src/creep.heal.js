@@ -1,10 +1,38 @@
-const lib = require('lib');
+module.exports = class CreepHeal {
+  idleHeal() {
+    if(this.intents.melee) return false;
 
-class CreepHeal {
+    if(this.hurts) {
+      return this.goHeal(this, false);
+    }
+
+    let creep = _(this.room.lookForAtRange(LOOK_CREEPS , this.pos,  1, true))
+      .map(spot => spot[LOOK_CREEPS])
+      .filter(creep => creep.my && creep.hurts)
+      .sample();
+
+    if(creep) {
+      return this.goHeal(creep, false);
+    }
+
+    if(this.intents.range) return false;
+
+    creep = _(this.room.lookForAtRange(LOOK_CREEPS , this.pos,  3, true))
+      .map(spot => spot[LOOK_CREEPS])
+      .filter(creep => creep.my && creep.hurts)
+      .sample();
+
+    if(creep) {
+      return this.goRangedHeal(creep);
+    }
+    return false;
+  }
+
   goHeal(creep, move = true) {
     const err = this.heal(creep);
     if (err === OK) {
       this.intents.melee = creep;
+      move && this.moveBump(creep);
       return creep.hurts;
     }
     if (move && err === ERR_NOT_IN_RANGE) {
@@ -14,7 +42,7 @@ class CreepHeal {
   }
 
   goRangedHeal(creep, move = true) {
-    const err = this.rangeHeal(struct);
+    const err = this.rangedHeal(creep);
     if (err === OK) {
       this.intents.melee = this.intents.range = creep;
       return creep.hurts;
@@ -24,6 +52,4 @@ class CreepHeal {
     }
     return false;
   }
-}
-
-lib.merge(Creep, CreepHeal);
+};

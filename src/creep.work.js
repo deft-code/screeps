@@ -11,7 +11,7 @@ module.exports = class CreepWork {
   }
 
   idleUpgrade() {
-    if(this.intents.upgrade) return false;
+    if(this.intents.melee || this.intents.range) return false;
 
     return this.goUpgradeController(this.room.controller, false);
   }
@@ -35,10 +35,10 @@ module.exports = class CreepWork {
 
     const err = this.reserveController(controller);
     if (err === OK) {
-      return this.room.controller.resTicks;
+      return controller.resTicks;
     }
     if (err === ERR_NOT_IN_RANGE) {
-      return this.moveNear(this.room.controller);
+      return this.moveNear(controller);
     }
     this.say(`bad reserve ${err}`);
     return false;
@@ -47,8 +47,8 @@ module.exports = class CreepWork {
   goUpgradeController(controller, move = true) {
     const err = this.upgradeController(controller);
     if (err === OK) {
-      this.intents.upgrade = controller;
-      return controller.progress
+      this.intents.melee = this.intents.range = controller;
+      return controller.progress || 'MAX!';
     }
     if (move && err === ERR_NOT_IN_RANGE) {
       return this.moveRange(controller);
@@ -64,9 +64,9 @@ module.exports = class CreepWork {
 
     const srcs = _(this.room.find(FIND_SOURCES))
       .filter(s => s.energy || this.pos.getRangeTo(s) > s.ticksToRegeneration)
-      .shuffle()
+      .sort(s => this.pos.getRangeTo(s))
       .value();
-    console.log("taskHarvestSpots", srcs.length, srcs);
+    this.dlog("harvest spots", srcs);
     for(const src of srcs) {
       const spots = _.shuffle(src.spots);
       for(const spot of spots) {
@@ -98,10 +98,25 @@ module.exports = class CreepWork {
     return where;
   }
 
+  taskHarvest(src) {
+    if (!this.carryFree) return false;
+    src = this.checkId('harvest', src);
+    const err = this.harvest(src);
+    if (err === OK) {
+      this.intents.melee = src;
+      return src.energy;
+    }
+
+    if(err === ERR_NOT_IN_RANGE) {
+      return this.moveNear(src);
+    }
+    return false;
+  }
+
   taskCampSrcs() {
     const src = _.min(
       this.room.find(FIND_SOURCES),
-      s => s.ticksToRegeneration);
+      s => (s.ticksToRegeneration||0) + s.energy);
     return this.taskCampSrc(src);
   }
 

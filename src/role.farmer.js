@@ -2,7 +2,7 @@ const lib = require('lib');
 
 class CreepFarmer {
   roleFarmer() {
-    const what = this.idleRetreat(CARRY) || this.taskTask();
+    const what = this.idleRetreat(WORK) || this.idleEmergencyUpgrade() || this.taskTask();
     if(what) return what;
 
     if(this.pos.roomName === this.dropRoom().name) {
@@ -13,16 +13,22 @@ class CreepFarmer {
       return this.taskMoveFlag(this.team);
     }
 
-    return this.taskRoadUpkeep() || this.taskFarm() || this.taskMoveRoom(this.dropRoom().controller);
+    if(this.pos.roomName === this.team.pos.roomName) {
+      return this.taskRoadUpkeep() || this.taskFarm() || this.taskMoveRoom(this.dropRoom().controller);
+    }
+
+    return this.taskMoveFlag(this.team);
   }
 
   afterFarmer()  {
     this.idleNom();
-    this.idleBuild() || this.idleRepair();
-    this.idleUpgrade();
+    this.idleBuild() || this.idleRepair() || this.idleUpgrade();
   }
 
   dropRoom() {
+    //TODO fix this after empire.
+    return this.home;
+
     let room = Game.rooms[this.memory.dropRoom];
     if(!room) {
       let minD = Infinity;

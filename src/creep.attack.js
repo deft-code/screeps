@@ -18,15 +18,33 @@ class CreepAttack {
       return move && this.moveNear(target);
     }
     const err = this.rangedMassAttack();
+    if(err !== OK) return false;
+
     if (err === OK) {
       return this.intents.range = 'mass attack';
     }
     return false;
   }
 
+  idleAttack() {
+    if(this.intents.melee) return false;
+
+    const creep = this.pos.findClosestByRange(this.room.enemies);
+    if(creep && this.pos.isNearTo(creep)) {
+      this.goAttack(creep, false);
+    }
+  }
+
+  taskAttack(creep) {
+    creep = this.checkId('attack', creep);
+    if(!creep) return false;
+    return this.goAttack(creep);
+  }
+
   goAttack(target, move = true) {
     const err = this.attack(target);
     if (err === OK) {
+      this.moveBump(target);
       return this.intents.melee = target;
     }
     if (err === ERR_NOT_IN_RANGE) {

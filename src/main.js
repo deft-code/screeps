@@ -11,7 +11,9 @@ lib.enhanceAll();
 
 require('team');
 require('team.base');
+require('team.block');
 require('team.farm');
+require('team.occupy');
 require('team.role');
 
 require('matrix');
@@ -30,34 +32,39 @@ require('struct.tower');
 require('creep');
 require('creep.attack');
 require('creep.build');
-require('creep.carry');
 require('creep.dismantle');
-require('creep.heal');
 require('creep.move');
 require('creep.repair');
 require('creep.role');
-//require('creep.work');
 
 require('role.archer');
-require('role.bootstrap');
-require('role.bulldozer');
 require('role.caboose');
 require('role.chemist');
 require('role.claimer');
 require('role.collector');
 require('role.dropper');
 require('role.farmer');
-require('role.guard');
-require('role.hauler');
-require('role.medic');
 require('role.miner');
 require('role.reserver');
 require('role.srcer');
-require('role.upgrader');
-//require('role.worker');
 
 mods = [
+  'creep.carry',
+  'creep.heal',
   'creep.work',
+
+  'role.bootstrap',
+  'role.block',
+  'role.bulldozer',
+  'role.drain',
+  'role.guard',
+  'role.hauler',
+  'role.medic',
+  'role.scout',
+  'role.stomper',
+  'role.ram',
+  'role.upgrader',
+  'role.wolf',
   'role.worker',
 ];
 
@@ -143,4 +150,6 @@ function main() {
 
   clearMem('creeps');
   clearMem('flags');
+
+  //console.log("tower:", Game.rooms.W89S89.createConstructionSite(13, 14, STRUCTURE_TOWER));
 };

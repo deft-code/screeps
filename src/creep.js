@@ -23,7 +23,22 @@ class CreepExtra {
   }
 
   get partsByType() {
-    return _(this.body).filter(part => part.hits).countBy('type').value();
+    if(!this._partsByType) {
+      this._partsByType = _(this.body)
+        .countBy('type')
+        .value();
+    }
+    return this._partsByType;
+  }
+
+  get activeByType() {
+    if(!this._activeByType) {
+      this._activeByType = _(this.body)
+        .filter('hits')
+        .countBy('type')
+        .value();
+    }
+    return this._activeByType;
   }
 
   get ignoreRoads() {

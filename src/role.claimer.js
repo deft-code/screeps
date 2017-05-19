@@ -1,6 +1,6 @@
 Creep.prototype.roleClaimer = function() {
   if (this.team.room && this.team.room.controller.owner) {
-    this.suicide();
+    //this.suicide();
     return 'SUICIDE!';
   }
 

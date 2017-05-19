@@ -36,9 +36,7 @@ Flag.prototype.teamFarm = function() {
       'enough';
 };
 
-Creep.prototype.taskRoadUpkeep = function(room) {
-  if (!room) return false;
-
+Creep.prototype.taskRoadUpkeep = function() {
   return this.taskRepairRoads() || this.taskBuildStructs(STRUCTURE_ROAD) ||
       this.taskBuildAny();
 };

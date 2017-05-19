@@ -16,7 +16,7 @@ gulp.task('sim', function() {
 });
 
 gulp.task('ptr', function() {
-  credentials.branch = 'ptr';
+  credentials.branch = 'default';
   credentials.ptr = true;
   gulp.src('src/*.js').pipe(screeps(credentials));
 });

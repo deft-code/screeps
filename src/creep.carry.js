@@ -1,7 +1,6 @@
-const lib = require('lib'); 
 const util = require('util'); 
 
-class CreepTransfer {
+module.exports = class CreepCarry {
   idleTransferAny() {
     if (!this.carry.energy) return false;
     if (this.intents.transfer) return false;
@@ -125,12 +124,13 @@ class CreepTransfer {
       this.memory.task.resource = resource;
     }
 
+    if(!this.carry[resource]) return false;
+
     if(struct.store) {
       if(!struct.storeFree) return false;
     } else {
       const r = struct[resource];
       const rCap = struct[`${resource}Capacity`];
-      console.log(`${this.name} taskTransfer ${resource}: ${r}, ${rCap}`);
       if (r >= rCap) return false;
     }
 
@@ -151,11 +151,7 @@ class CreepTransfer {
     this.dlog('goTransfer error!', err);
     return false;
   }
-}
 
-lib.merge(Creep, CreepTransfer);
-
-class CreepWithdraw {
   idleWithdrawExtra() {
     if (!this.carryFree) return false;
     if (this.intents.withdraw) return false;
@@ -205,6 +201,8 @@ class CreepWithdraw {
   }
 
   taskRechargeLimit(limit) {
+    this.dlog(`recharge ${limit}`);
+
     if(!this.carryFree) return false;
 
     let all = _.filter(
@@ -234,7 +232,7 @@ class CreepWithdraw {
   }
 
   taskRecharge() {
-    return this.taskRechargeLimit(this.carryFree/2) || this.taskRechargeLimit(1);
+    return this.taskRechargeLimit(this.carryFree/3) || this.taskRechargeLimit(1);
   }
 
   taskWithdrawAny() {
@@ -285,8 +283,11 @@ class CreepWithdraw {
       this.memory.task.resource = resource;
     }
 
-    if (struct.store && !struct.store[resource]) {
-      return false;
+    if (struct.store) {
+      if(!struct.store[resource]) {
+        this.dlog("empty store", struct);
+        return false;
+      }
     } else if(!struct[resource]) {
       return false;
     }
@@ -307,11 +308,7 @@ class CreepWithdraw {
     this.dlog('goWithdraw error!', err);
     return false;
   }
-}
 
-lib.merge(Creep, CreepWithdraw);
-
-class CreepPickup {
   idleNomNom() {
     if (!this.carryFree) return false;
     if (this.intents.pickup) return false;
@@ -368,8 +365,6 @@ class CreepPickup {
       return err === OK && 'success';
     }
 
-    return this.idleMoveTo(flag);
+    return this.moveNear(flag);
   }
 }
-
-lib.merge(Creep, CreepPickup);

@@ -73,14 +73,8 @@ class CreepMove {
 
     const routeCB = (roomName) => {
       switch(roomName) {
-        case 'W76S52':
-        case 'W76S56':
-        case 'W77S52':
-        case 'W77S56':
-        case 'W78S52':
-        case 'W78S55':
-        case 'W79S55':
-        case 'W79S58':
+        case 'W88S88':
+        case 'W88S87':
           return 20;
       }
       return;
@@ -90,6 +84,7 @@ class CreepMove {
       // useFindRoute: true,
       ignoreRoads: fatigue > weight,
       routeCallback: routeCB,
+      allowHostile: true,
     });
     return this.moveHelper(this.travelTo(target, opts), lib.getPos(target));
   }
@@ -107,6 +102,16 @@ class CreepMove {
     return false;
   }
 
+  movePeace(target) {
+    if(this.room.memory.tenemies) return false;
+    return this.moveRange(target);
+  }
+
+  moveBump(target) {
+    if(!target || !this.pos.isNearTo(target)) return false;
+    this.moveDir(this.pos.getDirectionTo(target));
+  }
+
   idleFlee(creeps, range) {
     const room = this.room;
     const callback = (roomName) => {
@@ -122,6 +127,13 @@ class CreepMove {
         } else if (struct.obstacle) {
           mat.set(p.x, p.y, 255);
         }
+      }
+      for(let pos of room.find(FIND_EXIT)) {
+        mat.set(pos.x, pos.y, 6);
+      }
+      for(let creep of room.find(FIND_CREEPS)) {
+        if(creep.name === this.name) continue;
+        mat.set(creep.pos.x, creep.pos.y, 20);
       }
       return mat;
     };
@@ -143,9 +155,9 @@ class CreepMove {
   }
 
   idleRetreat(part) {
-    if (this.getActiveBodyparts(part)) {
-      return false;
-    }
+    if(!this.partsByType[part]) return false;
+    if(this.activeByType[part]) return false;
+    this.dlog("retreating");
     return this.moveRange(this.home.controller);
   }
 
@@ -158,21 +170,25 @@ class CreepMove {
 
   idleMoveRoom(obj, opts={}) {
     if (!obj) return false;
-    const p = this.pos;
-    if (obj.pos.roomName === p.roomName) {
-      if(p.x === 0) {
+    const x = this.pos.x;
+    const y = this.pos.y;
+    this.dlog("idleMoveRoom", obj.pos.roomName, this.pos.roomName);
+    if (obj.pos.roomName === this.pos.roomName) {
+      if(x === 0) {
         this.moveDir(RIGHT);
-      } else if (p.x === 49) {
+      } else if (x === 49) {
         this.moveDir(LEFT);
-      } else  if(p.y === 0) {
+      } else  if(y === 0) {
         this.moveDir(BOTTOM);
-      } else if (p.y === 49) {
+      } else if (y === 49) {
         this.moveDir(TOP);
       }
+      this.dlog("idleMoveRoom done");
       return false;
     }
-    opts = _.defaults(opts, {range: 50});
-    return this.idleMoveTo(obj, opts);
+    const range = Math.min(x, y, 49-x, 49-y);
+    opts = _.defaults(opts, {range: range});
+    return this.moveTarget(obj, opts);
   }
 
   taskMoveRoom(obj) {

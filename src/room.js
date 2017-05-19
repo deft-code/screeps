@@ -63,6 +63,18 @@ class RoomExtra {
     if(pct > 10) return scale * 100000;
     return scale * 10000;
   }
+
+  ratchet(name, yes) {
+    let v = this.memory[name];
+    if(!_.isFinite(v)){
+      v = this.memory[name] = 0;
+    }
+    if(yes) {
+      this.memory[name] = Math.min(CREEP_LIFE_TIME, Math.max(v+1, 10));
+    } else if(this.memory[name]) {
+      this.memory[name] = Math.max(0, v-1);
+    }
+  }
 }
 
 lib.merge(Room, RoomExtra);
@@ -107,6 +119,7 @@ Room.prototype.closeRamparts = function(mod) {
 
 const allies = ['tynstar'];
 
+
 Room.prototype.run = function() {
   this.allies =
       _.filter(this.find(FIND_HOSTILE_CREEPS), c => c.owner.username in allies);
@@ -114,6 +127,10 @@ Room.prototype.run = function() {
       this.find(FIND_HOSTILE_CREEPS), c => !(c.owner.username in allies));
   this.hostiles = _.filter(this.enemies, 'hostile');
   this.assaulters = _.filter(this.enemies, 'assault');
+
+  this.ratchet('thostiles', this.hostiles.length);
+  this.ratchet('tassaulters', this.assaulters.length);
+  this.ratchet('tenemies', this.enemies.length);
 
   if (this.controller && this.controller.my) {
     if (this.assaulters.length) {

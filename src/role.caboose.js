@@ -61,7 +61,7 @@ Creep.prototype.taskCaboose = function(creep) {
     this.move(this.pos.getDirectionTo(creep));
     return 'nudge';
   } else {
-    this.idleMoveTo(creep);
+    this.moveNear(creep);
     return 'chase';
   }
 };

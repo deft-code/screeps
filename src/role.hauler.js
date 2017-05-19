@@ -1,6 +1,4 @@
-const lib = require('lib');
-
-class CreepHauler {
+module.exports = class CreepHauler {
   roleHauler() {
     let what = this.taskTask();
     if (what) return what;
@@ -11,6 +9,7 @@ class CreepHauler {
     if (what) return what;
 
     if (this.room.energyFreeAvailable) {
+      this.dlog("refill pools");
       if (!this.carry.energy) return this.taskRecharge();
       return this.taskTransferPool();
     }
@@ -94,6 +93,4 @@ class CreepHauler {
 
     this.idleTransferExtra();
   }
-}
-
-lib.merge(Creep, CreepHauler);
+};

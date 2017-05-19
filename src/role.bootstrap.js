@@ -1,20 +1,14 @@
-const lib = require('lib');
-
-class CreepBootstrap {
+module.exports = class CreepBootstrap {
   roleBootstrap() {
     let what = this.idleEmergencyUpgrade() || this.taskTask();
     if(what) return what;
 
     if (!this.atTeam) {
-      if (this.carryTotal) {
-        this.drop(RESOURCE_ENERGY);
-        this.say('Dump!');
-      }
       return this.taskMoveFlag(this.team);
     }
 
     if(!this.carry.energy) {
-      what = this.taskRecharge() || this.taskHarvestSpots();
+      what = this.taskRechargeHarvest();
       if(what) return what;
     }
 
@@ -24,9 +18,23 @@ class CreepBootstrap {
         this.taskCampSrcs();
   }
 
-  afterBootstrap() {
-    this.idleNom();
+  taskRechargeHarvest() {
+      return this.taskRechargeLimit(this.carryFree/3) ||
+        this.taskHarvestSpots() ||
+        this.taskRechargeLimit(1);
   }
-}
 
-lib.merge(Creep, CreepBootstrap);
+  afterBootstrap() {
+    if(this.atTeam) {
+      this.idleNom();
+      this.idleRecharge();
+    } else if (this.carryTotal) {
+      this.drop(RESOURCE_ENERGY);
+      this.say('Dump!');
+    }
+
+    if(this.carryTotal > this.carryFree) {
+      this.idleBuild() || this.idleRepair() || this.idleUpgrade();
+    }
+  }
+};

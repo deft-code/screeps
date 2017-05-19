@@ -177,7 +177,7 @@ class CreepSrcer {
     const err = this.harvest(src);
     if (err == ERR_NOT_IN_RANGE ||
         err == ERR_NOT_ENOUGH_RESOURCES && !this.pos.isNearTo(src)) {
-      return this.idleMoveTo(src);
+      return this.moveTarget(src);
     }
     if (this.getActiveBodyparts(CARRY)) {
       this.idleNom();
@@ -197,7 +197,7 @@ class CreepSrcer {
           delete this.memory.task.cont;
         } else {
           this.dlog('adjusting');
-          this.idleMoveTo(cont);
+          this.moveNear(cont);
         }
       }
     }

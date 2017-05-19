@@ -1,7 +1,5 @@
-const lib = require('lib');
-
-class CreepUpgrader {
-  roleUpgraderfunction() {
+module.exports = class CreepUpgrader {
+  roleUpgrader() {
     this.goUpgradeController(this.team.room.controller);
 
     const struct = Game.getObjectById(this.memory.struct) ||
@@ -15,13 +13,13 @@ class CreepUpgrader {
         this.moveNear(struct);
       }
       if(this.carryTotal < this.carryFree) {
-        if(!this.doWithdraw(struct, RESOURCE_ENERGY, false)) {
+        if(!this.goWithdraw(struct, RESOURCE_ENERGY, false)) {
           delete this.memory.struct;
         }
       }
     }
 
-    return what;
+    return this.moveRange(this.team.room.controller);
   }
 
   afterUpgrader() {
@@ -32,6 +30,4 @@ class CreepUpgrader {
       this.idleBuild() || this.idleRepair();
     }
   }
-}
-
-lib.merge(Creep, CreepUpgrader);
+};
