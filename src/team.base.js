@@ -25,13 +25,8 @@ Flag.prototype.teamBase = function() {
 
   if(!nspawns) return false;
 
-  // TODO Delete after path to corner.
-  if(this.name !== 'Corner') {
-
   // Mark this room as a base
   this.room.base = this.name;
-
-  }
 
   let nworker = 1;
   if (this.room.find(FIND_MY_CONSTRUCTION_SITES).length) {
@@ -46,23 +41,33 @@ Flag.prototype.teamBase = function() {
   }
 
   let ulvl = 50;
-  if(this.room.storage && this.room.storage.energy < 10000) {
+  if(this.room.controller.level === 8) {
+    ulvl = 15
+  }
+  if(this.room.storage && this.room.storage.store.energy < 10000) {
     ulvl = 1
   }
 
   const ehauler = Math.min(2500, eCap/3);
   const eworker = Math.min(3300, eCap);
 
-  const t = this.room.memory.tenemies;
-  this.dlog(`attacked ${t}`);
+  const te = this.room.memory.tenemies;
+  this.dlog(`attacked ${te}`);
   let ndefenders = 0;
-  if(t > 40) {
-    const t2 = t-40
+  if(te > 40) {
+    const t2 = te-40
     ndefenders = Math.ceil(t2/300);
     this.dlog("need defenders");
   }
 
+  const ta = this.room.memory.tassautlers;
+  let nmicro = 0;
+  if(ta === 0 && te > 0) {
+    nmicro = 1;
+  }
+
   return this.ensureRole(2, {role:'srcer',body:'srcer'}, 4, this.localSpawn(Math.min(eCap, 750))) ||
+      this.upkeepRole(nmicro, {role:'wolf', body:'defender', max:1}, 5, this.localSpawn(260)) ||
       this.upkeepRole(ndefenders, {role:'wolf', body:'defender'}, 5, this.localSpawn(eCap)) ||
       this.ensureRole(nhauler, {role:'hauler',body:'carry'}, 4, this.localSpawn(ehauler)) ||
       this.ensureRole(nworker, {role:'worker',body:'worker'}, 3, this.localSpawn(eCap)) ||

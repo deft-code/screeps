@@ -59,12 +59,12 @@ module.exports = class CreepWork {
   taskHarvestSpots() {
     for(const src of this.room.find(FIND_SOURCES_ACTIVE)) {
       if(!this.pos.isNearTo(src)) continue;
-      return this.taskHarvestSpot(src, this.pos);
+      return this.taskHarvest(src);
     }
 
     const srcs = _(this.room.find(FIND_SOURCES))
       .filter(s => s.energy || this.pos.getRangeTo(s) > s.ticksToRegeneration)
-      .sort(s => this.pos.getRangeTo(s))
+       .sort(s => -this.pos.getRangeTo(s)) // why is this negative?
       .value();
     this.dlog("harvest spots", srcs);
     for(const src of srcs) {
@@ -72,20 +72,31 @@ module.exports = class CreepWork {
       for(const spot of spots) {
         const creeps = this.room.lookForAt(LOOK_CREEPS, spot);
         if(creeps.length) continue;
-        return this.taskHarvestSpot(src, spot);
+        return this.taskHarvest(src, spot);
       }
     }
   }
 
-  taskHarvestSpot(src, spot) {
+  taskHarvest(src) {
     if (!this.carryFree) return false;
-
-    src = this.checkId('harvest spot', src);
+    src = this.checkId('harvest', src);
     if(!src || !src.energy) return false;
 
-    if(this.memory.task.spot) {
-      spot = lib.roomposFromMem(this.memory.task.spot);
-    } else {
+    let spot = lib.roomposFromMem(this.memory.task.spot);
+    if(!spot) {
+      const where = this.moveRange(src);
+      if(where) return where;
+
+      if(this.pos.isNearTo(src)) {
+        spot = this.pos;
+      } else {
+        const spots = _.shuffle(src.spots);
+        for(const s of spots) {
+          spot = s;
+          const creeps = this.room.lookForAt(LOOK_CREEPS, s);
+          if(!creeps.length) break;
+        }
+      }
       this.memory.task.spot = spot;
     }
 
@@ -96,21 +107,6 @@ module.exports = class CreepWork {
       return src.energy;
     }
     return where;
-  }
-
-  taskHarvest(src) {
-    if (!this.carryFree) return false;
-    src = this.checkId('harvest', src);
-    const err = this.harvest(src);
-    if (err === OK) {
-      this.intents.melee = src;
-      return src.energy;
-    }
-
-    if(err === ERR_NOT_IN_RANGE) {
-      return this.moveNear(src);
-    }
-    return false;
   }
 
   taskCampSrcs() {

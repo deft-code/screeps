@@ -40,7 +40,7 @@ class CreepSrcer {
           return this.taskSrc(src);
         }
       }
-      console.log('ERR', this.name, 'failed to find src in', room);
+      console.log('ERR', this.name, 'failed to find src in', this.pos.roomName);
       return false;
     }
     return false;
@@ -178,6 +178,9 @@ class CreepSrcer {
     if (err == ERR_NOT_IN_RANGE ||
         err == ERR_NOT_ENOUGH_RESOURCES && !this.pos.isNearTo(src)) {
       return this.moveTarget(src);
+    }
+    if(err === OK) {
+      this.intents.melee = src;
     }
     if (this.getActiveBodyparts(CARRY)) {
       this.idleNom();

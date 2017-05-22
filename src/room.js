@@ -75,6 +75,10 @@ class RoomExtra {
       this.memory[name] = Math.max(0, v-1);
     }
   }
+
+  get turtle() {
+    return this.memory.tassaulters || this.memory.turtle > Game.time;
+  }
 }
 
 lib.merge(Room, RoomExtra);
@@ -127,6 +131,7 @@ Room.prototype.run = function() {
       this.find(FIND_HOSTILE_CREEPS), c => !(c.owner.username in allies));
   this.hostiles = _.filter(this.enemies, 'hostile');
   this.assaulters = _.filter(this.enemies, 'assault');
+  this.melees = _.filter(this.enemies, 'melee');
 
   this.ratchet('thostiles', this.hostiles.length);
   this.ratchet('tassaulters', this.assaulters.length);

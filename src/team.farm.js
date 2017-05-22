@@ -1,42 +1,62 @@
 const util = require('util');
 
 Flag.prototype.teamFarm = function() {
-  const delta = this.memory.attacked - Game.time;
-  this.attacked = delta > 0 ? delta : 0;
-  this.dlog('attack delta:', this.memory.attacked, delta, this.attacked);
-  if (!this.attacked) {
-    if (this.room && this.room.hostiles.length) {
-      this.memory.attacked = Game.time + this.room.hostiles[0].ticksToLive;
-    } else {
-      delete this.memory.attacked;
-    }
-  }
-
-  const nguard = this.attacked ? 1 : 0;
   let nfarmer = 1;
   let canReserve = false;
+  let nminer = 1;
   if (this.room) {
     const nsrcs = this.room.find(FIND_SOURCES).length;
-    nfarmer = nsrcs;
+    nminer = nsrcs;
     const controller = this.room.controller;
     const claimed = controller && controller.owner && !controller.my;
-    canReserve = !this.attacked && controller && !claimed &&
+    canReserve = !this.room.memory.thostiles && controller && !claimed &&
         controller.resTicks < 4000 &&
         (this.memory.spawnDist.min < 2 || nsrcs > 1);
-    if (canReserve) {
-      nfarmer++;
-    }
   }
 
-  this.dlog(`farmers: ${nfarmer}, reservers: ${canReserve}, guards: ${nguard}`);
+  this.dlog(`farmers: ${nfarmer}, reservers: ${canReserve}`);
 
-  return this.upkeepRole(nguard, {role:'guard',body:'guard'}, 2, this.closeSpawn(800)) ||
-      this.upkeepRole(nfarmer, {role:'farmer',body:'farmer'}, 2, this.closeSpawn(800)) ||
-      canReserve && this.upkeepRole(1, {role:'reserver',body:'reserve'}, 2, this.closeSpawn(1300)) ||
-      'enough';
+  return this.teamSuppress() || 
+      this.teamHarvest() ||
+      canReserve && this.upkeepRole(1, {role:'reserver',body:'reserve'}, 2, this.closeSpawn(1300));
 };
 
 Creep.prototype.taskRoadUpkeep = function() {
   return this.taskRepairRoads() || this.taskBuildStructs(STRUCTURE_ROAD) ||
       this.taskBuildAny();
+};
+
+Flag.prototype.teamHarvest = function() {
+  let nminer = 1;
+  let ncart = 2;
+  if(this.room) {
+    const nsrcs = this.room.find(FIND_SOURCES).length;
+    ncart = nsrcs + 1;
+    nminer = nsrcs;
+    const miners = this.roleCreeps('miner');
+    if(miners.length >= nminer) {
+      const totalE = _.sum(this.room.find(FIND_SOURCES), 'energyCapacity');
+      const perE = totalE / ENERGY_REGEN_TIME;
+      const needWork = perE / HARVEST_POWER;
+      const works = _.sum(miners, m => m.partsByType[WORK]);
+      if(needWork > works) {
+        nminer = miners.length + 1;
+      }
+    }
+  }
+  return this.upkeepRole(nminer, {role:'miner', body:'miner'}, 2, this.closeSpawn(550)) ||
+    this.upkeepRole(ncart, {role:'cart', body:'cart'}, 3, this.closeSpawn(550)) ||
+    this.upkeepRole(1, {role:'farmer',body:'farmer'}, 2, this.closeSpawn(800));
+};
+
+Flag.prototype.teamSuppress = function() {
+  if(!this.room) {
+    return this.upkeepRole(1, {role:'scout',body:'scout'}, 4, this.closeSpawn(300));
+  }
+  const t = this.room.memory.thostiles;
+  const nguard = Math.ceil(t/300);
+  const nwolf = Math.floor(t/300);
+  this.dlog(`attacked ${t}: guard ${nguard}, wolf ${nwolf}`);
+  return this.upkeepRole(nwolf, {role:'wolf', body:'attack'}, 3, this.closeSpawn(570)) ||
+    this.upkeepRole(nguard, {role:'guard', body:'guard'}, 3, this.closeSpawn(190));
 };

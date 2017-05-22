@@ -13,15 +13,22 @@ module.exports = class CreepBootstrap {
     }
 
     return this.taskTransferTowers(100) ||
-        this.taskTransferPool() || this.taskBuildOrdered() ||
+        this.taskTransferPool() ||
+        this.taskTurtleMode() ||
+        this.taskBuildOrdered() ||
         this.taskRepairOrdered() || this.taskUpgradeRoom() ||
         this.taskCampSrcs();
   }
 
   taskRechargeHarvest() {
-      return this.taskRechargeLimit(this.carryFree/3) ||
-        this.taskHarvestSpots() ||
-        this.taskRechargeLimit(1);
+    // Don't drain Srcs if we're under attack
+    if(this.room.memory.thostiles && _.any(this.room.findStructs(STRUCTURE_TOWER), 'energyFree')) {
+      return this.taskRechargeLimit(1) ||
+        this.taskHarvestSpots();
+    }
+    return this.taskRechargeLimit(this.carryFree/3) ||
+      this.taskHarvestSpots() ||
+      this.taskRechargeLimit(1);
   }
 
   afterBootstrap() {
@@ -38,3 +45,11 @@ module.exports = class CreepBootstrap {
     }
   }
 };
+
+function towersFull(room) {
+  _.any(this.findStructs(STRUCTURE_TOWER), 'energyFree');
+  for(const tower of this.findStructs(STRUCTURE_TOWER)) {
+    if(tower.energyFree) return false;
+  }
+  return 
+}

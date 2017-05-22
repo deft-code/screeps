@@ -7,24 +7,13 @@ module.exports = class CreepWorker {
 
     if (this.carry.energy) {
       return this.taskTurtleMode() ||
+        (this.roleIndex() === 0 && this.taskRepairOrdered()) ||
         this.taskBuildOrdered() ||
         this.taskRepairOrdered() ||
+        this.taskTurtlePrep() ||
         upgrade && this.goUpgradeController(this.room.controller);
     }
     return this.taskRechargeHarvest();
-  }
-
-  taskTurtleMode() {
-    if(this.room.memory.tassaulters) {
-      return this.taskTurtle();
-    }
-    return false;
-  }
-
-  taskTurtle() {
-    let walls = this.room.findStructs(STRUCTURE_WALL, STRUCTURE_RAMPART);
-    let wall = _.first(_.sortBy(walls, 'hits'));
-    return this.taskRepair(wall);
   }
 
   afterWorker() {

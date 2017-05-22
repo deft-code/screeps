@@ -2,12 +2,17 @@ const lib = require('lib');
 
 class CreepFarmer {
   roleFarmer() {
-    const what = this.idleRetreat(WORK) || this.idleEmergencyUpgrade() || this.taskTask();
+    const what = this.idleRetreat(WORK) ||
+      this.fleeHostiles() ||
+      this.idleEmergencyUpgrade() ||
+      this.taskTask();
     if(what) return what;
 
     if(this.pos.roomName === this.dropRoom().name) {
       if(this.carryTotal) {
-        return this.taskTransferResources() || this.taskBuildOrdered() || this.taskRepairOrdered() ||
+        return this.taskTransferResources() ||
+          this.taskBuildOrdered() ||
+          this.taskRepairOrdered() ||
           this.goUpgradeController(this.room.controller);
       }
       return this.taskMoveFlag(this.team);
@@ -25,28 +30,38 @@ class CreepFarmer {
     this.idleBuild() || this.idleRepair() || this.idleUpgrade();
   }
 
-  dropRoom() {
-    //TODO fix this after empire.
-    return this.home;
+  findDropRoom() {
+    let minD = Infinity;
+    let minE = Infinity;
 
+    let room;
+
+    for(const rName in Game.rooms) {
+      const r = Game.rooms[rName];
+
+      if(!r.base) continue;
+      if(!r.controller || !r.controller.my) continue;
+
+      const d = Game.map.findRoute(this.room, r).length;
+      if(d > minD) continue;
+
+      const e = r.storage && r.storage.store.energy || 0;
+      if(d === minD && e >= minE) continue;
+
+      minD = d;
+      minE = e;
+      room = r;
+    }
+    return room;
+  }
+
+  dropRoom() {
+    delete this.memory.dropRoom;
     let room = Game.rooms[this.memory.dropRoom];
     if(!room) {
-      let minD = Infinity;
-      let minE = Infinity;
-
-      for(const rName in Game.rooms) {
-        const r = Game.rooms[rName];
-        if(!r.controller || !r.controller.my) continue;
-        const d = Game.map.findRoute(this.room, r).length;
-        if(d > minD) continue;
-        if(d === minD) {
-          const e = r.storage && r.storage.store.energy || 0;
-          if(e >= minE) continue;
-        }
-        room = r;
-      }
+      room = this.findDropRoom();
+      this.memory.dropRoom = room.name;
     }
-    this.memory.dropRoom = room.name;
     return room;
   }
 

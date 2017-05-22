@@ -112,6 +112,12 @@ class CreepMove {
     this.moveDir(this.pos.getDirectionTo(target));
   }
 
+  fleeHostiles() {
+    if(!this.room.hostiles.length) return false;
+
+    return this.idleFlee(this.room.hostiles, 5);
+  }
+
   idleFlee(creeps, range) {
     const room = this.room;
     const callback = (roomName) => {

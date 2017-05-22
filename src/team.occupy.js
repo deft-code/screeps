@@ -10,22 +10,7 @@ Flag.prototype.teamOccupy = function() {
 
   const nsrcs = this.room.find(FIND_SOURCES).length + 1;
   return this.teamSuppress() || 
-    this.upkeepRole(nsrcs, {role:'farmer',body:'farmer'}, 2, this.closeSpawn(800));
-};
-
-Flag.prototype.teamSuppress = function() {
-  const t = this.room.memory.thostiles;
-  this.dlog(`attacked ${t}`);
-  let nguard = 0;
-  if(t) {
-    this.dlog("need guard");
-    nguard = 1;
-  }
-  let nwolf = 0;
-  if(t > 300) {
-    this.dlog("need wolf");
-    nwolf = 1;
-  }
-  return this.upkeepRole(nwolf, {role:'wolf', body:'attack'}, 3, this.closeSpawn()) ||
-    this.upkeepRole(nguard, {role:'guard', body:'guard'}, 3, this.closeSpawn());
+      this.upkeepRole(nsrcs, {role:'miner', body:'miner'}, 2, this.closeSpawn(550)) ||
+      this.upkeepRole(nsrcs, {role:'cart', body:'cart'}, 3, this.closeSpawn(550)) ||
+      this.upkeepRole(1, {role:'farmer',body:'farmer'}, 2, this.closeSpawn(800));
 };

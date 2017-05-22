@@ -53,16 +53,18 @@ mods = [
   'creep.heal',
   'creep.work',
 
-  'role.bootstrap',
   'role.block',
+  'role.bootstrap',
+  'role.cart',
   'role.bulldozer',
   'role.drain',
   'role.guard',
   'role.hauler',
   'role.medic',
+  'role.miner',
+  'role.ram',
   'role.scout',
   'role.stomper',
-  'role.ram',
   'role.upgrader',
   'role.wolf',
   'role.worker',
@@ -97,6 +99,7 @@ eglog = (msg) => {
 }
 
 global.debug = (obj, val = true) => obj.memory.debug = val;
+global.nodebug = (obj) => debug(obj, false);
 
 global.purgeWalls = (room, dry=true) => {
   let n = 0;
@@ -151,5 +154,5 @@ function main() {
   clearMem('creeps');
   clearMem('flags');
 
-  //console.log("tower:", Game.rooms.W89S89.createConstructionSite(13, 14, STRUCTURE_TOWER));
+  //console.log("tower:", Game.rooms.W87S86.createConstructionSite(37, 16, STRUCTURE_TOWER));
 };

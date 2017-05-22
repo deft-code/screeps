@@ -4,7 +4,7 @@ Flag.prototype.teamRole = function() {
     role: _.first(words).toLowerCase(),
     body: _.last(words).toLowerCase(),
   };
-  return this.upkeepRole(1, mem, 1, this.closeSpawn()) || 'enough';
+  return this.upkeepRole(1, mem, 1, this.closeSpawn());
 };
 
 Flag.prototype.teamEnsure = function() {
@@ -13,5 +13,8 @@ Flag.prototype.teamEnsure = function() {
     role: _.first(words).toLowerCase(),
     body: _.last(words).toLowerCase(),
   };
-  return this.ensureRole(1, mem, 1, this.closeSpawn()) || 'enough';
+  let fn = this.closeSpawn();
+  if(this.memory.remote) fn = this.remoteSpawn();
+
+  return this.ensureRole(1, mem, 1, fn);
 };

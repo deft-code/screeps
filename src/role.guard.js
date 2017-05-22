@@ -20,7 +20,7 @@ module.exports = class CreepGuard {
   }
 
   taskHunt(creep) {
-    if(this.room.hostiles.length) return false;
+    if(this.room.melees.length) return false;
     creep = this.checkId('hunt', creep);
     if(!creep) return false;
     if(this.pos.isNearTo(creep)) {
@@ -30,19 +30,19 @@ module.exports = class CreepGuard {
   }
 
   taskDuel(creep) {
-    const nhostile = this.room.hostiles.length;
-    if(nhostile > 1) return false;
+    const nmelees = this.room.melees.length;
+    if(nmelees > 1) return false;
 
     creep = this.checkId('duel', creep);
     if (!creep) return false;
 
-    if(!creep.hostile && nhostile) return false;
+    if(!creep.melee && nmelees) return false;
 
     return this.goKite(creep);
   }
 
   taskRiot() {
-    let creep = this.pos.findClosestByRange(this.room.hostiles);
+    let creep = this.pos.findClosestByRange(this.room.melees);
     if (!creep) return false;
 
     return this.goKite(creep);
@@ -53,10 +53,10 @@ module.exports = class CreepGuard {
     switch (range) {
       case 1:
         this.goMassAttack(creep, false);
-        return this.idleFlee(this.room.hostiles, 3);
+        return this.idleFlee(this.room.melees, 5);
       case 2:
         this.goRangedAttack(creep, false);
-        return this.idleFlee(this.room.hostiles, 3);
+        return this.idleFlee(this.room.melees, 5);
     }
     return this.goRangedAttack(creep);
   }
@@ -65,13 +65,13 @@ module.exports = class CreepGuard {
     const nenemies = this.room.enemies.length;
     if(!nenemies) return false;
 
-    const nhostiles = this.room.hostiles.length;
-    if(!nhostiles) {
+    const nmelees = this.room.melees.length;
+    if(!nmelees) {
       return this.taskHunt(_.sample(this.room.enemies));
     }
 
-    if(nhostiles === 1) {
-      return this.taskDuel(_.first(this.room.hostiles));
+    if(nmelees === 1) {
+      return this.taskDuel(_.first(this.room.melees));
     }
 
     return this.taskRiot();
@@ -86,7 +86,7 @@ module.exports = class CreepGuard {
   }
 
   taskGuardHeal(creep) {
-    if(this.room.hostiles.length) return false;
+    if(this.room.melees.length) return false;
 
     creep = this.checkId('guard heal', creep);
     if(!creep || !creep.hurts) return false;

@@ -45,12 +45,20 @@ class CreepExtra {
     return this.body.length >= 2 * this.getActiveBodyparts(MOVE);
   }
 
+  get melee() {
+    return this.activeByType[ATTACK];
+  }
+
+  get ranged() {
+    return this.activeByType[RANGED_ATTACK];
+  }
+
   get hostile() {
-    return this.getActiveBodyparts(ATTACK) || this.getActiveBodyparts(RANGED_ATTACK);
+    return this.melee || this.ranged;
   }
 
   get assault() {
-    return this.hostile || this.getActiveBodyparts(WORK) || this.getActiveBodyparts(CLAIM) >= 5;
+    return this.hostile || this.activeByType[WORK];
   }
 
   run() {

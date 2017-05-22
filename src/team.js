@@ -14,10 +14,10 @@ class FlagTeam {
 
   remoteSpawn() {
     return (spawn) => this.spawnDist(spawn) > 0 &&
-        spawn.room.energyFreeAvailable === 0 && spawn.room.storage &&
+        spawn.room.energyFreeAvailable === 0 &&
+        spawn.room.storage &&
         spawn.room.storage.store.energy > 10000 &&
-        (!this.room ||
-         spawn.room.energyCapacityAvailable > this.room.energyCapacityAvailable);
+        spawn.room.energyCapacityAvailable > this.room.energyCapacityAvailable;
   }
 
   roleCreeps(role) {
@@ -177,7 +177,12 @@ class FlagTeam {
             _.mapValues(this.creepsByRole, creeps => _.map(creeps, 'name'))));
 
     if (!this.creeps.length) {
-      this.memory.debug = this.memory.debug || true;
+      this.memory.empty = this.memory.empty || Game.time;
+      if(Game.time - this.memory.empty > 300) {
+        this.memory.debug = this.memory.debug || true;
+      }
+    } else {
+      delete this.memory.empty;
     }
 
     const customF = this['custom' + this.name];

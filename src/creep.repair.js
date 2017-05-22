@@ -70,7 +70,7 @@ class CreepRepair {
 
   taskRepairWall(wall) {
     wall = this.checkId('repair wall', wall);
-    if (!wall || !wall.hurts) return false;
+    if (!wall || wall.hurts <= 0) return false;
 
     const max = 1.1 * this.room.wallMax;
 
@@ -79,16 +79,50 @@ class CreepRepair {
     return this.goRepair(wall);
   }
 
+  taskTurtleMode() {
+    if(this.room.turtle && this.room.enemies.length) {
+      console.log(`Turtle Mode ${this.room}`);
+      return this.taskTurtle();
+    }
+    return false;
+  }
+
+  taskTurtlePrep() {
+    if(this.room.turtle ||
+      (this.room.controller.level > 2 && this.room.controller.safeMode)) {
+      console.log(`Turtle Prep ${this.room}`);
+      return this.taskTurtle();
+    }
+    return false;
+  }
+
+  taskTurtle() {
+    let walls = this.room.findStructs(STRUCTURE_WALL, STRUCTURE_RAMPART);
+    let wall = _.first(_.sortBy(walls, 'hits'));
+    console.log(`${this} turtle ${wall}`);
+    return this.taskRepair(wall);
+  }
+
   taskRepair(struct) {
     struct = this.checkId('repair', struct);
     if (!struct) return false;
     if (!struct.hurts) return false;
+
+    const MAX = 10000;
+    if(struct.hurts > MAX) {
+      let max = this.memory.task.max;
+      if(!max) {
+        max = this.memory.task.max = this.hits + MAX;
+      }
+      if(this.hits > max) return false;
+    }
 
     return this.goRepair(struct);
   }
 
   goRepair(struct, move = true) {
     const err = this.repair(struct);
+    this.dlog(`gorepair ${err}`);
     if (err === OK) {
       this.intents.melee = this.intents.range = struct;
       return struct.hits;

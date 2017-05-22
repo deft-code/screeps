@@ -2,12 +2,27 @@ const lib = require('lib');
 
 class CreepRole {
   roleUndefined() {
-    this.dlog('Missing Role!');
+    console.log(`${this} Missing Role! ${JSON.stringify(this.memory)}`);
   }
 
   roleIndex() {
     return _.findIndex(
         this.team.roleCreeps(this.memory.role), rc => rc.name === this.name);
+  }
+
+  roleRecycle() {
+    const spawn = Game.spawns[this.memory.spawn];
+    if(!spawn) {
+      console.log("BAD spawn", this.memory.spawn);
+      return false;
+    }
+
+    const err = spawn.recycleCreep(this);
+    if(err === ERR_NOT_IN_RANGE) {
+      return this.moveNear(spawn);
+    }
+    console.log(`RECYCLE ERROR: ${err}, ${this}, ${spawn}`);
+    return false;
   }
 
   checkMem(name) {
@@ -88,6 +103,12 @@ class CreepRole {
     if (!_.isFunction(f)) return false;
 
     return f.apply(this);
+  }
+
+  arrival() {
+    if(!this.memory.arrival) {
+      this.memory.arrival = Game.time;
+    }
   }
 }
 
