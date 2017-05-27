@@ -61,30 +61,31 @@ class CreepMove {
 
   moveRange(target, opts = {}) {
     opts = _.defaults(opts, {range: 3});
-    return this.moveTarget(target, opts);
+    const what = this.moveTarget(target, opts);
+    this.dlog(`moveRange ${what}`);
+    return what;
   }
 
   moveTarget(target, opts = {}) {
     if (!target || this.pos.inRangeTo(target, opts.range)) return false;
 
     const weight = this.weight;
-    const fatigue = this.bodyInfo().fatigue;
+    const fatigue = this.info.fatigue;
     this.dlog('moveTarget', weight, fatigue, target);
 
     const routeCB = (roomName) => {
       switch(roomName) {
-        case 'W88S88':
-        case 'W88S87':
-          return 20;
+        case 'W83S86':
+        case 'W88S84':
+          return 10;
       }
-      return;
-    }
+      return undefined;
+    };
 
     opts = _.defaults(opts, {
-      // useFindRoute: true,
       ignoreRoads: fatigue > weight,
-      routeCallback: routeCB,
       allowHostile: true,
+      routeCallback: routeCB,
     });
     return this.moveHelper(this.travelTo(target, opts), lib.getPos(target));
   }
@@ -115,7 +116,9 @@ class CreepMove {
   fleeHostiles() {
     if(!this.room.hostiles.length) return false;
 
-    return this.idleFlee(this.room.hostiles, 5);
+    if(this.hurts) return this.idleFlee(this.room.hostiles, 5);
+
+    return this.idleFlee(this.room.hostiles, 3);
   }
 
   idleFlee(creeps, range) {

@@ -8,11 +8,10 @@ class Paver {
     this.made = sites.length;
   }
 
+
   canRoad(p) {
     for (let entry of this.room.lookAt(p)) {
       switch (entry.type) {
-        case 'creep':
-          break;
         case 'terrain':
           if (entry.terrain === 'wall') {
             return false;

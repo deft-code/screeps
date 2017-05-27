@@ -5,6 +5,11 @@ module.exports = class CreepHauler {
 
     if (!this.atTeam) return this.taskMoveFlag(this.team);
 
+    if(this.room.myStorage &&
+      this.ticksToLive < 2 * this.pos.getRangeTo(this.room.storage)) {
+        return this.taskTransferStorage();
+    }
+
     what = this.taskTransferTowers(100);
     if (what) return what;
 
@@ -75,7 +80,14 @@ module.exports = class CreepHauler {
           break;
       }
     }
-    return false;
+    return this.taskTransferStorage();
+  }
+
+  taskTransferStorage() {
+    if(!this.room.myStorage) return false;
+    const res = _.sample(_.keys(this.carry));
+    if(!this.carry[res]) return false;
+    return this.taskTransfer(this.room.storage, res);
   }
 
   afterHauler() {

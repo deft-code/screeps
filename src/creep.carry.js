@@ -52,8 +52,13 @@ module.exports = class CreepCarry {
 
     const extns = _.filter(
         this.room.findStructs(STRUCTURE_EXTENSION),
-        p => p.energyFree);
+        p => p.energyFree && !p.taken);
     const extn = this.pos.findClosestByRange(extns);
+
+    if(extn) {
+      extn.taken = this.name;
+      return this.taskTransfer(extn, RESOURCE_ENERGY);
+    }
 
     // fill spawns last to give srcers a chance to fill them.
     const spawns = _.filter(
@@ -61,7 +66,7 @@ module.exports = class CreepCarry {
         p => p.energyFree);
     const spawn = this.pos.findClosestByRange(spawns);
 
-    return this.taskTransfer(extn || spawn, RESOURCE_ENERGY);
+    return this.taskTransfer(spawn, RESOURCE_ENERGY);
   }
 
   taskTransferMinerals() {
@@ -302,8 +307,8 @@ module.exports = class CreepCarry {
       this.intents.withdraw = target;
       return 'success';
     }
-    if (move && err === ERR_NOT_IN_RANGE) {
-      return this.moveNear(target);
+    if (err === ERR_NOT_IN_RANGE) {
+      return move && this.moveNear(target);
     }
     this.dlog('goWithdraw error!', err);
     return false;

@@ -29,7 +29,12 @@ Creep.prototype.taskRoadUpkeep = function() {
 Flag.prototype.teamHarvest = function() {
   let nminer = 1;
   let ncart = 2;
+  let nfarmer = 0;
   if(this.room) {
+    if(this.room.find(FIND_MY_CONSTRUCTION_SITES).length) {
+      nfarmer = 1;
+    }
+
     const nsrcs = this.room.find(FIND_SOURCES).length;
     ncart = nsrcs + 1;
     nminer = nsrcs;
@@ -46,7 +51,7 @@ Flag.prototype.teamHarvest = function() {
   }
   return this.upkeepRole(nminer, {role:'miner', body:'miner'}, 2, this.closeSpawn(550)) ||
     this.upkeepRole(ncart, {role:'cart', body:'cart'}, 3, this.closeSpawn(550)) ||
-    this.upkeepRole(1, {role:'farmer',body:'farmer'}, 2, this.closeSpawn(800));
+    this.upkeepRole(nfarmer, {role:'farmer',body:'farmer'}, 2, this.closeSpawn(800));
 };
 
 Flag.prototype.teamSuppress = function() {

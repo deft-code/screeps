@@ -60,7 +60,7 @@ class CreepAttack {
   }
 
   taskMassAttack(struct) {
-    struct = this.checkId('mass attack struct', struct);
+    struct = this.checkId('mass attack', struct);
     if (this.room.hostiles.length) return false;
     return this.goMassAttack(struct);
   }

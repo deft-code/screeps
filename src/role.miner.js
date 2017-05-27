@@ -5,6 +5,16 @@ module.exports = class CreepMiner {
   }
 
   afterMiner() {
-    if(!this.carryFree) this.drop(RESOURCE_ENERGY);
+    if(this.carryFree < this.info.harvest) {
+      //console.log(`${this} miner drop, ${JSON.stringify(this.info)}, ${JSON.stringify(this.carry)}`);
+      for(const creep of this.room.find(FIND_MY_CREEPS)) {
+        if(creep.memory.role !== this.memory.role && creep.carryFree && this.pos.isNearTo(creep)) {
+          // console.log(this, "miner share", creep);
+          this.dlog(`Shared ${this.carry.energy} with ${creep}`);
+          return this.goTransfer(creep, RESOURCE_ENERGY, false);
+        }
+      }
+      this.drop(RESOURCE_ENERGY);
+    }
   }
 };

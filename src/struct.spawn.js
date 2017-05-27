@@ -1,6 +1,12 @@
 const lib = require('lib');
 
 const bodies = {
+  archer: {
+    move: 0.2,
+    per: [RANGED_ATTACK],
+    max: 1,
+  },
+
   attack: {
     move: 1,
     per: [ATTACK, TOUGH],
@@ -20,6 +26,12 @@ const bodies = {
     move: 1,
     base: [WORK, MOVE],
     per: [CARRY],
+  },
+
+  chemist: {
+    move: 2,
+    per: [CARRY, CARRY, WORK],
+    max: 3,
   },
 
   claim: {
@@ -46,9 +58,15 @@ const bodies = {
     per: [WORK],
   },
 
+  drain: {
+    move: 1,
+    per: [HEAL, TOUGH],
+  },
+
   drainslow: {
     move: 2,
-    base: [ATTACK, TOUGH, MOVE],
+    //base: [ATTACK, TOUGH, MOVE],
+    base: [TOUGH, MOVE],
     per: [HEAL, TOUGH],
   },
 
@@ -67,6 +85,7 @@ const bodies = {
     move: 1,
     base: [CARRY],
     per: [WORK],
+    max: 5,
   },
 
   ram: {

@@ -12,6 +12,7 @@ module.exports = class CreepWork {
 
   idleUpgrade() {
     if(this.intents.melee || this.intents.range) return false;
+    if(!this.room.base) return false;
 
     return this.goUpgradeController(this.room.controller, false);
   }
@@ -100,7 +101,7 @@ module.exports = class CreepWork {
       this.memory.task.spot = spot;
     }
 
-    const where = this.movePos(spot);
+    const where = this.movePos({pos:spot});
     const err = this.harvest(src);
     if (err === OK) {
       this.intents.melee = src;

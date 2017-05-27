@@ -10,7 +10,5 @@ Flag.prototype.teamOccupy = function() {
 
   const nsrcs = this.room.find(FIND_SOURCES).length + 1;
   return this.teamSuppress() || 
-      this.upkeepRole(nsrcs, {role:'miner', body:'miner'}, 2, this.closeSpawn(550)) ||
-      this.upkeepRole(nsrcs, {role:'cart', body:'cart'}, 3, this.closeSpawn(550)) ||
-      this.upkeepRole(1, {role:'farmer',body:'farmer'}, 2, this.closeSpawn(800));
+      this.teamHarvest();
 };

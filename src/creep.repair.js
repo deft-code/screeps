@@ -2,21 +2,24 @@ const lib = require('lib');
 
 class CreepRepair {
   idleRepair() {
-    this.dlog("idle repair target");
+    this.dlog("start idle repair", this.intents.melee, this.intents.range);
     if(this.intents.melee || this.intents.range) return false;
     let repair = Game.getObjectById(this.memory.repair);
+    this.dlog("idle repair", repair);
     if(!repair || !repair.hurts) {
       this.dlog("New idle repair target");
-      const power = this.bodyInfo().repair;
+      const power = this.info.repair;
       repair = _(this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 3, true))
         .map(spot => spot[LOOK_STRUCTURES])
+        .tap(s => this.dlog(s))
         .find(struct => {
           if(!struct.hurts) return false;
           if(struct.structureType === STRUCTURE_WALL || struct.structureType === STRUCTURE_RAMPART) {
             return struct.hits < this.room.wallMax;
           }
-          return this.hurts >= power || this.hitsMax < power;
+          return struct.hurts >= power || this.room.hitsMax < power;
       });
+      this.dlog("repair found", repair);
       this.memory.repair = repair && repair.id;
     }
     const what = this.goRepair(repair, false);
@@ -29,7 +32,7 @@ class CreepRepair {
 
   taskRepairOrdered() {
     const decay = this.room.findStructs(
-        STRUCTURE_RAMPART, STRUCTURE_ROAD, STRUCTURE_CONTAINER);
+        STRUCTURE_ROAD, STRUCTURE_CONTAINER, STRUCTURE_RAMPART);
 
     return this.taskRepairStructs(decay) ||
         this.taskRepairStructs(this.room.find(FIND_STRUCTURES));
@@ -40,7 +43,8 @@ class CreepRepair {
   }
 
   taskRepairStructs(structs) {
-    for (let struct of structs) {
+    const shuffled = _.shuffle(structs);
+    for (let struct of shuffled) {
       switch (struct.structureType) {
         case STRUCTURE_RAMPART:
         case STRUCTURE_WALL:

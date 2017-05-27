@@ -56,7 +56,6 @@ class CreepFarmer {
   }
 
   dropRoom() {
-    delete this.memory.dropRoom;
     let room = Game.rooms[this.memory.dropRoom];
     if(!room) {
       room = this.findDropRoom();

@@ -53,7 +53,7 @@ StructureTower.prototype.run = function() {
   }
 
   const surpluss = this.room.storage && this.room.storage.store.energy > 800000;
-  const dropped = _(this.room.find(FIND_DROPPED_ENERGY))
+  const dropped = _(this.room.find(FIND_DROPPED_RESOURCES))
                       .filter(s => s.amount > 1000)
                       .value()
                       .length;

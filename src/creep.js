@@ -41,6 +41,30 @@ class CreepExtra {
     return this._activeByType;
   }
 
+  get info() {
+    if(!this.hurts) {
+      return this.fullInfo;
+    }
+    if(this._info) {
+      return this._info;
+    }
+    return this._info = this.bodyInfo();
+  }
+
+  get fullInfo() {
+    if(this.name) {
+      let info = this.memory.info;
+      if(!info) {
+        info = this.memory.info = this.bodyInfo(true);
+      }
+      return info;
+    }
+    if(this._fullInfo) {
+      return this._fullInfo;
+    }
+    return this._fullInfo = this.bodyInfo(true);
+  }
+
   get ignoreRoads() {
     return this.body.length >= 2 * this.getActiveBodyparts(MOVE);
   }

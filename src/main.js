@@ -1,10 +1,4 @@
-require('traveler')({
-  exportTraveler: false,
-  installTraveler: true,
-  installPrototype: true,
-  defaultStuckValue: 2,
-  reportThreshold: 150,
-});
+require('traveler');
 
 const lib = require('lib');
 lib.enhanceAll();
@@ -19,6 +13,7 @@ require('team.role');
 require('matrix');
 require('road');
 require('room');
+const roomplan = require('room.plan');
 require('source');
 
 require('struct');
@@ -38,7 +33,6 @@ require('creep.repair');
 require('creep.role');
 
 require('role.archer');
-require('role.caboose');
 require('role.chemist');
 require('role.claimer');
 require('role.collector');
@@ -55,11 +49,13 @@ mods = [
 
   'role.block',
   'role.bootstrap',
-  'role.cart',
   'role.bulldozer',
+  'role.caboose',
+  'role.cart',
   'role.drain',
   'role.guard',
   'role.hauler',
+  'role.manual',
   'role.medic',
   'role.miner',
   'role.ram',
@@ -150,6 +146,8 @@ function main() {
   runner(Game.rooms);
   runner(Game.flags);
   runner(Game.creeps);
+
+  roomplan();
 
   clearMem('creeps');
   clearMem('flags');

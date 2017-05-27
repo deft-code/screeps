@@ -10,6 +10,7 @@ class CreepBuild {
   taskBuildOrdered() {
     return this.taskBuildStructs(STRUCTURE_ROAD) ||
         this.taskBuildStructs(STRUCTURE_TOWER) ||
+        this.taskBuildStructs(STRUCTURE_SPAWN) ||
         this.taskBuildStructs(STRUCTURE_CONTAINER, STRUCTURE_EXTENSION) ||
         this.taskBuildAny();
   }

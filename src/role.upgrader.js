@@ -1,6 +1,6 @@
 module.exports = class CreepUpgrader {
   roleUpgrader() {
-    this.goUpgradeController(this.team.room.controller);
+    const what = this.goUpgradeController(this.team.room.controller);
 
     const struct = Game.getObjectById(this.memory.struct) ||
       _(this.room.lookForAtRange(LOOK_STRUCTURES, this.room.controller.pos, 4, true))
@@ -17,6 +17,7 @@ module.exports = class CreepUpgrader {
           delete this.memory.struct;
         }
       }
+      return what;
     }
 
     return this.moveRange(this.team.room.controller);

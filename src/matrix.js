@@ -30,6 +30,7 @@ function calcMatrix(name, matrix) {
   }
 };
 
+
 module.exports = {
   calcMatrix: calcMatrix,
 };

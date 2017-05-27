@@ -1,7 +1,10 @@
 const lib = require('lib');
 
 function nonenergy(carry) {
-  return _(_.keys(carry)).filter(k => k != RESOURCE_ENERGY).sample();
+  return _.max(_.keys(carry), k => {
+    if(k=== RESOURCE_ENERGY) return -1;
+    return carry[k];
+  });
 }
 
 Room.prototype.labForMineral = function(mineral) {
@@ -27,8 +30,48 @@ Room.prototype.contForMineral = function(mineral) {
 
 class CreepChemist {
   roleChemist() {
-    return this.taskTask() || this.taskResortMinerals() ||
-        this.taskSortAllMinerals();
+    return this.taskTask() || 
+      this.taskMoveRoom(this.team) ||
+      this.taskResortMinerals() ||
+      this.taskHarvestMinerals() ||
+        this.taskTransferMinerals();
+  }
+
+  taskHarvestMinerals() {
+    this.dlog('harvest minerals info', this.info.mineral);
+    if(this.carryFree < this.info.mineral) return false;
+    const extrs = this.room.findStructs(STRUCTURE_EXTRACTOR);
+    if(!extrs.length) return false;
+    if(!this.room.terminal) return false;
+    if(this.room.controller.level < 6) return false;
+    const mineral = _.first(this.room.find(FIND_MINERALS));
+    return this.taskHarvestMineral(mineral);
+  }
+
+  taskHarvestMineral(mineral) {
+    mineral = this.checkId('harvest mineral', mineral);
+    if(!mineral) return false;
+
+    if(this.carryFree < this.info.mineral) return false;
+
+    if(this.carryTotal && this.ticksToLive < 2*this.pos.getRangeTo(this.room.terminal)) {
+      console.log("Emergency chemist dump");
+      return this.taskTransferMinerals();
+    }
+
+    const err = this.harvest(mineral);
+    if(err === OK) {
+      this.intents.melee = this.intents.range = mineral;
+      return mineral.mineralAmount;
+    }
+    if(err === ERR_TIRED) {
+      return 'cooldown';
+    }
+    if(err === ERR_NOT_IN_RANGE) {
+      return this.moveNear(mineral);
+    }
+    console.log(`ERROR ${err}: ${this} harvest ${mineral}`);
+    return false;
   }
 
   taskTransferMinerals() {
@@ -65,6 +108,7 @@ class CreepChemist {
   }
 
   taskWithdrawMinerals(store) {
+    this.dlog(`withdraw mineral ${store}`);
     if (!store) return false;
     const mineral = nonenergy(store.store);
     return this.taskWithdraw(store, mineral);

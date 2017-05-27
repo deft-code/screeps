@@ -14,7 +14,9 @@ module.exports = class CreepMedic {
   }
 
   taskHealCreeps(creeps) {
-    return this.taskHeal(_.find(creeps, 'hurts'));
+    const creep = _.find(creeps, 'hurts');
+    if(!creep) return false;
+    return this.taskHeal(creep);
   }
 
   taskHeal(creep) {

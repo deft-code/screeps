@@ -72,6 +72,9 @@ class CreepRole {
       return obj;
     }
 
+    // This prevents accidental repeats.
+    if(obj !== undefined) return false;
+
     const mem = this.checkMem(name);
     if (mem) {
       obj = Game.getObjectById(this.memory.task.id);

@@ -44,7 +44,6 @@ class FlagTeam {
         if(!creep.ticksToLive) continue;
         const ctime = 3 * creep.body.length + 50;
         if(creep.ticksToLive < ctime) {
-          console.log(`Preemptive Creep: ${ctime} < ${creep.ticksToLive}: ${JSON.stringify(mem)}`);
           return this.makeRole(mem, priority, filter);
         }
       }

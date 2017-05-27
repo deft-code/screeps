@@ -19,7 +19,7 @@ class RoomExtra {
   }
 
   get myStorage() {
-    if (this.storage && this.storage.my && this.storage.isActive()) {
+    if (this.storage && this.storage.my && this.controller.level >= 4) {
       return this.storage;
     }
     return false;
