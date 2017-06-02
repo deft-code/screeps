@@ -4,6 +4,18 @@
 // However, most helpers are structured so they can be easily
 // added to the exsiting Object prototypes; see cachedProp.
 
+exports.fibonacci = (n) => {
+  if(n<2) return n;
+  let p1 = 1;
+  let p2 = 0;
+  for(let i=2; i<n; i++) {
+    const tmp = p1;
+    p1 += p2;
+    p2 = tmp;
+  }
+  return p1 + p2;
+};
+
 // A quick helper to defined cached properties on a screeps object.
 //
 // Example:

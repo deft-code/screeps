@@ -8,7 +8,7 @@ class CreepAttack {
       return target.hits;
     }
     if (err === ERR_NOT_IN_RANGE) {
-      return move && this.moveRange(target);
+      return move && this.moveRange(target, {allowHostile: true});
     }
     return false;
   }

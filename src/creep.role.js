@@ -11,6 +11,10 @@ class CreepRole {
   }
 
   roleRecycle() {
+    return this.idleRecycle();
+  }
+
+  idleRecycle() {
     const spawn = Game.spawns[this.memory.spawn];
     if(!spawn) {
       console.log("BAD spawn", this.memory.spawn);
@@ -21,7 +25,7 @@ class CreepRole {
     if(err === ERR_NOT_IN_RANGE) {
       return this.moveNear(spawn);
     }
-    console.log(`RECYCLE ERROR: ${err}, ${this}, ${spawn}`);
+    console.log(`RECYCLE! ${err}, ${this}, ${spawn}`);
     return false;
   }
 
@@ -105,7 +109,16 @@ class CreepRole {
     const f = this[_.camelCase('task ' + tmem.task)];
     if (!_.isFunction(f)) return false;
 
-    return f.apply(this);
+    const what = f.apply(this);
+    if(!what || what === 'success') {
+      if(!what) {
+        this.say('Done!');
+      } else {
+        this.say('Done');
+      }
+      delete this.memory.task;
+    }
+    return what;
   }
 
   arrival() {

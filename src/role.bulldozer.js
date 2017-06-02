@@ -11,7 +11,6 @@ module.exports = class CreepBulldozer {
         this.taskRaze(STRUCTURE_CONTAINER) ||
         this.taskDismantleHostile() ||
         this.taskStompAll() ||
-        this.taskRaze(STRUCTURE_ROAD) ||
         this.taskRaze(STRUCTURE_WALL) ||
         this.taskRaze(STRUCTURE_ROAD);
   }

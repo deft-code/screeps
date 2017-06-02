@@ -3,7 +3,7 @@ const lib = require('lib');
 
 class FlagTeam {
   localSpawn(energy) {
-    return (spawn) => this.spawnDist(spawn) === 0 &&
+    return (spawn) => this.spawnDist(spawn) === 1 &&
         spawn.room.energyAvailable >= energy;
   }
 
@@ -13,7 +13,7 @@ class FlagTeam {
   }
 
   remoteSpawn() {
-    return (spawn) => this.spawnDist(spawn) > 0 &&
+    return (spawn) => this.spawnDist(spawn) > 1 &&
         spawn.room.energyFreeAvailable === 0 &&
         spawn.room.storage &&
         spawn.room.storage.store.energy > 10000 &&
@@ -133,7 +133,9 @@ class FlagTeam {
     let dist = cache[spawn.name];
     if (dist === undefined) {
       dist = cache[spawn.name] =
-          Game.map.findRoute(this.pos.roomName, spawn.room).length;
+        _.size(traveler.findAllowedRooms(this.pos.roomName, spawn.room.name));
+      //dist = cache[spawn.name] =
+      //    Game.map.findRoute(this.pos.roomName, spawn.room).length;
       if (cache.min === undefined) {
         cache.min = dist
       } else {

@@ -30,8 +30,8 @@ const bodies = {
 
   chemist: {
     move: 2,
-    per: [CARRY, CARRY, WORK],
-    max: 3,
+    base:[CARRY, CARRY, MOVE],
+    per: [WORK],
   },
 
   claim: {

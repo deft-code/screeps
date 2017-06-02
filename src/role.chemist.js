@@ -70,6 +70,10 @@ class CreepChemist {
     if(err === ERR_NOT_IN_RANGE) {
       return this.moveNear(mineral);
     }
+    if(err === ERR_NOT_ENOUGH_RESOURCES) {
+      this.dlog(mineral, "is empty");
+      return false;
+    }
     console.log(`ERROR ${err}: ${this} harvest ${mineral}`);
     return false;
   }

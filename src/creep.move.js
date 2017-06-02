@@ -75,8 +75,13 @@ class CreepMove {
 
     const routeCB = (roomName) => {
       switch(roomName) {
+        case 'W83S85':
         case 'W83S86':
+        case 'W87S89':
         case 'W88S84':
+        case 'W88S87':
+        case 'W88S88':
+        case 'W88S89':
           return 10;
       }
       return undefined;
@@ -84,7 +89,7 @@ class CreepMove {
 
     opts = _.defaults(opts, {
       ignoreRoads: fatigue > weight,
-      allowHostile: true,
+      //allowHostile: true,
       routeCallback: routeCB,
     });
     return this.moveHelper(this.travelTo(target, opts), lib.getPos(target));
@@ -100,6 +105,7 @@ class CreepMove {
         this.intents.move = intent;
         return `move ${intent}`;
     }
+    this.dlog("Move Error!", err, intent);
     return false;
   }
 
@@ -177,12 +183,12 @@ class CreepMove {
     return false;
   }
 
-  idleMoveRoom(obj, opts={}) {
+  moveRoom(obj, opts={}) {
     if (!obj) return false;
     const x = this.pos.x;
     const y = this.pos.y;
-    this.dlog("idleMoveRoom", obj.pos.roomName, this.pos.roomName);
-    if (obj.pos.roomName === this.pos.roomName) {
+    this.dlog("moveRoom", obj.pos.roomName, this.room);
+    if (obj.pos.roomName === this.room.name) {
       if(x === 0) {
         this.moveDir(RIGHT);
       } else if (x === 49) {
@@ -192,22 +198,23 @@ class CreepMove {
       } else if (y === 49) {
         this.moveDir(TOP);
       }
-      this.dlog("idleMoveRoom done");
+      this.dlog("moveRoom done");
       return false;
     }
-    const range = Math.min(x, y, 49-x, 49-y);
+    const range = Math.max(1, Math.min(x, y, 49-x, 49-y)-1);
+    this.dlog('moveRoom range', range);
     opts = _.defaults(opts, {range: range});
     return this.moveTarget(obj, opts);
   }
 
   taskMoveRoom(obj) {
     obj = this.checkId('move room', obj);
-    return this.idleMoveRoom(obj);
+    return this.moveRoom(obj);
   }
 
   taskMoveFlag(flag, opts={}) {
     flag = this.checkFlag('move flag', flag);
-    return this.idleMoveRoom(flag, opts);
+    return this.moveRoom(flag, opts);
   }
 }
 

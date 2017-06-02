@@ -8,7 +8,7 @@
 "use strict";
 const REPORT_CPU_THRESHOLD = 500;
 const DEFAULT_MAXOPS = 20000;
-const DEFAULT_STUCK_VALUE = 2;
+const DEFAULT_STUCK_VALUE = 5;
 class Traveler {
     constructor() {
         // change this memory path to suit your needs
@@ -66,7 +66,7 @@ class Traveler {
             },
         });
         if (!_.isArray(ret)) {
-            console.log(`couldn't findRoute to ${destination}`);
+            console.log(`couldn't findRoute from ${origin} to ${destination}`);
             return;
         }
         for (let value of ret) {
@@ -113,7 +113,7 @@ class Traveler {
                 }
             }
             else if (options.ignoreCreeps || roomName !== origin.pos.roomName) {
-                matrix = this.getStructureMatrix(room);
+                matrix = this.getStructureMatrix(room.name);
             }
             else {
                 matrix = this.getCreepMatrix(room);
@@ -233,13 +233,19 @@ class Traveler {
         }
         return creep.move(nextDirection);
     }
-    getStructureMatrix(room) {
-        this.refreshMatrices();
-        if (!this.structureMatrixCache[room.name]) {
-            let matrix = new PathFinder.CostMatrix();
-            this.structureMatrixCache[room.name] = Traveler.addStructuresToMatrix(room, matrix, 1);
+    getStructureMatrix(roomName) {
+        if(!this.structureMatrixCache) this.structureMatrixCache = {};
+
+        let matrix = this.structureMatrixCache[roomName];
+        const room = Game.rooms[roomName];
+        if(room && (!matrix || matrix.when < Game.time)) {
+            matrix = new PathFinder.CostMatrix();
+            matrix.when = Game.time;
+            matrix = this.structureMatrixCache[roomName] = Traveler.addStructuresToMatrix(room, matrix, 1);
         }
-        return this.structureMatrixCache[room.name];
+        if(!matrix) return false;
+        if(matrix.when < Game.time) console.log(`Cached Matrix ${roomName}`);
+        return matrix;
     }
     static initPosition(pos) {
         return new RoomPosition(pos.x, pos.y, pos.roomName);
@@ -270,7 +276,7 @@ class Traveler {
     getCreepMatrix(room) {
         this.refreshMatrices();
         if (!this.creepMatrixCache[room.name]) {
-            this.creepMatrixCache[room.name] = Traveler.addCreepsToMatrix(room, this.getStructureMatrix(room).clone());
+            this.creepMatrixCache[room.name] = Traveler.addCreepsToMatrix(room, this.getStructureMatrix(room.name).clone());
         }
         return this.creepMatrixCache[room.name];
     }

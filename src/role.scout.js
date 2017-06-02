@@ -8,7 +8,7 @@ module.exports = class CreepScout {
       }
     }
     this.dlog("Scout move");
-    return this.idleMoveRoom(this.team) || 
+    return this.moveRoom(this.team) || 
       this.moveRange(this.team);
   }
 };

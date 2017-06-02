@@ -342,10 +342,12 @@ module.exports = class CreepCarry {
   taskPickup(resource) {
     resource = this.checkId('pickup', resource);
     if (!resource) return false;
-    if (!this.pos.inRangeTo(resource, resource.amount)) return false;
     if (!this.carryFree) return false;
+    if (resource.amount < 50 && !this.pos.inRangeTo(resource, resource.amount)) return false;
 
-    return this.goPickup(resource);
+    const what = this.goPickup(resource);
+    this.dlog('goPickup:', what);
+    return what;
   }
 
   goPickup(resource, move = true) {
@@ -354,8 +356,8 @@ module.exports = class CreepCarry {
       this.intents.pickup = resource;
       return 'success';
     }
-    if (move && err === ERR_NOT_IN_RANGE) {
-      return this.moveNear(resource);
+    if (err === ERR_NOT_IN_RANGE) {
+      return move && this.moveNear(resource);
     }
     return false;
   }

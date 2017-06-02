@@ -5,6 +5,10 @@ module.exports = class CreepMiner {
   }
 
   afterMiner() {
+    if(this.fatigue && this.carry.energy) {
+      this.drop(RESOURCE_ENERGY);
+    }
+
     if(this.carryFree < this.info.harvest) {
       //console.log(`${this} miner drop, ${JSON.stringify(this.info)}, ${JSON.stringify(this.carry)}`);
       for(const creep of this.room.find(FIND_MY_CREEPS)) {

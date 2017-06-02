@@ -1,6 +1,6 @@
 module.exports = class CreepMedic {
   roleMedic() {
-    return this.idleRetreat(TOUGH) || this.idleMoveRoom(this.team) ||
+    return this.idleRetreat(TOUGH) || this.moveRoom(this.team) ||
       this.taskTask() || this.taskHealTeam(this.team) ||
       this.taskHealRoom();
   }

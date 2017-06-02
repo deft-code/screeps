@@ -1,7 +1,7 @@
 module.exports = class CreepGuard {
   roleGuard() {
     return this.idleRetreat(TOUGH) || this.taskTask() ||
-      this.idleMoveRoom(this.team) || this.taskGuard() ||
+      this.moveRoom(this.team) || this.taskGuard() ||
       this.taskGuardHealRoom() || this.movePeace(this.team);
   }
 

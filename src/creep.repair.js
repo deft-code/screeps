@@ -58,7 +58,7 @@ class CreepRepair {
           }
           break;
         case STRUCTURE_ROAD:
-          if (struct.hits <= 1000) {
+          if (struct.hurts >= this.info.repair) {
             return this.taskRepair(struct);
           }
           break;

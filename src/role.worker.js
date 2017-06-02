@@ -20,8 +20,7 @@ module.exports = class CreepWorker {
     this.idleNom();
     this.idleRecharge();
     if(this.carryTotal > this.carryFree) {
-      this.idleBuild() || this.idleRepair();
-      this.idleUpgrade();
+      this.idleBuild() || this.idleRepair() || this.idleUpgrade();
     }
   }
 };

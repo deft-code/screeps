@@ -50,34 +50,38 @@ class RoomExtra {
 
   get wallMax() {
     const scale = this.memory.wallScale || 1;
+    const min = scale * lib.fibonacci(this.controller.level) * 10000;
 
-    let pct = 0;
-    if(this.storage) {
-      pct = Math.floor(this.storage.storeTotal/10000);
+    let extra = 0;
+    if(this.myStorage && this.storage.store.energy > kEnergyReserve) {
+      const cap = this.storage.storeCapacity - kEnergyReserve;
+      const e = this.storage.store.energy - kEnergyReserve;
+      extra = Math.floor((e/cap) * 10000000);
     }
 
-    if(pct === 100) return 300000000;
-    if(pct > 70) return scale * 3000000;
-    if(pct > 50) return scale * 1000000;
-    if(pct > 20) return scale * 5000000;
-    if(pct > 10) return scale * 100000;
-    return scale * 10000;
-  }
-
-  ratchet(name, yes) {
-    let v = this.memory[name];
-    if(!_.isFinite(v)){
-      v = this.memory[name] = 0;
-    }
-    if(yes) {
-      this.memory[name] = Math.min(CREEP_LIFE_TIME, Math.max(v+1, 10));
-    } else if(this.memory[name]) {
-      this.memory[name] = Math.max(0, v-1);
-    }
+    return min + extra;
   }
 
   get turtle() {
     return this.memory.tassaulters || this.memory.turtle > Game.time;
+  }
+
+  ratchet(what, up) {
+    const twhat = `t${what}`;
+    const whattime = `${what}time`;
+
+    if(!this.memory[whattime]) this.memory[whattime] = Game.time;
+
+    if(up) {
+      if(!this.memory[twhat]) this.memory[twhat] = 0;
+      this.memory[twhat]++;
+      this.memory[whattime] = Game.time;
+    } else {
+      const delta = Game.time - this.memory[whattime];
+      if(delta > 10) {
+        this.memory[twhat] = 0;
+      }
+    }
   }
 }
 
@@ -123,7 +127,6 @@ Room.prototype.closeRamparts = function(mod) {
 
 const allies = ['tynstar'];
 
-
 Room.prototype.run = function() {
   this.allies =
       _.filter(this.find(FIND_HOSTILE_CREEPS), c => c.owner.username in allies);
@@ -133,9 +136,9 @@ Room.prototype.run = function() {
   this.assaulters = _.filter(this.enemies, 'assault');
   this.melees = _.filter(this.enemies, 'melee');
 
-  this.ratchet('thostiles', this.hostiles.length);
-  this.ratchet('tassaulters', this.assaulters.length);
-  this.ratchet('tenemies', this.enemies.length);
+  this.ratchet('hostiles', this.hostiles.length);
+  this.ratchet('assaulters', this.assaulters.length);
+  this.ratchet('enemies', this.enemies.length);
 
   if (this.controller && this.controller.my) {
     if (this.assaulters.length) {

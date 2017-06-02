@@ -34,8 +34,13 @@ Flag.prototype.teamBase = function() {
   if(!nspawns) return false;
 
   let nworker = 1;
+  let wlvl = 50;
   if (this.room.find(FIND_MY_CONSTRUCTION_SITES).length) {
     nworker++;
+  } else {
+    if(this.room.myStorage && this.room.storage.store.energy < kEnergyReserve) {
+      wlvl = 1;
+    }
   }
 
   const eCap = this.room.energyCapacityAvailable;
@@ -43,17 +48,18 @@ Flag.prototype.teamBase = function() {
   const dropped = _.sum(
     this.room.find(FIND_DROPPED_RESOURCES),
     r => r.amount);
-  const nhauler = Math.ceil(dropped / 1000) + 1;
+  const nhauler = Math.floor(dropped / 1000) + 1;
 
   let ulvl = 50;
   let nupgrader = 1;
   if(this.room.controller.level === 8) {
-    ulvl = 15
+    ulvl = 1;
   }
-  if(this.room.storage ) {
-    if(this.room.storage.store.energy < 10000) {
+
+  if(this.room.storage) {
+    if(this.room.storage.store.energy < kEnergyReserve) {
       ulvl = 1
-    } else if(this.room.storage.store.energy > 200000) {
+    } else if(this.room.storage.store.energy > 2*kEnergyReserve) {
       nupgrader += 1;
     }
   }
@@ -62,30 +68,32 @@ Flag.prototype.teamBase = function() {
   const eworker = Math.min(3300, eCap);
 
   const te = this.room.memory.tenemies;
-  this.dlog(`attacked ${te}`);
+  const ta = this.room.memory.tassaulters;
+
   let ndefenders = 0;
-  if(te > 40) {
-    const t2 = te-40
+  if(ta > 40) {
+    const t2 = ta-40
     ndefenders = Math.ceil(t2/300);
-    this.dlog("need defenders");
   }
 
-  const ta = this.room.memory.tassautlers;
   let nmicro = 0;
   if(ta === 0 && te > 0) {
     nmicro = 1;
   }
 
   let nchemist =  0;
+  let chemLvl = 50;
   if(this.room.terminal) {
     nchemist = 1;
+    const mineral = _.first(this.room.find(FIND_MINERALS));
+    chemLvl = Math.ceil(mineral.mineralAmount / 300) + 1;
   }
 
   return this.ensureRole(2, {role:'srcer',body:'srcer'}, 4, this.localSpawn(Math.min(eCap, 750))) ||
-      this.upkeepRole(nmicro, {role:'wolf', body:'defender', max:1}, 5, this.localSpawn(260)) ||
-      this.upkeepRole(ndefenders, {role:'wolf', body:'defender'}, 5, this.localSpawn(eCap)) ||
+      this.upkeepRole(nmicro, {role:'defender', body:'defender', max:1}, 5, this.localSpawn(260)) ||
+      this.upkeepRole(ndefenders, {role:'defender', body:'defender'}, 5, this.localSpawn(eCap)) ||
       this.ensureRole(nhauler, {role:'hauler',body:'carry'}, 4, this.localSpawn(ehauler)) ||
-      this.ensureRole(nworker, {role:'worker',body:'worker'}, 3, this.localSpawn(eCap)) ||
+      this.ensureRole(nworker, {role:'worker',body:'worker', max:wlvl}, 3, this.localSpawn(eCap)) ||
       this.ensureRole(nupgrader, {role:'upgrader',body:'upgrader',max:ulvl}, 3, this.localSpawn(eCap)) ||
-      this.ensureRole(nchemist, {role:'chemist',body:'chemist'}, 3, this.localSpawn(eCap));
+      this.ensureRole(nchemist, {role:'chemist',body:'chemist', max:chemLvl}, 3, this.localSpawn(eCap));
 };

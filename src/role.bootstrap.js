@@ -12,11 +12,16 @@ module.exports = class CreepBootstrap {
       if(what) return what;
     }
 
+    if(this.room.controller.level < 2) {
+      return this.taskUpgradeRoom();
+    }
+
     return this.taskTransferTowers(100) ||
         this.taskTransferPool() ||
         this.taskTurtleMode() ||
         this.taskBuildOrdered() ||
-        this.taskRepairOrdered() || this.taskUpgradeRoom() ||
+        this.taskRepairOrdered() ||
+        this.taskUpgradeRoom() ||
         this.taskCampSrcs();
   }
 

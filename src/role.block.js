@@ -1,6 +1,6 @@
 module.exports = class CreepBlock {
   roleBlock() {
-    return this.taskTask() || this.idleMoveRoom(this.team) || this.taskBlock();
+    return this.taskTask() || this.moveRoom(this.team) || this.taskBlock();
   }
 
   taskBlock() {

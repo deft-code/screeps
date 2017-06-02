@@ -2,6 +2,7 @@ require('traveler');
 
 const lib = require('lib');
 lib.enhanceAll();
+require('constants');
 
 require('team');
 require('team.base');
@@ -53,6 +54,7 @@ mods = [
   'role.caboose',
   'role.cart',
   'role.drain',
+  'role.defender',
   'role.guard',
   'role.hauler',
   'role.manual',
