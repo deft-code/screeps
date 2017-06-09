@@ -55,6 +55,7 @@ const bodies = {
 
   dismantleslow: {
     move: 2,
+    base: [ATTACK, MOVE],
     per: [WORK],
   },
 
@@ -81,11 +82,23 @@ const bodies = {
     per: [TOUGH, RANGED_ATTACK],
   },
 
+  heal: {
+    move: 1,
+    base: [ATTACK, MOVE],
+    per: [HEAL],
+  },
+
   miner: {
     move: 1,
     base: [CARRY],
     per: [WORK],
     max: 5,
+  },
+
+  mineral: {
+    move: 2,
+    base:[CARRY, CARRY, MOVE],
+    per: [WORK],
   },
 
   ram: {

@@ -153,7 +153,7 @@ module.exports = class CreepCarry {
     if (move && err === ERR_NOT_IN_RANGE) {
       return this.moveNear(target);
     }
-    this.dlog('goTransfer error!', err);
+    this.dlog('goTransfer error!', err, target, resource);
     return false;
   }
 

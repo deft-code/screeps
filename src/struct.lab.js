@@ -2,7 +2,21 @@ const lib = require('lib');
 
 class LabExtra {
   get planType() {
+    // TODO clean up after all labs nolonger planning energy.
+    const p = this.memory.planType;
+    if(p === RESOURCE_ENERGY) {
+      delete this.memory.planType;
+    }
+
     return this.memory.planType;
+  }
+
+  set planType(mineral) {
+    if(!_.isString(mineral)) return false;
+    if(mineral === RESOURCE_ENERGY) return false;
+    if(mineral === RESOURCE_POWER) return false;
+
+    return this.memory.planType = mineral;
   }
 
   get mineralFree() {

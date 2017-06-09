@@ -1,5 +1,10 @@
 require('traveler');
 
+const stack = require('stack');
+const profiler = require('profiler');
+Creep.prototype.harvest = profiler.wrap(Creep.prototype.harvest);
+Creep.prototype.move = profiler.wrap(Creep.prototype.move);
+
 const lib = require('lib');
 lib.enhanceAll();
 require('constants');
@@ -8,6 +13,7 @@ require('team');
 require('team.base');
 require('team.block');
 require('team.farm');
+require('team.misc');
 require('team.occupy');
 require('team.role');
 
@@ -44,6 +50,7 @@ require('role.reserver');
 require('role.srcer');
 
 mods = [
+  'creep.boost',
   'creep.carry',
   'creep.heal',
   'creep.work',
@@ -53,13 +60,14 @@ mods = [
   'role.bulldozer',
   'role.caboose',
   'role.cart',
-  'role.drain',
   'role.defender',
+  'role.drain',
   'role.guard',
   'role.hauler',
   'role.manual',
   'role.medic',
   'role.miner',
+  'role.mineral',
   'role.ram',
   'role.scout',
   'role.stomper',
@@ -72,28 +80,20 @@ for(const mod of mods) {
   lib.merge(Creep, require(mod));
 }
 
-if (false) {
-  const profiler = require('screeps-profiler');
-  profiler.enable();
-  module.exports.loop = profiler.wrap(main);
-} else {
-  module.exports.loop = main;
+module.exports.loop = main;
+
+eglog = (msg) => {
+  const ss = stack.get();
+  const frame = ss[1]
+  console.log(`${frame.getFileName()}.js#${frame.getLineNumber()} ${msg}`);
 }
 
-function stack() {
-  const orig = Error.prepareStackTrace;
-  Error.prepareStackTrace = (error, stack_array) => stack_array;
-  const obj = {};
-  Error.captureStackTrace(obj, arguments.callee);
-  const s = obj.stack;
-  Error.prepareStackTrace = orig;
-  return s;
-};
- 
-eglog = (msg) => {
-  const ss = stack();
-  const frame = ss[1]
-  console.log(`${frame.getFileName()}:${frame.getLineNumber()} ${msg}`);
+global.busyCreeps = (n) => {
+  const x = _.sortBy(Game.creeps, c => c.memory.cpu / (Game.time - c.memory.birth)).reverse();
+  for(let i=0; i<n; i++) {
+    const c = x[i];
+    console.log(c, c.memory.role, c.memory.team, c.memory.cpu, Game.time-c.memory.birth);
+  }
 }
 
 global.debug = (obj, val = true) => obj.memory.debug = val;
@@ -127,6 +127,7 @@ function runner(objs) {
       console.log(err.stack);
       Game.notify(err.stack, 30);
     }
+    profiler.sample()
   }
 }
 
@@ -142,17 +143,18 @@ function clearMem(what) {
 }
 
 function main() {
+  profiler.main(30);
   PathFinder.use(true);
-  eglog(Game.cpu.bucket);
+  eglog(`${Game.cpu.getUsed()} ${Game.cpu.bucket}`);
 
   runner(Game.rooms);
   runner(Game.flags);
   runner(Game.creeps);
 
   roomplan();
+  profiler.sample();
 
   clearMem('creeps');
   clearMem('flags');
-
-  //console.log("tower:", Game.rooms.W87S86.createConstructionSite(37, 16, STRUCTURE_TOWER));
+  profiler.sample();
 };

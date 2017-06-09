@@ -1,21 +1,23 @@
 const lib = require('lib');
 
 function nonenergy(carry) {
-  return _.max(_.keys(carry), k => {
-    if(k=== RESOURCE_ENERGY) return -1;
-    return carry[k];
-  });
+  const m = _(carry)
+    .keys()
+    .filter(k => k !== RESOURCE_ENERGY)
+    .max(k => carry[k]);
+  if(_.isString(m)) return m;
+  return false;
 }
 
 Room.prototype.labForMineral = function(mineral) {
-  for (let lab of this.findStructs(STRUCTURE_LAB)) {
-    if (lab.memory.planType === mineral && lab.mineralFree) {
+  for (const lab of this.findStructs(STRUCTURE_LAB)) {
+    if (lab.planType === mineral && lab.mineralFree) {
       return lab;
     }
   }
   for (let lab of this.findStructs(STRUCTURE_LAB)) {
-    if (!lab.memory.planType) {
-      lab.memory.planType = mineral;
+    if (!lab.planType) {
+      lab.planType = mineral;
       return lab;
     }
   }
@@ -23,22 +25,33 @@ Room.prototype.labForMineral = function(mineral) {
 };
 
 Room.prototype.contForMineral = function(mineral) {
-  const conts = _.filter(this.findStructs(STRUCTURE_CONTAINTER), 'storeFree');
+  const conts = _.filter(this.findStructs(STRUCTURE_CONTAINER), 'storeFree');
   return _.find(conts, cont => cont.store[mineral]) ||
       _.find(conts, cont => cont.mode === 'sink') || _.first(conts);
 };
 
 class CreepChemist {
   roleChemist() {
+    this.dlog("role chemist");
     return this.taskTask() || 
       this.taskMoveRoom(this.team) ||
       this.taskResortMinerals() ||
-      this.taskHarvestMinerals() ||
-        this.taskTransferMinerals();
+      this.taskSortMinerals() ||
+      this.taskLabFill() ||
+      this.moveNear(this.room.terminal);
+  }
+
+  taskLabFill() {
+    for(const lab of this.room.findStructs(STRUCTURE_LAB)) {
+      if(!lab.mineralFree) continue;
+      if(!lab.planType) continue;
+      if(!this.room.terminal.store[lab.planType]) continue;
+      this.dlog('taskLabFill', lab.planType);
+      return this.taskWithdraw(this.room.terminal, lab.planType);
+    }
   }
 
   taskHarvestMinerals() {
-    this.dlog('harvest minerals info', this.info.mineral);
     if(this.carryFree < this.info.mineral) return false;
     const extrs = this.room.findStructs(STRUCTURE_EXTRACTOR);
     if(!extrs.length) return false;
@@ -78,19 +91,22 @@ class CreepChemist {
     return false;
   }
 
-  taskTransferMinerals() {
+  taskSortMinerals() {
     const mineral = nonenergy(this.carry);
+    this.dlog('taskSortMinerals', mineral);
     if (!mineral) return false;
-    return this.taskTransferMineral(mineral);
+    return this.taskSortMineral(mineral);
   }
 
-  taskTransferMineral(mineral) {
+  taskSortMineral(mineral) {
+    this.dlog("taskSortMineral", mineral);
     const lab = this.room.labForMineral(mineral);
+    this.dlog("labForMineral", lab, mineral);
 
-    return this.taskTransferLab(this.room.labForMineral(mineral)) ||
+    return this.taskTransferLab(this.room.labForMineral(mineral), mineral) ||
         this.taskTransfer(this.room.myTerminal, mineral) ||
         this.taskTransfer(this.room.myStorage, mineral) ||
-        this.taskTransfer(this.room.contForMineral(mineral));
+        this.taskTransfer(this.room.contForMineral(mineral), mineral);
   }
 
   taskTransferLab(lab) {
@@ -99,7 +115,7 @@ class CreepChemist {
     if (!this.carry[lab.planType]) return false;
     if (!lab.mineralFree) return false;
 
-    return this.goTransfer(lab, lab.mineralType);
+    return this.goTransfer(lab, lab.mineralType || lab.planType);
   }
 
   taskWithdrawLab(lab) {
@@ -112,15 +128,16 @@ class CreepChemist {
   }
 
   taskWithdrawMinerals(store) {
-    this.dlog(`withdraw mineral ${store}`);
+    this.dlog(`withdraw minerals ${store}`);
     if (!store) return false;
     const mineral = nonenergy(store.store);
     return this.taskWithdraw(store, mineral);
   }
 
   taskResortMinerals() {
-    for (let lab of this.room.myLabs) {
-      if (lab.mineralAmount && lab.mineralType != lab.memory.planType) {
+    this.dlog('resort minerals');
+    for (const lab of this.room.findStructs(STRUCTURE_LAB)) {
+      if (lab.mineralAmount && lab.mineralType != lab.planType) {
         return this.taskWithdrawLab(lab);
       }
     }

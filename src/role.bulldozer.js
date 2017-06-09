@@ -6,13 +6,19 @@ module.exports = class CreepBulldozer {
         this.taskDismantleAt(this.team) ||
         this.taskDismantleHostile(STRUCTURE_TOWER) ||
         this.taskDismantleHostile(STRUCTURE_SPAWN) ||
-        this.taskDismantleHostile(STRUCTURE_EXTENSION, STRUCTURE_TERMINAL, STRUCTURE_LAB) ||
-        //this.taskDismantleHostile(STRUCTURE_STORAGE) ||
-        this.taskRaze(STRUCTURE_CONTAINER) ||
-        this.taskDismantleHostile() ||
+        this.taskDismantleHostiles() ||
         this.taskStompAll() ||
-        this.taskRaze(STRUCTURE_WALL) ||
-        this.taskRaze(STRUCTURE_ROAD);
+        this.taskRaze(STRUCTURE_CONTAINER) ||
+        this.taskRaze(STRUCTURE_ROAD) ||
+        this.taskDismantleHostile(STRUCTURE_RAMPART) ||
+        this.taskRaze(STRUCTURE_WALL);
+  }
+
+  afterBulldozer() {
+    this.idleAttack();
+  }
+
+  taskRazeWalls() {
   }
 
   taskRaze(...stypes) {
@@ -37,6 +43,13 @@ module.exports = class CreepBulldozer {
     const struct = _.sample(obj.pos.lookFor(LOOK_STRUCTURES));
     this.dlog('dismantling', struct);
     return this.taskDismantle(struct);
+  }
+
+  taskDismantleHostiles() {
+    return this.taskDismantle(
+        this.pos.findClosestByRange(this.room.find(FIND_HOSTILE_STRUCTURES, {
+          filter: s => s.hits && s.structureType !== STRUCTURE_RAMPART
+        })));
   }
 
   taskDismantleHostile(...stypes) {

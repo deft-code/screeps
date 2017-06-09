@@ -30,7 +30,7 @@ module.exports = class CreepHauler {
               case STRUCTURE_TERMINAL:
                 const e = struct.store.energy;
                 const nonE = struct.storeTotal - e;
-                return (e > 20000 && e > nonE * 2) || !struct.storeFree;
+                return (e > 20000 && e > nonE) || !struct.storeFree;
               case STRUCTURE_CONTAINER:
                 return struct.mode === 'src' && struct.store.energy;
             }
@@ -68,7 +68,7 @@ module.exports = class CreepHauler {
         case STRUCTURE_TERMINAL:
           const e = struct.store.energy;
           const nonE = struct.storeTotal - e;
-          if (e < nonE || e < 10000) {
+          if (e < 2*nonE || e < 10000) {
             return this.taskTransfer(struct, RESOURCE_ENERGY);
           }
           break;

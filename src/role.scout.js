@@ -1,5 +1,8 @@
 module.exports = class CreepScout {
   roleScout() {
+    const what = this.taskTask() || this.taskBoostOne();
+    if(what) return what;
+
     if(this.atTeam) {
       const creep = this.pos.findClosestByRange(this.room.hostiles);
       if(creep && this.pos.inRangeTo(creep, 4)) {

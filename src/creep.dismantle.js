@@ -1,6 +1,23 @@
 const lib = require('lib');
 
 class CreepDismantle {
+  idleDismantle() {
+    if(this.intents.melee) return false;
+    if(!this.room.controller) return false;
+    if(this.room.controller.my) return false;
+    if(this.room.controller.reservation.username === 'deft-code') return false;
+
+    let struct = Game.getObjectById(this.memory.dismantle);
+    if(!struct || !this.pos.isNearTo(struct)) {
+      struct = _(this.room.lookForAtRange(LOOK_STRUCTURES , this.pos,  1, true))
+        .map(spot => spot[LOOK_STRUCTURES])
+        .sample();
+    }
+    if(struct) {
+      this.goDismantle(struct, false);
+    }
+  }
+
   taskDismantleAny() {
     const target = _(this.room.find(FIND_HOSTILE_STRUCTURES))
                        .sample(3)

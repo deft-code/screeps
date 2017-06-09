@@ -43,25 +43,27 @@ Flag.prototype.teamHarvest = function() {
 
     const srcs = this.room.find(FIND_SOURCES);
     nminer = srcs.length;
+    ncart = nminer;
 
-    const dist = this.minSpawnDist();
-    const totalE = _.sum(this.room.find(FIND_SOURCES), 'energyCapacity');
-    const perE = totalE / ENERGY_REGEN_TIME;
-    const estimate = dist * 100 * perE / 50;
-    const carts = this.roleCreeps('cart');
-    const carries = _.sum(carts, c => c.partsByType[CARRY]);
-    if(carries < estimate) {
-      const nspots = _.sum(srcs, s => s.spots.length);
-      ncart = Math.min(carts.length + 1, nspots);
-      cartMax = Math.ceil((estimate + (estimate - carries)) / 2);
-    }
+    // TODO reenable once cpu use is fixed
+    //const dist = this.minSpawnDist();
+    //const totalE = _.sum(this.room.find(FIND_SOURCES), 'energyCapacity');
+    //const perE = totalE / ENERGY_REGEN_TIME;
+    //const estimate = dist * 100 * perE / 50;
+    //const carts = this.roleCreeps('cart');
+    //const carries = _.sum(carts, c => c.partsByType[CARRY]);
+    //if(carries < estimate) {
+    //  const nspots = _.sum(srcs, s => s.spots.length);
+    //  ncart = Math.min(carts.length + 1, nspots);
+    //  cartMax = Math.ceil((estimate + (estimate - carries)) / 2);
+    //}
   }
   return this.upkeepRole(nminer, {role:'miner', body:'miner'}, 2, this.closeSpawn(550)) ||
     this.upkeepRole(ncart, {role:'cart', body:'cart', max:cartMax}, 3, this.closeSpawn(550)) ||
     this.upkeepRole(nfarmer, {role:'farmer',body:'farmer'}, 2, this.closeSpawn(800));
 };
 
-Flag.prototype.teamSuppress = function() {
+Flag.prototype.teamSuppress = function(e=0) {
   if(!this.room) {
     return this.upkeepRole(1, {role:'scout',body:'scout'}, 4, this.closeSpawn(300));
   }
@@ -69,6 +71,6 @@ Flag.prototype.teamSuppress = function() {
   const nguard = Math.ceil(t/300);
   const nwolf = Math.floor(t/300);
   this.dlog(`attacked ${t}: guard ${nguard}, wolf ${nwolf}`);
-  return this.upkeepRole(nwolf, {role:'wolf', body:'attack'}, 3, this.closeSpawn(570)) ||
-    this.upkeepRole(nguard, {role:'guard', body:'guard'}, 3, this.closeSpawn(190));
+  return this.upkeepRole(nwolf, {role:'wolf', body:'attack'}, 3, this.closeSpawn(e+570)) ||
+    this.upkeepRole(nguard, {role:'guard', body:'guard'}, 3, this.closeSpawn(e+190));
 };

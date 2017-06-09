@@ -191,6 +191,8 @@ class FlagTeam {
       this.dlog('custom', this.name, customF.call(this));
     }
     switch (this.secondaryColor) {
+      case COLOR_RED:
+        return this.teamPuppy();
       case COLOR_BLUE:
         return this.teamBase();
       case COLOR_GREEN:
@@ -202,7 +204,14 @@ class FlagTeam {
       case COLOR_CYAN:
         return this.teamOccupy();
       case COLOR_PURPLE:
-        return this.teamBlock();
+        const n = _.first(_.words(this.name)).toLowerCase();
+        const fname = _.camelCase(`team ${n}`);
+        const f = this[fname];
+        if(!_.isFunction(f)) {
+          console.log(`BAD TEAM: ${this}`);
+          break;
+        }
+        return f.apply(this);
       case COLOR_BROWN:
         if (!this.creeps.length) {
           this.remove();

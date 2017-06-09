@@ -78,10 +78,6 @@ class CreepMove {
         case 'W83S85':
         case 'W83S86':
         case 'W87S89':
-        case 'W88S84':
-        case 'W88S87':
-        case 'W88S88':
-        case 'W88S89':
           return 10;
       }
       return undefined;
@@ -89,7 +85,7 @@ class CreepMove {
 
     opts = _.defaults(opts, {
       ignoreRoads: fatigue > weight,
-      //allowHostile: true,
+      allowHostile: true,
       routeCallback: routeCB,
     });
     return this.moveHelper(this.travelTo(target, opts), lib.getPos(target));
@@ -187,7 +183,6 @@ class CreepMove {
     if (!obj) return false;
     const x = this.pos.x;
     const y = this.pos.y;
-    this.dlog("moveRoom", obj.pos.roomName, this.room);
     if (obj.pos.roomName === this.room.name) {
       if(x === 0) {
         this.moveDir(RIGHT);
@@ -202,7 +197,7 @@ class CreepMove {
       return false;
     }
     const range = Math.max(1, Math.min(x, y, 49-x, 49-y)-1);
-    this.dlog('moveRoom range', range);
+    this.dlog("moveRoom", range,  obj.pos.roomName, this.room);
     opts = _.defaults(opts, {range: range});
     return this.moveTarget(obj, opts);
   }

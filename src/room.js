@@ -92,7 +92,7 @@ Room.prototype.cycleRamparts = function() {
     const ramparts = _.filter(
         this.findStructs(STRUCTURE_RAMPART),
         r => _.any(
-            this.lookForAt(r.pos, LOOK_STRUCTURE),
+            this.lookForAt(r.pos, LOOK_STRUCTURES),
             s => s.structureType === STRUCTURE_ROAD));
     for (const r of ramparts) {
       let priv = false;
@@ -154,6 +154,15 @@ Room.prototype.run = function() {
     this.runLinks();
     this.runLabs();
     // this.closeRamparts(100);
+    
+    for(let src of this.find(FIND_SOURCES)) {
+      for(let spot of src.spots) {
+        const [x, y] = [spot.x, spot.y];
+        this.visual.circle(x, y, {radius: 0.3, fill: 'yellow'});
+        this.visual.text(spot.score, x, y);
+      }
+      this.visual.circle(src.bestSpot.x, src.bestSpot.y, {radius: 0.2, opacity:0.75, fill: 'black'});
+    }
   }
 };
 

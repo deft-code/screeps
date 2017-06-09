@@ -81,12 +81,15 @@ Flag.prototype.teamBase = function() {
     nmicro = 1;
   }
 
-  let nchemist =  0;
-  let chemLvl = 50;
+  let nchemist = 0;
+  let nmineral = 0;
+  let mlvl = 0;
   if(this.room.terminal) {
     nchemist = 1;
+    nmineral = this.room.findStructs(STRUCTURE_EXTRACTOR).length;
     const mineral = _.first(this.room.find(FIND_MINERALS));
-    chemLvl = Math.ceil(mineral.mineralAmount / 300) + 1;
+    mlvl = Math.ceil(mineral.mineralAmount / 300);
+    nmineral = Math.min(mlvl, nmineral);
   }
 
   return this.ensureRole(2, {role:'srcer',body:'srcer'}, 4, this.localSpawn(Math.min(eCap, 750))) ||
@@ -95,5 +98,6 @@ Flag.prototype.teamBase = function() {
       this.ensureRole(nhauler, {role:'hauler',body:'carry'}, 4, this.localSpawn(ehauler)) ||
       this.ensureRole(nworker, {role:'worker',body:'worker', max:wlvl}, 3, this.localSpawn(eCap)) ||
       this.ensureRole(nupgrader, {role:'upgrader',body:'upgrader',max:ulvl}, 3, this.localSpawn(eCap)) ||
-      this.ensureRole(nchemist, {role:'chemist',body:'chemist', max:chemLvl}, 3, this.localSpawn(eCap));
+      this.ensureRole(nmineral, {role:'mineral',body:'mineral', max:mlvl}, 3, this.localSpawn(eCap)) ||
+      this.ensureRole(nchemist, {role:'chemist',body:'carry', max:10}, 3, this.localSpawn(1000));
 };

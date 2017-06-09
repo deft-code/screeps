@@ -44,7 +44,7 @@ class CreepAttack {
   goAttack(target, move = true) {
     const err = this.attack(target);
     if (err === OK) {
-      this.moveBump(target);
+      move && this.moveBump(target);
       return this.intents.melee = target;
     }
     if (err === ERR_NOT_IN_RANGE) {

@@ -32,12 +32,7 @@ StructureTower.prototype.run = function() {
     return true;
   }
 
-  let enemies = _.filter(
-      this.room.assaulters,
-      c => c.pos.x != 0 && c.pos.y != 0 && c.pos.x != 49 && c.pos.y != 49);
-
   if (this.room.assaulters.length) {
-    // let enemy = this.pos.findClosestByRange(enemies);
     let enemy = _(this.room.assaulters).sortBy('hits').last();
     if (enemy) {
       this.attack(enemy);
@@ -50,6 +45,12 @@ StructureTower.prototype.run = function() {
     const hurt = _.sortBy(creeps, 'hits')[0];
     console.log(`Tower${this.pos} full heal`, hurt.name, this.heal(hurt));
     return hurt.name;
+  }
+
+  if(this.room.enemies.length) {
+    const enemy = _.find(this.room.enemies, e => e.hits < 150);
+    this.attack(enemy);
+    return enemy.hits;
   }
 
   const surpluss = this.room.storage && this.room.storage.store.energy > 800000;
