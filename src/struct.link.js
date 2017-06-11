@@ -127,6 +127,6 @@ Room.prototype.runLinks = function() {
   for (let link of this.findStructs(STRUCTURE_LINK)) {
     let mode = link.mode;
     let act = link.run();
-    this.visual.text(`${mode} ${act}`, link.pos, {align: 'left'});
+    //this.visual.text(`${mode} ${act}`, link.pos, {align: 'left'});
   }
 };

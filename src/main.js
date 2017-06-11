@@ -1,9 +1,9 @@
-require('traveler');
 
 const stack = require('stack');
 const profiler = require('profiler');
-Creep.prototype.harvest = profiler.wrap(Creep.prototype.harvest);
-Creep.prototype.move = profiler.wrap(Creep.prototype.move);
+profiler.injectAll();
+
+require('traveler');
 
 const lib = require('lib');
 lib.enhanceAll();

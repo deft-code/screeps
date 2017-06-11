@@ -12,211 +12,150 @@ function findCont(positions) {
 
 class CreepSrcer {
   roleSrcer() {
-    this.dlog("srcer index", this.roleIndex());
-    const what = this.taskTask() || this.taskMoveFlag(this.team);
+    // Calc src
+    let src = Game.getObjectById(this.memory.src);
+    if(!src) {
+      const srcers = this.team.roleCreeps(this.memory.role);
+      const srcs = this.room.find(FIND_SOURCES);
+      if (srcers.length < 2) {
+        src = this.pos.findClosestByRange(srcs);
+        this.memory.src = src.id;
+      } else if (srcers.length <= srcs.length) {
+        for (let s of srcs) {
+          let taken = false;
+          for (let srcer of srcers) {
+            if (srcer.name === this.name) {
+              continue;
+            }
+            if (srcer.memory.src === s.id) {
+              taken = true;
+              break;
+            }
+          }
+          if (!taken) {
+            src = s;
+          }
+        }
+        console.log('ERR', this.name, 'failed to find src in', this.pos.roomName);
+      } else {
+        console.log('ERR', this.name, 'too many srcers in', this.pos.roomName);
+        return false;
+      }
+    }
+    this.memory.src = src.id;
+
+    // Start Behavior
+    const what = this.taskTask() || this.movePos({pos:src.bestSpot});
     if (what) return what;
 
-    const srcers = this.team.roleCreeps(this.memory.role);
-    const srcs = this.room.find(FIND_SOURCES);
+    const err = this.harvest(src);
+    if(err === OK) {
+      this.intents.melee = src;
+    }
+    
+    this.idleNom();
 
-    if (srcers.length < 2) {
-      return this.taskSrc(
-          this.pos.findClosestByRange(this.room.find(FIND_SOURCES_ACTIVE)));
+    if(!this.carryCpacity) return src.energy;
+
+    if(this.carryFree < this.info.harvest || src.energy === 0) { 
+      const shunted = this.srcerShunt();
+      if(!shunted) {
+        console.log(this, 'cleaning up srcer shunts');
+        delete this.memory.spawn;
+        delete this.memory.tower;
+        delete this.memory.link;
+        delete this.memory.store;
+      }
     }
 
-    if (srcers.length <= srcs.length) {
-      for (let src of srcs) {
-        let taken = false;
-        for (let srcer of srcers) {
-          if (srcer.name === this.name) {
-            continue;
-          }
-          if (srcer.memory.task && srcer.memory.task.id === src.id) {
-            taken = true;
-            break;
-          }
+    // Immortal Srcer
+    const spawn = Game.getObjectById(this.memory.spawn);
+    if(spawn && this.info.harvest > 10) {
+      if(!this.room.energyFreeAvailable || this.ticksToLive < 100) {
+        spawn.renewCreep(this);
+      }
+    }
+  }
+
+  srcerShunt() {
+    let deficit = false;
+      
+    let tower = Game.getObjectById(this.memory.tower);
+    if(!tower) {
+      tower = _.find(this.room.findStructs(STRUCTURE_TOWER), t => this.pos.isNearTo(t));
+    }
+    if(tower) {
+      this.memory.tower = tower.id;
+      if(tower.energyFree > 10) {
+        if(this.carry.energy) {
+          return this.goTransfer(tower, RESOURCE_ENERGY, false);
         }
-        if (!taken) {
-          return this.taskSrc(src);
+        deficit = true;
+      }
+    }
+
+    let spawn = Game.getObjectById(this.memory.spawn);
+    if(!spawn) {
+      spawn = _.find(this.room.findStructs(STRUCTURE_SPAWN), s => this.pos.isNearTo(s));
+    }
+    if(spawn) {
+      this.memory.spawn = spawn.id;
+      if(spawn.energyFree) {
+        if(this.carry.energy) {
+          return this.goTransfer(spawn, RESOURCE_ENERGY, false);
+        }
+        deficit = true;
+      }
+    }
+
+    let link = Game.getObjectById(this.memory.link);
+    if(!link) {
+      link = _.find(this.room.findStructs(STRUCTURE_LINK), l => this.pos.isNearTo(l));
+    }
+    if(link) {
+      this.memory.link = link.id;
+      if(deficit) { 
+        if(link.energy) {
+          return this.goWithdraw(link, RESOURCE_ENERGY, false);
+        }
+      } else if(link.mode === 'buffer') {
+        if(this.carryFree && link.energy > 250) {
+          return this.goWithdraw(link, RESOURCE_ENERGY, false);
+        } else if(link.energy < 200) {
+          if(this.carry.energy) {
+            return this.goTransfer(link, RESOURCE_ENERGY, false);
+          }
+          deficit = true;
+        }
+      } else if(link.energyFree) {
+        return this.goTransfer(link, RESOURCE_ENERGY, false);
+      }
+    }
+
+    let store = Game.getObjectById(this.memory.store);
+    if(!store) {
+      store = this.room.myStorage || _.find(
+          this.room.findStructs(STRUCTURE_CONTAINER),
+          c => this.pos.isNearTo(c));
+    }
+    if(store) {
+      this.memory.store = store.id;
+      if(deficit) {
+        if(this.carryFree) {
+          return this.goWithdraw(store, RESOURCE_ENERGY, false);
+        }
+      } else {
+        if(this.carry.energy) {
+          return this.goTransfer(store, RESOURCE_ENERGY, false);
         }
       }
-      console.log('ERR', this.name, 'failed to find src in', this.pos.roomName);
-      return false;
     }
-    return false;
+
+    return "nothing";
   }
 
   afterSrcer() {
     this.idleBuild() || this.idleRepair();
-  }
-
-  startShunt(...positions) {
-    this.dlog('shunting in ', positions[0], positions[0].roomName);
-    const room = Game.rooms[positions[0].roomName];
-
-    if (!room) return false;
-
-    this.dlog('room is', room);
-
-    const order = [
-      STRUCTURE_TOWER,
-      STRUCTURE_EXTENSION,
-      STRUCTURE_SPAWN,
-      STRUCTURE_LINK,
-      STRUCTURE_STORAGE,
-      STRUCTURE_CONTAINER,
-    ];
-
-    const structs = _(room.find(FIND_STRUCTURES))
-                        .filter(
-                            s => _.any(positions, pos => pos.isNearTo(s)) &&
-                                _.contains(order, s.structureType))
-                        .sortBy(s => order.indexOf(s.structureType))
-                        .map('id')
-                        .value();
-
-    this.memory.task.shunt = structs;
-  }
-
-  idleShunt() {
-    const shunt = this.memory.task.shunt;
-    if (!shunt) return false;
-
-    const moveTo = (struct, err) => {
-      this.dlog('shunt moveTo', struct, err);
-      if (!this.intents.move && err == ERR_NOT_IN_RANGE) {
-        this.dlog('moving', struct);
-        this.moveNear(struct);
-      }
-      return err == -OK;
-    };
-
-    let deficit = false;
-
-    for (let id of shunt) {
-      if (this.intents.xfer && this.intents.withdraw) {
-        this.dlog('done shunting');
-        break;
-      }
-      const struct = Game.getObjectById(id);
-      if (!struct) {
-        console.log('Broken Shunt!');
-        delete this.memory.task.shunt;
-        return;
-      }
-      switch (struct.structureType) {
-        case STRUCTURE_TOWER:
-        case STRUCTURE_SPAWN:
-        case STRUCTURE_EXTENSION:
-          if (this.intents.xfer || struct.energyFree < 25) break;
-          this.dlog('energy check', struct);
-          deficit = struct.energyFree > this.carry.energy;
-          if (!this.carry.energy) break;
-          this.dlog('filling', struct);
-          this.intents.xfer =
-              moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
-          break;
-        case STRUCTURE_LINK:
-          if (struct.mode === 'buffer') {
-            this.dlog('shunting link buffer', struct);
-            if (struct.energy > 250) {
-              this.dlog('clearing link buffer', struct);
-              this.intents.withdraw =
-                  moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
-            } else if (struct.energy < 200) {
-              if (this.room.storage &&
-                  this.room.storage.store.energy <
-                      2 * this.room.energyCapacityAvailable) {
-                this.dlog(
-                    'Storage is too low',
-                    JSON.stringify(this.room.storage.store));
-              } else {
-                this.dlog('filling link buffer', struct);
-                this.intents.xfer =
-                    moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
-              }
-            }
-            break;
-          }
-
-          if (deficit) {
-            if (this.intents.withdraw || !struct.energy) break;
-            this.dlog('withdraw', struct);
-            this.intents.withdraw =
-                moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
-            break;
-          }
-
-          if (this.intents.xfer) break;
-          this.intents.xfer =
-              moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
-          break;
-        case STRUCTURE_STORAGE:
-        case STRUCTURE_CONTAINER:
-          if (deficit) {
-            if (this.intents.withdraw || !struct.store.energy) break;
-            this.intents.withdraw =
-                moveTo(struct, this.withdraw(struct, RESOURCE_ENERGY));
-            break;
-          }
-
-          if (this.intents.xfer) break;
-
-          this.dlog('xfer to', struct);
-          this.intents.xfer =
-              moveTo(struct, this.transfer(struct, RESOURCE_ENERGY));
-          break;
-      }
-    }
-  }
-
-  taskSrc(src) {
-    this.dlog('taskSrc');
-    src = this.checkId('src', src);
-
-    const err = this.harvest(src);
-    if (err == ERR_NOT_IN_RANGE ||
-        err == ERR_NOT_ENOUGH_RESOURCES && !this.pos.isNearTo(src)) {
-      return this.moveTarget(src);
-    }
-    if(err === OK) {
-      this.intents.melee = src;
-    }
-    if (this.getActiveBodyparts(CARRY)) {
-      this.idleNom();
-      const shunt = this.memory.task.shunt;
-      if (!shunt) {
-        this.startShunt(...src.spots);
-      }
-      this.idleShunt();
-    } else {
-      let contid = this.memory.task.cont;
-      if (contid === undefined) {
-        contid = this.memory.task.cont = findCont(src.spots);
-      }
-      if (contid) {
-        const cont = Game.getObjectById(contid);
-        if (!cont) {
-          delete this.memory.task.cont;
-        } else {
-          this.dlog('adjusting');
-          this.moveNear(cont);
-        }
-      }
-    }
-    if (this.getActiveBodyparts(WORK) > 5 &&
-        this.room.energyAvailable == this.room.energyCapacityAvailable) {
-      for (let spawn of this.room.findStructs(STRUCTURE_SPAWN)) {
-        const err = spawn.renewCreep(this);
-        if (err === OK || err === ERR_FULL) {
-          break;
-        }
-      }
-    }
-    if (err == OK) {
-      return src.energy + 1;
-    }
-    return false;
   }
 }
 

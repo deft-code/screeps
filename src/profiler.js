@@ -29,28 +29,34 @@ let gProfileRate = 0;
 let needClear = true;
 
 exports.injectAll = () => {
-  exports.injectClass(Creep);
-  //exports.injectClass(Game);
-  //exports.injectClass(Room);
+  exports.injectClass(Creep.prototype);
+  exports.injectClass(Room.prototype);
+  PathFinder.search = exports.wrap(PathFinder.search);
   //exports.injectClass(Structure);
   //exports.injectClass(Spawn);
   //exports.injectClass(Creep);
-  //exports.injectClass(RoomPosition);
   //exports.injectClass(Source);
   //exports.injectClass(Flag);
 };
 
 exports.injectClass = (klass) => {
-  const props = Object.getOwnPropertyNames(klass.prototype);
+  const props = Object.getOwnPropertyNames(klass);
   for (let prop of props) {
     if (prop === 'constructor') continue;
-
-    klass.prototype[prop] = exports.wrap(klass.prototype[prop]);
+    const desc = Object.getOwnPropertyDescriptor(klass, prop);
+    if(_.isFunction(desc.get)) continue;
+    const f = klass[prop];
+    if(!_.isFunction(f)) continue;
+    klass[prop] = exports.wrap(f);
   }
 };
 
 exports.wrap = (func) => {
   return function profilerWrappedFunction() {
+    const used = Game.cpu.getUsed();
+    if(used > 450) {
+      throw new Error(`Execution timing out ${used}`);
+    }
     const ret = func.apply(this, arguments);
     exports.sample(2);
     return ret;
@@ -107,7 +113,7 @@ exports.main = (rate) => {
   const parseCode = Game.cpu.getUsed();
   Memory.rooms;
   const parseMem = Game.cpu.getUsed();
-  console.log(`code: ${parseCode}, mem: ${parseMem-parseCode}`);
+  //console.log(`code: ${parseCode}, mem: ${parseMem-parseCode}`);
 
   gProfileRate = rate || Game.cpu.limit;
   gEnableTick = Game.time;
@@ -141,7 +147,6 @@ exports.main = (rate) => {
   if(count) {
     increment(['_parseMemory_'], count);
   }
-
-  console.log("profiler rate", gProfileRate, JSON.stringify(Memory.profiler));
+  //console.log("profiler rate", gProfileRate, JSON.stringify(Memory.profiler));
 };
 

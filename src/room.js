@@ -155,6 +155,7 @@ Room.prototype.run = function() {
     this.runLabs();
     // this.closeRamparts(100);
     
+    return;
     for(let src of this.find(FIND_SOURCES)) {
       for(let spot of src.spots) {
         const [x, y] = [spot.x, spot.y];
