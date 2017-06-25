@@ -23,22 +23,27 @@ module.exports = class CreepHauler {
       what = this.taskPickupAny();
       if (what) return what;
 
-      const drains = _.filter(
-          this.room.findStructs(STRUCTURE_TERMINAL, STRUCTURE_CONTAINER),
-          (struct) => {
-            switch (struct.structureType) {
-              case STRUCTURE_TERMINAL:
-                const e = struct.store.energy;
-                const nonE = struct.storeTotal - e;
-                return (e > 20000 && e > nonE) || !struct.storeFree;
-              case STRUCTURE_CONTAINER:
-                return struct.mode === 'src' && struct.store.energy;
-            }
-            return false;
-          });
+      // Only clear drains when we have significant space.
+      // This prevents hauler thrashing.
+      if(this.carryFree > this.carryTotal) {
+        const drains = _.filter(
+            this.room.findStructs(STRUCTURE_TERMINAL, STRUCTURE_CONTAINER),
+            (struct) => {
+              switch (struct.structureType) {
+                case STRUCTURE_TERMINAL:
+                  return struct.energyDrain();
+                case STRUCTURE_CONTAINER:
+                  return struct.mode === 'src' && struct.store.energy;
+              }
+              return false;
+            });
 
-      const drain = this.pos.findClosestByRange(drains);
-      if (drain) return this.taskWithdraw(drain, RESOURCE_ENERGY);
+        const drain = this.pos.findClosestByRange(drains);
+        this.dlog("hauler drain", drain);
+        if (drain) return this.taskWithdraw(drain, RESOURCE_ENERGY);
+      } else {
+        this.dlog(`skipping drain; too full: ${this.carry.energy}`);
+      }
     }
 
     const nonE = this.carryTotal - this.carry.energy;
@@ -61,14 +66,13 @@ module.exports = class CreepHauler {
     for (let struct of structs) {
       switch (struct.structureType) {
         case STRUCTURE_CONTAINER:
-          if (struct.mode === 'sink' && struct.storeFree) {
+          if (struct.mode === 'sink' && struct.storeFree > 500) {
             return this.taskTransfer(struct, RESOURCE_ENERGY);
           }
           break;
         case STRUCTURE_TERMINAL:
-          const e = struct.store.energy;
-          const nonE = struct.storeTotal - e;
-          if (e < 2*nonE || e < 10000) {
+          if (struct.energyFill()) {
+            this.dlog(`hauler fill, ${struct}`);
             return this.taskTransfer(struct, RESOURCE_ENERGY);
           }
           break;
@@ -100,7 +104,7 @@ module.exports = class CreepHauler {
     if (this.room.energyFreeAvailable) {
       this.idleRecharge();
     } else {
-      this.idleWithdrawExtra();
+      this.dlog("idle withdraw", this.idleWithdrawExtra());
     }
 
     this.idleTransferExtra();

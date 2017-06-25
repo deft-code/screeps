@@ -110,11 +110,11 @@ module.exports = class CreepCarry {
       case RESOURCE_ENERGY:
         return this.taskTransferEnergy();
       case RESOURCE_POWER:
-        const ps = _.first(this.findActive(STRUCTURE_NUKER));
-        return this.taskTransfer(ps, resource) || this.taskTransferMineral(resource);
+        const ps = _.first(this.room.findActive(STRUCTURE_NUKER));
+        return this.taskTransfer(ps, resource) || this.taskSortMineral(resource);
       case RESOURCE_GHODIUM:
-        const nuker = _.first(this.findActive(STRUCTURE_NUKER));
-        return this.taskTransfer(nuker, resource) || this.taskTransferMineral(resource);
+        const nuker = _.first(this.room.findActive(STRUCTURE_NUKER));
+        return this.taskTransfer(nuker, resource) || this.taskSortMineral(resource);
     }
     return this.taskTransferMinerals(resource);
   }
@@ -178,7 +178,10 @@ module.exports = class CreepCarry {
           }
           break;
         case STRUCTURE_STORAGE:
-          if (s.store.energy > 100000) {
+          // Don't idle withdraw unless the creep is already carrying a little.
+          // This prevents the creep from immediately withdrawing after
+          // transfer.
+          if (s.store.energy > kEnergyReserve && this.carry.energy) {
             return this.goWithdraw(s, RESOURCE_ENERGY, false);
           }
           break;

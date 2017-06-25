@@ -164,7 +164,6 @@ class FlagTeam {
     }
 
 
-    util.markDebug(this);
     this.memory.creeps = this.memory.creeps || [];
     const removed = _.remove(this.memory.creeps, cname => !Game.creeps[cname]);
     if (removed.length) {

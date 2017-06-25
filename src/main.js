@@ -1,13 +1,16 @@
 
-const stack = require('stack');
 const profiler = require('profiler');
 profiler.injectAll();
+
+const stack = require('stack');
 
 require('traveler');
 
 const lib = require('lib');
 lib.enhanceAll();
 require('constants');
+
+const debug = require('debug');
 
 require('team');
 require('team.base');
@@ -29,6 +32,7 @@ require('struct.controller');
 require('struct.lab');
 require('struct.link');
 require('struct.spawn');
+require('struct.terminal');
 require('struct.tower');
 
 require('creep');
@@ -82,12 +86,6 @@ for(const mod of mods) {
 
 module.exports.loop = main;
 
-eglog = (msg) => {
-  const ss = stack.get();
-  const frame = ss[1]
-  console.log(`${frame.getFileName()}.js#${frame.getLineNumber()} ${msg}`);
-}
-
 global.busyCreeps = (n) => {
   const x = _.sortBy(Game.creeps, c => c.memory.cpu / (Game.time - c.memory.birth)).reverse();
   for(let i=0; i<n; i++) {
@@ -96,17 +94,16 @@ global.busyCreeps = (n) => {
   }
 }
 
-global.debug = (obj, val = true) => obj.memory.debug = val;
-global.nodebug = (obj) => debug(obj, false);
 
 global.purgeWalls = (room, dry=true) => {
   let n = 0;
+  const delta = 5;
   for(const wall of room.findStructs(STRUCTURE_WALL)) {
     const p = wall.pos;
-    if(p.x < 4) continue;
-    if(p.y < 4) continue;
-    if(p.x > 45) continue;
-    if(p.y > 45) continue;
+    if(p.x < delta) continue;
+    if(p.y < delta) continue;
+    if(p.x > 49-delta) continue;
+    if(p.y > 49-delta) continue;
 
     n++;
     if(dry) {
@@ -119,16 +116,40 @@ global.purgeWalls = (room, dry=true) => {
 }
 
 function runner(objs) {
+  let num = 0;
+  let maxName = 'first';
+  let maxCpu = 0;
+
+  let prevName = 'first';
+  let prevCpu = Game.cpu.getUsed();
   for (let name in objs) {
     const obj = objs[name];
     try {
       obj.run();
     } catch (err) {
-      console.log(err.stack);
+      debug.log(err.stack);
+      if(err.usedCpu > 0) {
+        debug.log(`Previous: ${prevName}: ${prevCpu}, ${err.usedCpu}`);
+        return;
+      }
       Game.notify(err.stack, 30);
     }
-    profiler.sample()
+    const currCpu = Game.cpu.getUsed();
+    const cpu = currCpu - prevCpu
+    if(cpu > 50) {
+      debug.log(obj, "too much cpu", cpu);
+    }
+    if(cpu > maxCpu) {
+      maxName = name;
+      maxCpu = cpu;
+    }
+    prevName = name;
+    prevCpu = currCpu;
+    num++;
   }
+
+  //debug.log("avg cpu:", prevCpu / num);
+  //debug.log("max cpu:", maxName, maxCpu);
 }
 
 function clearMem(what) {
@@ -143,9 +164,15 @@ function clearMem(what) {
 }
 
 function main() {
-  profiler.main(30);
+  profiler.main();
   PathFinder.use(true);
-  eglog(`${Game.cpu.getUsed()} ${Game.cpu.bucket}`);
+  debug.log(`${Game.cpu.getUsed()} ${Game.cpu.bucket}`);
+
+  x = function foobar() {
+  const s = stack.get();
+  const ss = _.map(s, f => `${f.getFunctionName()}:${f.getLineNumber()}#${f.getFileName()}`);
+  console.log(ss);
+  }();
 
   runner(Game.rooms);
   runner(Game.flags);

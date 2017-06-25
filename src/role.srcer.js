@@ -38,7 +38,11 @@ class CreepSrcer {
         }
         console.log('ERR', this.name, 'failed to find src in', this.pos.roomName);
       } else {
-        console.log('ERR', this.name, 'too many srcers in', this.pos.roomName);
+        const srcers = this.team.roleCreeps(this.memory.role);
+        const creep = _.min(srcers, 'ticksToLive');
+        if(!this.moveNear(creep)) {
+          console.log('ERR', this.name, 'too many srcers in', this.pos.roomName);
+        }
         return false;
       }
     }
@@ -52,20 +56,19 @@ class CreepSrcer {
     if(err === OK) {
       this.intents.melee = src;
     }
+    this.dlog(`harvest ${err}`);
     
     this.idleNom();
 
-    if(!this.carryCpacity) return src.energy;
+    if(!this.carryCapacity) return src.energy;
 
-    if(this.carryFree < this.info.harvest || src.energy === 0) { 
-      const shunted = this.srcerShunt();
-      if(!shunted) {
-        console.log(this, 'cleaning up srcer shunts');
-        delete this.memory.spawn;
-        delete this.memory.tower;
-        delete this.memory.link;
-        delete this.memory.store;
-      }
+    const shunted = this.srcerShunt(src);
+    if(!shunted) {
+      this.dlog(this, 'cleaning up srcer shunts');
+      delete this.memory.spawn;
+      delete this.memory.tower;
+      delete this.memory.link;
+      delete this.memory.store;
     }
 
     // Immortal Srcer
@@ -77,7 +80,19 @@ class CreepSrcer {
     }
   }
 
-  srcerShunt() {
+  srcerShunt(src) {
+    let link = Game.getObjectById(this.memory.link);
+    if(!link) {
+      link = _.find(this.room.findStructs(STRUCTURE_LINK), l => this.pos.isNearTo(l));
+    }
+    if(link && link.mode === 'buffer' && link.energy > 250) {
+      if(this.carryFree > this.info.harvest || !src.energy) {
+        return this.goWithdraw(link, RESOURCE_ENERGY, false);
+      }
+    }
+
+    if(this.carryFree < this.info.harvest && !src.energy) return 'space';
+
     let deficit = false;
       
     let tower = Game.getObjectById(this.memory.tower);
@@ -108,10 +123,6 @@ class CreepSrcer {
       }
     }
 
-    let link = Game.getObjectById(this.memory.link);
-    if(!link) {
-      link = _.find(this.room.findStructs(STRUCTURE_LINK), l => this.pos.isNearTo(l));
-    }
     if(link) {
       this.memory.link = link.id;
       if(deficit) { 

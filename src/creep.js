@@ -93,7 +93,6 @@ class CreepExtra {
     }
 
     const start = Game.cpu.getUsed();
-    util.markDebug(this);
     this.intents = {};
 
     const role = _.camelCase('role ' + this.memory.role);

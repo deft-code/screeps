@@ -17,9 +17,6 @@ module.exports = class CreepCart {
     }
 
     return this.moveRoom(this.team) ||
-      this.dlog('moveRoom failed', this.team, this.room) ||
-      this.taskRoadUpkeep() ||
-      this.dlog('no road upkeep') ||
       this.taskFarm() ||
       this.taskCampSrcs();
   }
@@ -27,7 +24,7 @@ module.exports = class CreepCart {
   afterCart() {
     this.idleNom();
     if(this.carry.energy) {
-      this.idleBuild() || this.idleRepair();
+      this.idleBuild() || this.idleRepairRoad();
     }
   }
 };

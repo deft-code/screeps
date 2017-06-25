@@ -1,3 +1,5 @@
+const lib = require('lib');
+
 function calcMatrix(name, matrix) {
   const room = Game.rooms[name];
   Memory.matrix = Memory.matrix || {};
@@ -30,6 +32,26 @@ function calcMatrix(name, matrix) {
   }
 };
 
+
+
+class CreepStall {
+  runStall() {
+    const stall = this.memory.stall = this.memory.stall || {};
+    if(stall.x !== this.pos.x || stall.y !== this.pos.y) {
+      stall.x = this.pos.x;
+      stall.y = this.pos.y;
+      stall.t = Game.time;
+      return false;
+    }
+    return true;
+  }
+
+  get stallTicks() {
+    const stallT = (this.memory.stall || {}).t || Game.time;
+    return Game.time - stallT;
+  }
+}
+lib.merge(Creep, CreepStall);
 
 module.exports = {
   calcMatrix: calcMatrix,

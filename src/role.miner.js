@@ -10,14 +10,14 @@ module.exports = class CreepMiner {
     }
 
     if(this.carryFree < this.info.harvest) {
-      //console.log(`${this} miner drop, ${JSON.stringify(this.info)}, ${JSON.stringify(this.carry)}`);
-      for(const creep of this.room.find(FIND_MY_CREEPS)) {
-        if(creep.memory.role !== this.memory.role && creep.carryFree && this.pos.isNearTo(creep)) {
-          // console.log(this, "miner share", creep);
-          this.dlog(`Shared ${this.carry.energy} with ${creep}`);
-          return this.goTransfer(creep, RESOURCE_ENERGY, false);
-        }
-      }
+      const destCreep = _.find(
+        this.room.find(FIND_MY_CREEPS),
+        creep => creep.memory.role !== this.memory.role &&
+            creep.carryFree &&
+            this.pos.isNearTo(creep));
+      this.dlog(`share energy with ${destCreep}`);
+      if(destCreep) return this.goTransfer(destCreep, RESOURCE_ENERGY, false);
+      this.dlog(`drop energy ${JSON.stringify(this.carry)}`);
       this.drop(RESOURCE_ENERGY);
     }
   }

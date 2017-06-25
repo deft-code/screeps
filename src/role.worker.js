@@ -1,3 +1,5 @@
+const shed = require('shed');
+
 module.exports = class CreepWorker {
   roleWorker() {
     let what = this.idleEmergencyUpgrade() || this.taskTask();
@@ -11,12 +13,15 @@ module.exports = class CreepWorker {
         this.taskBuildOrdered() ||
         this.taskRepairOrdered() ||
         this.taskTurtlePrep() ||
-        upgrade && this.goUpgradeController(this.room.controller);
+        this.taskTurtle();
+        //upgrade && this.goUpgradeController(this.room.controller);
     }
     return this.taskRechargeHarvest();
   }
 
   afterWorker() {
+    if(shed.med()) return;
+
     this.idleNom();
     this.idleRecharge();
     if(this.carryTotal > this.carryFree) {

@@ -208,7 +208,7 @@ class Spawn {
     delete mem.move;
 
     const who = this.createCreep(parts, undefined, mem);
-    console.log(`${this} created ${who}: ${JSON.stringify(mem)}, ${parts}`);
+    console.log(`${this} created ${who}: ${JSON.stringify(mem)}, ${JSON.stringify(_.countBy(parts))}`);
     return who;
   }
 

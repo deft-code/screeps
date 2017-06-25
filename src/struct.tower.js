@@ -50,7 +50,7 @@ StructureTower.prototype.run = function() {
   if(this.room.enemies.length) {
     const enemy = _.find(this.room.enemies, e => e.hits < 150);
     this.attack(enemy);
-    return enemy.hits;
+    return enemy && enemy.hits;
   }
 
   const surpluss = this.room.storage && this.room.storage.store.energy > 800000;

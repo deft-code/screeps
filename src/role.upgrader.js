@@ -1,6 +1,8 @@
 module.exports = class CreepUpgrader {
   roleUpgrader() {
-    const what = this.goUpgradeController(this.team.room.controller);
+    const what = this.taskTask() ||
+      this.taskBoostOne() ||
+      this.goUpgradeController(this.team.room.controller);
 
     const struct = Game.getObjectById(this.memory.struct) ||
       _(this.room.lookForAtRange(LOOK_STRUCTURES, this.room.controller.pos, 4, true))
@@ -26,9 +28,6 @@ module.exports = class CreepUpgrader {
   afterUpgrader() {
     if(this.pos.inRangeTo(this.room.controller, 4)) {
       this.idleNom();
-    }
-    if(this.carryTotal > this.carryFree) {
-      this.idleBuild() || this.idleRepair();
     }
   }
 };

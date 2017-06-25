@@ -4,6 +4,20 @@
 // However, most helpers are structured so they can be easily
 // added to the exsiting Object prototypes; see cachedProp.
 
+
+exports.isMineral = (mineral) =>
+  _.contains(RESOURCES_ALL, mineral) &&
+    mineral !== RESOURCE_ENERGY &&
+    mineral !== RESOURCE_POWER;
+
+exports.isBoost = (mineral) =>
+  exports.isMineral(mineral) &&
+    mineral.length > 1 &&
+    mineral !== RESOURCE_HYDROXIDE &&
+    mineral !== RESOURCE_UTRIUM_LEMERGITE &&
+    mineral !== RESOURCE_ZYNTHIUM_KEANITE;
+
+
 exports.fibonacci = (n) => {
   if(n<2) return n;
   let p1 = 1;

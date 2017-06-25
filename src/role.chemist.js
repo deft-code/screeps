@@ -11,17 +11,11 @@ function nonenergy(carry) {
 
 Room.prototype.labForMineral = function(mineral) {
   for (const lab of this.findStructs(STRUCTURE_LAB)) {
-    if (lab.planType === mineral && lab.mineralFree) {
+    if (lab.planType === mineral && lab.mineralFill()) {
       return lab;
     }
   }
-  for (let lab of this.findStructs(STRUCTURE_LAB)) {
-    if (!lab.planType) {
-      lab.planType = mineral;
-      return lab;
-    }
-  }
-  return;
+  return false;
 };
 
 Room.prototype.contForMineral = function(mineral) {
@@ -42,10 +36,11 @@ class CreepChemist {
   }
 
   taskLabFill() {
+    this.dlog('taskLabFill');
     for(const lab of this.room.findStructs(STRUCTURE_LAB)) {
-      if(!lab.mineralFree) continue;
-      if(!lab.planType) continue;
+      this.dlog('lab fill type:', lab.planType, 'fill:', lab.mineralFill());
       if(!this.room.terminal.store[lab.planType]) continue;
+      if(!lab.mineralFill()) continue;
       this.dlog('taskLabFill', lab.planType);
       return this.taskWithdraw(this.room.terminal, lab.planType);
     }
@@ -99,11 +94,10 @@ class CreepChemist {
   }
 
   taskSortMineral(mineral) {
-    this.dlog("taskSortMineral", mineral);
     const lab = this.room.labForMineral(mineral);
     this.dlog("labForMineral", lab, mineral);
 
-    return this.taskTransferLab(this.room.labForMineral(mineral), mineral) ||
+    return this.taskTransferLab(lab, mineral) ||
         this.taskTransfer(this.room.myTerminal, mineral) ||
         this.taskTransfer(this.room.myStorage, mineral) ||
         this.taskTransfer(this.room.contForMineral(mineral), mineral);
@@ -123,6 +117,7 @@ class CreepChemist {
     if (!lab) return false;
     if (!lab.mineralAmount) return false;
     if (!this.carryFree) return false;
+    this.dlog('withdrawing', lab, lab.mineralAmount, lab.mineralType);
 
     return this.goWithdraw(lab, lab.mineralType);
   }
@@ -137,7 +132,8 @@ class CreepChemist {
   taskResortMinerals() {
     this.dlog('resort minerals');
     for (const lab of this.room.findStructs(STRUCTURE_LAB)) {
-      if (lab.mineralAmount && lab.mineralType != lab.planType) {
+      this.dlog('resort minerals', lab, lab.planType, lab.mineralDrain());
+      if (lab.mineralDrain()) {
         return this.taskWithdrawLab(lab);
       }
     }

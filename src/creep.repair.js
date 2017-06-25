@@ -1,6 +1,33 @@
 const lib = require('lib');
 
 class CreepRepair {
+  idleRepairRoad() {
+    if(this.intents.melee || this.intents.range) return false;
+    let repair = Game.getObjectById(this.memory.repair);
+    this.dlog("idle repair", repair);
+    if(!repair || !repair.hurts) {
+      this.dlog("New idle road target");
+      const power = this.info.repair;
+      repair = _.find(
+        this.room.lookForAt(LOOK_STRUCTURES, this.pos),
+        struct => {
+          if(!struct.hurts) return false;
+          if(struct.structureType === STRUCTURE_RAMPART) {
+            return struct.hits < this.room.wallMax;
+          }
+          return struct.hurts >= power || this.room.hitsMax < power;
+      });
+      this.dlog("repair found", repair);
+      this.memory.repair = repair && repair.id;
+    }
+    const what = this.goRepair(repair, false);
+    this.dlog("idleRepair", what, repair);
+    if(!what) {
+      delete this.memory.repair;
+    }
+    return what;
+  }
+
   idleRepair() {
     this.dlog("start idle repair", this.intents.melee, this.intents.range);
     if(this.intents.melee || this.intents.range) return false;
@@ -11,7 +38,6 @@ class CreepRepair {
       const power = this.info.repair;
       repair = _(this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 3, true))
         .map(spot => spot[LOOK_STRUCTURES])
-        .tap(s => this.dlog(s))
         .find(struct => {
           if(!struct.hurts) return false;
           if(struct.structureType === STRUCTURE_WALL || struct.structureType === STRUCTURE_RAMPART) {
@@ -103,7 +129,6 @@ class CreepRepair {
   taskTurtle() {
     let walls = this.room.findStructs(STRUCTURE_WALL, STRUCTURE_RAMPART);
     let wall = _.first(_.sortBy(walls, 'hits'));
-    console.log(`${this} turtle ${wall}`);
     return this.taskRepair(wall);
   }
 

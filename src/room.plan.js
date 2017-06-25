@@ -1,13 +1,12 @@
+const profiler = require('profiler');
+const shed = require('shed');
 const lib = require('lib');
 
 const MAX = 50;
 const ROOM_MAX = 20;
 
 module.exports = () => {
-  if(Game.cpu.bucket < 10000) {
-    console.log('skip room plans');
-    return;
-  }
+  if(shed.hi()) return console.log('Shedding room plans');
 
   const rooms = _.shuffle(_.keys(Game.rooms));
   for(const name of rooms) {
@@ -196,6 +195,7 @@ class RoomPlan {
       this.find(FIND_FLAGS),
       f => f.color === COLOR_ORANGE);
     for(const flag of flags) {
+      profiler.sample();
       console.log("planning", flag);
       switch(flag.secondaryColor) {
         case COLOR_PURPLE:
@@ -224,6 +224,8 @@ class RoomPlan {
   }
 
   growRoads() {
+    if(shed.low()) return;// console.log(`${this} Shedding Roads`);
+
     const srcs = this.find(FIND_SOURCES);
     switch(Game.time % 4) {
       case 0:
@@ -274,6 +276,9 @@ class RoomPlan {
         const p = struct.pos;
         if (struct.structureType === STRUCTURE_ROAD) {
           mat.set(p.x, p.y, 2);
+        } else if( struct.structureType === STRUCTURE_RAMPART) {
+          // avoid ramparts but don't fail pathing
+          mat.set(p.x, p.y, 200);
         } else if (_.contains(OBSTACLE_OBJECT_TYPES, struct.structureType)) {
           mat.set(p.x, p.y, 255);
         }

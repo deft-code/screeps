@@ -153,6 +153,7 @@ Room.prototype.run = function() {
     this.runTowers();
     this.runLinks();
     this.runLabs();
+    if(this.myTerminal) this.terminal.run();
     // this.closeRamparts(100);
     
     return;
