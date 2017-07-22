@@ -1,35 +1,51 @@
 const shed = require('shed');
 const lib = require('lib');
+const debug = require('debug');
 
-const kEnergyDelta = 10000;
-const kEnergyMin = 10000;
+const kEnergyLow = 50000;
+const kEnergyHi = 60000;
 
 class TerminalExtra {
-  energyWant() {
-    const e = this.store.energy;
-    const m = this.storeTotal - e;
-    if(m > 0) {
-      return kEnergyMin + Math.ceil(m / 4);
-    }
-    return kEnergyMin;
-  }
 
   energyFill() {
-    const e = this.store.energy;
-    const want = this.energyWant();
-    return want > e;
+    return this.store.energy < kEnergyLow;
   }
 
   energyDrain() {
-    const e = this.store.energy;
-    const want = this.energyWant();
-    return e - want > kEnergyDelta;
+    return this.store.energy > kEnergyHi;
+  }
+
+  sell(resource, amount=1000) {
+    const orders = Game.market.getAllOrders({resourceType: resource});
+    const buys = _.filter(orders, o => o.type === ORDER_BUY && o.amount >= 100);
+    const buy = _.max(buys, 'price');
+    const err = this.deal(buy.id, Math.min(buy.amount, amount));
+    debug.log(`${this.room.name}#(${buys.length}):${err} sell ${JSON.stringify(buy)}`);
+    return err;
+  }
+
+  buy(resource, amount=1000) {
+    const orders = Game.market.getAllOrders({resourceType: resource});
+    const sells = _.filter(orders, o => o.type === ORDER_SELL && o.amount >= 100);
+    const sell = _.min(sells, 'price');
+    const err = this.deal(sell.id, Math.min(sell.amount, amount));
+    debug.log(`${this.room.name}#(${sells.length}):${err} buy ${JSON.stringify(sell)}`);
+    return err;
+  }
+
+  deal(id, amount=1000) {
+    return Game.market.deal(id, amount, this.room.name);
   }
 
   run() {
-    if(shed.med()) return console.log("shedding terminal");
+    if(shed.med()) return; //console.log("shedding terminal");
     if(this.cooldown) return;
+    return this.runBalance() ||
+      this.runEnergy() ||
+      this.runBuys();
+  }
 
+  runBalance() {
     const terminals = _.shuffle(_.map(_.filter(Game.rooms, 'terminal'),'terminal'));
     const rs = _.shuffle(_.keys(this.store));
     for(const r of rs) {
@@ -55,12 +71,54 @@ class TerminalExtra {
             if(num) {
               const err = this.send(r, num, terminal.room.name);
               console.log(`Terminal send ${err}: ${this.room.name} ${r}x${num} ${terminal.room.name}`);
-              return;
+              return terminal.room.name;
             }
+          }
+        }
+        if(this.store[r] > 100000 && this.store.energy > 1000) {
+          if(this.sell(r) === OK) {
+            debug.log("auto sale!");
+            return 'sell:' + r;
           }
         }
       }
     }
+    return false;
+  }
+
+  runEnergy() {
+    const terminals = _.shuffle(_.map(_.filter(Game.rooms, 'terminal'),'terminal'));
+    const mySE = this.room.storage.store.energy;
+    if(mySE > 100000 && this.store.energy > 20000) {
+      for(const terminal of terminals) {
+        const sE = terminal.room.storage.store.energy;
+        if(terminal.storeFree > 50000 && (mySE - sE) > 50000) {
+          const err = this.send(RESOURCE_ENERGY, 10000, terminal.room.name);
+          debug.log('share energy', err, this.room, 'to', terminal.room);
+          return terminal.room.name;
+        }
+      }
+    }
+    return false;
+  }
+
+  runBuys() {
+    if(Game.market.credits < 100000) return false;
+
+    const labs = _.shuffle(this.room.findStructs(STRUCTURE_LAB));
+    for(const lab of labs) {
+      if(!lab.planType) continue;
+      if(lab.mineralType && lab.planType !== lab.mineralType) continue;
+      if(lab.planType.length !== 1 || lab.planType === RESOURCE_GHODIUM) continue;
+      if(this.store[lab.planType]) continue;
+      if(lab.mineralAmount >= 5) continue;
+      const err = this.buy(lab.planType);
+      if(err === OK) {
+        debug.log("autobuy", err, lab.room.name, lab.planType);
+        return `autobuy:${lab.planType}:${this.room.name}`;
+      }
+    }
+    return false;
   }
 }
 

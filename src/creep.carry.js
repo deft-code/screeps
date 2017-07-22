@@ -223,7 +223,6 @@ module.exports = class CreepCarry {
         STRUCTURE_CONTAINER,
         STRUCTURE_LAB,
         STRUCTURE_LINK,
-        STRUCTURE_NUKER,
         STRUCTURE_POWER_SPAWN,
         STRUCTURE_STORAGE,
         STRUCTURE_TERMINAL

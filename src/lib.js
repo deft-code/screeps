@@ -2,8 +2,74 @@
 //
 // The library has no external side effects; it does not modify any prototypes.
 // However, most helpers are structured so they can be easily
-// added to the exsiting Object prototypes; see cachedProp.
+// added to the exsiting Object prototypes;
 
+exports.getRoomName = (roomOrName) => {
+  if(_.isString(roomOrName)) {
+    return roomOrName;
+  }
+  return roomOrName.name;
+};
+
+exports.isHighway = (roomOrName) =>
+  exports.getRoomName(exports.roomOrName).includes('0');
+
+exports.isSK = (roomOrName) => {
+  const info = exports.parseRoom(roomOrName);
+  const mx = (info.E || info.W || 0) % 10;
+  const my = (info.N || info.S || 0) % 10;
+  return !(mx === 5 && my === 5) &&
+    (mx >= 4 && mx <= 6) &&
+    (my >= 4 && my <= 6);
+};
+
+exports.parseRoom = (roomOrName) => {
+  const name = exports.getRoomName(roomOrName);
+  const parsed = /^([WE])([0-9]{1,2})([NS])([0-9]{1,2})$/.exec(name);
+  const ret = {};
+  ret[parsed[1]] = parseInt(parse[2]);
+  ret[parsed[3]] = parseInt(parse[4]);
+  return ret;
+};
+
+exports.pos2coord = (pos) => {
+  const parsed = /^([WE])([0-9]{1,2})([NS])([0-9]{1,2})$/.exec(pos.roomName);
+  let x = pos.x + 50 * parseInt(parsed[2]);
+  if(parsed[1] === 'W') x = 50 - x;
+
+  let y = pos.y + 50 * parseInt(parsed[4]);
+  if(parsed[3] === 'N') y = 50 - y;
+
+  return {x:x, y:y};
+};
+
+exports.coord2Pos = (coord) => {
+  let dx, dy;
+  let x, y;
+  let rx, ry;
+
+  if(x >= 0) {
+    dx = 'E'
+    rx = Math.floor(coord.x / 50);
+    x = coord.x % 50;
+  } else {
+    dx = 'W'
+    rx = Math.floor((-coord.x - 1) / 50);
+    x = coord.x + 50 * (rx + 1);
+  }
+
+  if(y >= 0) {
+    dy = 'S'
+    ry = Math.floor(coord.y / 50);
+    y = coord.y % 50;
+  } else {
+    dy = 'N'
+    ry = Math.floor((-coord.y - 1) / 50);
+    y = coord.y + 50 * (ry + 1);
+  }
+
+  return new RoomPosition(x, y, `${dx}${rx}${dy}${ry}`);
+};
 
 exports.isMineral = (mineral) =>
   _.contains(RESOURCES_ALL, mineral) &&
@@ -28,27 +94,6 @@ exports.fibonacci = (n) => {
     p2 = tmp;
   }
   return p1 + p2;
-};
-
-// A quick helper to defined cached properties on a screeps object.
-//
-// Example:
-// const lib = require('lib');
-// lib.cachedProp(Creep, 'bodyCost', lib.bodyCost);
-exports.cachedProp = (klass, prop, func) => {
-  Object.defineProperty(klass.prototype, prop, {
-    get: function() {
-      // A work around for screeps-profiler prototype mangling.
-      if (this === klass.prototype || this == undefined) return;
-
-      let result = func.call(this, this);
-      Object.defineProperty(
-          this, prop, {value: result, configurable: true, enumerable: false});
-      return result;
-    },
-    configurable: true,
-    enumerable: false
-  });
 };
 
 exports.roProp = (klass, prop, func) => {
@@ -85,49 +130,6 @@ exports.merge = (klass, extra) => {
     Object.defineProperty(klass.prototype, prop, desc);
   }
 };
-
-exports.cache = (opts, fn) => {
-  return function(...args) {
-    const cache = opts.getcache(this);
-    const key = opts.resolver(args);
-    const entry = cache[key];
-    if (!entry || entry.ttl < Game.time) {
-      const ttl = opts.ttl || 0;
-      entry = cache[key] = {
-        ttl: Math.floor(Game.time + ttl * Math.random() + ttl / 2),
-        value: fn.apply(this, args),
-      };
-    }
-    return entry.value;
-  };
-};
-
-exports.thisCache = (prop_opts, fn) => {
-  const prop = opts.prop || opts;
-  opts = {
-    resolver: opts.resovler || JSON.stringify,
-    getcache: (obj) => {
-      const c1 = obj.libcache = obj.libcache || {};
-      return c1[prop] = c1[prop] || {};
-    },
-  };
-  return exports.cache(opts, fn);
-};
-exports.globalCache = exports.thisCache;
-
-exports.memoryCache = (prop_opts, fn) => {
-  const prop = opts.prop || opts;
-  opts = {
-    ttl: opts.ttl || 100,
-    resolver: opts.resovler || JSON.stringify,
-    getcache: (obj) => {
-      const c1 = obj.memory.libcache = obj.memory.libcache || {};
-      return c1[prop] = c1[prop] || {};
-    },
-  };
-  return exports.cache(opts, fn);
-};
-
 
 // Returns a RoomPosition for obj or null if no position can be found.
 exports.getPos = (obj) => {

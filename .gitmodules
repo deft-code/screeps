@@ -4,3 +4,6 @@
 [submodule "murmurhash-js"]
 	path = murmurhash-js
 	url = https://github.com/garycourt/murmurhash-js
+[submodule "Traveler"]
+	path = Traveler
+	url = https://github.com/bonzaiferroni/Traveler.git

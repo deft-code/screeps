@@ -1,5 +1,7 @@
 const util = require('util');
 const lib = require('lib');
+const tlib = require('Traveler');
+const debug = require('debug');
 
 class FlagTeam {
   localSpawn(energy) {
@@ -125,17 +127,17 @@ class FlagTeam {
   spawnDist(spawn) {
     if (!spawn) return Infinity;
 
+    
     const mem = this.memory = this.memory || {};
     let cache = mem.spawnDist;
-    if (!cache || !this.pos.isEqualTo(cache.pos)) {
+    if (!cache || !this.pos.isEqualTo(lib.roomposFromMem(cache.pos))) {
+      console.log(this, 'RESET CACHE!', JSON.stringify(cache));
       cache = mem.spawnDist = {pos: this.pos};
     }
     let dist = cache[spawn.name];
     if (dist === undefined) {
-      dist = cache[spawn.name] =
-        _.size(traveler.findAllowedRooms(this.pos.roomName, spawn.room.name));
-      //dist = cache[spawn.name] =
-      //    Game.map.findRoute(this.pos.roomName, spawn.room).length;
+      debug.log(this, "spawnDist", spawn, JSON.stringify(cache));
+      dist = cache[spawn.name] = tlib.Traveler.routeDistance(this.pos.roomName, spawn.room.name);
       if (cache.min === undefined) {
         cache.min = dist
       } else {

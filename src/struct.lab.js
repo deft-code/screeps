@@ -55,6 +55,8 @@ class LabExtra {
     const parts = kReactions[this.planType];
     if(!parts) return;
 
+    if(this.room.terminal.store[this.planType] > 10000) return;
+
     for(const react of parts){
       for(const lab of this.room.findStructs(STRUCTURE_LAB)) {
         if(lab.mineralType !== react) continue;

@@ -64,10 +64,6 @@ Flag.prototype.teamBase = function() {
       nupgrader += 1;
     }
   }
-  if(this.room.name === 'W86S88') {
-    //ulvl = 50
-    //nupgrader = 2
-  }
 
   let uboost = [];
   if(this.room.controller.level > 5 && this.room.controller.level < 8) {

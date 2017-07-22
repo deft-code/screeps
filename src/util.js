@@ -99,31 +99,6 @@ let who = function(obj) {
   return '(' + _.compact(parts).join() + ')';
 };
 
-function cachedProp(klass, prop, func) {
-  Object.defineProperty(klass.prototype, prop, {
-    get: function() {
-      if (this === klass.prototype || this == undefined) return;
-      let result = func.call(this, this);
-      Object.defineProperty(
-          this, prop, {value: result, configurable: true, enumerable: false});
-      return result;
-    },
-    configurable: true,
-    enumerable: false
-  });
-}
-
-function roProp(klass, prop, func) {
-  Object.defineProperty(klass.prototype, prop, {
-    get: function() {
-      if (this === klass.prototype || this == undefined) return;
-      return func.call(this, this);
-    },
-    configurable: false,
-    enumerable: false
-  });
-}
-
 function randomResource(resources) {
   let r = {};
   Object.assign(r, resources);
@@ -134,13 +109,11 @@ function randomResource(resources) {
 }
 
 module.exports = {
-  cachedProp: cachedProp,
   errString: errString,
   markDebug: markDebug,
   optimizeBody: optimizeBody,
   pickClosest: pickClosest,
   randomResource: randomResource,
-  roProp: roProp,
   sprint: sprint,
   structNote: structNote,
   who: who,

@@ -270,12 +270,13 @@ class RoomPlan {
   }
 
   planRoad(orig, dest, range) {
+    const roadCost = 2;
     if(!orig || !dest) return;
     const addStructs = (mat, structs) => {
       for (const struct of structs) {
         const p = struct.pos;
         if (struct.structureType === STRUCTURE_ROAD) {
-          mat.set(p.x, p.y, 2);
+          mat.set(p.x, p.y, roadCost);
         } else if( struct.structureType === STRUCTURE_RAMPART) {
           // avoid ramparts but don't fail pathing
           mat.set(p.x, p.y, 200);
@@ -299,6 +300,7 @@ class RoomPlan {
       plainCost: 3,
       swampCost: 4,
       maxRooms: 1,
+      heuristicCost: roadCost, //This results in a perfect path.
       roomCallback: callback,
     });
     this.visual.poly(ret.path);

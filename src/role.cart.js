@@ -9,7 +9,7 @@ module.exports = class CreepCart {
     const dropRoom = this.dropRoom();
     if(this.carryFree < this.carryTotal ||
       (this.room.name === dropRoom.name && this.carryTotal) ) {
-        return this.moveRoom(dropRoom.controller) ||
+        return this.moveRoom(dropRoom.storage || dropRoom.controller) ||
           this.taskTransferResources() ||
           this.taskBuildOrdered() ||
           this.taskRepairOrdered() ||

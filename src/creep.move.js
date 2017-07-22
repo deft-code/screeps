@@ -1,6 +1,7 @@
 const lib = require('lib');
 const util = require('util');
 
+
 class CreepMove {
   idleOffRoad() {
     if(this.intents.move) return false;
@@ -196,7 +197,10 @@ class CreepMove {
       this.dlog("moveRoom done");
       return false;
     }
-    const range = Math.max(1, Math.min(x, y, 49-x, 49-y)-1);
+
+    const ox = obj.pos.x;
+    const oy = obj.pos.y;
+    const range = Math.max(1, Math.min(ox, oy, 49-ox, 49-oy)-1);
     this.dlog("moveRoom", range,  obj.pos.roomName, this.room);
     opts = _.defaults(opts, {range: range});
     return this.moveTarget(obj, opts);

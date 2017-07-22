@@ -4,11 +4,12 @@ profiler.injectAll();
 
 const stack = require('stack');
 
-require('traveler');
+require('Traveler');
 
 const lib = require('lib');
 lib.enhanceAll();
 require('constants');
+const matrix = require('matrix');
 
 const debug = require('debug');
 
@@ -163,20 +164,36 @@ function clearMem(what) {
   }
 }
 
-function main() {
-  profiler.main();
-  PathFinder.use(true);
-  debug.log(`${Game.cpu.getUsed()} ${Game.cpu.bucket}`);
 
-  x = function foobar() {
-  const s = stack.get();
-  const ss = _.map(s, f => `${f.getFunctionName()}:${f.getLineNumber()}#${f.getFileName()}`);
-  console.log(ss);
-  }();
+let who = Game.time;
+let meanBucket = Game.cpu.bucket;
+let meanUsed = Game.cpu.limit;
+
+function main() {
+  profiler.main();//27);
+  PathFinder.use(true);
 
   runner(Game.rooms);
   runner(Game.flags);
   runner(Game.creeps);
+
+  const used = Game.cpu.getUsed();
+  meanUsed = meanUsed * 0.95 + used * 0.05;
+  meanBucket = meanBucket * 0.95 + Game.cpu.bucket * 0.05;
+
+  debug.log(`${who%10}:${Game.time-who} ${Math.round(used)}:${Math.round(meanUsed)}, ${Game.cpu.bucket}:${Math.round(meanBucket)}`);
+
+  //_.forEach(Game.rooms, r => matrix.draw(r.name));
+  //matrix.draw('W86S88');
+  
+  _.forEach(Game.rooms, room => {
+    for(const src of room.find(FIND_SOURCES)) {
+      room.visual.circle(src.bestSpot, {fill:"yellow"});
+    }
+    for(const min of room.find(FIND_MINERALS)) {
+      room.visual.circle(min.bestSpot, {fill:"yellow"});
+    }
+  });
 
   roomplan();
   profiler.sample();

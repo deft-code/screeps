@@ -1,4 +1,3 @@
-
 // Customize these as needed
 // A v8 stack frame is defined here:
 // github.com/v8/v8/wiki/Stack-Trace-API
@@ -13,7 +12,7 @@ const frameFilter = (f) =>
       !_.endsWith(f.getFileName(), '.js') &&
       _.isString(f.getFunctionName());
 
-const kMaxCPU = 300;
+const kMaxCPU = 400;
 
 // You shouldn't need to make changes below here.
 
@@ -23,12 +22,7 @@ const murmur = require('murmur');
 let gEnableTick = 0;
 let gProfileRate = 0;
 
-// Profile data is wiped when new code is pushed.
-// It will also wipe when a server restarts.
-let needClear = true;
-
 exports.injectAll = () => {
-  return;
   PathFinder.search = exports.wrap(PathFinder.search);
   Game.map.findExit = exports.wrap(Game.map.findExit);
   Game.map.findRoute = exports.wrap(Game.map.findRoute);
@@ -83,8 +77,9 @@ const increment = (newEntry) => {
 
   let entry = Memory.profiler.traces[newEntry.hash];
   if(!entry) {
-    entry = newEntry;
-    delete entry.hash;
+    //console.log("profile", JSON.stringify(newEntry));
+    Memory.profiler.traces[newEntry.hash] = newEntry;
+    delete newEntry.hash;
   } else {
     entry.count += newEntry.count;
   }
@@ -114,7 +109,10 @@ exports.sample = (skip=1) => {
 
   const count = update(Game.cpu.getUsed());
   if(count) {
+    const l = Error.stackTraceLimit;
+    Error.stackTraceLimit = 20;
     const trace = stack.get();
+    Error.stackTraceLimit = l;
 
     let nu = {
       funcs: [],
@@ -125,19 +123,19 @@ exports.sample = (skip=1) => {
     };
     for(let i=skip; i<trace.length; i++) {
       const f = trace[i];
-      if(frameFilter(f)) continue;
-      const func = s.getFunctionName();
-      const file = s.getFileName();
-      const line = s.getLineNumber();
+      if(!frameFilter(f)) continue;
+      const func = f.getFunctionName();
+      const file = f.getFileName();
+      const line = f.getLineNumber();
 
       nu.funcs.push(func);
-      nu.files.push(func);
+      nu.files.push(file);
       nu.lines.push(line);
 
-      nu.hash = mumur.hash(func,
-        mumur.hash(file, nu.hash+line));
+      nu.hash = murmur.hash(func,
+        murmur.hash(file, nu.hash+line));
     }
-    increment(entry);
+    increment(nu);
   }
   return count;
 };
@@ -147,33 +145,23 @@ exports.sample = (skip=1) => {
 // It also profies code parse time and memory parst time. These are only
 // possible if this method is called first each tick.
 exports.main = (rate) => {
-  return;
   const parseCode = Game.cpu.getUsed();
   Memory.rooms;
   const parseMem = Game.cpu.getUsed();
   //console.log(`code: ${parseCode}, mem: ${parseMem-parseCode}`);
 
-  gProfileRate = rate || Game.cpu.limit;
+  gProfileRate = rate || Game.cpu.limit - 11;
   gEnableTick = Game.time;
 
-  if(!_.isObject(Memory.profiler) || needClear) {
-    console.log("PROFILER RESET");
-    Memory.profiler = {
-      samples: 0,
-      done: 0,
-      used: 0,
-      acc: 0,
-      profiles: {},
-      traces: {},
-
-    };
+  if(!_.isObject(Memory.profiler)) {
+    exports.reset();
   }
-  needClear = false;
 
   const done = Memory.profiler.done;
   const used = Memory.profiler.used;
   let count = update(used-done);
   if(count) {
+    console.log('OVERFLOW', count);
     increment({
       files: ['_postmain_'],
       lines: [1],
@@ -186,6 +174,7 @@ exports.main = (rate) => {
 
   count = update(parseCode);
   if(count) {
+    console.log('PARSE', count);
     increment({
       files: ['_premain_'],
       lines: [1],
@@ -197,6 +186,7 @@ exports.main = (rate) => {
 
   count = update(parseMem);
   if(count) {
+    console.log('MEMORY', count);
     increment({
       files: ['main'],
       lines: [1],
@@ -208,3 +198,12 @@ exports.main = (rate) => {
   //console.log("profiler rate", gProfileRate, JSON.stringify(Memory.profiler));
 };
 
+exports.reset = () => {
+  Memory.profiler = {
+    samples: 0,
+    done: 0,
+    used: 0,
+    acc: 0,
+    traces: {},
+  };
+};
