@@ -9,7 +9,7 @@ module.exports = class CreepWorker {
 
     if (this.carry.energy) {
       return this.taskTurtleMode() ||
-        (this.roleIndex() === 0 && this.taskRepairOrdered()) ||
+        //(this.roleIndex() === 0 && this.taskRepairOrdered()) ||
         this.taskBuildOrdered() ||
         this.taskRepairOrdered() ||
         this.taskTurtlePrep() ||

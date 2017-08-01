@@ -86,7 +86,7 @@ Room.prototype.runLabs = function() {
   for(const flag of this.find(FIND_FLAGS)) {
     if(flag.color !== COLOR_CYAN) continue;
     for(const lab of this.findStructs(STRUCTURE_LAB)) {
-      if(lab.planType !== lab.mineralType) {
+      if(lab.planType !== lab.mineralType && lab.mineralType) {
         this.visual.text(`${lab.planType}:${lab.mineralType}`, lab.pos, {color:'0xAAAAAA', font:0.3});
       } else {
         this.visual.text(lab.planType, lab.pos, {color:'0xAAAAAA', font:0.4});

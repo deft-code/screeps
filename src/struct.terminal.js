@@ -99,6 +99,16 @@ class TerminalExtra {
         }
       }
     }
+    if(this.store.energy > 40000) {
+      for(const terminal of terminals) {
+        const sE = terminal.room.storage.store.energy;
+        if(terminal.storeFree > 50000 && terminal.store.energy < 10000) {
+          const err = this.send(RESOURCE_ENERGY, 10000, terminal.room.name);
+          debug.log('low share energy', err, this.room, 'to', terminal.room);
+          return terminal.room.name;
+        }
+      }
+    }
     return false;
   }
 

@@ -170,7 +170,7 @@ let meanBucket = Game.cpu.bucket;
 let meanUsed = Game.cpu.limit;
 
 function main() {
-  profiler.main();//27);
+  //profiler.main();//27);
   PathFinder.use(true);
 
   runner(Game.rooms);
