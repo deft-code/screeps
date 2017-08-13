@@ -88,7 +88,7 @@ class FlagTeam {
       this.memory.when[mem.role] = Game.time;
     }
 
-    console.log(`${spawn} spawned ${who}`);
+    debug.log(`${spawn} spawned ${who} ${JSON.stringify(mem)}`);
 
     return `${spawn}:${who}`;
   }

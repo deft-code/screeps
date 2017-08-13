@@ -5,7 +5,6 @@ const kMaxStall = 7;
 const gCache = {}
 
 exports.draw = (roomName) => {
-  console.log("draw2", roomName);
   const mat = exports.get(roomName);
   const vis = new RoomVisual(roomName);
   for(let x=0; x<50; x++) {
@@ -85,12 +84,15 @@ exports.getStallTicks = (creep) => {
   return Game.time - cmem.t;
 };
 
-const setArea = (mat, pos, range, cost) => {
+const setArea = (room, mat, pos, range, cost) => {
   for(let dx=-range; dx<=range; dx++) {
-    for(let dx=-range; dx<=range; dx++) {
+    for(let dy=-range; dy<=range; dy++) {
       const [x, y] = [pos.x+dx, pos.y+dy];
       if(x < 0 || y < 0) continue;
       if(x > 49 || y > 49) continue;
+      const t = Game.map.getTerrainAt(x, y, room.name);
+      if(t === 'wall') continue;
+      //TODO Should swamps be set to more?
       mat.set(x, y, cost);
     }
   }
@@ -105,9 +107,9 @@ const addCreeps = (mat, room) => {
     }
     const info = creep.info;
     if(info.rangedAttack) {
-      setArea(mat, creep.pos, 3, 20);
+      setArea(room, mat, creep.pos, 3, 20);
     } else if(info.attack) {
-      setArea(mat, creep.pos, 1, 20);
+      setArea(room, mat, creep.pos, 1, 20);
     }
   }
 };
@@ -125,7 +127,7 @@ const addStructures = (mat, room) => {
         mat.set(x, y, 1);
         break;
       case STRUCTURE_KEEPER_LAIR:
-        setArea(mat, struct.pos, 3, 20);
+        setArea(room, mat, struct.pos, 3, 20);
         break;
       default:
         if(struct.structureType !== STRUCTURE_CONTAINER) {

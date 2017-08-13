@@ -4,6 +4,9 @@ const debug = require('debug');
 
 const kEnergyLow = 50000;
 const kEnergyHi = 60000;
+const kMaxMineral = 65000;
+
+let gCache = {};
 
 class TerminalExtra {
 
@@ -15,26 +18,140 @@ class TerminalExtra {
     return this.store.energy > kEnergyHi;
   }
 
-  sell(resource, amount=1000) {
+  calc(resource) {
+    if(gCache.time !== Game.time) {
+      gCache = {
+        time: Game.time,
+        min: {},
+        max: {},
+      };
+    }
+
+    if(gCache[resource]) {
+      return gCache[resource];
+    }
+
     const orders = Game.market.getAllOrders({resourceType: resource});
-    const buys = _.filter(orders, o => o.type === ORDER_BUY && o.amount >= 100);
-    const buy = _.max(buys, 'price');
-    const err = this.deal(buy.id, Math.min(buy.amount, amount));
-    debug.log(`${this.room.name}#(${buys.length}):${err} sell ${JSON.stringify(buy)}`);
+    let mn = null;
+    let mx = null;
+    for(const order of orders) {
+      if(order.amount < 100) continue;
+
+      // Exclude my own orders
+      if(Game.market.orders[order.id]) continue;
+
+      if(order.type === ORDER_BUY) {
+        if(!mx) {
+          mx = order;
+        } else if(mx.price < order.price) {
+          mx = order;
+        } else if(mx.price === order.price) {
+          const mdist = Game.market.calcTransactionCost(1000, this.room.name, mx.roomName);
+          const odist = Game.market.calcTransactionCost(1000, this.room.name, order.roomName);
+          if(odist < mdist) {
+            mx = order;
+          }
+        }
+      } else {
+        if(!mn) {
+          mn = order;
+        } else if(mn.price > order.price) {
+          mn = order;
+        } else if(mn.price === order.price) {
+          const mdist = Game.market.calcTransactionCost(1000, this.room.name, mn.roomName);
+          const odist = Game.market.calcTransactionCost(1000, this.room.name, order.roomName);
+          if(odist < mdist) {
+            mn = order;
+          }
+        }
+      }
+    }
+
+    return gCache[resource] = [mn.id, mx.id];
+  }
+
+  min(resource) {
+    return Game.market.getOrderById(this.calc(resource)[0]);
+  }
+
+  max(resource) {
+    return Game.market.getOrderById(this.calc(resource)[1]);
+  }
+
+  sell(resource, amount=1000) {
+    const order = this.max(resource);
+    const err = this.deal(order.id, Math.min(order.amount, amount));
+    debug.log(`${this.room.name}:${err} sell ${JSON.stringify(order)}`);
     return err;
   }
 
   buy(resource, amount=1000) {
-    const orders = Game.market.getAllOrders({resourceType: resource});
-    const sells = _.filter(orders, o => o.type === ORDER_SELL && o.amount >= 100);
-    const sell = _.min(sells, 'price');
-    const err = this.deal(sell.id, Math.min(sell.amount, amount));
-    debug.log(`${this.room.name}#(${sells.length}):${err} buy ${JSON.stringify(sell)}`);
+    const order = this.min(resource);
+    const err = this.deal(order.id, Math.min(order.amount, amount));
+    debug.log(`${this.room.name}:${err} buy ${JSON.stringify(order)}`);
     return err;
   }
 
   deal(id, amount=1000) {
     return Game.market.deal(id, amount, this.room.name);
+  }
+
+  buyOrder(resource, amount=10000) {
+    const [mnid, mxid] = this.calc(resource);
+    const mn = Game.market.getOrderById(mnid);
+    const mx = Game.market.getOrderById(mxid);
+
+    const price = Math.min(
+      Math.round(1000 * mx.price)+1,
+      Math.round(1000 * mn.price));
+
+    return this.order(ORDER_BUY, resource, price, amount);
+  }
+
+  sellOrder(resource, amount=10000) {
+    const [mnid, mxid] = this.calc(resource);
+    const mn = Game.market.getOrderById(mnid);
+    const mx = Game.market.getOrderById(mxid);
+
+    const price = Math.max(
+      Math.round(1000 * mx.price),
+      Math.round(1000 * mn.price)-1);
+
+    return this.order(ORDER_SELL, resource, price, amount);
+  }
+
+  order(type, resource, price, amount) {
+    const myOrder = _.find(
+      Game.market.orders,
+      o =>
+        o.roomName === this.room.name &&
+        o.type === type &&
+        o.resourceType === resource);
+
+    if(myOrder) {
+      const op = Math.round(myOrder.price * 1000);
+      let err;
+      if(op !== price) {
+        err = Game.market.changeOrderPrice(myOrder.id, price/1000);
+        debug.log(`Updating price:'${err}' to ${price} on ${JSON.stringify(myOrder)}`);
+        if(err !== OK) {
+          return err;
+        }
+      }
+      if(2*myOrder.remainingAmount < amount) {
+        err = Game.market.extendOrder(myOrder.id, amount - myOrder.remainingAmount);
+        debug.log(`Updating amount:'${err}' to ${amount}: ${JSON.stringify(myOrder)}`);
+        if(err !== OK) {
+          return err;
+        }
+      }
+      return err;
+    } else {
+      const err = Game.market.createOrder(type, resource, price/1000, amount, this.room.name);
+      debug.log(`Creating order:'${err}' ${this}, ${resource}`);
+      return err;
+    }
+    return;
   }
 
   run() {
@@ -75,10 +192,13 @@ class TerminalExtra {
             }
           }
         }
-        if(this.store[r] > 100000 && this.store.energy > 1000) {
-          if(this.sell(r) === OK) {
-            debug.log("auto sale!");
-            return 'sell:' + r;
+        if(this.store[r] > kMaxMineral) {
+          this.sellOrder(r);
+          if(this.store.energy > 1000) {
+            if(this.sell(r) === OK) {
+              debug.log("auto sale!");
+              return 'sell:' + r;
+            }
           }
         }
       }
@@ -87,7 +207,7 @@ class TerminalExtra {
   }
 
   runEnergy() {
-    const terminals = _.shuffle(_.map(_.filter(Game.rooms, 'terminal'),'terminal'));
+    const terminals = _.shuffle(_.map(_.filter(Game.rooms, r => r.terminal && r.terminal.my),'terminal'));
     const mySE = this.room.storage.store.energy;
     if(mySE > 100000 && this.store.energy > 20000) {
       for(const terminal of terminals) {
@@ -122,9 +242,10 @@ class TerminalExtra {
       if(lab.planType.length !== 1 || lab.planType === RESOURCE_GHODIUM) continue;
       if(this.store[lab.planType]) continue;
       if(lab.mineralAmount >= 5) continue;
+      this.buyOrder(lab.planType);
       const err = this.buy(lab.planType);
+      debug.log("autobuy", err, lab.room.name, lab.planType);
       if(err === OK) {
-        debug.log("autobuy", err, lab.room.name, lab.planType);
         return `autobuy:${lab.planType}:${this.room.name}`;
       }
     }

@@ -33,15 +33,15 @@ Flag.prototype.teamBase = function() {
 
   if(!nspawns) return false;
 
-  let nworker = 1;
-  let wlvl = 5;
-  if (this.room.find(FIND_MY_CONSTRUCTION_SITES).length) {
-    wlvl = 50;
-    nworker++;
-  } else {
-    if(this.room.myStorage && this.room.storage.store.energy < kEnergyReserve) {
-      wlvl = 1;
-    }
+  let nworker = 0;
+  if(this.room.controller.ticksToDowngrade < 5000) {
+    nworker = 1;
+  } else if(this.room.find(FIND_MY_CONSTRUCTION_SITES).length) {
+    nworker = 1;
+  } else if(!this.room.myStorage) {
+    nworker = 1;
+  } else if(this.room.storage.store.energy > kEnergyReserve) {
+    nworker = 1;
   }
 
   const eCap = this.room.energyCapacityAvailable;
@@ -107,7 +107,7 @@ Flag.prototype.teamBase = function() {
       this.upkeepRole(nmicro, {role:'defender', body:'defender', max:1}, 5, this.localSpawn(260)) ||
       this.upkeepRole(ndefenders, {role:'defender', body:'defender'}, 5, this.localSpawn(eCap)) ||
       this.ensureRole(nhauler, {role:'hauler',body:'carry'}, 4, this.localSpawn(ehauler)) ||
-      this.ensureRole(nworker, {role:'worker',body:'worker', max:wlvl}, 3, this.localSpawn(eCap)) ||
+      this.ensureRole(nworker, {role:'worker',body:'worker'}, 3, this.localSpawn(eCap)) ||
       this.ensureRole(nupgrader, {role:'upgrader',body:'upgrader',max:ulvl, boosts:uboost}, 3, this.localSpawn(eCap)) ||
       this.ensureRole(nmineral, {role:'mineral',body:'mineral', max:mlvl}, 3, this.localSpawn(eCap)) ||
       this.ensureRole(nchemist, {role:'chemist',body:'carry', max:10}, 3, this.localSpawn(1000));

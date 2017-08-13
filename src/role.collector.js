@@ -16,11 +16,11 @@ class CreepCollector {
       return this.taskMoveRoom(this.dropRoom().controller);
     }
 
-    return this.taskMoveFlag(this.team);
+    return this.moveRoom(this.team);
   }
 
   afterCollector() {
-    this.idleNom();
+    this.idleNomNom();
   }
 
   taskCollect() {
@@ -28,17 +28,7 @@ class CreepCollector {
     if (!this.carryFree) return false;
 
     return this.taskPickupAny() || this.taskWithdrawAny();
-
-    const batteries = _.filter(this.room.find(FIND_STRUCTURES), s => s.energy);
-
-    const target = _.sample(resources.concat(stores).concat(batteries));
-    if (target) {
-      if (target.structureType) {
-        return this.taskWithdraw(target, RESOURCE_ENERGY);
-      }
-      return this.taskPickup(target);
-    }
-    return false;
+    //return this.taskWithdrawAny() || this.taskPickupAny();
   }
 }
 

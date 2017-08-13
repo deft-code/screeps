@@ -212,7 +212,6 @@ class RoomPlan {
     }
   }
 
-
   runPlan() {
     if(this.base) this.planBase();
   }

@@ -1,4 +1,10 @@
 module.exports = class CreepBulldozer {
+  roleOpener() {
+    return this.idleRetreat(WORK) || this.taskTask() ||
+        this.taskMoveFlag(this.team, {allowHostile:true}) ||
+        this.taskDismantleAt(this.team) ||
+        this.taskDismantleHostile(STRUCTURE_RAMPART);
+  }
 
   roleBulldozer() {
     return this.idleRetreat(WORK) || this.taskTask() ||
@@ -16,6 +22,9 @@ module.exports = class CreepBulldozer {
 
   afterBulldozer() {
     this.idleAttack();
+  }
+
+  taskDismantleEmpty() {
   }
 
   taskRazeWalls() {

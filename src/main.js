@@ -6,6 +6,9 @@ const stack = require('stack');
 
 require('Traveler');
 
+const proc = require('proc');
+require('proc.server');
+
 const lib = require('lib');
 lib.enhanceAll();
 require('constants');
@@ -186,16 +189,10 @@ function main() {
   //_.forEach(Game.rooms, r => matrix.draw(r.name));
   //matrix.draw('W86S88');
   
-  _.forEach(Game.rooms, room => {
-    for(const src of room.find(FIND_SOURCES)) {
-      room.visual.circle(src.bestSpot, {fill:"yellow"});
-    }
-    for(const min of room.find(FIND_MINERALS)) {
-      room.visual.circle(min.bestSpot, {fill:"yellow"});
-    }
-  });
+  require('procrun')();
 
   roomplan();
+
   profiler.sample();
 
   clearMem('creeps');

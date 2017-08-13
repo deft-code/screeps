@@ -27,8 +27,8 @@ exports.parseRoom = (roomOrName) => {
   const name = exports.getRoomName(roomOrName);
   const parsed = /^([WE])([0-9]{1,2})([NS])([0-9]{1,2})$/.exec(name);
   const ret = {};
-  ret[parsed[1]] = parseInt(parse[2]);
-  ret[parsed[3]] = parseInt(parse[4]);
+  ret[parsed[1]] = parseInt(parsed[2]);
+  ret[parsed[3]] = parseInt(parsed[4]);
   return ret;
 };
 

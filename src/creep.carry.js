@@ -272,9 +272,6 @@ module.exports = class CreepCarry {
       case STRUCTURE_POWER_SPAWN:
         return this.taskWithdraw(struct, RESOURCE_POWER) ||
           this.taskWithdraw(struct, RESOURCE_ENERGY);
-      case STRUCTURE_NUKER:
-        return this.taskWithdraw(struct, RESOURCE_GHODIUM) ||
-          this.taskWithdraw(struct, RESOURCE_ENERGY);
     }
     return false;
   }
@@ -329,8 +326,13 @@ module.exports = class CreepCarry {
     if (!this.carryFree) return false;
     if (this.intents.pickup) return false;
 
-    const spot = _.sample(this.room.lookForAtRange(LOOK_ENERGY, this.pos, 1, true));
-    return this.goPickup(spot && spot[LOOK_ENERGY], false);
+    const spot = _.sample(
+      _.filter(
+        this.room.lookForAtRange(LOOK_RESOURCES, this.pos, 1, true),
+        spot => spot[LOOK_RESOURCES].resourceType === RESOURCE_ENERGY)
+      );
+    this.dlog("idleNom", spot);
+    return this.goPickup(spot && spot[LOOK_RESOURCES], false);
   }
 
   taskPickupAny() {
