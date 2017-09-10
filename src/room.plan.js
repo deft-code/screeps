@@ -2,26 +2,11 @@ const profiler = require('profiler');
 const shed = require('shed');
 const lib = require('lib');
 
-const MAX = 50;
+const MAX = MAX_CONSTRUCTION_SITES / 2;
 const ROOM_MAX = 20;
 
 module.exports = () => {
-  if(shed.hi()) return console.log('Shedding room plans');
-
-  const rooms = _.shuffle(_.keys(Game.rooms));
-  for(const name of rooms) {
-    Game.rooms[name].runFlags();
-  }
-
-  const nsites = _.size(Game.constructionSites);
-  if(nsites > MAX) {
-    console.log(`${nsites} is too many sites`);
-    return;
-  }
-
-  for(const name of rooms) {
-    Game.rooms[name].runPlan();
-  }
+  return;
 };
 
 class Planner {
@@ -37,12 +22,13 @@ class Planner {
     this.memory.plans[stype].push(p);
   }
 
-  drawPlans(color) {
+  drawPlans(color='orange') {
+    const room = this.room || this;
     for(const stype in this.memory.plans) {
       for(const plan of this.memory.plans[stype]) {
         const [x, y] = [plan.x, plan.y];
-        this.room.visual.circle(x, y, {radius: 0.3, fill: color});
-        this.room.visual.text(stype[0], x, y);
+        room.visual.circle(x, y, {radius: 0.3, fill: color});
+        room.visual.text(stype[0], x, y);
       }
     }
   }
@@ -188,7 +174,7 @@ lib.merge(Flag, FlagTemplate);
 
 class RoomPlan {
   runFlags() {
-    if(!this.base) return;
+    if(!this.controller || !this.controller.my) return;
     if(!this.memory.plans) this.memory.plans = {};
 
     const flags = _.filter(
@@ -208,12 +194,47 @@ class RoomPlan {
         case COLOR_WHITE:
           flag.setTemplate();
           break;
+        case COLOR_GREY:
+          this.setBest(flag.pos);
+          flag.remove();
+          break;
       }
     }
   }
 
+  setBest(pos) {
+    const srcs = this.find(FIND_SOURCES);
+    for(const src of srcs) {
+      if(!pos.isNearTo(src)) continue;
+      this.memory.bestSpots[src.note] = [pos.x, pos.y];
+      return;
+    }
+    console.log("skip set best");
+  }
+
+  canPlan(amount) {
+    const nsites = _.size(Game.constructionSites);
+    if(nsites > MAX) {
+      console.log(`${nsites} is too many sites`);
+      return false;
+    }
+
+    const sites = this.find(FIND_MY_CONSTRUCTION_SITES);
+    if(sites.length > ROOM_MAX) {
+      return false;
+    }
+
+    let extra = 1000000;
+    if(this.myStorage)  {
+      const ongoing = _.sum(sites, site => site.progressTotal - site.progress);
+      extra = this.storage.store.energy - ongoing;
+      return extra > amount;
+    }
+    return true;
+  }
+
   runPlan() {
-    if(this.base) this.planBase();
+    this.planBase();
   }
 
   allPlans() {
@@ -223,7 +244,10 @@ class RoomPlan {
   }
 
   growRoads() {
-    if(shed.low()) return;// console.log(`${this} Shedding Roads`);
+    if(!this.controller) return;
+    if(!this.controller.my) return;
+    if(this.findStructs(STRUCTURE_TOWER).length === 0) return;
+    if(!this.canPlan(5 * CONSTRUCTION_COST[STRUCTURE_ROAD])) return;
 
     const srcs = this.find(FIND_SOURCES);
     switch(Game.time % 4) {
@@ -237,6 +261,8 @@ class RoomPlan {
         this.growRoad(_.first(srcs), _.last(srcs), 1, true);
         break;
       case 3:
+        // Stop growing roads to ramparts.
+        break;
         const spawn = _.sample(this.findStructs(STRUCTURE_SPAWN));
         const ramp = _.sample(this.findStructs(STRUCTURE_RAMPART));
         this.growRoad(spawn, ramp, 3, true);
@@ -307,36 +333,15 @@ class RoomPlan {
   }
 
   planBase() {
-    for(const stype in this.memory.plans) {
-      for(const plan of this.memory.plans[stype]) {
-        const [x, y] = [plan.x, plan.y];
-        this.visual.circle(x, y, {radius: 0.3, fill: 'orange'});
-        this.visual.text(stype[0], x, y);
-      }
-    }
-
-    const sites = this.find(FIND_MY_CONSTRUCTION_SITES);
-    if(sites.length > ROOM_MAX) {
-      console.log(`${sites.length} is too many sites for ${this}`);
-      return;
-    }
-
-    let extra = 1000000;
-    if(this.myStorage)  {
-      const ongoing = _.sum(sites, site => site.progressTotal - site.progress);
-      extra = this.storage.store.energy - ongoing;
-      if(extra <= 0) {
-        return;
-      }
-    }
-
-
-    this.growRoads();
+    if(!this.controller) return;
+    if(!this.controller.my) return;
+    if(!this.controller.level >= 2) return;
+    if(!this.canPlan(0)) return;
 
     const level = this.controller.level;
     for(const stype in this.memory.plans) {
       if(!this.memory.plans[stype].length) continue;
-      if(CONSTRUCTION_COST[stype] > extra) continue;
+      if(!this.canPlan(CONSTRUCTION_COST[stype])) continue;
 
       let skip = false;
       switch(stype) {

@@ -4,12 +4,11 @@ const debug = require('debug');
 
 const kEnergyLow = 50000;
 const kEnergyHi = 60000;
-const kMaxMineral = 65000;
+const kMaxMineral = 75000;
 
 let gCache = {};
 
 class TerminalExtra {
-
   energyFill() {
     return this.store.energy < kEnergyLow;
   }
@@ -35,6 +34,7 @@ class TerminalExtra {
     let mn = null;
     let mx = null;
     for(const order of orders) {
+      // Use any order 
       if(order.amount < 100) continue;
 
       // Exclude my own orders
@@ -67,7 +67,7 @@ class TerminalExtra {
       }
     }
 
-    return gCache[resource] = [mn.id, mx.id];
+    return gCache[resource] = [mn && mn.id, mx && mx.id];
   }
 
   min(resource) {
@@ -80,6 +80,7 @@ class TerminalExtra {
 
   sell(resource, amount=1000) {
     const order = this.max(resource);
+    if(!order) return order;
     const err = this.deal(order.id, Math.min(order.amount, amount));
     debug.log(`${this.room.name}:${err} sell ${JSON.stringify(order)}`);
     return err;
@@ -87,6 +88,7 @@ class TerminalExtra {
 
   buy(resource, amount=1000) {
     const order = this.min(resource);
+    if(!order) return order;
     const err = this.deal(order.id, Math.min(order.amount, amount));
     debug.log(`${this.room.name}:${err} buy ${JSON.stringify(order)}`);
     return err;
@@ -113,9 +115,16 @@ class TerminalExtra {
     const mn = Game.market.getOrderById(mnid);
     const mx = Game.market.getOrderById(mxid);
 
-    const price = Math.max(
-      Math.round(1000 * mx.price),
-      Math.round(1000 * mn.price)-1);
+    const mnp = Math.round(1000 * mn.price);
+
+    const price = Math.min(
+      10 * 1000,
+      2 * mnp,
+      Math.max(
+        Math.round(1000 * mx.price),
+        mnp - 1));
+
+    debug.log(`sell order ${this.room} price:${price} mn:${mn.price}, mx:${mx.price}`);
 
     return this.order(ORDER_SELL, resource, price, amount);
   }

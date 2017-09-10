@@ -51,3 +51,31 @@ global.kReactions = {
   'XUHO2': ['X', 'UHO2'],
   'XZHO2': ['X', 'ZHO2'],
 };
+
+global.kReactionAll = {
+  'G': ['ZK', 'UL', 'G'],
+  'GO': ['ZK', 'UL', 'G', 'GO'],
+  'GH': ['ZK', 'UL', 'G', 'GH'],
+
+  'GH2O': ['ZK', 'UL', 'G', 'OH', 'GH', 'GH2O'],
+  'KH2O': ['KH', 'OH', 'KH2O'],
+  'LH2O': ['LH', 'OH', 'LH2O'],
+  'UH2O': ['UH', 'OH', 'UH2O'],
+  'ZH2O': ['ZH', 'OH', 'ZH2O'],
+
+  'GHO2': ['ZK', 'UL', 'G', 'OH', 'GO', 'GHO2'],
+  'KHO2': ['KO', 'OH', 'KHO2'],
+  'LHO2': ['LO', 'OH', 'LHO2'],
+  'UHO2': ['UO', 'OH', 'UHO2'],
+  'ZHO2': ['ZO', 'OH', 'ZHO2'],
+
+  'XGH2O': ['ZK', 'UL', 'G', 'OH', 'GH', 'GH2O', 'XGH2O'],
+  'XKH2O': ['KH', 'OH', 'KH2O', 'XKH2O'],
+  'XLH2O': ['LH', 'OH', 'LH2O', 'XLH2O'],
+  'XUH2O': ['UH', 'OH', 'UH2O', 'XUH2O'],
+
+  'XGHO2': ['ZK', 'UL', 'G', 'OH', 'GO', 'GHO2', 'XGHO2'],
+  'XKHO2': ['KO', 'OH', 'KHO2', 'XKHO2'],
+  'XLHO2': ['LO', 'OH', 'LHO2', 'XLHO2'],
+  'XUHO2': ['UO', 'OH', 'UHO2', 'XUHO2'],
+};

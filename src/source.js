@@ -50,7 +50,15 @@ class SourceExtra {
 
     const key = JSON.stringify(this.pos);
     gSpots[key] = Object.freeze(spots);
-    gBestSpots[key] = best;
+
+    const bests = this.room.memory.bestSpots = this.room.memory.bestSpots || {};
+    const mbest = bests[this.note];
+    if(mbest) {
+      gBestSpots[key] = new RoomPosition(mbest[0], mbest[1], this.room.name);
+      console.log("best from memory", key, gBestSpots[key]);
+    } else {
+      gBestSpots[key] = best;
+    }
   }
 }
 

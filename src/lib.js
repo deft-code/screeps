@@ -4,6 +4,21 @@
 // However, most helpers are structured so they can be easily
 // added to the exsiting Object prototypes;
 
+exports.lookup = (id) => {
+  if(id.length === 24) {
+    const ids = Game._ids = Game._ids || {};
+    const s = Game.structures[id] || Game.constructionSites[id] || ids[id];
+    if(s) return s;
+
+    const o = Game.getObjectById(id);
+    if(o){
+      Game._ids[id] = o;
+      return o;
+    }
+  }
+  return Game.creeps[id] || Game.flags[id] || null;
+};
+
 exports.getRoomName = (roomOrName) => {
   if(_.isString(roomOrName)) {
     return roomOrName;
@@ -248,6 +263,7 @@ power[WORK] = {
   harvest: HARVEST_POWER,
   mineral: HARVEST_MINERAL_POWER,
   repair: REPAIR_POWER,
+  upgradeController: UPGRADE_CONTROLLER_POWER,
 };
 
 function getPartInfo(part) {
@@ -405,6 +421,7 @@ const towerPower = (power, from, to) => {
   if (!fpos || !tpos) {
     return ERR_INVALID_ARGS;
   }
+  const range = fpos.getRangeTo(tpos);
   if (!range) {
     return ERR_NOT_IN_RANGE;
   }

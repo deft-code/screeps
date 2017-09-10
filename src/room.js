@@ -1,4 +1,6 @@
 const lib = require('lib');
+const debug = require('debug');
+const matrix = require('matrix');
 
 class RoomExtra {
   findStructs(...types) {
@@ -83,6 +85,97 @@ class RoomExtra {
       }
     }
   }
+
+  drawUI() {
+    for(const src of this.find(FIND_SOURCES)) {
+      this.visual.circle(src.bestSpot, {fill:"yellow"});
+    }
+    for(const min of this.find(FIND_MINERALS)) {
+      this.visual.circle(min.bestSpot, {fill:"yellow"});
+    }
+    if(this.controller && this.controller.my) {
+      for(const lab of this.findStructs(STRUCTURE_LAB)) {
+        if(lab.planType !== lab.mineralType && lab.mineralType) {
+          this.visual.text(`${lab.planType}:${lab.mineralType}`, lab.pos, {color:'0xAAAAAA', font:0.3});
+        } else {
+          this.visual.text(lab.planType, lab.pos, {color:'0xAAAAAA', font:0.4});
+        }
+      }
+      for(const link of this.findStructs(STRUCTURE_LINK)) {
+        let sym = '=';
+        if(link.mode === 'sink') {
+          sym = '-';
+        } else if(link.mode === 'src') {
+          sym = '+';
+        }
+        this.visual.text(sym, link.pos);
+      }
+    }
+    if(lib.isSK(this)) {
+      matrix.draw(this.name);
+    }
+  }
+
+  init() {
+    if(!this.memory.prof) {
+      this.memory.prof = {
+        cpu: 0,
+        cpu95: 0,
+        cpu99: 0,
+      };
+    }
+    const cpu = this.memory.prof.cpu;
+    this.memory.prof.cpu = 0;
+    this.memory.prof.cpu95 = Math.round((this.memory.prof.cpu95 * 19 + cpu)/20);
+    this.memory.prof.cpu99 = Math.round((this.memory.prof.cpu99 * 99 + cpu)/100);
+
+    if(!Game._ids) Game._ids = {};
+    this.allies = [];
+    this.enemies = [];
+    this.hostiles = [];
+    this.assaulters = [];
+    this.melees = [];
+
+    for(let c of this.find(FIND_CREEPS)) {
+      Game._ids[c.id] = c;
+      if(!c.my) {
+        if(c.owner.username in allies) {
+          this.allies.push(c);
+        } else {
+          this.enemies.push(c);
+          if(c.hostile) this.hostiles.push(c);
+          if(c.assault) this.assaulters.push(c);
+          if(c.melee) this.melees.push(c);
+        }
+      }
+    }
+
+    this.ratchet('hostiles', this.hostiles.length);
+    this.ratchet('assaulters', this.assaulters.length);
+    this.ratchet('enemies', this.enemies.length);
+
+    if (this.controller && this.controller.my) {
+      if (this.assaulters.length) {
+        const structs = this.findStructs(
+            STRUCTURE_TOWER, STRUCTURE_SPAWN, STRUCTURE_EXTENSION);
+        if (_.find(structs, s => s.hits < s.hitsMax)) {
+          const ret = this.controller.activateSafeMode();
+          console.log(this, 'SAFE MODE!', ret);
+          Game.notify(`SAFE MODE:${ret}! ${this}`, 30);
+        }
+      }
+
+      this.runTowers();
+      this.runLinks();
+    }
+  }
+
+  run() {
+    if (this.controller && this.controller.my) {
+      this.runLabs();
+      if(this.myTerminal) this.terminal.run();
+    }
+  }
 }
 
 lib.merge(Room, RoomExtra);
@@ -125,48 +218,7 @@ Room.prototype.closeRamparts = function(mod) {
   }
 };
 
-const allies = ['tynstar'];
-
-Room.prototype.run = function() {
-  this.allies =
-      _.filter(this.find(FIND_HOSTILE_CREEPS), c => c.owner.username in allies);
-  this.enemies = _.filter(
-      this.find(FIND_HOSTILE_CREEPS), c => !(c.owner.username in allies));
-  this.hostiles = _.filter(this.enemies, 'hostile');
-  this.assaulters = _.filter(this.enemies, 'assault');
-  this.melees = _.filter(this.enemies, 'melee');
-
-  this.ratchet('hostiles', this.hostiles.length);
-  this.ratchet('assaulters', this.assaulters.length);
-  this.ratchet('enemies', this.enemies.length);
-
-  if (this.controller && this.controller.my) {
-    if (this.assaulters.length) {
-      const structs = this.findStructs(
-          STRUCTURE_TOWER, STRUCTURE_SPAWN, STRUCTURE_EXTENSION);
-      if (_.find(structs, s => s.hits < s.hitsMax)) {
-        console.log('SAFE MODE!', this.controller.activateSafeMode());
-      }
-    }
-
-    // this.cycleRamparts();
-    this.runTowers();
-    this.runLinks();
-    this.runLabs();
-    if(this.myTerminal) this.terminal.run();
-    // this.closeRamparts(100);
-    
-    return;
-    for(let src of this.find(FIND_SOURCES)) {
-      for(let spot of src.spots) {
-        const [x, y] = [spot.x, spot.y];
-        this.visual.circle(x, y, {radius: 0.3, fill: 'yellow'});
-        this.visual.text(spot.score, x, y);
-      }
-      this.visual.circle(src.bestSpot.x, src.bestSpot.y, {radius: 0.2, opacity:0.75, fill: 'black'});
-    }
-  }
-};
+const allies = [];
 
 const upkeepWalls = function(room) {
   if (room.memory.freezeWalls) {

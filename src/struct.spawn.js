@@ -82,10 +82,23 @@ const bodies = {
     per: [TOUGH, RANGED_ATTACK],
   },
 
+  harvester: {
+    move: 1,
+    base: [CARRY],
+    per: [WORK],
+    max: 6,
+  },
+
   heal: {
     move: 1,
     base: [ATTACK, MOVE],
     per: [HEAL],
+  },
+
+  hunter: {
+    move: 1,
+    base: [HEAL, MOVE],
+    per: [ATTACK],
   },
 
   miner: {
@@ -149,6 +162,8 @@ const partsOrdered = [TOUGH, WORK, CARRY, 'premove', ATTACK, RANGED_ATTACK, MOVE
 const partPriority = (part) => _.indexOf(partsOrdered, part);
 const orderParts = (l, r) => partPriority(l) - partPriority(r);
 
+const sortFromOrder = (items, order) => l.sort((l, r) => _.indexOf(order, l) - _.indexOf(order, r))
+
 const defCost = (def) => {
   let cost = 0;
   let max = 50;
@@ -193,6 +208,16 @@ const defBody = (def) => {
   return parts;
 };
 
+
+const newCreatedCreeps = () => {
+  return {
+    t: Game.time,
+    n: _.size(Game.creeps),
+  };
+};
+
+let createdCreeps = newCreatedCreeps();
+
 class Spawn {
   levelCreep(priority, mem) {
     if(this.nextPriority >= priority) return false;
@@ -206,6 +231,23 @@ class Spawn {
     delete mem.max;
     delete mem.base;
     delete mem.move;
+
+    if(createdCreeps.t !== Game.time) {
+      createdCreeps = newCreatedCreeps();
+    }
+    const off = _.random(createdCreeps.n);
+    for(let i = 0; i<createdCreeps.n; i++) {
+      const num = (off + i)%createdCreeps.n;
+      const name = mem.role + num;
+
+      if(Game.creeps[name]) continue;
+      if(createdCreeps[name]) continue;
+      
+      createdCreeps[name] = true;
+      console.log("creep name", name);
+      break;
+    }
+
 
     const who = this.createCreep(parts, undefined, mem);
     console.log(`${this} created ${who}: ${JSON.stringify(mem)}, ${JSON.stringify(_.countBy(parts))}`);

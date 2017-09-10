@@ -6,9 +6,6 @@ const stack = require('stack');
 
 require('Traveler');
 
-const proc = require('proc');
-require('proc.server');
-
 const lib = require('lib');
 lib.enhanceAll();
 require('constants');
@@ -22,8 +19,7 @@ require('team.block');
 require('team.farm');
 require('team.misc');
 require('team.occupy');
-require('team.role');
-
+require('team.role'); require('team.remote'); 
 require('matrix');
 require('road');
 require('room');
@@ -71,6 +67,7 @@ mods = [
   'role.defender',
   'role.drain',
   'role.guard',
+  'role.harvester',
   'role.hauler',
   'role.manual',
   'role.medic',
@@ -172,13 +169,55 @@ let who = Game.time;
 let meanBucket = Game.cpu.bucket;
 let meanUsed = Game.cpu.limit;
 
+const kMaxCPU = 450;
+const roomApply = (bucket, ...funcs) => {
+  const maxCpu = Math.min(kMaxCPU,
+    // Worst case: tends towards bucket === limit
+    (Game.cpu.limit + Game.cpu.bucket)/2);
+
+  const rooms = _.shuffle(_.values(Game.rooms));
+  const fs = _.shuffle(funcs);
+
+  let cpu = Game.cpu.getUsed();
+  for(const f of fs) {
+    for(const room of rooms) {
+      const before = cpu;
+      if(before > maxCpu) break;
+      if(Game.cpu.bucket < bucket - 750) break; 
+      if(before > Game.cpu.limit && Game.cpu.bucket < bucket) break;
+      try {
+        if(_.isFunction(f)) {
+          f(room);
+        } else {
+          room[f]();
+        }
+      } catch (err) {
+        debug.log(err.stack);
+        if(err.usedCpu > 0) {
+          debug.log(room, f, err.usedCpu);
+        }
+        Game.notify(err.stack, 30);
+      }
+      cpu = Game.cpu.getUsed();
+      room.memory.prof.cpu += Math.round(1000 * cpu - 1000 * before);
+    }
+  }
+};
+
 function main() {
   //profiler.main();//27);
-  PathFinder.use(true);
+  
+  roomApply(500, 'init');
 
-  runner(Game.rooms);
+  runner(_.sample(Game.creeps, 150));
   runner(Game.flags);
-  runner(Game.creeps);
+
+  roomApply(7000, 'run');
+
+  roomApply(8000, 'drawPlans','drawUI', 'runFlags');
+
+  roomApply(9000, 'runPlan');
+  roomApply(10000, 'growRoads');
 
   const used = Game.cpu.getUsed();
   meanUsed = meanUsed * 0.95 + used * 0.05;
@@ -187,12 +226,7 @@ function main() {
   debug.log(`${who%10}:${Game.time-who} ${Math.round(used)}:${Math.round(meanUsed)}, ${Game.cpu.bucket}:${Math.round(meanBucket)}`);
 
   //_.forEach(Game.rooms, r => matrix.draw(r.name));
-  //matrix.draw('W86S88');
   
-  require('procrun')();
-
-  roomplan();
-
   profiler.sample();
 
   clearMem('creeps');

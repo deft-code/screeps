@@ -213,9 +213,12 @@ module.exports = class CreepCarry {
 
     if(!this.carryFree) return false;
 
-    let all = _.filter(
-      this.room.find(FIND_DROPPED_RESOURCES),
-      r => r.resourceType === RESOURCE_ENERGY && this.pos.inRangeTo(r, r.amount) && r.amount >= limit);
+    let all = [];
+    if(this.room.hostiles.length === 0 || limit < 10) {
+      all = _.filter(
+        this.room.find(FIND_DROPPED_RESOURCES),
+        r => r.resourceType === RESOURCE_ENERGY && this.pos.inRangeTo(r, r.amount) && r.amount >= limit);
+    }
     
 
     all = all.concat(_.filter(

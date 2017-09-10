@@ -27,7 +27,7 @@ Flag.prototype.teamBase = function() {
   }
 
   if (!this.room.storage || !this.room.storage.storeCapacity) {
-    let what = this.upkeepRole(4, {role:'bootstrap',body:'worker'}, 3, this.remoteSpawn());
+    let what = this.upkeepRole(3, {role:'bootstrap',body:'worker', boosts:[RESOURCE_CATALYZED_GHODIUM_ACID]}, 3, this.remoteSpawn());
     if(what) return what;
   }
 
@@ -46,15 +46,21 @@ Flag.prototype.teamBase = function() {
 
   const eCap = this.room.energyCapacityAvailable;
 
-  const dropped = _.sum(
-    this.room.find(FIND_DROPPED_RESOURCES),
-    r => r.amount);
-  const nhauler = Math.floor(dropped / 1000) + 1;
+  let nhauler = 1;
+  if(this.room.controller.level <= 4) {
+    nhauler += 1;
+  }
+  if(this.room.controller.level < 6) {
+    const dropped = _.sum(
+      this.room.find(FIND_DROPPED_RESOURCES),
+      r => r.amount);
+    nhauler += Math.floor(dropped / 1000);
+  }
 
   let ulvl = 50;
   let nupgrader = 1;
   if(this.room.controller.level === 8) {
-    ulvl = 1;
+    ulvl = 15;
   }
 
   if(this.room.storage) {
@@ -65,15 +71,10 @@ Flag.prototype.teamBase = function() {
     }
   }
 
-  let uboost = [];
-  if(this.room.controller.level > 5 && this.room.controller.level < 8) {
-    uboost = [
-      // Wasteful
-      // RESOURCE_GHODIUM_HYDRIDE,
-      RESOURCE_GHODIUM_ACID,
-      RESOURCE_CATALYZED_GHODIUM_ACID,
-    ];
-  }
+  const uboost = [
+    RESOURCE_CATALYZED_GHODIUM_ACID,
+    RESOURCE_GHODIUM_ACID,
+  ];
 
   const ehauler = Math.min(2500, eCap/3);
   const eworker = Math.min(3300, eCap);
@@ -83,8 +84,7 @@ Flag.prototype.teamBase = function() {
 
   let ndefenders = 0;
   if(ta > 40) {
-    const t2 = ta-40
-    ndefenders = Math.ceil(t2/300);
+    ndefenders = this.room.assaulters.length;
   }
 
   let nmicro = 0;
@@ -105,7 +105,7 @@ Flag.prototype.teamBase = function() {
 
   return this.ensureRole(2, {role:'srcer',body:'srcer'}, 4, this.localSpawn(Math.min(eCap, 750))) ||
       this.upkeepRole(nmicro, {role:'defender', body:'defender', max:1}, 5, this.localSpawn(260)) ||
-      this.upkeepRole(ndefenders, {role:'defender', body:'defender'}, 5, this.localSpawn(eCap)) ||
+      this.ensureRole(ndefenders, {role:'defender', body:'defender'}, 5, this.localSpawn(eCap)) ||
       this.ensureRole(nhauler, {role:'hauler',body:'carry'}, 4, this.localSpawn(ehauler)) ||
       this.ensureRole(nworker, {role:'worker',body:'worker'}, 3, this.localSpawn(eCap)) ||
       this.ensureRole(nupgrader, {role:'upgrader',body:'upgrader',max:ulvl, boosts:uboost}, 3, this.localSpawn(eCap)) ||

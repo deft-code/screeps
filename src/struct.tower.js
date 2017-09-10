@@ -17,8 +17,8 @@ Room.prototype.runTowers = function() {
   const decay = _.filter(
     this.find(FIND_STRUCTURES),
     s => (
-      (s.structureType == STRUCTURE_RAMPART && s.hits <=  10 * RAMPART_DECAY_AMOUNT) ||
-      (s.structureType == STRUCTURE_WALL && s.hits <=  10 * RAMPART_DECAY_AMOUNT) ||
+      (s.structureType == STRUCTURE_RAMPART && s.hits <= 10 * RAMPART_DECAY_AMOUNT) ||
+      (s.structureType == STRUCTURE_WALL && s.hits <= 10 * RAMPART_DECAY_AMOUNT) ||
       (s.structureType == STRUCTURE_ROAD && s.hits <= 5 * ROAD_DECAY_AMOUNT) ||
       (s.structureType == STRUCTURE_CONTAINER && s.hits <= CONTAINER_DECAY)));
   if(decay.length) {
@@ -36,8 +36,9 @@ Room.prototype.runTowers = function() {
     return;
   } else if(this.assaulters.length > 1) {
     for(const tower of towers) {
-      let attack = _.first(this.assaulters);
-      for(const enemy of this.assaulters) {
+      const assaulters = _.sortBy(_.shuffle(this.assaulters), c => -tower.attackPower(c));
+      let attack = _.first(assaulters);
+      for(const enemy of assaulters) {
         if(_.random(1)) {
           attack = enemy;
           break;

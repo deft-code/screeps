@@ -1,6 +1,20 @@
 const util = require('util');
+const debug = require('debug');
 
 Flag.prototype.teamFarm = function() {
+  return this.teamSuppress() || 
+      this.teamHarvest() ||
+      this.teamReserve();
+};
+
+Flag.prototype.teamReserve = function() {
+  if(this.memory.occupy === true || this.memory.occupy > Game.time) {
+    if(this.room && this.room.claimable) {
+      return this.upkeepRole(1, {role:'claimer',body:'claim'}, 4, this.closeSpawn(650));
+    }
+    return;
+  }
+
   let canReserve = false;
   if (this.room) {
     const nsrcs = this.room.find(FIND_SOURCES).length;
@@ -9,7 +23,7 @@ Flag.prototype.teamFarm = function() {
     this.dlog(this.room, "claimed", claimed);
     let wantReserve = this.memory.reserve;
     if(wantReserve === undefined) {
-        wantReserve = this.minSpawnDist() < 3 || nsrcs > 1;
+        wantReserve = this.minSpawnDist() < 5 || nsrcs > 1;
     }
     canReserve = !this.room.memory.thostiles && controller && !claimed &&
         controller.resTicks < 4000 && wantReserve;
@@ -17,9 +31,7 @@ Flag.prototype.teamFarm = function() {
 
   this.dlog(`${this.room} reservable: ${canReserve}`);
 
-  return this.teamSuppress() || 
-      this.teamHarvest() ||
-      canReserve && this.upkeepRole(3, {role:'reserver',body:'reserve'}, 2, this.closeSpawn(1300));
+  return canReserve && this.upkeepRole(3, {role:'reserver',body:'reserve'}, 2, this.closeSpawn(1300));
 };
 
 Creep.prototype.taskRoadUpkeep = function() {
@@ -44,19 +56,6 @@ Flag.prototype.teamHarvest = function() {
     const srcs = this.room.find(FIND_SOURCES);
     nminer = srcs.length;
     ncart = nminer;
-
-    // TODO reenable once cpu use is fixed
-    //const dist = this.minSpawnDist();
-    //const totalE = _.sum(this.room.find(FIND_SOURCES), 'energyCapacity');
-    //const perE = totalE / ENERGY_REGEN_TIME;
-    //const estimate = dist * 100 * perE / 50;
-    //const carts = this.roleCreeps('cart');
-    //const carries = _.sum(carts, c => c.partsByType[CARRY]);
-    //if(carries < estimate) {
-    //  const nspots = _.sum(srcs, s => s.spots.length);
-    //  ncart = Math.min(carts.length + 1, nspots);
-    //  cartMax = Math.ceil((estimate + (estimate - carries)) / 2);
-    //}
   }
   return this.upkeepRole(nminer, {role:'miner', body:'miner'}, 2, this.closeSpawn(550)) ||
     this.upkeepRole(ncart, {role:'cart', body:'cart', max:cartMax}, 3, this.closeSpawn(550)) ||

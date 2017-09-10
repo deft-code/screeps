@@ -34,3 +34,12 @@ Flag.prototype.teamAssault = function() {
   return this.ensureRole(2, heal, 4, this.closeSpawn(5000)) ||
     this.ensureRole(2, tank, 4, this.closeSpawn(5000));
 };
+
+Flag.prototype.teamBootstrap = function() {
+  const strap = {
+    role: 'bootstrap',
+    body: 'worker',
+  };
+  return this.ensureRole(2, strap, 2, this.closeSpawn()) || 
+    this.upkeepRole(1, {role:'miner', body:'miner'}, 2, this.closeSpawn());
+};

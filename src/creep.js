@@ -82,7 +82,7 @@ class CreepExtra {
   }
 
   get assault() {
-    return this.hostile || this.activeByType[WORK];
+    return this.hostile || this.activeByType[WORK] > 1;
   }
 
   run() {

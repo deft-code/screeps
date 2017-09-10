@@ -12,8 +12,8 @@ module.exports = class CreepWorker {
         this.taskBuildOrdered() ||
         this.taskRepairOrdered() ||
         this.taskTurtlePrep() ||
-        this.taskTurtle();
-        //upgrade && this.goUpgradeController(this.room.controller);
+        this.taskTurtle() ||
+        upgrade && this.goUpgradeController(this.room.controller);
     }
     return this.taskRechargeHarvest();
   }

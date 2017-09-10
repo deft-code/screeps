@@ -1,4 +1,5 @@
 const lib = require('lib');
+const debug = require('debug');
 
 class LabExtra {
   mineralFill() {
@@ -116,6 +117,43 @@ Room.prototype.setLabs = function(resource) {
   }
 };
 
+const autoSet = (flag, r) => {
+  debug.log(flag, "auto react", r);
+  flag.room.setLabs(r);
+  flag.memory.current = r;
+  flag.memory.time = Game.time;
+};
+
+const autoReact = (flag) => {
+  const t = flag.room.terminal;
+  if(!t || !t.my) return;
+  if(flag.room.findStructs(STRUCTURE_LAB).length < 3) return;
+
+  if(!flag.memory.target) {
+    flag.memory.target = _.first(_.words(flag.name, /[GKHLOUXZ2]+/));
+    autoSet(flag, flag.memory.target);
+  }
+
+  if(flag.memory.time + 500 > Game.time) {
+    flag.dlog("skipping:", flag.memory.time + 500 - Game.time, flag);
+    return;
+  }
+
+  flag.dlog(flag, "autoReact", JSON.stringify(flag.memory));
+  for(let r of kReactionAll[flag.memory.target]) {
+    flag.dlog(flag, "checking", r, JSON.stringify(flag.memory));
+    if(r === flag.memory.current) {
+      if((t.store[r]||0) < 3000) return;
+    } else {
+      if(!t.store[r]) {
+        autoSet(flag, r);
+        return;
+      }
+    }
+  }
+  autoSet(flag, flag.memory.target);
+};
+
 Room.prototype.runLabs = function() {
   if (!this.memory.labs) {
     this.memory.labs = {};
@@ -123,14 +161,16 @@ Room.prototype.runLabs = function() {
   }
   for(const flag of this.find(FIND_FLAGS)) {
     if(flag.color !== COLOR_CYAN) continue;
-    //for(const lab of this.findStructs(STRUCTURE_LAB)) {
-    //  if(lab.planType !== lab.mineralType && lab.mineralType) {
-    //    this.visual.text(`${lab.planType}:${lab.mineralType}`, lab.pos, {color:'0xAAAAAA', font:0.3});
-    //  } else {
-    //    this.visual.text(lab.planType, lab.pos, {color:'0xAAAAAA', font:0.4});
-    //  }
-    //}
     switch(flag.secondaryColor) {
+      case COLOR_GREEN:
+        autoReact(flag);
+        break;
+      case COLOR_RED:
+        for(const lab of this.findStructs(STRUCTURE_LAB)) {
+          lab.planType = null;
+        }
+        flag.remove();
+        break;
       case COLOR_PURPLE:
         const lab = _.find(this.findStructs(STRUCTURE_LAB),
           l => flag.pos.isEqualTo(l.pos));
@@ -140,8 +180,8 @@ Room.prototype.runLabs = function() {
         flag.remove();
         break;
       case COLOR_BLUE:
-        flag.remove();
         this.setLabs(flag.name);
+        flag.remove();
         break;
     }
   }

@@ -17,8 +17,8 @@ class FlagTeam {
   remoteSpawn() {
     return (spawn) => this.spawnDist(spawn) > 1 &&
         spawn.room.energyFreeAvailable === 0 &&
-        spawn.room.storage &&
-        spawn.room.storage.store.energy > 10000 &&
+        //spawn.room.storage &&
+        //spawn.room.storage.store.energy > 10000 &&
         spawn.room.energyCapacityAvailable > this.room.energyCapacityAvailable;
   }
 
@@ -57,6 +57,9 @@ class FlagTeam {
     n = this.memOr('n' + mem.role, n);
     if(!n) return false;
 
+    const r = this.roleCreeps(mem.role);
+    if(r.length >= n) return false;
+
     const when = this.memory.when[mem.role];
     if(!when) return this.makeRole(mem, priority, filter);
 
@@ -70,9 +73,8 @@ class FlagTeam {
   }
 
   makeRole(mem, priority, filter) {
-    this.dlog(`makeRole ${JSON.stringify(mem)}`);
-
     const spawn = this.findSpawn(priority, filter);
+    this.dlog(`makeRole ${spawn}: ${JSON.stringify(mem)}`);
     this.makeRoleSpawn(mem, spawn);
   }
 
@@ -147,6 +149,20 @@ class FlagTeam {
     return dist;
   }
 
+  get creeps() {
+    if(!this._creeps) {
+      this._creeps = _.compact(_.map(this.memory.creeps, c => Game.creeps[c]));
+    }
+    return this._creeps;
+  }
+
+  get creepsByRole() {
+    if(!this._creepsByRole) {
+      this._creepsByRole = _.groupBy(this.creeps, c => c.memory.role);
+    }
+    return this._creepsByRole;
+  }
+
   run() {
     if (this.color !== COLOR_BLUE) {
       return 'no team';
@@ -165,14 +181,8 @@ class FlagTeam {
       this.memory.spawnDist = {min: 0};
     }
 
+    this.memory.creeps = _.map(this.creeps, 'name');
 
-    this.memory.creeps = this.memory.creeps || [];
-    const removed = _.remove(this.memory.creeps, cname => !Game.creeps[cname]);
-    if (removed.length) {
-      this.dlog('Dead Creeps', removed);
-    }
-    this.creeps = this.memory.creeps.sort().map(name => Game.creeps[name]);
-    this.creepsByRole = _.groupBy(this.creeps, c => c.memory.role);
     this.dlog(
         'my creeps',
         JSON.stringify(
@@ -197,7 +207,8 @@ class FlagTeam {
       case COLOR_BLUE:
         return this.teamBase();
       case COLOR_GREEN:
-        return this.teamFarm();
+        //return this.teamFarm();
+        return this.teamRemote();
       case COLOR_GREY:
         return this.teamRole();
       case COLOR_WHITE:

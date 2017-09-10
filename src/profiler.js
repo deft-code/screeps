@@ -12,7 +12,7 @@ const frameFilter = (f) =>
       !_.endsWith(f.getFileName(), '.js') &&
       _.isString(f.getFunctionName());
 
-const kMaxCPU = 400;
+const kMaxCPU = 475;
 
 // You shouldn't need to make changes below here.
 

@@ -1,51 +1,9 @@
 const lib = require('lib');
 const util = require('util');
+const matrix = require('matrix');
 
 
 class CreepMove {
-  idleOffRoad() {
-    if(this.intents.move) return false;
-    if(this.fatigue) return false;
-
-    if(this.memory.offroad) {
-      const offroad = lib.roomposFromMem(this.memory.offroad);
-      if(this.pos.isEqualTo(offroad)) {
-        return false;
-      }
-      delete this.memory.offroad;
-    }
-
-    const stuff = this.room.lookForAt(LOOK_STRUCTURES, this);
-    if(!_.any(stuff, s => s.structureType === STRUCTURE_ROAD)) {
-      this.memory.offroad = this.pos;
-    }
-
-    const offset = Math.floor(Math.random()*8);
-    for(const d = TOP; dir <= TOP_LEFT; dir++) {
-      const dir = (d + offset) % TOP_LEFT;
-      const pos = this.pos.atDirection(dir);
-      if(pos.exit) continue;
-
-      const spots = this.room.lookAt(pos);
-      const badSpot = (spot) => {
-        switch(spot.type) {
-          case LOOK_TERRAIN:
-            return spot[LOOK_TERRAIN] === 'wall';
-          case LOOK_STRUCTURES:
-            const struct = spot[LOOK_STRUCTURES];
-            return struct.obstacle || struct.structureType === STRUCTURE_ROAD;
-          case LOOK_CREEPS:
-          case LOOK_CONSTRUCTION_SITES:
-            return true;
-        }
-        return false;
-      };
-      if(_.any(spots, badSpot)) continue;
-
-      return this.moveDir(dir);
-    }
-  }
-
   moveDir(dir) {
     return this.moveHelper(this.move(dir), dir);
   }
@@ -86,8 +44,9 @@ class CreepMove {
 
     opts = _.defaults(opts, {
       ignoreRoads: fatigue > weight,
-      allowHostile: true,
+      //allowHostile: true,
       routeCallback: routeCB,
+      roomCallback: matrix.get,
     });
     return this.moveHelper(this.travelTo(target, opts), lib.getPos(target));
   }

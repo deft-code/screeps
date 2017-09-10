@@ -2,6 +2,7 @@ const lib = require('lib');
 
 class CreepRepair {
   idleRepairRoad() {
+    if(this.room.controller && this.room.controller.my && this.room.controller.level >= 3) return false;
     if(this.intents.melee || this.intents.range) return false;
     let repair = Game.getObjectById(this.memory.repair);
     this.dlog("idle repair", repair);

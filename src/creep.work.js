@@ -5,7 +5,7 @@ module.exports = class CreepWork {
     if(!this.carry.energy) return false;
     const controller = this.room.controller;
     if(!controller || !controller.my) return false;
-    if(controller.ticksToDowngrade > 2000) return false;
+    if(controller.progress < controller.progressTotal && controller.ticksToDowngrade > 4000) return false;
 
     return this.goUpgradeController(controller);
   }
@@ -65,17 +65,31 @@ module.exports = class CreepWork {
 
     const srcs = _(this.room.find(FIND_SOURCES))
       .filter(s => s.energy || this.pos.getRangeTo(s) > s.ticksToRegeneration)
-       .sort(s => -this.pos.getRangeTo(s)) // why is this negative?
+      .sortBy(s => this.pos.getRangeTo(s))
       .value();
     this.dlog("harvest spots", srcs);
     for(const src of srcs) {
       const spots = _.shuffle(src.spots);
       for(const spot of spots) {
+        this.dlog("harvest spot", src, spot);
         const creeps = this.room.lookForAt(LOOK_CREEPS, spot);
         if(creeps.length) continue;
         return this.taskHarvest(src, spot);
       }
     }
+  }
+
+  goHarvest(src, move=true) {
+    const err = this.harvest(src);
+    this.dlog(`goharvest ${err}`);
+    if (err === OK) {
+      this.intents.melee = this.intents.range = src;
+      return src.energy;
+    }
+    if (move && err === ERR_NOT_IN_RANGE) {
+      return this.moveNear(src);
+    }
+    return false;
   }
 
   taskHarvest(src) {

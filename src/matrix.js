@@ -1,6 +1,6 @@
-const kStuckCreep = 0xfe;
+const kStuckCreep = 100;
 const kStuckRange = 2;
-const kMaxStall = 7;
+const kMaxStall = 5;
 
 const gCache = {}
 
@@ -103,8 +103,12 @@ const addCreeps = (mat, room) => {
   for(const creep of room.find(FIND_CREEPS)) {
     const dt = exports.getStallTicks(creep);
     if(dt >= kMaxStall) {
-      mat.set(creep.pos.x, creep.pos.y, Math.min(kStuckCreep, Math.floor(dt/kMaxStall)));
+      mat.set(creep.pos.x, creep.pos.y, kStuckCreep);
     }
+    if(creep.my) continue;
+
+    if(creep.owner.username !== "Source Keeper") continue;
+    
     const info = creep.info;
     if(info.rangedAttack) {
       setArea(room, mat, creep.pos, 3, 20);
@@ -123,16 +127,36 @@ const addStructures = (mat, room) => {
           mat.set(x, y, 0xff);
         }
         break;
+
       case STRUCTURE_ROAD:
         mat.set(x, y, 1);
         break;
+
+      case STRUCTURE_CONTROLLER:
+      case STRUCTURE_EXTRACTOR:
+        // There is a wall underneath.
+        break;
+
       case STRUCTURE_KEEPER_LAIR:
         setArea(room, mat, struct.pos, 3, 20);
         break;
+
       default:
         if(struct.structureType !== STRUCTURE_CONTAINER) {
           mat.set(x, y, 0xff);
         }
+        break;
+    }
+  }
+  for(const site of room.find(FIND_MY_CONSTRUCTION_SITES)) {
+    const [x, y] = [site.pos.x, site.pos.y];
+    switch(site.structureType) {
+      case STRUCTURE_RAMPART:
+      case STRUCTURE_ROAD:
+      case STRUCTURE_CONTAINER:
+        break;
+      default:
+        mat.set(x, y, 0xff);
         break;
     }
   }

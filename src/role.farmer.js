@@ -34,7 +34,7 @@ class CreepFarmer {
     let minD = Infinity;
     let minE = Infinity;
 
-    let room;
+    let room = this.home;
 
     for(const rName in Game.rooms) {
       const r = Game.rooms[rName];
