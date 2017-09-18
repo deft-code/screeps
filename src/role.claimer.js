@@ -1,19 +1,15 @@
 Creep.prototype.roleClaimer = function() {
-  if (this.team.room && this.team.room.controller.owner) {
-    //this.suicide();
-    return 'SUICIDE!';
-  }
+  const what = this.taskTask() || this.moveRoom(this.team) || this.moveNear(this.room.controller);
+  if(what) return what;
 
-  if (!this.atTeam) {
-    if (this.teamRoom) {
-      return this.taskMoveRoom(this.team.room.controller);
-    } else {
-      return this.taskMoveFlag(this.team);
+  if(this.room.controller.owner) {
+    if(!this.room.controller.my) {
+      const err = this.attackController(this.room.controller);
+      if(err === OK) return this.room.controller.ticksToDowngrade;
+      this.dlog('attack error:', err);
     }
-  }
-
-  const err = this.claimController(this.teamRoom.controller);
-  if (err == ERR_NOT_IN_RANGE) {
-    return this.moveNear(this.teamRoom.controller);
+  } else {
+    const err = this.claimController(this.teamRoom.controller);
+    this.dlog('claim error:', err);
   }
 };

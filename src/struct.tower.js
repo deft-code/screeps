@@ -36,7 +36,7 @@ Room.prototype.runTowers = function() {
     return;
   } else if(this.assaulters.length > 1) {
     for(const tower of towers) {
-      const assaulters = _.sortBy(_.shuffle(this.assaulters), c => -tower.attackPower(c));
+      const assaulters = _.sortBy(_.shuffle(this.assaulters), c => tower.pos.getRangeTo(c));
       let attack = _.first(assaulters);
       for(const enemy of assaulters) {
         if(_.random(1)) {
@@ -63,12 +63,8 @@ Room.prototype.runTowers = function() {
 
 StructureTower.prototype.run = function() {
   const surpluss = this.room.storage && this.room.storage.store.energy > 800000;
-  const dropped = _(this.room.find(FIND_DROPPED_RESOURCES))
-                      .filter(s => s.amount > 1000)
-                      .value()
-                      .length;
 
-  if ((surpluss || dropped) && this.energy > 800 &&
+  if (surpluss && this.energy > 800 &&
       this.room.energyAvailable === this.room.energyCapacityAvailable) {
     let need_repair = _.sample(
         this.room.find(FIND_STRUCTURES, {

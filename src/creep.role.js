@@ -1,4 +1,5 @@
 const lib = require('lib');
+const debug = require('debug');
 
 class CreepRole {
   roleUndefined() {
@@ -106,6 +107,12 @@ class CreepRole {
     const tmem = this.memory.task;
     if (!tmem) return false;
 
+    const fname = _.camelCase('task ' + tmem.task);
+    if(fname === 'taskTask') {
+      debug.log('Task Recursion');
+      Game.notify('Task Recursion');
+      return false;
+    }
     const f = this[_.camelCase('task ' + tmem.task)];
     if (!_.isFunction(f)) return false;
 

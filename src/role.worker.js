@@ -8,7 +8,8 @@ module.exports = class CreepWorker {
     const upgrade = !this.room.storage || this.room.storage.store.energy > 10000;
 
     if (this.carry.energy) {
-      return this.taskTurtleMode() ||
+      return this.taskBuildStructs(STRUCTURE_TOWER) ||
+        this.taskTurtleMode() ||
         this.taskBuildOrdered() ||
         this.taskRepairOrdered() ||
         this.taskTurtlePrep() ||

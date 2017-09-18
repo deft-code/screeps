@@ -35,6 +35,10 @@ class CreepChemist {
       this.moveNear(this.room.terminal);
   }
 
+  afterChemist() {
+    this.idleNomNom();
+  }
+
   taskLabFill() {
     this.dlog('taskLabFill');
     for(const lab of this.room.findStructs(STRUCTURE_LAB)) {

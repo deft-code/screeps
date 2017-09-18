@@ -170,7 +170,7 @@ exports.getPos = (obj) => {
 exports.partsCost = (parts) => _.sum(parts, part => BODYPART_COST[part]);
 
 exports.creepWhere = (creep) =>
-    `<a href="/a/#!/room/${creep.pos.roomName}">${creep.pos.roomName}</a>`;
+    `<a href="/a/#!/room/${Game.shard.name}/${creep.pos.roomName}">${creep.pos.roomName}</a>`;
 
 // Total time to creep took to spawn.
 exports.creepSpawnTime = (creep) => CREEP_SPAWN_TIME * creep.body.length;

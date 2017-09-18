@@ -41,6 +41,11 @@ const bodies = {
     max: 5
   },
 
+  counter: {
+    move: 1,
+    per: [ATTACK],
+  },
+
   custom: {},
 
   defender: {

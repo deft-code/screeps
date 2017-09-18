@@ -26,7 +26,7 @@ Flag.prototype.teamBase = function() {
     return this.ensureRole(1, {role:'bootstrap',body:'worker'}, 5, this.localSpawn(300));
   }
 
-  if (!this.room.storage || !this.room.storage.storeCapacity) {
+  if (!this.room.storage || !this.room.storage.storeCapacity || this.room.findStructs(STRUCTURE_EXTENSION).length < 20) {
     let what = this.upkeepRole(3, {role:'bootstrap',body:'worker', boosts:[RESOURCE_CATALYZED_GHODIUM_ACID]}, 3, this.remoteSpawn());
     if(what) return what;
   }
@@ -49,6 +49,9 @@ Flag.prototype.teamBase = function() {
   let nhauler = 1;
   if(this.room.controller.level <= 4) {
     nhauler += 1;
+  } else if(this.room.assaulters.length) {
+    nhauler += 1;
+
   }
   if(this.room.controller.level < 6) {
     const dropped = _.sum(
@@ -83,7 +86,7 @@ Flag.prototype.teamBase = function() {
   const ta = this.room.memory.tassaulters;
 
   let ndefenders = 0;
-  if(ta > 40) {
+  if(ta > 4) {
     ndefenders = this.room.assaulters.length;
   }
 
@@ -104,6 +107,7 @@ Flag.prototype.teamBase = function() {
   }
 
   return this.ensureRole(2, {role:'srcer',body:'srcer'}, 4, this.localSpawn(Math.min(eCap, 750))) ||
+      this.teamCounterAttack() ||
       this.upkeepRole(nmicro, {role:'defender', body:'defender', max:1}, 5, this.localSpawn(260)) ||
       this.ensureRole(ndefenders, {role:'defender', body:'defender'}, 5, this.localSpawn(eCap)) ||
       this.ensureRole(nhauler, {role:'hauler',body:'carry'}, 4, this.localSpawn(ehauler)) ||
@@ -112,3 +116,12 @@ Flag.prototype.teamBase = function() {
       this.ensureRole(nmineral, {role:'mineral',body:'mineral', max:mlvl}, 3, this.localSpawn(eCap)) ||
       this.ensureRole(nchemist, {role:'chemist',body:'carry', max:10}, 3, this.localSpawn(1000));
 };
+
+Flag.prototype.teamCounterAttack = function() {
+  const ta = this.room.memory.tassaulters;
+  if(ta > 40 || this.room.assaulters.length > 3) {
+    this.ensureRole(this.room.assaulters.length, {role:'wolf', body:'counter'}, 3, this.remoteSpawn());
+  }
+  return false;
+};
+

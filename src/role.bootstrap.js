@@ -21,6 +21,7 @@ module.exports = class CreepBootstrap {
     return this.taskTransferTowers(400) ||
         this.room.assaulters.length && this.taskTransferTowers(400) ||
         this.taskTransferPool() ||
+        this.taskBuildStructs(STRUCTURE_TOWER) ||
         this.taskTurtleMode() ||
         this.taskBuildOrdered() ||
         this.taskRepairOrdered() ||
