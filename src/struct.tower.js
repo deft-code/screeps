@@ -36,7 +36,8 @@ Room.prototype.runTowers = function() {
     return;
   } else if(this.assaulters.length > 1) {
     for(const tower of towers) {
-      const assaulters = _.sortBy(_.shuffle(this.assaulters), c => tower.pos.getRangeTo(c));
+      //const assaulters = _.sortBy(_.shuffle(this.assaulters), c => tower.pos.getRangeTo(c));
+      const assaulters = _.sortBy(_.shuffle(this.enemies), c => tower.pos.getRangeTo(c));
       let attack = _.first(assaulters);
       for(const enemy of assaulters) {
         if(_.random(1)) {

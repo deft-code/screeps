@@ -5,6 +5,7 @@ module.exports = class CreepWork {
     if(!this.carry.energy) return false;
     const controller = this.room.controller;
     if(!controller || !controller.my) return false;
+    if(controller.level === 8) return false;
     if(controller.progress < controller.progressTotal && controller.ticksToDowngrade > 4000) return false;
 
     return this.goUpgradeController(controller);

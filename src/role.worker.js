@@ -2,10 +2,13 @@ const shed = require('shed');
 
 module.exports = class CreepWorker {
   roleWorker() {
+    this.dlog("worker!");
     let what = this.idleEmergencyUpgrade() || this.taskTask();
     if (what) return what;
 
     const upgrade = !this.room.storage || this.room.storage.store.energy > 10000;
+
+    this.dlog("upgrade!", upgrade);
 
     if (this.carry.energy) {
       return this.taskBuildStructs(STRUCTURE_TOWER) ||

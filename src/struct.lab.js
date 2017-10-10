@@ -48,21 +48,21 @@ class LabExtra {
   }
 
   run() {
-    if(this.cooldown) return;
-    if(this.mineralType && this.planType !== this.mineralType) return;
-    if(!this.mineralFree) return;
+    if(this.cooldown) return false;
+    if(this.mineralType && this.planType !== this.mineralType) return false;
+    if(this.mineralFree < LAB_REACTION_AMOUNT) return false;
 
     let labs = [];
 
     const parts = kReactions[this.planType];
-    if(!parts) return;
+    if(!parts) return false;
 
-    if(this.room.terminal.store[this.planType] > 10000) return;
+    if(this.room.terminal.store[this.planType] > 10000) return false;
 
     for(const react of parts){
       for(const lab of this.room.findStructs(STRUCTURE_LAB)) {
         if(lab.mineralType !== react) continue;
-        if(lab.mineralAmount < 5) continue;
+        if(lab.mineralAmount < LAB_REACTION_AMOUNT) continue;
         if(!this.pos.inRangeTo(lab, 2)) continue;
 
         labs.push(lab);
@@ -73,8 +73,11 @@ class LabExtra {
       const err = this.runReaction(labs[0], labs[1]);
       if(err !== OK) {
         console.log(this, "bad reaction", err, labs);
+        return false;
       }
+      return true;
     }
+    return false;
   }
 }
 
@@ -186,6 +189,6 @@ Room.prototype.runLabs = function() {
     }
   }
   for (let lab of this.findStructs(STRUCTURE_LAB)) {
-    lab.run();
+    if(lab.run()) return;
   }
 };

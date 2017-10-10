@@ -116,6 +116,38 @@ global.purgeWalls = (room, dry=true) => {
   return n;
 }
 
+
+global.worldWipe = (keep) => {
+  const flags = _.keys(Game.flags);
+  for(const fname of flags) {
+    const f = Game.flags[fname];
+    if(f.pos.roomName !== keep) {
+      if(f.room) {
+        global.wipe(f.room);
+      } else {
+        f.remove();
+      }
+    }
+  }
+}
+
+global.wipe = (room) => {
+  const creeps = room.find(FIND_MY_CREEPS);
+  for(const c of creeps) {
+    c.suicide();
+  }
+
+  const flags = room.find(FIND_FLAGS);
+  for(const f of flags) {
+    f.remove();
+  }
+
+  const structs = room.find(FIND_STRUCTURES);
+  for(const s of structs) {
+    s.destroy();
+  }
+};
+
 function runner(objs) {
   let num = 0;
   let maxName = 'first';

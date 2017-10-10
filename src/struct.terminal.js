@@ -34,7 +34,6 @@ class TerminalExtra {
     let mn = null;
     let mx = null;
     for(const order of orders) {
-      // Use any order 
       if(order.amount < 100) continue;
 
       // Exclude my own orders
@@ -53,6 +52,9 @@ class TerminalExtra {
           }
         }
       } else {
+        // Prevent wild sell orders from bankrupting me.
+        if(order.price > 10) continue;
+
         if(!mn) {
           mn = order;
         } else if(mn.price > order.price) {
@@ -104,6 +106,8 @@ class TerminalExtra {
     const mx = Game.market.getOrderById(mxid);
 
     const price = Math.min(
+      // Safety net never buy for more than 10.
+      10 * 1000,
       Math.round(1000 * mx.price)+1,
       Math.round(1000 * mn.price));
 
@@ -172,7 +176,7 @@ class TerminalExtra {
   }
 
   runBalance() {
-    const terminals = _.shuffle(_.map(_.filter(Game.rooms, 'terminal'),'terminal'));
+    const terminals = _.shuffle(_.map(_.filter(Game.rooms, r => r.terminal && r.terminal.my),'terminal'));
     const rs = _.shuffle(_.keys(this.store));
     for(const r of rs) {
       if(r === RESOURCE_ENERGY) continue;
@@ -202,7 +206,8 @@ class TerminalExtra {
           }
         }
         if(this.store[r] > kMaxMineral) {
-          this.sellOrder(r);
+          // TODO renable later
+          //this.sellOrder(r);
           if(this.store.energy > 1000) {
             if(this.sell(r) === OK) {
               debug.log("auto sale!");
@@ -251,7 +256,8 @@ class TerminalExtra {
       if(lab.planType.length !== 1 || lab.planType === RESOURCE_GHODIUM) continue;
       if(this.store[lab.planType]) continue;
       if(lab.mineralAmount >= 5) continue;
-      this.buyOrder(lab.planType);
+      // TODO reenable later.
+      //this.buyOrder(lab.planType);
       const err = this.buy(lab.planType);
       debug.log("autobuy", err, lab.room.name, lab.planType);
       if(err === OK) {

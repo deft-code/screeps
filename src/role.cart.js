@@ -25,6 +25,11 @@ module.exports = class CreepCart {
     this.idleNom();
     if(this.carry.energy) {
       this.idleBuild() || this.idleRepairRoad();
+      if(this.atTeam) {
+        this.idleRecharge();
+      } else {
+        this.idleTransferAny();
+      }
     }
   }
 };

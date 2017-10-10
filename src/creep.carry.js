@@ -7,10 +7,12 @@ module.exports = class CreepCarry {
 
     const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true);
 
-    const struct = _.find(
+    const spot = _.find(
         spots, spot => spot.structure.energyFree || spot.structure.storeFree);
 
-    return this.goTransfer(struct, RESOURCE_ENERGY, false);
+    if(!spot) return false;
+
+    return this.goTransfer(spot[LOOK_STRUCTURES], RESOURCE_ENERGY, false);
   }
 
   idleTransferExtra() {

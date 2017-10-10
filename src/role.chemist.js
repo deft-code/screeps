@@ -32,11 +32,23 @@ class CreepChemist {
       this.taskResortMinerals() ||
       this.taskSortMinerals() ||
       this.taskLabFill() ||
+      this.taskLabEnergy() ||
       this.moveNear(this.room.terminal);
   }
 
   afterChemist() {
     this.idleNomNom();
+  }
+
+  taskLabEnergy() {
+    if(!this.room.terminal || !this.room.terminal.my) return false;
+
+    const lab = _.find(this.room.findStructs(STRUCTURE_LAB),
+      s => s.energyFree);
+    if(lab) {
+      return this.taskTransfer(lab, RESOURCE_ENERGY) || this.taskWithdraw(this.room.terminal, RESOURCE_ENERGY);
+    }
+    return this.taskTransfer(this.room.terminal, RESOURCE_ENERGY);
   }
 
   taskLabFill() {
