@@ -188,6 +188,10 @@ function runner(objs) {
 function clearMem(what) {
   for (var name in Memory[what]) {
     if (!Game[what][name]) {
+      if(Memory[what][name].egg) {
+        debug.log('Skipping egg', name);
+        continue;
+      }
       console.log(
           `Clear memory for ${what}[${name}]:`,
           JSON.stringify(Memory[what][name]));
