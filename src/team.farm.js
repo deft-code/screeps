@@ -2,9 +2,8 @@ const util = require('util');
 const debug = require('debug');
 
 Flag.prototype.teamFarm = function() {
-  return this.teamSuppress() || 
-      this.teamHarvest() ||
-      this.teamReserve();
+  debug.log('New farm');
+  return 'farm';
 };
 
 Flag.prototype.teamReserve = function() {

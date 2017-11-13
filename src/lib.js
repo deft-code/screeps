@@ -4,6 +4,12 @@
 // However, most helpers are structured so they can be easily
 // added to the exsiting Object prototypes;
 
+exports.getset = (obj, path, def) => {
+  const got = _.get(obj, path, def);
+  _.set(obj, path, got);
+  return got;
+};
+
 exports.lookup = (id) => {
   if(id.length === 24) {
     const ids = Game._ids = Game._ids || {};
@@ -27,7 +33,7 @@ exports.getRoomName = (roomOrName) => {
 };
 
 exports.isHighway = (roomOrName) =>
-  exports.getRoomName(exports.roomOrName).includes('0');
+  exports.getRoomName(exports.getRoomName(roomOrName)).includes('0');
 
 exports.isSK = (roomOrName) => {
   const info = exports.parseRoom(roomOrName);

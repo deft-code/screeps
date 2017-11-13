@@ -207,7 +207,6 @@ class FlagTeam {
       case COLOR_BLUE:
         return this.teamBase();
       case COLOR_GREEN:
-        //return this.teamFarm();
         return this.teamRemote();
       case COLOR_GREY:
         return this.teamRole();
@@ -215,6 +214,8 @@ class FlagTeam {
         return this.teamEnsure();
       case COLOR_CYAN:
         return this.teamOccupy();
+      case COLOR_YELLOW:
+        return this.teamFarm();
       case COLOR_PURPLE:
         const n = _.first(_.words(this.name)).toLowerCase();
         const fname = _.camelCase(`team ${n}`);
