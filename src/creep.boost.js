@@ -18,7 +18,8 @@ module.exports = class CreepBoost {
   taskBoost(lab) {
     lab = this.checkId('boost', lab);
     if(!lab) return false;
-    if(lab.mineralAmount < 30) return false;
+    if(lab.mineralAmount < LAB_BOOST_MINERAL) return false;
+    if(lab.energy < LAB_BOOST_ENERGY) return false;
 
     const err = lab.boostCreep(this);
     if(err === ERR_NOT_IN_RANGE) {

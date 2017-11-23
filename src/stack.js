@@ -18,5 +18,5 @@ exports.get = function() {
 exports.where = (skip = 1) => {
   const frames = exports.get();
   const f = frames[skip];
-  return `${f.getFileName()}#${f.getLineNumber()}`;
+  return `${f.getFileName()}#${f.getLineNumber()}:${f.getFunctionName()}`;
 };

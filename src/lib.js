@@ -22,7 +22,7 @@ exports.lookup = (id) => {
       return o;
     }
   }
-  return Game.creeps[id] || Game.flags[id] || null;
+  return Game.creeps[id] || Game.flags[id] || Game.rooms[id] || null;
 };
 
 exports.getRoomName = (roomOrName) => {
