@@ -1,6 +1,4 @@
-const lib = require('lib');
-
-class CreepBuild {
+module.exports = class CreepBuild {
   idleBuild() {
     if(this.intents.melee || this.intents.range) return false;
     const site = _.sample(this.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3));
@@ -63,5 +61,3 @@ class CreepBuild {
     return false;
   }
 }
-
-lib.merge(Creep, CreepBuild);

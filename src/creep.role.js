@@ -1,9 +1,12 @@
-const lib = require('lib');
 const debug = require('debug');
 
-class CreepRole {
+module.exports = class CreepRole {
   roleUndefined() {
     console.log(`${this} Missing Role! ${JSON.stringify(this.memory)}`);
+    if(REBOOT) {
+      this.suicide();
+    }
+
   }
 
   roleIndex() {
@@ -134,5 +137,3 @@ class CreepRole {
     }
   }
 }
-
-lib.merge(Creep, CreepRole);

@@ -1,7 +1,10 @@
 module.exports = class CreepBootstrap {
   roleBootstrap() {
+    this.dlog('enter bootstrap');
     let what = this.idleEmergencyUpgrade() || this.taskTask();
     if(what) return what;
+
+    this.dlog('bootstrap retask');
 
     if (!this.atTeam) {
       return this.taskMoveFlag(this.team);
@@ -13,12 +16,11 @@ module.exports = class CreepBootstrap {
     }
 
     if(this.room.controller.level < 2) {
+      this.dlog("controller override");
       return this.taskUpgradeRoom();
     }
 
-    // fix this later
-    //return this.taskTransferTowers(100) ||
-    return this.taskTransferTowers(400) ||
+    return this.taskTransferTowers(100) ||
         this.room.assaulters.length && this.taskTransferTowers(400) ||
         this.taskTransferPool() ||
         this.taskBuildStructs(STRUCTURE_TOWER) ||

@@ -1,6 +1,4 @@
-const lib = require('lib');
-
-class CreepAttack {
+module.exports = class CreepAttack {
   goRangedAttack(target, move = true) {
     const err = this.rangedAttack(target);
     if (err === OK) {
@@ -70,5 +68,3 @@ class CreepAttack {
     return this.goRangedAttack(target);
   }
 }
-
-lib.merge(Creep, CreepAttack);

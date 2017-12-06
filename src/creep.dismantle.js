@@ -1,6 +1,4 @@
-const lib = require('lib');
-
-class CreepDismantle {
+module.exports = class CreepDismantle {
   idleDismantle() {
     if(this.intents.melee) return false;
     if(!this.room.controller) return false;
@@ -49,5 +47,3 @@ class CreepDismantle {
     return false;
   }
 }
-
-lib.merge(Creep, CreepDismantle);

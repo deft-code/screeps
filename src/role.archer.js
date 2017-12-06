@@ -1,6 +1,4 @@
-const lib = require('lib');
-
-class CreepArcher {
+module.exports = class CreepArcher {
   roleArcher() {
     return this.taskTask() || this.taskArcher() ||
         this.moveNear(this.team);
@@ -14,8 +12,6 @@ class CreepArcher {
 
     return this.taskKite(_.sample(this.room.enemies));
   }
-
-
 
   taskKite(creep) {
     creep = this.checkId('kite', creep);
@@ -51,5 +47,3 @@ class CreepArcher {
     return false;
   }
 }
-
-lib.merge(Creep, CreepArcher);

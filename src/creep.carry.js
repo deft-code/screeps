@@ -336,7 +336,7 @@ module.exports = class CreepCarry {
         this.room.lookForAtRange(LOOK_RESOURCES, this.pos, 1, true),
         spot => spot[LOOK_RESOURCES].resourceType === RESOURCE_ENERGY)
       );
-    this.dlog("idleNom", spot);
+    if(spot) this.dlog(spot);
     return this.goPickup(spot && spot[LOOK_RESOURCES], false);
   }
 

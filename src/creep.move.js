@@ -2,8 +2,7 @@ const lib = require('lib');
 const util = require('util');
 const matrix = require('matrix');
 
-
-class CreepMove {
+module.exports = class CreepMove {
   moveDir(dir) {
     return this.moveHelper(this.move(dir), dir);
   }
@@ -175,5 +174,3 @@ class CreepMove {
     return this.moveRoom(flag, opts);
   }
 }
-
-lib.merge(Creep, CreepMove);

@@ -1,6 +1,4 @@
-const lib = require('lib');
-
-class CreepCollector {
+module.exports = class CreepCollector {
   roleCollector() {
     let what = this.idleRetreat(CARRY) || this.taskTask();
     if(what) return what;
@@ -31,5 +29,3 @@ class CreepCollector {
     //return this.taskWithdrawAny() || this.taskPickupAny();
   }
 }
-
-lib.merge(Creep, CreepCollector);

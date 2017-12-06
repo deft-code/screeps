@@ -11,6 +11,7 @@ exports.getset = (obj, path, def) => {
 };
 
 exports.lookup = (id) => {
+  if(!id) return null;
   if(id.length === 24) {
     const ids = Game._ids = Game._ids || {};
     const s = Game.structures[id] || Game.constructionSites[id] || ids[id];
@@ -24,6 +25,11 @@ exports.lookup = (id) => {
   }
   return Game.creeps[id] || Game.flags[id] || Game.rooms[id] || null;
 };
+
+exports.unlookup = (objid) => {
+  const ids = Game._ids = Game._ids || {};
+  ids[objid.id] = objid;
+}
 
 exports.getRoomName = (roomOrName) => {
   if(_.isString(roomOrName)) {
@@ -168,153 +174,6 @@ exports.getPos = (obj) => {
   return null;
 };
 
-//
-// Creep
-//
-
-// Total energy cost to spawn a creep with parts.
-exports.partsCost = (parts) => _.sum(parts, part => BODYPART_COST[part]);
-
-exports.creepWhere = (creep) =>
-    `<a href="/a/#!/room/${Game.shard.name}/${creep.pos.roomName}">${creep.pos.roomName}</a>`;
-
-// Total time to creep took to spawn.
-exports.creepSpawnTime = (creep) => CREEP_SPAWN_TIME * creep.body.length;
-
-// Total amount of carried resources.
-exports.creepCarryTotal = (creep) => _.sum(creep.carry);
-
-// Available carrying capacity.
-exports.creepCarryFree = (creep) =>
-    creep.carryCapacity - exports.creepCarryTotal(creep);
-
-// Amount of hits `creep` is missing.
-exports.creepHurts = (creep) => creep.hitsMax - creep.hits;
-
-// Fatigue generated when `creep` moves.
-exports.creepWeight = (creep) => {
-  let weight = 0;
-  let carry = exports.creepCarryTotal(creep);
-  for (let i = creep.body.length - 1; i >= 0; i--) {
-    const part = creep.body[i];
-    switch (part.type) {
-      case MOVE:
-        break;
-      case CARRY:
-        if (carry > 0) {
-          weight++;
-          carry -= getPartInfo(part).capacity;
-        }
-        break;
-      default:
-        weight++;
-        break;
-    }
-  }
-  return weight * 2;
-};
-
-// Returns resource amounts from `creep` creation.
-// If `current` then returns reclaimable resources.
-exports.creepBodyCost = (creep, current) => {
-  const cost = {
-    energy: 0,
-  };
-  let claim = false;
-  for (let part of creep.body) {
-    claim = claim || part.type == CLAIM;
-    cost.energy += BODYPART_COST[part.type];
-    if (part.boost) {
-      cost[part.boost] = 30 + cost[part.boost] || 0;
-    }
-  }
-  if (current) {
-    const lifetime = claim ? CREEP_CLAIM_LIFE_TIME : CREEP_LIFE_TIME;
-    const scale = creep.ticksToLive / lifetime;
-    for (let res in cost) {
-      cost[res] = Math.floor(cost[res] * scale);
-    }
-  }
-  return cost;
-};
-
-const power = {};
-power[ATTACK] = {
-  attack: ATTACK_POWER,
-};
-power[CARRY] = {
-  capacity: CARRY_CAPACITY,
-};
-power[CLAIM] = {
-  attackController: CONTROLLER_CLAIM_DOWNGRADE,
-  upgradeController: UPGRADE_CONTROLLER_POWER,
-};
-power[HEAL] = {
-  heal: HEAL_POWER,
-  rangedHeal: RANGED_HEAL_POWER,
-};
-power[MOVE] = {
-  fatigue: 2,  // Huh! No constant for this?!
-};
-power[RANGED_ATTACK] = {
-  rangedAttack: RANGED_ATTACK_POWER,
-  rangedMassAttack: RANGED_ATTACK_POWER,
-};
-power[TOUGH] = {
-  hits: 0,
-};
-power[WORK] = {
-  build: BUILD_POWER,
-  dismantle: DISMANTLE_POWER,
-  harvest: HARVEST_POWER,
-  mineral: HARVEST_MINERAL_POWER,
-  repair: REPAIR_POWER,
-  upgradeController: UPGRADE_CONTROLLER_POWER,
-};
-
-function getPartInfo(part) {
-  const partInfo = _.clone(power[part.type]);
-  if (part.boost) {
-    const boost = BOOSTS[part.type][part.boost];
-    for (let action in boost) {
-      if (action == 'damage') {
-        partInfo.hits += Math.floor(part.hits * (1 - boost[action]));
-        continue;
-      }
-      if (action == 'harvest') {
-        partInfo.mineral *= boost[action];
-      }
-      partInfo[action] *= boost[action];
-    }
-  }
-  return partInfo;
-}
-
-// Info about the power of `creep`s actions.
-// Most keys are standard action names
-// The exceptions:
-// * hits: a pseudo count of the extra hits available to boosted TOUGH parts.
-// * mineral: harvest power when harvesting a mineral.
-// * fatigue: is the fatigue removed by MOVE parts.
-// * capacity: is equivalent to `carryCapacity` unless `creep` is damaged.
-exports.creepBodyInfo = (creep, all) => {
-  let info = {};
-  for (let part of _.values(power)) {
-    for (let action in part) {
-      info[action] = 0;
-    }
-  }
-
-  for (let i = 0; i < creep.body.length; i++) {
-    const part = creep.body[i];
-    if (!all && !part.hits) continue;
-    const pinfo = getPartInfo(part);
-    for (let action in pinfo) {
-      info[action] += pinfo[action];
-    }
-  }
-  return info;
-};
 
 // Room enhancers
 

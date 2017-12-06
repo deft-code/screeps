@@ -1,6 +1,4 @@
-const lib = require('lib');
-
-class CreepFarmer {
+module.exports = class CreepFarmer {
   roleFarmer() {
     const what = this.idleRetreat(WORK) ||
       this.fleeHostiles() ||
@@ -70,5 +68,3 @@ class CreepFarmer {
     return this.taskCollect() || this.taskHarvestSpots();
   }
 }
-
-lib.merge(Creep, CreepFarmer);

@@ -1,5 +1,3 @@
-const lib = require('lib');
-
 function nonenergy(carry) {
   const m = _(carry)
     .keys()
@@ -24,7 +22,7 @@ Room.prototype.contForMineral = function(mineral) {
       _.find(conts, cont => cont.mode === 'sink') || _.first(conts);
 };
 
-class CreepChemist {
+module.exports = class CreepChemist {
   roleChemist() {
     this.dlog("role chemist");
     return this.taskTask() || 
@@ -164,5 +162,3 @@ class CreepChemist {
     return this.taskWithdrawMinerals(cont);
   }
 }
-
-lib.merge(Creep, CreepChemist);

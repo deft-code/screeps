@@ -1,6 +1,3 @@
-const util = require('util');
-const lib = require('lib');
-
 function findCont(positions) {
   for (let pos of positions) {
     const cont = _.find(
@@ -10,7 +7,7 @@ function findCont(positions) {
   return false;
 }
 
-class CreepSrcer {
+module.exports = class CreepSrcer {
   roleSrcer() {
     // Calc src
     let src = Game.getObjectById(this.memory.src);
@@ -169,5 +166,3 @@ class CreepSrcer {
     this.idleBuild() || this.idleRepair();
   }
 }
-
-lib.merge(Creep, CreepSrcer);

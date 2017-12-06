@@ -1,12 +1,14 @@
 const lib = require('lib');
+const debug = require('debug');
 
 module.exports = class CreepWork {
   idleEmergencyUpgrade() {
     if(!this.carry.energy) return false;
     const controller = this.room.controller;
     if(!controller || !controller.my) return false;
-    if(controller.level === 8) return false;
+    if(controller.level === 8 && controller.ticksToDowngrade > 4000) return false;
     if(controller.progress < controller.progressTotal && controller.ticksToDowngrade > 4000) return false;
+    if(Game.shard.ptr && controller.ticksToDowngrade > 4000) return false;
 
     return this.goUpgradeController(controller);
   }
@@ -96,10 +98,13 @@ module.exports = class CreepWork {
   taskHarvest(src) {
     if (!this.carryFree) return false;
     src = this.checkId('harvest', src);
+    this.dlog('harvest', src);
     if(!src || !src.energy) return false;
 
     let spot = lib.roomposFromMem(this.memory.task.spot);
+    this.dlog('harvest spot', spot);
     if(!spot) {
+      debug.log(this, 'BAD SPOT');
       const where = this.moveRange(src);
       if(where) return where;
 
@@ -120,8 +125,10 @@ module.exports = class CreepWork {
     const err = this.harvest(src);
     if (err === OK) {
       this.intents.melee = src;
+      this.dlog('harvest', where, err, src.energy);
       return src.energy;
     }
+    this.dlog('err', where, err);
     return where;
   }
 

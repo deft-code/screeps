@@ -1,6 +1,4 @@
-const lib = require('lib');
-
-class CreepRepair {
+module.exports = class CreepRepair {
   idleRepairRoad() {
     if(this.room.controller && this.room.controller.my && this.room.controller.level >= 3) return false;
     if(this.intents.melee || this.intents.range) return false;
@@ -163,5 +161,3 @@ class CreepRepair {
     return false;
   }
 }
-
-lib.merge(Creep, CreepRepair);

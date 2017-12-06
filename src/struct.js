@@ -6,6 +6,18 @@ class StructureExtra {
     return util.structNote(this.structureType, this.pos);
   }
 
+  get energyFree() {
+    return Math.max(0, this.energyCapacity - this.energy);
+  }
+
+  get obstacle() {
+    return _.contains(OBSTACLE_OBJECT_TYPES, this.structureType);
+  }
+
+  get hurts() {
+    return this.hitsMax - this.hits;
+  }
+
   get repairs() {
     let myMax = this.hitsMax;
     switch (this.structureType) {

@@ -5,7 +5,7 @@ exports.get = function() {
     if(end !== -1) {
       return stack_array.slice(0, end+1);
     }
-    console.log('BAD STACK TRACE!', stack_array.length, stack_array);
+    //console.log('BAD STACK TRACE!', stack_array.length, stack_array);
     return stack_array;
   };
   const obj = {};
@@ -16,7 +16,10 @@ exports.get = function() {
 };
 
 exports.where = (skip = 1) => {
+  const prevLimit = Error.stackTraceLimit || 10;
+  Error.stackTraceLimit = skip+1;
   const frames = exports.get();
+  Error.stackTraceLimit = prevLimit;
   const f = frames[skip];
   return `${f.getFileName()}#${f.getLineNumber()}:${f.getFunctionName()}`;
 };

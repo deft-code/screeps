@@ -1,5 +1,4 @@
 const lib = require('lib');
-const util = require('util');
 
 const gSpots = new Map();
 const gBestSpots = new Map();
@@ -65,5 +64,16 @@ class SourceExtra {
 lib.merge(Source, SourceExtra);
 lib.merge(Mineral, SourceExtra);
 
-lib.enhance(Source, 'note', (src) => `src${src.pos.x}${src.pos.y}`);
-lib.enhance(Mineral, 'note', (src) => `minral${src.pos.x}${src.pos.y}`);
+class SrcNote {
+  get note() {
+    return `src${this.pos.x}${this.pos.y}`;
+  }
+}
+lib.merge(Source, SrcNote);
+
+class MineralNote {
+  get note() {
+    return `mineral${this.pos.x}${this.pos.y}`;
+  }
+}
+lib.merge(Mineral, MineralNote);
