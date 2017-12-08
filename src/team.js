@@ -11,10 +11,6 @@ Flag.prototype.runTeam = function() {
     case COLOR_BLUE: return this.teamCore();
   }
   debug.log("Missing team");
-  if(global.REBOOT) {
-    debug.log(this, 'remove');
-  }
-     
 }
 
 function gc(flag) {
@@ -69,12 +65,10 @@ function hauler(flag) {
 }
 
 function auxsrc(flag) {
-  if(!flag.room.getSpot('auxsrc')) return false;
   return flag.replaceRole('auxsrc', 1);
 }
 
 function coresrc(flag) {
-  if(!flag.room.getSpot('coresrc')) return false;
   return flag.replaceRole('coresrc', 1);
 }
 
@@ -96,9 +90,6 @@ function worker(flag) {
 }
 
 function shunts(flag) {
-  if(!flag.room.getSpot('core')) return false;
-  if(!flag.room.getSpot('aux')) return false;
-
   const rcl = flag.room.controller.level;
 
   let ncore = 0;
