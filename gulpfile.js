@@ -25,7 +25,7 @@ gulp.task('fetch', function() {
   const options = {
     hostname: 'screeps.com',
     port: '443',
-    path: '/api/user/code',
+    path: 'ptr/api/user/code',
     method: 'GET',
     auth: credentials.email + ':' + credentials.password,
   }
