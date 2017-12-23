@@ -24,8 +24,8 @@ function runEgg(egg) {
   const eggMem = Memory.creeps[egg].egg;
   const spawns = findSpawns(eggMem);
   const [spawn, body] = buildBody(spawns, eggMem);
-  debug.log(egg, body);
   if(!spawn) return false;
+  debug.log(egg, spawn, JSON.stringify(_.countBy(body)));
 
   const err = spawn.spawnCreep(body, egg);
   if(err != OK) {
@@ -58,8 +58,57 @@ function findSpawns(eggMem) {
       debug.log("Missing spawn algo", eggMem.spawn);
       break;
   }
-  debug.log("selected spawns", spawns);
-  return _.filter(spawns, s => !s.spawning);
+  return _.shuffle(_.filter(spawns, s => !s.spawning));
+}
+
+function buildCtrl(spawns, eggMem) {
+  if(eggMem.ecap > kRCL7Energy) {
+    return [
+      _.find(spawns, s => s.room.energyAvailable >= 2050), [
+        MOVE, MOVE, MOVE, MOVE,
+        MOVE, MOVE, MOVE, MOVE,
+        WORK, WORK, WORK, WORK, WORK,
+        WORK, WORK, WORK, WORK, WORK,
+        WORK, WORK, WORK, WORK, WORK,
+        CARRY, CARRY, CARRY]];
+  }
+
+  if(eggMem.ecap > kRCL6Energy) {
+    const spawn = _.find(spawns, s => s.room.energyAvailable >= 4200);
+    if(!spawn) return [null, []];
+
+    return [spawn, [
+      MOVE, MOVE, MOVE, MOVE, MOVE,
+      MOVE, MOVE, MOVE, MOVE, MOVE,
+      MOVE, MOVE, MOVE, MOVE, MOVE,
+
+      WORK, WORK, WORK, WORK, WORK,
+      WORK, WORK, WORK, WORK, WORK,
+      WORK, WORK, WORK, WORK, WORK,
+      WORK, WORK, WORK, WORK, WORK,
+      WORK, WORK, WORK, WORK, WORK,
+      WORK, WORK, WORK, WORK, WORK,
+
+      CARRY, CARRY, CARRY, CARRY, CARRY]];
+  }
+
+  const spawn = _.find(spawns, s => s.room.energyAvailable >= eggMem.ecap);
+  if(!spawn) return [null, []];
+
+  const def = {
+    move: 2,
+    per: [WORK],
+    base: [CARRY],
+    energy: eggMem.ecap,
+  };
+
+  if(eggMem.ecap > kRCL4Energy) {
+    def.base.push(CARRY);
+  }
+
+  const body = energyDef(def);
+
+  return [spawn, body];
 }
 
 function buildBody(spawns, eggMem) {
@@ -76,20 +125,21 @@ function buildBody(spawns, eggMem) {
         s => s.room.energyAvailable >= 700);
       body = [WORK, WORK, WORK, WORK, WORK, WORK, CARRY, MOVE];
       break;
+    case 'ctrl':
+      [spawn, body] = buildCtrl(spawns, eggMem);
+      break;
     case 'hauler':
-      debug.log(JSON.stringify(eggMem));
       spawn = _.find(spawns,
         s => s.room.energyAvailable >= eggMem.energy);
       if(!spawn) break;
-      body = energyDef({
+      body = energyDef(_.defaults({}, eggMem, {
         move: 2,
         per: [CARRY],
-        energy: eggMem.energy,
-      });
+      }));
       break;
     case 'shunt':
       spawn = _.find(spawns,
-        s => s.room.energyAvailable > 300);
+        s => s.room.energyAvailable >= 250);
       body = [CARRY, CARRY, CARRY, CARRY, MOVE];
       break;
     case 'worker':
@@ -324,13 +374,14 @@ const defBody = (def) => {
 };
 
 function energyDef(def) {
+  debug.log(JSON.stringify(def));
   def.level = 2;
   let cost = defCost(def);
-  while(cost < def.energy) {
+  const max = def.max || 50;
+  while(cost < def.energy && def.level <= max) {
     def.level++;
     cost = defCost(def);
   }
-  def.level = Math.min(def.max||50, def.level-1);
-  debug.log(JSON.stringify(def));
+  def.level--;
   return defBody(def);
 }

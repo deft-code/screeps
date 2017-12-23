@@ -21,7 +21,7 @@ function findName(role) {
 
 Flag.prototype.makeEgg = function(role, mem) {
   const name = findName(role);
-  Memory.creeps[name] = _.defaultsDeep(mem, {
+  Memory.creeps[name] = _.defaultsDeep({}, mem, {
     team: this.name,
     egg: {
       team: this.name,
@@ -33,7 +33,7 @@ Flag.prototype.makeEgg = function(role, mem) {
 }
 
 Flag.prototype.localEgg = function(name, mem={}) {
-  return this.makeEgg(name, _.defaultsDeep(mem, {
+  return this.makeEgg(name, _.defaultsDeep({}, mem, {
     egg: {
       spawn: 'local'
     }
@@ -46,6 +46,10 @@ Flag.prototype.rebootEgg = function() {
 
 Flag.prototype.auxsrcEgg = function() {
   return this.localEgg('auxsrc', {egg: {body: 'coresrc'}});
+}
+
+Flag.prototype.ctrlEgg = function(mem) {
+  return this.localEgg('ctrl', mem);
 }
 
 Flag.prototype.coresrcEgg = function() {

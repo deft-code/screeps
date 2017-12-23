@@ -3,7 +3,7 @@ const lib = require('lib');
 
 class RoomExtras {
   get energyFreeAvailable() {
-    return this.energyCapacityAvailable - this.energyAvailable;
+    return Math.max(0, this.energyCapacityAvailable - this.energyAvailable);
   }
 }
 lib.merge(Room, RoomExtras);
@@ -14,7 +14,7 @@ Room.prototype.runFlags = function() {
     try {
       flag.run();
     } catch(err) {
-      debug.log(err, err.stack);
+      debug.log(this, flag, err, err.stack);
     }
   }
 };
@@ -65,6 +65,10 @@ function ratchet(room, what, up) {
 }
 
 Room.prototype.init = function() {
+  const nstructs = this.find(FIND_STRUCTURES).length;
+  this.deltaStructs = nstructs !== this.memory.nstructs;
+  this.memory.nstructs = nstructs;
+
   this.allies = [];
   this.enemies = [];
   this.hostiles = [];
@@ -116,7 +120,7 @@ Room.prototype.runCreeps = function() {
     try {
       creep.run();
     } catch(err) {
-      debug.log(err, '\n',  err.stack);
+      debug.log(this, creep, err, '\n',  err.stack);
     }
   }
 }

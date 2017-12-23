@@ -1,5 +1,15 @@
 global.kEnergyReserve = 150000;
 
+global.kRCL1Energy = 300;
+global.kRCL2Energy = 550;
+global.kRCL3Energy = 800;
+global.kRCL4Energy = 1300;
+global.kRCL5Energy = 1800;
+global.kRCL6Energy = 2300;
+global.kRCL7Energy = 5600;
+global.kRCL8Energy = 12900;
+
+
 global.kReactions = {
   'H': [],
   'K': [],

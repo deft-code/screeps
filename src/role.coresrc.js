@@ -7,22 +7,23 @@ module.exports = class CreepCore {
   afterAuxsrc() { return this.afterCoresrc(); }
 
   afterCoresrc() {
-    this.shieldsUp();
-    this.idleNom();
-    this.idleRepair() || this.idleBuild();
+    this.structAtSpot(STRUCTURE_RAMPART);
+    const p = this.teamRoom.getSpot(this.role);
+    if(this.pos.isEqualTo(p)) {
+      this.idleNom();
+      this.idleRepair() || this.idleBuild();
+    }
   }
 
   roleCoresrc() {
-    const p = this.teamRoom.getSpot(this.role);
-    if(!this.pos.isEqualTo(p)) {
-      this.dlog('moving closer');
-      return this.movePos(p);
-    }
+    const what = this.moveSpot();
+    if(what) return what;
 
+    const p = this.teamRoom.getSpot(this.role);
     let src = lib.lookup(this.memory.src);
     if(!src) {
       const spots = this.room.lookForAtRange(LOOK_SOURCES, p, 1, true);
-      debug.log("finding sources", spots);
+      debug.log(this, "finding sources", spots);
       src = _.sample(spots)[LOOK_SOURCES];
       this.memory.src = src.id;
     }
@@ -41,20 +42,21 @@ module.exports = class CreepCore {
         switch(struct.structureType) {
           case STRUCTURE_SPAWN:
             spawn = struct;
+            this.memory.spawn = spawn.id;
             break;
-          case STRUCTURE_TERMINAL:
-          case STRUCTURE_STORAGE:
           case STRUCTURE_CONTAINER:
+          case STRUCTURE_LINK:
+          case STRUCTURE_STORAGE:
+          case STRUCTURE_TERMINAL:
             store = struct;
+            this.memory.store = store.id;
             break;
         }
       }
-      this.memory.spawn = spawn.id;
-      this.memory.store = store.id;
     }
 
-    const what = this.goHarvest(src, false);
-    if(what) {
+    const what2 = this.goHarvest(src, false);
+    if(what2) {
       if(store.structureType !== STRUCTURE_CONTAINER && this.carryFree < this.info.harvest) {
         this.goTransfer(spawn, RESOURCE_ENERGY, false) ||
           this.goTransfer(store, RESOURCE_ENERGY, false);
@@ -62,6 +64,6 @@ module.exports = class CreepCore {
     } else if(this.carry.energy < 10) {
         this.goWithdraw(store, RESOURCE_ENERGY, false);
     }
-    return what;
+    return what2;
   }
 }

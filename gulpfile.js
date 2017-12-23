@@ -25,7 +25,7 @@ gulp.task('fetch', function() {
   const options = {
     hostname: 'screeps.com',
     port: '443',
-    path: 'ptr/api/user/code',
+    path: '/ptr/api/user/code',
     method: 'GET',
     auth: credentials.email + ':' + credentials.password,
   }
@@ -36,13 +36,18 @@ gulp.task('fetch', function() {
       raw += chunk
     });
     res.on('end', function() {
-      var x = JSON.parse(raw);
-      for (var mod in x.modules) {
-        if (x.modules[mod] === null) {
-          continue;
+      try {
+        var x = JSON.parse(raw);
+        for (var mod in x.modules) {
+          if (x.modules[mod] === null) {
+            continue;
+          }
+          var f = './src/' + mod + '.js';
+          fs.writeFile(f, x.modules[mod]);
         }
-        var f = './src/' + mod + '.js';
-        fs.writeFile(f, x.modules[mod]);
+      } catch(err) {
+        console.error(err);
+        console.error(raw);
       }
     });
   });

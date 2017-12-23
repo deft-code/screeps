@@ -10,7 +10,8 @@ Flag.prototype.runTeam = function() {
   switch(this.secondaryColor) {
     case COLOR_BLUE: return this.teamCore();
   }
-  debug.log("Missing team");
+  this.remove();
+  debug.log(this, "Missing team");
 }
 
 function gc(flag) {
@@ -27,11 +28,26 @@ function gc(flag) {
   return [];
 }
 
-Flag.prototype.replaceRole = function(role, want) {
+Flag.prototype.replaceRole = function(role, want, mem) {
   const have = this.countRole(role);
   if(have>=want) return false;
   const fname = `${role}Egg`;
-  return this[fname]()
+  return this[fname](mem)
+}
+
+Flag.prototype.ensureRole = function(role, want, mem) {
+  const have = this.countRole(role);
+  if(have>want) return false;
+  const fname = `${role}Egg`;
+  if(have<want) return this[fname](mem);
+
+  let ttl = 1500;
+  let stime = 150;
+  const creeps = this.roleCreeps(role);
+  for(const c of creeps) {
+    ttl = Math.min(c.ticksToLive, ttl);
+    stime = Math.max(c.spawnTime, stime);
+  }
 }
 
 Flag.prototype.countRole = function(role) {
@@ -52,7 +68,19 @@ Flag.prototype.teamCore = function() {
     hauler(this) ||
     shunts(this) ||
     worker(this) ||
+    controller(this) ||
     false;
+}
+
+function controller(flag) {
+  let cap = flag.room.energyAvailable;
+
+  if(flag.room.storage) {
+    if(flag.room.storage.store.energy < kEnergyReserve) {
+      cap = kRCL2Energy;
+    }
+  }
+  return flag.replaceRole('ctrl', 1, {egg:{ecap: cap}});
 }
 
 function hauler(flag) {
@@ -73,8 +101,8 @@ function coresrc(flag) {
 }
 
 function reboot(flag) {
-  const n = flag.room.find(FIND_MY_CREEPS).length;
-  if(n) return false;
+  const creeps = flag.room.find(FIND_MY_CREEPS);
+  if(_.some(creeps, c => c.role === 'hauler')) return false;
 
   return flag.replaceRole('reboot', 1);
 }

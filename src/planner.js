@@ -11,18 +11,9 @@ module.exports = function runPlanner(flag) {
     case COLOR_GREEN:
       return drawKeeper(flag);
     case COLOR_BLUE:
-      return update(flag);
+      const b2 = new BasePlan(flag);
+      return b2.patch();
   }
-}
-
-function update(flag) {
-  debug.log(flag, flag.what());
-  const stype = flag.what();
-  const r = flag.room;
-  const structs = r.findStructs(stype);
-  const xys = _.map(structs, s => r.packPos(s.pos));
-  r.keeper().plan(stype, ...xys);
-  flag.remove();
 }
 
 function drawKeeper(flag) {
@@ -135,6 +126,24 @@ class BasePlan {
     return true;
   }
 
+  patch() {
+    debug.log(this.flag, 'patching');
+    this.drawSpots();
+
+    return this.orderSrcs() && 
+      this.findShunt('core', this.srcs[0].pos) &&
+      this.findShunt('aux', this.srcs[1].pos) &&
+      this.findSpot('ctrl', this.room.controller.pos, 1) &&
+      this.findMineral() &&
+      this.convertShunt() &&
+      this.commit() &&
+      true;
+  }
+
+  commit() {
+    this.flag.setColor(COLOR_ORANGE, COLOR_WHITE);
+  }
+
   run() {
     return this.orderSrcs() && 
       this.centroid() &&
@@ -174,8 +183,13 @@ class BasePlan {
 
   getPos(stype) {
     const xy = _.first(this.memory.structs[stype]);
-    if(!xy) return null;
-    return this.room.unpackPos(xy);
+    if(xy) return this.room.unpackPos(xy);
+
+    const s = _.first(this.room.findStructs(stype));
+    if(s) return s.pos;
+
+    debug.log(this, 'bad get pos', stype);
+    return this.room.getPositionAt(25, 25);
   }
 
   orderSrcs() {

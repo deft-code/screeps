@@ -30,7 +30,7 @@ module.exports = class CreepCarry {
           }
           break;
         case STRUCTURE_TOWER:
-          if (this.room.energyFreeAvailable) break;
+          if (this.room.energyFreeAvailable>0) break;
         // fallthrough
         case STRUCTURE_SPAWN:
         case STRUCTURE_EXTENSION:

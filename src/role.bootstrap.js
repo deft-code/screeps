@@ -46,10 +46,12 @@ module.exports = class CreepBootstrap {
     if(this.atTeam) {
       this.idleNom();
       this.idleRecharge();
+      this.idleTransferExtra();
     } else if (this.carryTotal) {
       this.drop(RESOURCE_ENERGY);
       this.say('Dump!');
     }
+
 
     if(this.carryTotal > this.carryFree) {
       this.idleBuild() || this.idleRepair() || this.idleUpgrade();

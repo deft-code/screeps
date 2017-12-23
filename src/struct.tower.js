@@ -1,8 +1,10 @@
+const debug = require('debug');
+
 const one = (towers, func, obj) => {
   if(!obj) return towers;
   const tower = obj.pos.findClosestByRange(towers);
   const err = func.call(tower, obj);
-  if(err !== OK) console.log(`Bad tower ${err}: ${tower}, ${obj}`);
+  if(err !== OK) debug.log(`${tower.pos} Bad tower ${err}: ${tower}, ${obj}`);
   return _.filter(towers, t => t.id !== tower.id);
 };
 
@@ -21,7 +23,7 @@ Room.prototype.otherTowers = function() {
 }
 
 Room.prototype.runTowers = function() {
-  let towers = _.filter(this.findStructs(STRUCTURE_TOWER), 'energy');
+  let towers = _.filter(this.findStructs(STRUCTURE_TOWER), t => t.energy >= 10);
   if(!towers.length) return;
 
   const decay = _.filter(

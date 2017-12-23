@@ -40,6 +40,8 @@ class RoomKeeper {
   }
 
   run() {
+    if(this.room.energyFreeAvailable > 0) return false;
+
     const gnc = _.size(Game.constructionSites);
     if(gnc > 50) return;
 
@@ -170,7 +172,14 @@ class RoomKeeper {
       if(stype !== STRUCTURE_RAMPART &&
         struct.structureType !== STRUCTURE_ROAD &&
         struct.structureType !== STRUCTURE_RAMPART) {
-        debug.log('Blocked by', struct, 'at', p);
+        debug.log(stype, 'Blocked by', struct, 'at', p);
+        if(stype === STRUCTURE_ROAD) {
+
+          debug.log('before remove', this.memory.plans[stype].length);
+          _.remove(this.memory.plans[stype], p => p == xy);
+          debug.log('after remove', this.memory.plans[stype].length);
+          return `removed:${stype}`;
+        }
         return false;
       }
     }
