@@ -1,176 +1,176 @@
-const lib = require('lib');
-const util = require('util');
-const matrix = require('matrix');
+const lib = require('lib')
+const util = require('util')
+const matrix = require('matrix')
 
 module.exports = class CreepMove {
-  moveDir(dir) {
-    return this.moveHelper(this.move(dir), dir);
+  moveDir (dir) {
+    return this.moveHelper(this.move(dir), dir)
   }
 
-  movePos(target, opts = {}) {
-    opts = _.defaults(opts, {range: 0});
-    return this.moveTarget(target, opts);
+  movePos (target, opts = {}) {
+    opts = _.defaults(opts, {range: 0})
+    return this.moveTarget(target, opts)
   }
 
-  moveNear(target, opts = {}) {
-    opts = _.defaults(opts, {range: 1});
-    return this.moveTarget(target, opts);
+  moveNear (target, opts = {}) {
+    opts = _.defaults(opts, {range: 1})
+    return this.moveTarget(target, opts)
   }
 
-  moveRange(target, opts = {}) {
-    opts = _.defaults(opts, {range: 3});
-    const what = this.moveTarget(target, opts);
-    this.dlog(`moveRange ${what}`);
-    return what;
+  moveRange (target, opts = {}) {
+    opts = _.defaults(opts, {range: 3})
+    const what = this.moveTarget(target, opts)
+    this.dlog(`moveRange ${what}`)
+    return what
   }
 
-  moveTarget(target, opts = {}) {
-    if (!target || this.pos.inRangeTo(target, opts.range)) return false;
+  moveTarget (target, opts = {}) {
+    if (!target || this.pos.inRangeTo(target, opts.range)) return false
 
-    const weight = this.weight;
-    const fatigue = this.info.fatigue;
-    this.dlog('moveTarget', weight, fatigue, target);
+    const weight = this.weight
+    const fatigue = this.info.fatigue
+    this.dlog('moveTarget', weight, fatigue, target)
 
     const routeCB = (roomName) => {
-      switch(roomName) {
+      switch (roomName) {
         case 'W83S85':
         case 'W83S86':
         case 'W87S89':
-          return 10;
+          return 10
       }
-      return undefined;
-    };
+      return undefined
+    }
 
     opts = _.defaults(opts, {
       ignoreRoads: fatigue > weight,
-      //allowHostile: true,
+      // allowHostile: true,
       routeCallback: routeCB,
-      roomCallback: matrix.get,
-    });
-    return this.moveHelper(this.travelTo(target, opts), lib.getPos(target));
+      roomCallback: matrix.get
+    })
+    return this.moveHelper(this.travelTo(target, opts), lib.getPos(target))
   }
 
-  moveHelper(err, intent) {
+  moveHelper (err, intent) {
     switch (err) {
       case ERR_TIRED:
       case ERR_BUSY:
-        this.say(util.errString(err));
+        if (this.debug) this.say(util.errString(err))
         // fallthrough
       case OK:
-        this.intents.move = intent;
-        return `move ${intent}`;
+        this.intents.move = intent
+        return `move ${intent}`
     }
-    this.dlog("Move Error!", err, intent);
-    return false;
+    this.dlog('Move Error!', err, intent)
+    return false
   }
 
-  movePeace(target) {
-    if(this.room.memory.tenemies) return false;
-    return this.moveRange(target);
+  movePeace (target) {
+    if (this.room.memory.tenemies) return false
+    return this.moveRange(target)
   }
 
-  moveBump(target) {
-    if(!target || !this.pos.isNearTo(target)) return false;
-    this.moveDir(this.pos.getDirectionTo(target));
+  moveBump (target) {
+    if (!target || !this.pos.isNearTo(target)) return false
+    this.moveDir(this.pos.getDirectionTo(target))
   }
 
-  fleeHostiles() {
-    if(!this.room.hostiles.length) return false;
+  fleeHostiles () {
+    if (!this.room.hostiles.length) return false
 
-    if(this.hurts) return this.idleFlee(this.room.hostiles, 5);
+    if (this.hurts) return this.idleFlee(this.room.hostiles, 5)
 
-    return this.idleFlee(this.room.hostiles, 3);
+    return this.idleFlee(this.room.hostiles, 3)
   }
 
-  idleFlee(creeps, range) {
-    const room = this.room;
+  idleFlee (creeps, range) {
+    const room = this.room
     const callback = (roomName) => {
       if (roomName !== room.name) {
-        console.log('Unexpected room', roomName);
-        return false;
+        console.log('Unexpected room', roomName)
+        return false
       }
-      const mat = new PathFinder.CostMatrix();
+      const mat = new PathFinder.CostMatrix()
       for (let struct of room.find(FIND_STRUCTURES)) {
-        const p = struct.pos;
+        const p = struct.pos
         if (struct.structureType === STRUCTURE_ROAD) {
-          mat.set(p.x, p.y, 1);
+          mat.set(p.x, p.y, 1)
         } else if (struct.obstacle) {
-          mat.set(p.x, p.y, 255);
+          mat.set(p.x, p.y, 255)
         }
       }
-      for(let pos of room.find(FIND_EXIT)) {
-        mat.set(pos.x, pos.y, 6);
+      for (let pos of room.find(FIND_EXIT)) {
+        mat.set(pos.x, pos.y, 6)
       }
-      for(let creep of room.find(FIND_CREEPS)) {
-        if(creep.name === this.name) continue;
-        mat.set(creep.pos.x, creep.pos.y, 20);
+      for (let creep of room.find(FIND_CREEPS)) {
+        if (creep.name === this.name) continue
+        mat.set(creep.pos.x, creep.pos.y, 20)
       }
-      return mat;
-    };
+      return mat
+    }
     const ret = PathFinder.search(
         this.pos, _.map(creeps, creep => ({pos: creep.pos, range: range})), {
           flee: true,
-          roomCallback: callback,
-        });
+          roomCallback: callback
+        })
 
-    const next = _.first(ret.path);
-    if (!next) return false;
+    const next = _.first(ret.path)
+    if (!next) return false
 
-    return this.moveDir(this.pos.getDirectionTo(next));
+    return this.moveDir(this.pos.getDirectionTo(next))
   }
 
-  idleAway(creep) {
-    if (!creep) return false;
-    return this.moveDir(this.pos.getDirectionAway(creep));
+  idleAway (creep) {
+    if (!creep) return false
+    return this.moveDir(this.pos.getDirectionAway(creep))
   }
 
-  idleRetreat(part) {
-    if(!this.partsByType[part]) return false;
-    if(this.activeByType[part]) return false;
-    this.dlog("retreating");
-    return this.moveRange(this.home.controller);
+  idleRetreat (part) {
+    if (!this.partsByType[part]) return false
+    if (this.activeByType[part]) return false
+    this.dlog('retreating')
+    return this.moveRange(this.home.controller)
   }
 
-  actionHospital() {
+  actionHospital () {
     if (this.hurts > 100 || this.hits < 100) {
-      return this.moveRange(this.home.controller);
+      return this.moveRange(this.home.controller)
     }
-    return false;
+    return false
   }
 
-  moveRoom(obj, opts={}) {
-    if (!obj) return false;
-    const x = this.pos.x;
-    const y = this.pos.y;
+  moveRoom (obj, opts = {}) {
+    if (!obj) return false
+    const x = this.pos.x
+    const y = this.pos.y
     if (obj.pos.roomName === this.room.name) {
-      if(x === 0) {
-        this.moveDir(RIGHT);
+      if (x === 0) {
+        this.moveDir(RIGHT)
       } else if (x === 49) {
-        this.moveDir(LEFT);
-      } else  if(y === 0) {
-        this.moveDir(BOTTOM);
+        this.moveDir(LEFT)
+      } else if (y === 0) {
+        this.moveDir(BOTTOM)
       } else if (y === 49) {
-        this.moveDir(TOP);
+        this.moveDir(TOP)
       }
-      this.dlog("moveRoom done");
-      return false;
+      this.dlog('moveRoom done')
+      return false
     }
 
-    const ox = obj.pos.x;
-    const oy = obj.pos.y;
-    const range = Math.max(1, Math.min(ox, oy, 49-ox, 49-oy)-1);
-    this.dlog("moveRoom", range,  obj.pos.roomName, this.room);
-    opts = _.defaults(opts, {range: range});
-    return this.moveTarget(obj, opts);
+    const ox = obj.pos.x
+    const oy = obj.pos.y
+    const range = Math.max(1, Math.min(ox, oy, 49 - ox, 49 - oy) - 1)
+    this.dlog('moveRoom', range, obj.pos.roomName, this.room)
+    opts = _.defaults(opts, {range: range})
+    return this.moveTarget(obj, opts)
   }
 
-  taskMoveRoom(obj) {
-    obj = this.checkId('move room', obj);
-    return this.moveRoom(obj);
+  taskMoveRoom (obj) {
+    obj = this.checkId('move room', obj)
+    return this.moveRoom(obj)
   }
 
-  taskMoveFlag(flag, opts={}) {
-    flag = this.checkFlag('move flag', flag);
-    return this.moveRoom(flag, opts);
+  taskMoveFlag (flag, opts = {}) {
+    flag = this.checkFlag('move flag', flag)
+    return this.moveRoom(flag, opts)
   }
 }

@@ -1,14 +1,14 @@
-const shed = require('shed');
+const shed = require('shed')
 
 module.exports = class CreepWorker {
-  roleWorker() {
-    this.dlog("worker!");
-    let what = this.idleEmergencyUpgrade() || this.taskTask();
-    if (what) return what;
+  roleWorker () {
+    this.dlog('worker!')
+    let what = this.idleEmergencyUpgrade() || this.taskTask()
+    if (what) return what
 
-    const upgrade = !this.room.storage || this.room.storage.store.energy > 10000;
+    const upgrade = !this.room.storage || this.room.storage.store.energy > 10000
 
-    this.dlog("upgrade!", upgrade);
+    this.dlog('upgrade!', upgrade)
 
     if (this.carry.energy) {
       return this.taskBuildStructs(STRUCTURE_TOWER) ||
@@ -17,18 +17,18 @@ module.exports = class CreepWorker {
         this.taskRepairOrdered() ||
         this.taskTurtlePrep() ||
         this.taskTurtle() ||
-        upgrade && this.goUpgradeController(this.room.controller);
+        (upgrade && this.goUpgradeController(this.room.controller))
     }
-    return this.taskRechargeHarvest();
+    return this.taskRechargeHarvest()
   }
 
-  afterWorker() {
-    if(shed.med()) return;
+  afterWorker () {
+    if (shed.med()) return
 
-    this.idleNom();
-    this.idleRecharge();
-    if(this.carryTotal > this.carryFree) {
-      this.idleBuild() || this.idleRepair() || this.idleUpgrade();
+    this.idleNom()
+    this.idleRecharge()
+    if (this.carryTotal > this.carryFree) {
+      this.idleBuild() || this.idleRepair() || this.idleUpgrade()
     }
   }
-};
+}

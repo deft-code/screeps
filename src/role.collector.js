@@ -1,31 +1,31 @@
 module.exports = class CreepCollector {
-  roleCollector() {
-    let what = this.idleRetreat(CARRY) || this.taskTask();
-    if(what) return what;
+  roleCollector () {
+    let what = this.idleRetreat(CARRY) || this.taskTask()
+    if (what) return what
 
-    if(this.atTeam && this.carryFree) {
-      return this.taskCollect();
+    if (this.atTeam && this.carryFree) {
+      return this.taskCollect()
     }
 
-    if(this.carryTotal) {
-      if(this.pos.roomName === this.dropRoom().name) {
-        return this.taskTransferResources();
+    if (this.carryTotal) {
+      if (this.pos.roomName === this.dropRoom().name) {
+        return this.taskTransferResources()
       }
-      return this.taskMoveRoom(this.dropRoom().controller);
+      return this.taskMoveRoom(this.dropRoom().controller)
     }
 
-    return this.moveRoom(this.team);
+    return this.moveRoom(this.team)
   }
 
-  afterCollector() {
-    this.idleNomNom();
+  afterCollector () {
+    this.idleNomNom()
   }
 
-  taskCollect() {
+  taskCollect () {
     this.dlog('collect')
-    if (!this.carryFree) return false;
+    if (!this.carryFree) return false
 
-    return this.taskPickupAny() || this.taskWithdrawAny();
-    //return this.taskWithdrawAny() || this.taskPickupAny();
+    return this.taskPickupAny() || this.taskWithdrawAny()
+    // return this.taskWithdrawAny() || this.taskPickupAny();
   }
 }

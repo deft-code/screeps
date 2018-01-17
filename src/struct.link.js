@@ -1,132 +1,200 @@
-const lib = require('lib');
+const lib = require('lib')
+const debug = require('debug')
 
 class Link {
-  calcMode() {
-    if (this.room.storage && this.pos.inRangeTo(this.room.storage, 2)) {
-      return 'buffer';
+  calcMode () {
+    const src = _.find(this.room.find(FIND_SOURCES), s => this.pos.inRangeTo(s, 2))
+    if (src) {
+      return 'src'
     }
 
-    const src =
-        _.find(this.room.find(FIND_SOURCES), s => this.pos.inRangeTo(s, 2));
-    if (src) {
-      return 'src';
+    if (this.room.storage && this.pos.inRangeTo(this.room.storage, 2)) {
+      return 'sink'
+    }
+
+    if (this.room.terminal && this.pos.inRangeTo(this.room.terminal, 2)) {
+      return 'sink'
     }
 
     if (this.pos.inRangeTo(this.room.controller, 4)) {
-      return 'sink';
+      return 'sink'
     }
     return 'src'
   }
 
-  get mode() {
-    let mem = this.room.memory.links[this.id];
-    if (!mem) {
+  set mode (val) {
+    switch (val) {
+      case 'src':
+      case 'sink':
+        this.room.memory.links[this.id].mode = val
+        return val
+    }
+    delete this.room.memory.links[this.id]
+  }
+
+  get mode () {
+    let mem = this.room.memory.links[this.id]
+    if (!_.isObject(mem)) {
       mem = this.room.memory.links[this.id] = {
         note: this.note,
-        mode: this.calcMode(),
-      };
-      console.log('calculating link mode', JSON.stringify(mem));
+        mode: this.calcMode()
+      }
+      this.room.log('calculating link mode', JSON.stringify(mem))
     }
-    return mem.mode;
+    return mem.mode
   }
 
-  xferHalf(target) {
-    const e = Math.floor(target.energyFree / 2);
-    return this.xferRaw(target, e);
+  xferHalf (target) {
+    const e = Math.floor(target.energyFree / 2)
+    return this.xferRaw(target, e)
   }
 
-  xfer(target, mod = 33) {
+  xfer (target, mod = 33) {
     // sad trombone
     // let e = Math.min(this.energy, Math.ceil(target.energyFree * (1 + LINK_LOSS_RATIO)));
-    let e = Math.min(this.energy, target.energyFree);
-    e -= (e % 100) % mod;
-    return this.xferRaw(target, e);
+    let e = Math.min(this.energy, target.energyFree)
+    e -= (e % 100) % mod
+    return this.xferRaw(target, e)
   }
 
-  xferAll(target) {
-    return this.xfer(target, 1);
+  xferAll (target) {
+    return this.xfer(target, 1)
   }
 
-  xferRaw(target, energy) {
-    const err = this.transferEnergy(target, energy);
-    if (err == OK) {
-      // if(this.room.name !== 'sim') {
-      //  target.energy += Math.floor(energy * (1 - LINK_LOSS_RATIO));
-      //  this.energy -= energy;
-      //}
-    }
-    return `xfer ${energy}: ${err}`;
+  xferRaw (target, energy) {
+    const err = this.transferEnergy(target, energy)
+    return err === OK
   }
 
-  run() {
-    if (this.cooldown) return `t-${this.cooldown}`;
-    if (this.energy < 33) return this.energy;
+  run () {
+    if (this.cooldown) return false
+    if (this.energy < 33) return false
 
     switch (this.mode) {
       case 'sink':
-        return this.energy;
+        return false
       case 'src':
-        return this.runSrc();
-      case 'buffer':
-        return this.runBuffer();
+        return this.runSrc()
     }
-    return `bad mode ${this.mode}`;
+    debug.log(`bad mode ${this.mode}`)
+    this.mode = null
+    return false
   }
 
-  runSrc() {
-    const links = this.room.findStructs(STRUCTURE_LINK);
+  runSrc () {
+    const links = _.shuffle(this.room.findStructs(STRUCTURE_LINK))
 
-    const sinks = _.filter(links, link => link.mode === 'sink');
+    const sink = _.find(links, link => link.mode === 'sink' && link.energyFree >= 32)
+    if (sink) return this.xfer(sink)
 
-    const sink = _.find(sinks, link => link.energyFree >= 32);
-    if (sink) return this.xfer(sink);
+    if (this.energyFree) return false
 
-    const buffer = _.find(links, link => link.mode === 'buffer');
-
-    if (buffer && buffer.energyFree >= 32) return this.xfer(buffer);
-
-    if (this.energyFree) return 'not full';
-
-    if (buffer && buffer.energyFree) {
-      return this.xferAll(buffer);
-    }
-
-    const balance = _.max(links, 'energyFree');
+    const balance = _.max(links, 'energyFree')
     if (balance && balance.energyFree > 4) {
-      return this.xferHalf(balance);
+      return this.xferHalf(balance)
     }
 
-    return 'full!';
-  }
-
-  runBuffer() {
-    const sink = _.find(
-        this.room.findStructs(STRUCTURE_LINK),
-        link => link.mode === 'sink' && !link.energy);
-    if (sink) return this.xfer(sink);
-    return '';
+    return false
   }
 }
 
-lib.merge(StructureLink, Link);
+lib.merge(StructureLink, Link)
 
-Room.prototype.runLinks = function() {
-  if (!this.memory.links) {
-    this.memory.links = {};
-    console.log('Creating links for', this.name);
+const balanceCache = {}
+
+function balanceLinks (room) {
+  const links = room.findStructs(STRUCTURE_LINK)
+  if (links.length < 2) return
+
+  let cache = balanceCache[room.name]
+  if (!cache || links.length !== cache.nlinks) {
+    room.log('refresh links', links.length, JSON.stringify(cache))
+    cache = {
+      nlinks: links.length
+    }
+
+    const ctrl = room.controller.pos.findClosestByRange(links)
+    if (ctrl.pos.inRangeTo(room.controller, 4)) {
+      cache.ctrl = ctrl.id
+      room.visual.text('ctrl', ctrl.pos.x, ctrl.pos.y + 1)
+    }
+
+    const store = room.storage.pos.findClosestByRange(links)
+    if (store.pos.inRangeTo(room.storage, 2)) {
+      cache.store = store.id
+      room.visual.text('store', store.pos.x, store.pos.y + 1)
+    }
+
+    const term = room.terminal.pos.findClosestByRange(links)
+    if (term.pos.inRangeTo(room.terminal, 2)) {
+      cache.term = term.id
+      room.visual.text('term', term.pos.x, term.pos.y + 1)
+    }
+    balanceCache[room.name] = cache
   }
 
-  for (let id in this.memory.links) {
-    const link = Game.getObjectById(id);
-    if (!link) {
-      console.log(
-          'Cleared missing link', JSON.stringify(this.memory.links[id]));
-      delete this.memory.links[id];
+  const ctrl = lib.lookup(cache.ctrl)
+  const store = lib.lookup(cache.store)
+  const term = lib.lookup(cache.term)
+  if (ctrl) {
+    ctrl.mode = 'sink'
+    if (ctrl.energy === 0) {
+      if (store) {
+        if (term) {
+          if (room.storage.store.energy > room.terminal.store.energy) {
+            store.mode = 'src'
+          } else {
+            term.mode = 'src'
+          }
+        } else {
+          store.mode = 'src'
+        }
+      } else if (term) {
+        term.mode = 'src'
+      }
+      cache.lock = Game.time + 50
+      return
     }
   }
-  for (let link of this.findStructs(STRUCTURE_LINK)) {
-    let mode = link.mode;
-    let act = link.run();
-    //this.visual.text(`${mode} ${act}`, link.pos, {align: 'left'});
+
+  if (!term) return
+  if (!store) return
+  if (cache.lock > Game.time) return
+
+  term.mode = 'sink'
+  store.mode = 'sink'
+
+  const te = room.terminal.store.energy
+  const se = room.storage.store.energy
+
+  if ((te > 20000 && se < 150000) || (te > 50000 && se < 950000)) {
+    term.mode = 'src'
+    cache.lock = Game.time + 100
+    return
   }
-};
+
+  if (te < 40000 && se > 200000) {
+    store.mode = 'src'
+    cache.lock = Game.time + 100
+  }
+}
+
+Room.prototype.runLinks = function () {
+  if (!this.controller) return
+  if (!this.controller.my) return
+
+  if (!this.memory.links) {
+    this.memory.links = {}
+    this.log('Creating links memory')
+  }
+
+  const links = _.shuffle(this.findStructs(STRUCTURE_LINK))
+  let ran = false
+  for (const link of links) {
+    if (!ran) {
+      ran = link.run()
+    }
+    this.visual.text(link.mode, link.pos)
+  }
+  balanceLinks(this)
+}

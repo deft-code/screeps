@@ -1,70 +1,70 @@
 module.exports = class CreepFarmer {
-  roleFarmer() {
+  roleFarmer () {
     const what = this.idleRetreat(WORK) ||
       this.fleeHostiles() ||
       this.idleEmergencyUpgrade() ||
-      this.taskTask();
-    if(what) return what;
+      this.taskTask()
+    if (what) return what
 
-    if(this.pos.roomName === this.dropRoom().name) {
-      if(this.carryTotal) {
+    if (this.pos.roomName === this.dropRoom().name) {
+      if (this.carryTotal) {
         return this.taskTransferResources() ||
           this.taskBuildOrdered() ||
           this.taskRepairOrdered() ||
-          this.goUpgradeController(this.room.controller);
+          this.goUpgradeController(this.room.controller)
       }
-      return this.taskMoveFlag(this.team);
+      return this.taskMoveFlag(this.team)
     }
 
-    if(this.pos.roomName === this.team.pos.roomName) {
-      return this.taskRoadUpkeep() || this.taskFarm() || this.taskMoveRoom(this.dropRoom().controller);
+    if (this.pos.roomName === this.team.pos.roomName) {
+      return this.taskRoadUpkeep() || this.taskFarm() || this.taskMoveRoom(this.dropRoom().controller)
     }
 
-    return this.taskMoveFlag(this.team);
+    return this.taskMoveFlag(this.team)
   }
 
-  afterFarmer()  {
-    this.idleNom();
-    this.idleBuild() || this.idleRepair() || this.idleUpgrade();
+  afterFarmer () {
+    this.idleNom()
+    this.idleBuild() || this.idleRepair() || this.idleUpgrade()
   }
 
-  findDropRoom() {
-    let minD = Infinity;
-    let minE = Infinity;
+  findDropRoom () {
+    let minD = Infinity
+    let minE = Infinity
 
-    let room = this.home;
+    let room = this.home
 
-    for(const rName in Game.rooms) {
-      const r = Game.rooms[rName];
+    for (const rName in Game.rooms) {
+      const r = Game.rooms[rName]
 
-      if(!r.base) continue;
-      if(!r.controller || !r.controller.my) continue;
+      if (!r.base) continue
+      if (!r.controller || !r.controller.my) continue
 
-      const d = Game.map.findRoute(this.room, r).length;
-      if(d > minD) continue;
+      const d = Game.map.findRoute(this.room, r).length
+      if (d > minD) continue
 
-      const e = r.storage && r.storage.store.energy || 0;
-      if(d === minD && e >= minE) continue;
+      const e = (r.storage && r.storage.store.energy) || 0
+      if (d === minD && e >= minE) continue
 
-      minD = d;
-      minE = e;
-      room = r;
+      minD = d
+      minE = e
+      room = r
     }
-    return room;
+    return room
   }
 
-  dropRoom() {
-    let room = Game.rooms[this.memory.dropRoom];
-    if(!room) {
-      room = this.findDropRoom();
-      this.memory.dropRoom = room.name;
+  dropRoom () {
+    let room = Game.rooms[this.memory.dropRoom]
+    if (!room) {
+      room = this.findDropRoom()
+      this.memory.dropRoom = room.name
     }
-    return room;
+    return room
   }
 
-  taskFarm() {
-    if (!this.carryFree) return false;
+  taskFarm () {
+    if (!this.carryFree) return false
 
-    return this.taskCollect() || this.taskHarvestSpots();
+    return this.taskCollect() || this.taskHarvestSpots()
   }
 }

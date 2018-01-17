@@ -1,6 +1,6 @@
 module.exports = class CreepStomper {
-  roleStomper() {
+  roleStomper () {
     return this.taskTask() || this.moveRoom(this.team) ||
-        this.taskStompAll();
+        this.taskStompAll()
   }
-};
+}

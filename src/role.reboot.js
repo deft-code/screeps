@@ -1,9 +1,9 @@
 module.exports = class CreepReboot {
-  roleReboot() {
-    return this.roleBootstrap();
+  roleReboot () {
+    return this.roleBootstrap()
   }
 
-  afterReboot() {
-    return this.afterBootstrap();
+  afterReboot () {
+    return this.afterBootstrap()
   }
 }

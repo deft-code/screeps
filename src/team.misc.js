@@ -1,45 +1,45 @@
-Flag.prototype.teamTest = function() {
+Flag.prototype.teamTest = function () {
   const def = {
-    role:'scout',
-    body:'attack',
+    role: 'scout',
+    body: 'attack',
     boosts: [RESOURCE_GHODIUM_OXIDE],
-    max:1
-  };
-  return this.upkeepRole(1, def, 4, this.closeSpawn(300));
-};
+    max: 1
+  }
+  return this.upkeepRole(1, def, 4, this.closeSpawn(300))
+}
 
-Flag.prototype.teamPuppy = function() {
-  let nmedic = 0;
-  if(this.room) {
-    if(this.room.memory.thostiles) {
-      nmedic = 1;
+Flag.prototype.teamPuppy = function () {
+  let nmedic = 0
+  if (this.room) {
+    if (this.room.memory.thostiles) {
+      nmedic = 1
     }
   }
   return this.teamSuppress(800) ||
-    this.upkeepRole(nmedic, {role:'medic', body:'heal'}, 3, this.closeSpawn(1700)) ||
-    this.upkeepRole(1, {role:'bulldozer', body:'dismantleslow'}, 3, this.closeSpawn());
-};
+    this.upkeepRole(nmedic, {role: 'medic', body: 'heal'}, 3, this.closeSpawn(1700)) ||
+    this.upkeepRole(1, {role: 'bulldozer', body: 'dismantleslow'}, 3, this.closeSpawn())
+}
 
-Flag.prototype.teamAssault = function() {
+Flag.prototype.teamAssault = function () {
   const heal = {
     role: 'medic',
     body: 'heal',
-    boosts: [RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE],
-  };
+    boosts: [RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE]
+  }
   const tank = {
     role: 'bulldozer',
-    body: 'dismantleslow',
-  };
+    body: 'dismantleslow'
+  }
 
   return this.ensureRole(2, heal, 4, this.closeSpawn(5000)) ||
-    this.ensureRole(2, tank, 4, this.closeSpawn(5000));
-};
+    this.ensureRole(2, tank, 4, this.closeSpawn(5000))
+}
 
-Flag.prototype.teamBootstrap = function() {
+Flag.prototype.teamBootstrap = function () {
   const strap = {
     role: 'bootstrap',
-    body: 'worker',
-  };
-  return this.ensureRole(2, strap, 2, this.closeSpawn()) || 
-    this.upkeepRole(1, {role:'miner', body:'miner'}, 2, this.closeSpawn());
-};
+    body: 'worker'
+  }
+  return this.ensureRole(2, strap, 2, this.closeSpawn()) ||
+    this.upkeepRole(1, {role: 'miner', body: 'miner'}, 2, this.closeSpawn())
+}

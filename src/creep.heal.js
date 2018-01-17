@@ -1,55 +1,55 @@
 module.exports = class CreepHeal {
-  idleHeal() {
-    if(this.intents.melee) return false;
+  idleHeal () {
+    if (this.intents.melee) return false
 
-    if(this.hurts) {
-      return this.goHeal(this, false);
+    if (this.hurts) {
+      return this.goHeal(this, false)
     }
 
-    let creep = _(this.room.lookForAtRange(LOOK_CREEPS , this.pos,  1, true))
+    let creep = _(this.room.lookForAtRange(LOOK_CREEPS, this.pos, 1, true))
       .map(spot => spot[LOOK_CREEPS])
       .filter(creep => creep.my && creep.hurts)
-      .sample();
+      .sample()
 
-    if(creep) {
-      return this.goHeal(creep, false);
+    if (creep) {
+      return this.goHeal(creep, false)
     }
 
-    if(this.intents.range) return false;
+    if (this.intents.range) return false
 
-    creep = _(this.room.lookForAtRange(LOOK_CREEPS , this.pos,  3, true))
+    creep = _(this.room.lookForAtRange(LOOK_CREEPS, this.pos, 3, true))
       .map(spot => spot[LOOK_CREEPS])
       .filter(creep => creep.my && creep.hurts)
-      .sample();
+      .sample()
 
-    if(creep) {
-      return this.goRangedHeal(creep);
+    if (creep) {
+      return this.goRangedHeal(creep)
     }
-    return false;
+    return false
   }
 
-  goHeal(creep, move = true) {
-    const err = this.heal(creep);
+  goHeal (creep, move = true) {
+    const err = this.heal(creep)
     if (err === OK) {
-      this.intents.melee = creep;
-      move && this.moveBump(creep);
-      return creep.hurts;
+      this.intents.melee = creep
+      move && this.moveBump(creep)
+      return creep.hurts
     }
     if (move && err === ERR_NOT_IN_RANGE) {
-      return this.moveNear(creep);
+      return this.moveNear(creep)
     }
-    return false;
+    return false
   }
 
-  goRangedHeal(creep, move = true) {
-    const err = this.rangedHeal(creep);
+  goRangedHeal (creep, move = true) {
+    const err = this.rangedHeal(creep)
     if (err === OK) {
-      this.intents.melee = this.intents.range = creep;
-      return creep.hurts;
+      this.intents.melee = this.intents.range = creep
+      return creep.hurts
     }
     if (move && err === ERR_NOT_IN_RANGE) {
-      return this.moveRange(creep);
+      return this.moveRange(creep)
     }
-    return false;
+    return false
   }
-};
+}

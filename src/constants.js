@@ -1,16 +1,15 @@
-global.kEnergyReserve = 150000;
+exports.EnergyReserve = 150000
 
-global.kRCL1Energy = 300;
-global.kRCL2Energy = 550;
-global.kRCL3Energy = 800;
-global.kRCL4Energy = 1300;
-global.kRCL5Energy = 1800;
-global.kRCL6Energy = 2300;
-global.kRCL7Energy = 5600;
-global.kRCL8Energy = 12900;
+exports.RCL1Energy = 300
+exports.RCL2Energy = 550
+exports.RCL3Energy = 800
+exports.RCL4Energy = 1300
+exports.RCL5Energy = 1800
+exports.RCL6Energy = 2300
+exports.RCL7Energy = 5600
+exports.RCL8Energy = 12900
 
-
-global.kReactions = {
+exports.Reactions = {
   'H': [],
   'K': [],
   'L': [],
@@ -20,7 +19,7 @@ global.kReactions = {
   'Z': [],
 
   'OH': ['O', 'H'],
-  'ZK': ['Z','K'],
+  'ZK': ['Z', 'K'],
   'UL': ['U', 'L'],
 
   'G': ['ZK', 'UL'],
@@ -59,10 +58,10 @@ global.kReactions = {
   'XKHO2': ['X', 'KHO2'],
   'XLHO2': ['X', 'LHO2'],
   'XUHO2': ['X', 'UHO2'],
-  'XZHO2': ['X', 'ZHO2'],
-};
+  'XZHO2': ['X', 'ZHO2']
+}
 
-global.kReactionAll = {
+exports.ReactionAll = {
   'G': ['ZK', 'UL', 'G'],
   'GO': ['ZK', 'UL', 'G', 'GO'],
   'GH': ['ZK', 'UL', 'G', 'GH'],
@@ -87,5 +86,5 @@ global.kReactionAll = {
   'XGHO2': ['ZK', 'UL', 'G', 'OH', 'GO', 'GHO2', 'XGHO2'],
   'XKHO2': ['KO', 'OH', 'KHO2', 'XKHO2'],
   'XLHO2': ['LO', 'OH', 'LHO2', 'XLHO2'],
-  'XUHO2': ['UO', 'OH', 'UHO2', 'XUHO2'],
-};
+  'XUHO2': ['UO', 'OH', 'UHO2', 'XUHO2']
+}

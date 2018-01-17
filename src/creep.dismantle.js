@@ -1,49 +1,49 @@
 module.exports = class CreepDismantle {
-  idleDismantle() {
-    if(this.intents.melee) return false;
-    if(!this.room.controller) return false;
-    if(this.room.controller.my) return false;
-    if(this.room.controller.reservation.username === 'deft-code') return false;
+  idleDismantle () {
+    if (this.intents.melee) return false
+    if (!this.room.controller) return false
+    if (this.room.controller.my) return false
+    if (this.room.controller.reservation.username === 'deft-code') return false
 
-    let struct = Game.getObjectById(this.memory.dismantle);
-    if(!struct || !this.pos.isNearTo(struct)) {
-      struct = _(this.room.lookForAtRange(LOOK_STRUCTURES , this.pos,  1, true))
+    let struct = Game.getObjectById(this.memory.dismantle)
+    if (!struct || !this.pos.isNearTo(struct)) {
+      struct = _(this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true))
         .map(spot => spot[LOOK_STRUCTURES])
-        .sample();
+        .sample()
     }
-    if(struct) {
-      this.goDismantle(struct, false);
+    if (struct) {
+      this.goDismantle(struct, false)
     }
   }
 
-  taskDismantleAny() {
+  taskDismantleAny () {
     const target = _(this.room.find(FIND_HOSTILE_STRUCTURES))
                        .sample(3)
                        .sortBy('hits')
-                       .first();
-    return this.taskDismantle(target);
+                       .first()
+    return this.taskDismantle(target)
   }
 
-  taskDismantle(struct, drop = true) {
-    struct = this.checkId('dismantle', struct);
-    drop = this.checkOther('drop', drop);
+  taskDismantle (struct, drop = true) {
+    struct = this.checkId('dismantle', struct)
+    drop = this.checkOther('drop', drop)
 
     if (this.carryCapacity && !this.carryFree && !drop) {
-      this.say('Full');
-      return false;
+      this.say('Full')
+      return false
     }
     return this.goDismantle(struct)
   }
 
-  goDismantle(struct, move = true) {
-    const err = this.dismantle(struct);
+  goDismantle (struct, move = true) {
+    const err = this.dismantle(struct)
     if (err === OK) {
-      this.intents.melee = struct;
-      return struct.hits;
+      this.intents.melee = struct
+      return struct.hits
     }
     if (move && err === ERR_NOT_IN_RANGE) {
-      return this.moveNear(struct, {allowHostile:true});
+      return this.moveNear(struct, {allowHostile: true})
     }
-    return false;
+    return false
   }
 }

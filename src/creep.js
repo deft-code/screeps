@@ -1,262 +1,290 @@
-const lib = require('lib');
+const lib = require('lib')
+const debug = require('debug')
 
 class CreepExtra {
-  get home() {
-    return Game.rooms[this.memory.home] || Game.spawns[this.memory.spawn];
+  get home () {
+    if (!this.memory.home) {
+      this.memory.home = this.pos.roomName
+    }
+    return Game.rooms[this.memory.home] || Game.spawns[this.memory.spawn]
   }
 
-  get team() {
-    return Game.flags[this.memory.team];
+  get team () {
+    return Game.flags[this.memory.team]
   }
 
-  get atTeam() {
-    return this.room.name === this.team.pos.roomName;
+  get atTeam () {
+    return this.room.name === this.team.pos.roomName
   }
 
-  get atHome() {
-    return this.room.name === this.memory.home;
+  get atHome () {
+    return this.room.name === this.memory.home
   }
 
-  get teamRoom() {
-    return this.team && this.team.room;
+  get teamRoom () {
+    return this.team && this.team.room
   }
 
-  get partsByType() {
-    if(!this._partsByType) {
+  get partsByType () {
+    if (!this._partsByType) {
       this._partsByType = _(this.body)
         .countBy('type')
-        .value();
+        .value()
     }
-    return this._partsByType;
+    return this._partsByType
   }
 
-  get activeByType() {
-    if(!this._activeByType) {
+  get activeByType () {
+    if (!this._activeByType) {
       this._activeByType = _(this.body)
         .filter('hits')
         .countBy('type')
-        .value();
+        .value()
     }
-    return this._activeByType;
+    return this._activeByType
   }
 
-  get info() {
-    if(!this.hurts) {
-      return this.fullInfo;
+  get info () {
+    if (!this.hurts) {
+      return this.fullInfo
     }
-    if(this._info) {
-      return this._info;
+    if (!this._info) {
+      this._info = this.bodyInfo()
     }
-    return this._info = this.bodyInfo();
+    return this._info
   }
 
-  get fullInfo() {
-    if(this.name) {
-      let info = this.memory.info;
-      if(!info) {
-        info = this.memory.info = this.bodyInfo(true);
+  get fullInfo () {
+    if (this.name) {
+      let info = this.memory.info
+      if (!info) {
+        info = this.memory.info = this.bodyInfo(true)
       }
-      return info;
+      return info
     }
-    if(this._fullInfo) {
-      return this._fullInfo;
+    if (!this._fullInfo) {
+      this._fullInfo = this.bodyInfo(true)
     }
-    return this._fullInfo = this.bodyInfo(true);
+    return this._fullInfo
   }
 
-  get ignoreRoads() {
-    return this.body.length >= 2 * this.getActiveBodyparts(MOVE);
+  get ignoreRoads () {
+    return this.body.length >= 2 * this.getActiveBodyparts(MOVE)
   }
 
-  get melee() {
-    return this.activeByType[ATTACK];
+  get melee () {
+    return this.activeByType[ATTACK]
   }
 
-  get ranged() {
-    return this.activeByType[RANGED_ATTACK];
+  get ranged () {
+    return this.activeByType[RANGED_ATTACK]
   }
 
-  get hostile() {
-    return this.melee || this.ranged;
+  get hostile () {
+    return this.melee || this.ranged
   }
 
-  get assault() {
-    return this.hostile || this.activeByType[WORK] > 1;
+  get assault () {
+    return this.hostile || this.activeByType[WORK] > 1
   }
 
-  get role() {
-    return _.first(_.words(this.name));
+  get role () {
+    return _.first(_.words(this.name))
   }
 
-  get where() {
-    return `<a href="/a/#!/room/${Game.shard.name}/${this.pos.roomName}">${this.pos.roomName}</a>`;
+  get where () {
+    return `<a href="/a/#!/room/${Game.shard.name}/${this.pos.roomName}">${this.pos.roomName}</a>`
   }
 
-  get spawnTime() {
-    return CREEP_SPAWN_TIME * this.body.length;
+  get spawnTime () {
+    return CREEP_SPAWN_TIME * this.body.length
   }
 
-  get carryTotal() {
-    return _.sum(this.carry);
+  get carryTotal () {
+    return _.sum(this.carry)
   }
 
-  get carryFree() {
-    return this.carryCapacity - this.carryTotal;
+  get carryFree () {
+    return this.carryCapacity - this.carryTotal
   }
 
-  get hurts() {
-    return this.hitsMax - this.hits;
+  get hurts () {
+    return this.hitsMax - this.hits
   }
 
-  get weight() {
-    if(this._weight) return this._weight;
-    return this._weight = this.calcWeight();
+  get weight () {
+    if (!this._weight) {
+      this._weight = this.calcWeight()
+    }
+    return this._weight
   }
 }
-lib.merge(Creep, CreepExtra);
+lib.merge(Creep, CreepExtra)
 
-Creep.prototype.run = function() {
+Room.prototype.spawningRun = function () {
+  const spawns = _.shuffle(this.findStructs(STRUCTURE_SPAWN))
+  for (const spawn of spawns) {
+    if (!spawn.spawning) break
+    Game.creeps[spawn.spawning.name].spawningRun()
+  }
+}
+
+Creep.prototype.spawningRun = function () {
+  if (!this.spawning) {
+    debug.log(this, 'Not Spawning!')
+    return
+  }
+  if (!this.memory.home) {
+    debug.log(this)
+    this.memory.home = this.room.name
+    this.memory.cpu = 0
+  }
+}
+
+Creep.prototype.run = function () {
   if (this.spawning) {
-    this.memory.home = this.room.name;
-    this.memory.cpu = 0;
-    return 'spawning';
+    debug.log(this, "shouldn't be spawning")
+    return 'spawning'
   }
 
-  const start = Game.cpu.getUsed();
-  this.intents = {};
+  const start = Game.cpu.getUsed()
+  this.intents = {}
 
-  const role = _.camelCase('role ' + this.role);
-  const roleFunc = this[role] || this.roleUndefined;
-  const what = roleFunc.apply(this);
+  const role = _.camelCase('role ' + this.role)
+  const roleFunc = this[role] || this.roleUndefined
+  const what = roleFunc.apply(this)
 
   if (this.memory.task) {
-    const first = this.memory.task.first;
+    const first = this.memory.task.first
     if (first && first.roomName === this.room.name) {
-      this.room.visual.line(this.pos, first);
+      this.room.visual.line(this.pos, first)
     }
-    delete this.memory.task.first;
+    delete this.memory.task.first
   }
 
-  const total = Math.floor(1000 * (Game.cpu.getUsed() - start));
-  this.memory.cpu += total;
+  const total = Math.floor(1000 * (Game.cpu.getUsed() - start))
+  this.memory.cpu += total
 
-  let rate = this.memory.cpu;
-  const age = CREEP_LIFE_TIME - this.ticksToLive;
+  let rate = this.memory.cpu
+  const age = CREEP_LIFE_TIME - this.ticksToLive
   if (age > 0) {
-    rate = Math.floor(rate / age);
+    rate = Math.floor(rate / age)
   }
 
-  this.dlog(`cpu ${total}:${rate} ${what}`);
+  this.dlog(`cpu ${total}:${rate} ${what}`)
 }
 
-Creep.prototype.after = function() {
-  const start = Game.cpu.getUsed();
+Creep.prototype.after = function () {
+  if (!this.intents) {
+    debug.log(this, 'missing intents!')
+  }
+  const start = Game.cpu.getUsed()
 
-  const after = _.camelCase('after ' + this.role);
-  const afterFunc = this[after] || this.afterUndefined;
-  if (_.isFunction(afterFunc)) afterFunc.apply(this);
+  const after = _.camelCase('after ' + this.role)
+  const afterFunc = this[after] || this.afterUndefined
+  if (_.isFunction(afterFunc)) afterFunc.apply(this)
 
-  const total = Math.floor(1000 * (Game.cpu.getUsed() - start));
-  this.memory.cpu += total;
+  const total = Math.floor(1000 * (Game.cpu.getUsed() - start))
+  this.memory.cpu += total
 }
 
 // Fatigue generated when `creep` moves.
-Creep.prototype.calcWeight = function() {
-  let weight = 0;
-  let carry = this.carryTotal;
+Creep.prototype.calcWeight = function () {
+  let weight = 0
+  let carry = this.carryTotal
   for (let i = this.body.length - 1; i >= 0; i--) {
-    const part = this.body[i];
+    const part = this.body[i]
     switch (part.type) {
       case MOVE:
-        break;
+        break
       case CARRY:
         if (carry > 0) {
-          weight++;
-          carry -= getPartInfo(part).capacity;
+          weight++
+          carry -= getPartInfo(part).capacity
         }
-        break;
+        break
       default:
-        weight++;
-        break;
+        weight++
+        break
     }
   }
-  return weight * 2;
-};
+  return weight * 2
+}
 
 // Returns resource amounts from `creep` creation.
 // If `current` then returns reclaimable resources.
-Creep.prototype.bodyCost = function(current) {
+Creep.prototype.bodyCost = function (current) {
   const cost = {
-    energy: 0,
-  };
-  let claim = false;
+    energy: 0
+  }
+  let claim = false
   for (let part of this.body) {
-    claim = claim || part.type == CLAIM;
-    cost.energy += BODYPART_COST[part.type];
+    claim = claim || part.type === CLAIM
+    cost.energy += BODYPART_COST[part.type]
     if (part.boost) {
-      cost[part.boost] = 30 + cost[part.boost] || 0;
+      cost[part.boost] = 30 + cost[part.boost] || 0
     }
   }
   if (current) {
-    const lifetime = claim ? CREEP_CLAIM_LIFE_TIME : CREEP_LIFE_TIME;
-    const scale = this.ticksToLive / lifetime;
+    const lifetime = claim ? CREEP_CLAIM_LIFE_TIME : CREEP_LIFE_TIME
+    const scale = this.ticksToLive / lifetime
     for (let res in cost) {
-      cost[res] = Math.floor(cost[res] * scale);
+      cost[res] = Math.floor(cost[res] * scale)
     }
   }
-  return cost;
-};
+  return cost
+}
 
-const power = {};
+const power = {}
 power[ATTACK] = {
-  attack: ATTACK_POWER,
-};
+  attack: ATTACK_POWER
+}
 power[CARRY] = {
-  capacity: CARRY_CAPACITY,
-};
+  capacity: CARRY_CAPACITY
+}
 power[CLAIM] = {
   attackController: CONTROLLER_CLAIM_DOWNGRADE,
-  upgradeController: UPGRADE_CONTROLLER_POWER,
-};
+  upgradeController: UPGRADE_CONTROLLER_POWER
+}
 power[HEAL] = {
   heal: HEAL_POWER,
-  rangedHeal: RANGED_HEAL_POWER,
-};
+  rangedHeal: RANGED_HEAL_POWER
+}
 power[MOVE] = {
-  fatigue: 2,  // Huh! No constant for this?!
-};
+  fatigue: 2  // Huh! No constant for this?!
+}
 power[RANGED_ATTACK] = {
   rangedAttack: RANGED_ATTACK_POWER,
-  rangedMassAttack: RANGED_ATTACK_POWER,
-};
+  rangedMassAttack: RANGED_ATTACK_POWER
+}
 power[TOUGH] = {
-  hits: 0,
-};
+  hits: 0
+}
 power[WORK] = {
   build: BUILD_POWER,
   dismantle: DISMANTLE_POWER,
   harvest: HARVEST_POWER,
   mineral: HARVEST_MINERAL_POWER,
   repair: REPAIR_POWER,
-  upgradeController: UPGRADE_CONTROLLER_POWER,
-};
+  upgradeController: UPGRADE_CONTROLLER_POWER
+}
 
-function getPartInfo(part) {
-  const partInfo = _.clone(power[part.type]);
+function getPartInfo (part) {
+  const partInfo = _.clone(power[part.type])
   if (part.boost) {
-    const boost = BOOSTS[part.type][part.boost];
+    const boost = BOOSTS[part.type][part.boost]
     for (let action in boost) {
-      if (action == 'damage') {
-        partInfo.hits += Math.floor(part.hits * (1 - boost[action]));
-        continue;
+      if (action === 'damage') {
+        partInfo.hits += Math.floor(part.hits * (1 - boost[action]))
+        continue
       }
-      if (action == 'harvest') {
-        partInfo.mineral *= boost[action];
+      if (action === 'harvest') {
+        partInfo.mineral *= boost[action]
       }
-      partInfo[action] *= boost[action];
+      partInfo[action] *= boost[action]
     }
   }
-  return partInfo;
+  return partInfo
 }
 
 // Info about the power of `creep`s actions.
@@ -266,21 +294,21 @@ function getPartInfo(part) {
 // * mineral: harvest power when harvesting a mineral.
 // * fatigue: is the fatigue removed by MOVE parts.
 // * capacity: is equivalent to `carryCapacity` unless `creep` is damaged.
-Creep.prototype.bodyInfo = function(all) {
-  let info = {};
+Creep.prototype.bodyInfo = function (all) {
+  let info = {}
   for (let part of _.values(power)) {
     for (let action in part) {
-      info[action] = 0;
+      info[action] = 0
     }
   }
 
   for (let i = 0; i < this.body.length; i++) {
-    const part = this.body[i];
-    if (!all && !part.hits) continue;
-    const pinfo = getPartInfo(part);
+    const part = this.body[i]
+    if (!all && !part.hits) continue
+    const pinfo = getPartInfo(part)
     for (let action in pinfo) {
-      info[action] += pinfo[action];
+      info[action] += pinfo[action]
     }
   }
-  return info;
-};
+  return info
+}
