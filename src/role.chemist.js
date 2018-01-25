@@ -112,9 +112,8 @@ module.exports = class CreepChemist {
     this.dlog('labForMineral', lab, mineral)
 
     return this.taskTransferLab(lab, mineral) ||
-        this.taskTransfer(this.room.myTerminal, mineral) ||
-        this.taskTransfer(this.room.myStorage, mineral) ||
-        this.taskTransfer(this.room.contForMineral(mineral), mineral)
+        this.taskTransfer(this.room.terminal, mineral) ||
+        this.taskTransfer(this.room.storage, mineral)
   }
 
   taskTransferLab (lab) {

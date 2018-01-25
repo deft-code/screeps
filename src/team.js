@@ -1,4 +1,3 @@
-const debug = require('debug')
 const k = require('constants')
 const lib = require('lib')
 
@@ -40,20 +39,51 @@ Flag.prototype.roleCreeps = function (role) {
 }
 
 Flag.prototype.darkTeam = function () {
+  const gone = gc(this)
+  if (gone.length) {
+    this.log('Cleaned up', gone)
+  }
+
+  if (this.secondaryColor === COLOR_BROWN) {
+    return this.teamDone()
+  }
+
   return this.paceRole('scout', 1500, {})
 }
 
 Flag.prototype.runTeam = function () {
   const gone = gc(this)
   if (gone.length) {
-    debug.log('Cleaned up', gone)
+    this.log('Cleaned up', gone)
   }
 
   switch (this.secondaryColor) {
     case COLOR_BLUE: return this.teamCore()
     case COLOR_GREEN: return this.teamFarm()
+    case COLOR_BROWN: return this.teamDone()
+    case COLOR_GREY: return this.teamWhat()
+    case COLOR_RED: return this.teamWipe()
   }
-  // debug.log(this, 'Missing team')
+  this.log('Missing team')
+}
+
+Flag.prototype.teamWipe = function () {
+  const ss = this.room.find(FIND_HOSTILE_STRUCTURES)
+  if (!ss || _.all(ss, s => s.structureType === STRUCTURE_RAMPART)) {
+    this.setColor(COLOR_BLUE, COLOR_BROWN)
+    return
+  }
+  return this.paceRole('bulldozer', 1500, {})
+}
+
+Flag.prototype.teamWhat = function () {
+  const r = this.what().toLowerCase()
+  this.dlog('new creep', r)
+  return this.paceRole(r, 1500, {})
+}
+
+Flag.prototype.teamDone = function () {
+  if (this.memory.creeps.length === 0) this.remove()
 }
 
 function gc (flag) {
@@ -92,7 +122,7 @@ Flag.prototype.replaceRole = function (role, want, mem) {
   const ttl = _.sum(this.roleCreeps(role), 'ticksToLive')
   this.dlog(role, ttl, want)
   if (ttl >= want) return false
-  debug.log(role, ttl, want, this.roleCreeps(role))
+  this.log(role, ttl, want, this.roleCreeps(role))
 
   const fname = `${role}Egg`
   return this[fname](mem)
@@ -114,6 +144,16 @@ Flag.prototype.ensureRole = function (role, want, mem) {
 }
 
 Flag.prototype.teamCore = function () {
+  if (!this.room.controller.my) {
+    return claimer(this)
+  }
+  if (!this.room.storage) {
+    return micro(this) ||
+      defender(this) ||
+      tower(this) ||
+      bootstrap(this) ||
+      false
+  }
   return reboot(this) ||
     hauler(this) ||
     shunts(this) ||
@@ -124,16 +164,36 @@ Flag.prototype.teamCore = function () {
     worker(this) ||
     controller(this) ||
     mineral(this) ||
+    chemist(this) ||
     false
 }
 
 Flag.prototype.teamFarm = function () {
-  return suppressGuard(this) ||
+  return suppressMini(this) ||
+    suppressGuard(this) ||
     suppressWolf(this) ||
     reserve(this) ||
-    miner(this) ||
+    harvester(this) ||
     cart(this) ||
     false
+}
+
+function auxsrc (flag) {
+  return flag.replaceRole('auxsrc', 1)
+}
+
+function bootstrap (flag) {
+  return flag.paceRole('bootstrap', 400)
+}
+
+function chemist (flag) {
+  const nlab = flag.room.findStructs(STRUCTURE_LAB).length
+  if (nlab < 1 || !flag.room.terminal) return false
+  return flag.replaceRole('chemist', 1)
+}
+
+function claimer (flag) {
+  return flag.paceRole('claimer', 1000)
 }
 
 function controller (flag) {
@@ -147,21 +207,28 @@ function controller (flag) {
   return flag.replaceRole('ctrl', 28, {egg: {ecap: cap}})
 }
 
+function coresrc (flag) {
+  return flag.replaceRole('coresrc', 1)
+}
+
 function hauler (flag) {
   const storage = flag.room.storage
+  const nlink = flag.room.findStructs(STRUCTURE_LINK).length
   let nhauler = 150
-  if (!storage) {
+  // One hauler cannot keep up with ctrl at RCL 4
+  if (!storage || nlink < 2) {
     nhauler += 1500
   }
   return flag.replaceRole('hauler', nhauler)
 }
 
-function auxsrc (flag) {
-  return flag.replaceRole('auxsrc', 1)
-}
-
-function coresrc (flag) {
-  return flag.replaceRole('coresrc', 1)
+function harvester (flag) {
+  let n = 0
+  if (flag.room.find(FIND_SOURCES).length > 1) {
+    n = 1450
+  }
+  return flag.paceRole('harvester', 1450) ||
+    flag.paceRole('harvestaga', n)
 }
 
 function reboot (flag) {
@@ -175,12 +242,16 @@ function reserve (flag) {
   if (flag.room.memory.thostiles) return false
 
   const controller = flag.room.controller
-  const claimed = controller && controller.owner && !controller.my
+  const claimed = controller && controller.owner
   if (claimed) return false
 
-  if (controller.resTicks > 4000) return false
+  if (controller.resTicks > 1000) return false
+  let n = 450
+  if (controller.resTicks < 450) {
+    n = 225
+  }
 
-  return flag.paceRole('reserver', 500, {})
+  return flag.paceRole('reserver', n, {})
 }
 
 function cart (flag) {
@@ -196,6 +267,11 @@ function defender (flag) {
   return flag.replaceRole('defender', 1500 * flag.room.assaulters.length)
 }
 
+function tower (flag) {
+  if (flag.room.findStructs(STRUCTURE_TOWER).length) return false
+  return flag.replaceRole('tower', 1)
+}
+
 function micro (flag) {
   if (flag.room.memory.tassaulters > 0) return false
   if (flag.room.memory.tenemies <= 0) return false
@@ -203,12 +279,12 @@ function micro (flag) {
   return flag.paceRole('micro', 1500)
 }
 
-function miner (flag) {
-  const n = flag.room.find(FIND_SOURCES).length
-  if (!n) return false
+// function miner (flag) {
+//  const n = flag.room.find(FIND_SOURCES).length
+//  if (!n) return false
 
-  return flag.paceRole('miner', 1400 / n)
-}
+//  return flag.paceRole('miner', 1400 / n)
+// }
 
 function mineral (flag) {
   const xtr = _.first(flag.room.findStructs(STRUCTURE_EXTRACTOR))
@@ -216,7 +292,7 @@ function mineral (flag) {
 
   if (!flag.room.terminal) return false
 
-  if (flag.room.terminal.storeFree > 50000) return false
+  if (flag.room.terminal.storeFree < 50000) return false
 
   const p = flag.room.getSpot('mineral')
   const structs = p.lookFor(LOOK_STRUCTURES)
@@ -247,6 +323,12 @@ function suppressGuard (flag) {
   return flag.paceRole('guard', rate)
 }
 
+function suppressMini (flag) {
+  const e = flag.room.memory.tenemies
+  if (!e) return false
+  return flag.paceRole('mini', 1500)
+}
+
 function suppressWolf (flag) {
   const t = flag.room.memory.thostiles
   if (t < 300) return false
@@ -259,6 +341,8 @@ function worker (flag) {
   if (flag.room.find(FIND_MY_CONSTRUCTION_SITES).length) {
     n = 1
   } else if (flag.room.storage && flag.room.storage.my && flag.room.storage.store.energy > 500000) {
+    n = 1
+  } else if (_.any(flag.room.findStructs(STRUCTURE_CONTAINER), s => s.hits < 10000)) {
     n = 1
   }
   return flag.replaceRole('worker', n)

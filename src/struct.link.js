@@ -107,6 +107,7 @@ function balanceLinks (room) {
   if (links.length < 2) return
 
   let cache = balanceCache[room.name]
+  room.dlog(JSON.stringify(cache))
   if (!cache || links.length !== cache.nlinks) {
     room.log('refresh links', links.length, JSON.stringify(cache))
     cache = {
@@ -157,15 +158,31 @@ function balanceLinks (room) {
     }
   }
 
+  room.dlog('ctrl', ctrl)
+
   if (!term) return
   if (!store) return
+  room.dlog('lock', cache.lock)
   if (cache.lock > Game.time) return
 
   term.mode = 'sink'
   store.mode = 'sink'
 
+  room.dlog('term', term.mode)
+  room.dlog('store', store.mode)
+
   const te = room.terminal.store.energy
   const se = room.storage.store.energy
+
+  if (se > 995000) {
+    store.mode = 'src'
+    cache.lock = Game.time + 100
+  }
+
+  if (te > 80000) {
+    term.mode = 'src'
+    cache.lock = Game.time + 100
+  }
 
   if ((te > 20000 && se < 150000) || (te > 50000 && se < 950000)) {
     term.mode = 'src'

@@ -18,7 +18,7 @@ module.exports = class CreepShunt {
       switch (struct.structureType) {
         case STRUCTURE_TOWER:
           if (estruct) break
-          if (struct.energyFree > 200) estruct = struct
+          if (struct.energyFree >= 200) estruct = struct
           break
         case STRUCTURE_SPAWN:
           if (struct.energyFree) estruct = struct
@@ -74,7 +74,10 @@ module.exports = class CreepShunt {
     const struct = _.find(p.lookFor(LOOK_STRUCTURES),
       s => s.structureType === stype)
     if (struct) return
-    return this.teamRoom.keeper().planOne(stype, p.x, p.y)
+    const err = p.createConstructionSite(stype)
+    if (err !== OK) {
+      this.dlog('BAD ctor', stype, err)
+    }
   }
 
   nearSpawn () {

@@ -24,14 +24,14 @@ module.exports = class CreepDismantle {
     return this.taskDismantle(target)
   }
 
-  taskDismantle (struct, drop = true) {
+  taskDismantle (struct) {
     struct = this.checkId('dismantle', struct)
-    drop = this.checkOther('drop', drop)
 
-    if (this.carryCapacity && !this.carryFree && !drop) {
+    if (this.carryCapacity && !this.carryFree) {
       this.say('Full')
       return false
     }
+
     return this.goDismantle(struct)
   }
 

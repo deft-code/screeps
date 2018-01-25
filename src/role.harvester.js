@@ -1,11 +1,29 @@
+const lib = require('lib')
+
 module.exports = class CreepHarvester {
-  roleHarvester () {
+  roleHarvestaga () {
+    return this.roleHarvester(1)
+  }
+
+  roleHarvester (card = 0) {
     let what = this.taskTask()
     if (what) return what
 
-    const src = Game.getObjectById(this.memory.job.src)
-    // it's possible to not have visibility into the team room.
-    if (!src) return this.moveRoom(this.team)
+    let src = lib.lookup(this.memory.src)
+    if (!src) {
+      if (!this.moveRoom(this.team)) {
+        const srcs = this.teamRoom.find(FIND_SOURCES)
+        const ss = _.sortBy(srcs, 'xy')
+        src = ss[card]
+        if (src) {
+          this.memory.src = src.id
+        } else {
+          return false
+        }
+      } else {
+        return false
+      }
+    }
 
     if (!this.pos.isEqualTo(src.bestSpot)) return this.movePos({pos: src.bestSpot})
 
@@ -32,23 +50,6 @@ module.exports = class CreepHarvester {
       return this.goHarvest(src, false)
     }
     return this.taskRepair(cont) || this.goWithdraw(cont, RESOURCE_ENERGY, false) || 'waiting'
-  }
-
-  spawnChild () {
-    if (!this.memory.child) {
-      const active = this.memory.active || this.memory.birth + 25
-      const travel = Math.min(200, active - this.memory.birth)
-      if (this.ticksToLive < travel + this.spawnTime) {
-        const who = this.team.makeRole({
-          role: this.memory.role,
-          body: this.memory.body,
-          job: this.memory.job
-        }, 3, this.team.closeSpawn())
-        if (_.isString(who)) {
-          this.memory.child = who
-        }
-      }
-    }
   }
 
   makeCont () {

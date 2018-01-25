@@ -48,16 +48,52 @@ Flag.prototype.closeEgg = function (name, mem = {}) {
   }))
 }
 
+Flag.prototype.remoteEgg = function (name, mem = {}) {
+  return this.makeEgg(name, _.defaultsDeep({}, mem, {
+    egg: {
+      spawn: 'remote'
+    }
+  }))
+}
+
+Flag.prototype.auxEgg = function () {
+  return this.localEgg('aux', {egg: {body: 'shunt'}})
+}
+
 Flag.prototype.auxsrcEgg = function () {
   return this.localEgg('auxsrc', {egg: {body: 'coresrc'}})
+}
+
+Flag.prototype.bootstrapEgg = function () {
+  return this.remoteEgg('bootstrap')
+}
+
+Flag.prototype.bulldozerEgg = function () {
+  return this.closeEgg('bulldozer')
 }
 
 Flag.prototype.cartEgg = function (mem) {
   return this.closeEgg('cart', mem)
 }
 
+Flag.prototype.chemistEgg = function () {
+  return this.localEgg('chemist')
+}
+
+Flag.prototype.claimerEgg = function () {
+  return this.closeEgg('claimer')
+}
+
+Flag.prototype.cleanerEgg = function () {
+  return this.closeEgg('cleaner')
+}
+
 Flag.prototype.coresrcEgg = function () {
   return this.localEgg('coresrc')
+}
+
+Flag.prototype.coreEgg = function () {
+  return this.localEgg('core', {egg: {body: 'shunt'}})
 }
 
 Flag.prototype.ctrlEgg = function (mem) {
@@ -74,6 +110,16 @@ Flag.prototype.farmerEgg = function (mem) {
 
 Flag.prototype.guardEgg = function (mem) {
   return this.closeEgg('guard', mem)
+}
+
+Flag.prototype.harvestagaEgg = function () {
+  return this.closeEgg('harvestaga', {
+    egg: {body: 'miner'}})
+}
+
+Flag.prototype.harvesterEgg = function () {
+  return this.closeEgg('harvester', {
+    egg: {body: 'miner'}})
 }
 
 Flag.prototype.haulerEgg = function () {
@@ -98,6 +144,11 @@ Flag.prototype.mineralEgg = function (mem) {
   return this.localEgg('mineral', mem)
 }
 
+Flag.prototype.miniEgg = function (mem) {
+  return this.closeEgg('mini', {
+    egg: {body: 'mini'}})
+}
+
 Flag.prototype.rebootEgg = function () {
   return this.localEgg('reboot')
 }
@@ -110,14 +161,14 @@ Flag.prototype.scoutEgg = function (mem) {
   return this.closeEgg('scout', mem)
 }
 
+Flag.prototype.towerEgg = function () {
+  return this.remoteEgg('tower')
+}
+
+Flag.prototype.wolfEgg = function () {
+  return this.closeEgg('wolf')
+}
+
 Flag.prototype.workerEgg = function () {
   return this.localEgg('worker')
-}
-
-Flag.prototype.coreEgg = function () {
-  return this.localEgg('core', {egg: {body: 'shunt'}})
-}
-
-Flag.prototype.auxEgg = function () {
-  return this.localEgg('aux', {egg: {body: 'shunt'}})
 }

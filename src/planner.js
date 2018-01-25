@@ -10,9 +10,8 @@ module.exports = function runPlanner (flag) {
       return planCommit(flag)
     case COLOR_GREEN:
       return drawKeeper(flag)
-    case COLOR_BLUE:
-      const b2 = new BasePlan(flag)
-      return b2.patch()
+    default:
+      return flag.temp()
   }
 }
 
@@ -105,7 +104,14 @@ class BasePlan {
 
   getSpot (name) {
     const xy = this.memory.spots[name]
-    if (!xy) return null
+    if (!xy) {
+      const f = _.find(this.room.find(FIND_FLAGS),
+        x => x.name === name)
+      if (!f) return null
+
+      this.memory.spots[name] = this.room.packPos(f.pos)
+      return f.pos
+    }
     return this.room.unpackPos(xy)
   }
 
@@ -124,20 +130,6 @@ class BasePlan {
       y++
     }
     return true
-  }
-
-  patch () {
-    debug.log(this.flag, 'patching')
-    this.drawSpots()
-
-    return this.orderSrcs() &&
-      this.findShunt('core', this.srcs[0].pos) &&
-      this.findShunt('aux', this.srcs[1].pos) &&
-      this.findSpot('ctrl', this.room.controller.pos, 1) &&
-      this.findMineral() &&
-      this.convertShunt() &&
-      this.commit() &&
-      true
   }
 
   commit () {

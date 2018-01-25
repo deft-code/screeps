@@ -1,6 +1,12 @@
 module.exports = class CreepGuard {
+  roleMini () { return this.roleGuard() }
+  afterMini () { return this.afterGuard() }
+
+  roleTower () { return this.roleGuard() }
+  afterTower () { return this.afterGuard() }
+
   roleGuard () {
-    return this.idleRetreat(TOUGH) || this.taskTask() ||
+    return this.idleRetreat(TOUGH, RANGED_ATTACK) || this.taskTask() ||
       this.moveRoom(this.team) || this.taskGuard() ||
       this.taskGuardHealRoom() || this.movePeace(this.team)
   }

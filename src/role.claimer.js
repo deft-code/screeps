@@ -14,4 +14,6 @@ module.exports = class CreepClaimer {
       this.dlog('claim error:', err)
     }
   }
+
+  afterClaimer () {}
 }

@@ -44,6 +44,17 @@ function closeSpawns (all, tname) {
     routes.dist(tname, s.pos.roomName) <= mdist + 1)
 }
 
+function remoteSpawns (all, tname) {
+  const mdist = _(all)
+    .map(s => routes.dist(tname, s.pos.roomName))
+    .filter(d => d > 0)
+    .min()
+  return _.filter(all, s => {
+    const d = routes.dist(tname, s.room.name)
+    return d > 0 && d <= mdist
+  })
+}
+
 function findSpawns (eggMem) {
   const allSpawns = _.shuffle(Game.spawns)
   const tname = Game.flags[eggMem.team].pos.roomName
@@ -65,6 +76,9 @@ function findSpawns (eggMem) {
       break
     case 'close':
       spawns = closeSpawns(allSpawns, tname)
+      break
+    case 'remote':
+      spawns = remoteSpawns(allSpawns, tname)
       break
     default:
       debug.log('Missing spawn algo', eggMem.spawn)
@@ -133,10 +147,23 @@ function buildBody (spawns, eggMem) {
   let spawn
   let body = []
   switch (eggMem.body) {
-    case 'reboot':
-      spawn = _.find(spawns,
-        s => s.room.energyAvailable >= 200)
-      body = [WORK, CARRY, MOVE]
+    case 'bootstrap':
+      spawn = energySpawn(spawns, 1300)
+      if (!spawn) break
+      body = energyDef(_.defaults({}, eggMem, {
+        move: 2,
+        per: [CARRY, WORK],
+        energy: spawn.room.energyAvailable
+      }))
+      break
+    case 'bulldozer':
+      spawn = energySpawn(spawns, 700)
+      if (!spawn) break
+      body = energyDef(_.defaults({}, eggMem, {
+        move: 1,
+        per: [WORK],
+        energy: spawn.room.energyAvailable
+      }))
       break
     case 'cart':
       spawn = energySpawn(spawns, 550)
@@ -148,9 +175,32 @@ function buildBody (spawns, eggMem) {
         energy: spawn.room.energyAvailable
       })
       break
+    case 'chemist':
+      spawn = energySpawn(spawns, 750)
+      if (!spawn) break
+      body = [CARRY, CARRY, MOVE,
+        CARRY, CARRY, MOVE,
+        CARRY, CARRY, MOVE,
+        CARRY, CARRY, MOVE,
+        CARRY, CARRY, MOVE]
+      break
+    case 'claimer':
+      spawn = energySpawn(spawns, 650)
+      if (!spawn) break
+      body = [MOVE, CLAIM]
+      break
+    case 'cleaner':
+      spawn = energySpawn(spawns, 650)
+      body = energyDef(_.defaults({}, eggMem, {
+        move: 1,
+        per: [CARRY, WORK, WORK, WORK, WORK],
+        energy: spawn.room.energyAvailable
+      }))
+      break
     case 'coresrc':
       spawn = _.find(spawns,
         s => s.room.energyAvailable >= 700)
+      if (!spawn) break
       body = [WORK, WORK, WORK, WORK, WORK, WORK, CARRY, MOVE]
       break
     case 'ctrl':
@@ -161,7 +211,8 @@ function buildBody (spawns, eggMem) {
         s => s.room.energyAvailable * 2 >= s.room.energyCapacityAvailable)
       body = energyDef(_.defaults({}, eggMem, {
         move: 2,
-        per: [ATTACK]
+        per: [ATTACK],
+        energy: spawn.room.energyAvailable
       }))
       break
     case 'hauler':
@@ -206,9 +257,9 @@ function buildBody (spawns, eggMem) {
       }))
       break
     case 'miner':
-      spawn = energySpawn(spawns, 700)
+      spawn = energySpawn(spawns, 800)
       if (!spawn) break
-      body = [WORK, WORK, WORK, WORK, WORK, WORK, CARRY, MOVE]
+      body = [MOVE, MOVE, MOVE, CARRY, WORK, WORK, WORK, WORK, WORK, WORK]
       if (spawn.room.energyAvailable >= 800) {
         body.push(MOVE, MOVE)
       }
@@ -222,15 +273,32 @@ function buildBody (spawns, eggMem) {
         energy: spawn.room.energyAvailable
       }))
       break
-    case 'reserver':
+    case 'mini':
+      spawn = _.find(spawns, s => s.room.energyAvailable >= 500)
+      body = [RANGED_ATTACK, MOVE, MOVE, HEAL]
+      break
+    case 'reboot':
       spawn = _.find(spawns,
-        s => s.room.energyAvailable >= 700)
+        s => s.room.energyAvailable >= 200)
+      body = [WORK, CARRY, MOVE]
+      break
+    case 'reserver':
+      spawn = energySpawn(spawns, 650)
       if (!spawn) break
-      body = energyDef(_.defaults({}, eggMem, {
-        move: 1,
-        base: [MOVE],
-        per: [CLAIM]
-      }))
+      if (spawn.room.energyAvailable < 1300) {
+        body = [MOVE, CLAIM]
+      } else if (spawn.room.energyAvailable < 1950) {
+        body = [MOVE, MOVE, CLAIM, CLAIM]
+      } else if (spawn.room.energyAvailable < 2600) {
+        body = [MOVE, MOVE, MOVE, CLAIM, CLAIM, CLAIM]
+      } else {
+        body = energyDef(_.defaults({}, eggMem, {
+          move: 1,
+          per: [CLAIM],
+          energy: spawn.room.energyAvailable,
+          max: 10
+        }))
+      }
       break
     case 'scout':
       spawn = _.find(spawns,
@@ -242,6 +310,25 @@ function buildBody (spawns, eggMem) {
       spawn = _.find(spawns,
         s => s.room.energyAvailable >= 250)
       body = [CARRY, CARRY, CARRY, CARRY, MOVE]
+      break
+    case 'tower':
+      spawn = energySpawn(spawns, 1300)
+      if (!spawn) break
+      body = energyDef(_.defaults({}, eggMem, {
+        move: 1,
+        base: [MOVE, HEAL],
+        per: [RANGED_ATTACK],
+        energy: spawn.room.energyAvailable
+      }))
+      break
+    case 'wolf':
+      spawn = energySpawn(spawns, 700)
+      if (!spawn) break
+      body = energyDef(_.defaults({}, eggMem, {
+        move: 1,
+        per: [ATTACK],
+        energy: spawn.room.energyAvailable
+      }))
       break
     case 'worker':
       spawn = energySpawn(spawns, 300, 3300)
@@ -259,169 +346,6 @@ function buildBody (spawns, eggMem) {
   }
   return [spawn, body]
 }
-
-// const bodies = {
-//  archer: {
-//    move: 0.2,
-//    per: [RANGED_ATTACK],
-//    max: 1
-//  },
-
-//  attack: {
-//    move: 1,
-//    per: [ATTACK, TOUGH]
-//  },
-
-//  carry: {
-//    move: 2,
-//    per: [CARRY]
-//  },
-
-//  carryfar: {
-//    move: 1,
-//    per: [CARRY]
-//  },
-
-//  cart: {
-//    move: 1,
-//    base: [WORK, MOVE],
-//    per: [CARRY]
-//  },
-
-//  chemist: {
-//    move: 2,
-//    base: [CARRY, CARRY, MOVE],
-//    per: [WORK]
-//  },
-
-//  claim: {
-//    move: 0,
-//    base: [CLAIM],
-//    per: [MOVE],
-//    max: 5
-//  },
-
-//  counter: {
-//    move: 1,
-//    per: [ATTACK]
-//  },
-
-//  custom: {},
-
-//  defender: {
-//    move: 2,
-//    per: [ATTACK]
-//  },
-
-//  dismantle: {
-//    move: 1,
-//    per: [WORK]
-//  },
-
-//  dismantleslow: {
-//    move: 2,
-//    base: [ATTACK, MOVE],
-//    per: [WORK]
-//  },
-
-//  drain: {
-//    move: 1,
-//    per: [HEAL, TOUGH]
-//  },
-
-//  drainslow: {
-//    move: 2,
-//    // base: [ATTACK, TOUGH, MOVE],
-//    base: [TOUGH, MOVE],
-//    per: [HEAL, TOUGH]
-//  },
-
-//  farmer: {
-//    move: 1,
-//    per: [WORK, CARRY, CARRY]
-//  },
-
-//  guard: {
-//    move: 1,
-//    base: [MOVE, HEAL],
-//    per: [TOUGH, RANGED_ATTACK]
-//  },
-
-//  harvester: {
-//    move: 1,
-//    base: [CARRY],
-//    per: [WORK],
-//    max: 6
-//  },
-
-//  heal: {
-//    move: 1,
-//    base: [ATTACK, MOVE],
-//    per: [HEAL]
-//  },
-
-//  hunter: {
-//    move: 1,
-//    base: [HEAL, MOVE],
-//    per: [ATTACK]
-//  },
-
-//  miner: {
-//    move: 1,
-//    base: [CARRY],
-//    per: [WORK],
-//    max: 5
-//  },
-
-//  mineral: {
-//    move: 2,
-//    base: [CARRY, CARRY, MOVE],
-//    per: [WORK]
-//  },
-
-//  ram: {
-//    move: 1,
-//    per: [TOUGH, WORK]
-//  },
-
-//  reserve: {
-//    move: 1,
-//    base: [MOVE, CLAIM],
-//    per: [CLAIM],
-//    max: 2
-//  },
-
-//  scout: {
-//    move: 0,
-//    per: [MOVE],
-//    max: 1
-//  },
-
-//  srcer: {
-//    move: 2,
-//    base: [CARRY],
-//    per: [WORK],
-//    max: 6
-//  },
-
-//  turtle: {
-//    move: 2,
-//    base: [ATTACK, MOVE],
-//    per: [TOUGH]
-//  },
-
-//  upgrader: {
-//    move: 2,
-//    base: [CARRY, CARRY],
-//    per: [WORK]
-//  },
-
-//  worker: {
-//    move: 2,
-//    base: [MOVE, CARRY],
-//    per: [WORK, CARRY]
-//  }
-// }
 
 const partsOrdered = [TOUGH, WORK, CARRY, 'premove', ATTACK, RANGED_ATTACK, MOVE, CLAIM, HEAL]
 const partPriority = (part) => _.indexOf(partsOrdered, part)

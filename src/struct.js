@@ -6,6 +6,10 @@ class StructureExtra {
     return util.structNote(this.structureType, this.pos)
   }
 
+  get xy () {
+    return this.room.packPos(this.pos)
+  }
+
   get storeTotal () {
     return _.sum(this.store)
   }

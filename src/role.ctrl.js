@@ -1,3 +1,5 @@
+const lib = require('lib')
+
 module.exports = class CreepCtrl {
   roleCtrl () {
     const what = this.moveSpot()
@@ -6,7 +8,7 @@ module.exports = class CreepCtrl {
     this.goUpgradeController(this.teamRoom.controller, false)
 
     if (this.carry.energy < 2 * this.getActiveBodyparts(WORK)) {
-      const struct = Game.getObjectById(this.memory.struct) ||
+      const struct = lib.lookup(this.memory.struct) ||
         _(this.room.lookForAtRange(LOOK_STRUCTURES, this.room.controller.pos, 4, true))
           .map(spot => spot[LOOK_STRUCTURES])
           .filter(s => s.structureType !== STRUCTURE_TOWER)

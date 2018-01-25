@@ -12,8 +12,7 @@ Room.prototype.runKeeper = function () {
   if (!this.controller.my) return
 
   const k = this.keeper()
-  this.dlog('skipping keeper', k)
-  // k.run()
+  k.run()
 }
 
 class RoomKeeper {
@@ -45,20 +44,49 @@ class RoomKeeper {
     return splans
   }
 
+  sync () {
+    this.room.findStructs()
+    const stypes = _.keys(this.room.structsByType)
+    for (const stype of stypes) {
+      this.memory.plans[stype] = _.map(this.room.structsByType[stype], s => s.xy)
+    }
+  }
+
+  draw () {
+    const stypes = _.keys(this.memory.plans)
+    for (const stype of stypes) {
+      const xys = this.memory.plans[stype]
+      for (const xy of xys) {
+        const p = this.room.unpackPos(xy)
+        this.room.visual.circle(p.x, p.y, {radius: 0.5, fill: 'cornflowerblue'})
+      }
+    }
+  }
+
   run () {
+    this.room.dlog(this.room.energyFreeAvailable)
     if (this.room.energyFreeAvailable > 0) return false
 
     const gnc = _.size(Game.constructionSites)
     if (gnc > 50) return
+    this.room.dlog(gnc)
 
     const nc = this.room.find(FIND_MY_CONSTRUCTION_SITES).length
     if (nc > 2) return
+    this.room.dlog(nc)
 
     const ns = this.room.find(FIND_STRUCTURES).length
 
     this.rcl = (this.room.controller && this.room.controller.my && this.room.controller.level) || 0
 
-    if (this.memory.lastStructs === ns && this.memory.rcl === this.rcl) return
+    this.room.dlog(ns, this.memory.lastStructs)
+    this.room.dlog(this.rcl, this.memory.rcl)
+    if ((Game.time - this.memory.last > 1500) &&
+      this.memory.lastStructs === ns &&
+      this.memory.rcl === this.rcl) {
+    }
+
+    this.memory.last = Game.time
 
     const ret = this.runPlans()
 
@@ -87,6 +115,10 @@ class RoomKeeper {
   }
 
   runPlans () {
+    this.ignore = _(this.room.find(FIND_FLAGS))
+      .filter(f => f.color === COLOR_ORANGE && f.secondaryColor === COLOR_RED)
+      .map(f => f.what())
+      .value()
     return this.runPlan(STRUCTURE_TOWER) ||
       this.runPlan(STRUCTURE_SPAWN) ||
       this.runPlan(STRUCTURE_TERMINAL) ||
@@ -95,7 +127,7 @@ class RoomKeeper {
       this.runPlan(STRUCTURE_WALL) ||
       this.runPlan(STRUCTURE_RAMPART) ||
       this.runPlan(STRUCTURE_LINK) ||
-      this.runPlan(STRUCTURE_CONTAINER) ||
+      // this.runPlan(STRUCTURE_CONTAINER) ||
       this.runExtractor() ||
       this.runRoads() ||
       this.runPlan(STRUCTURE_LAB) ||
@@ -121,6 +153,8 @@ class RoomKeeper {
   }
 
   runPlan (stype) {
+    if (_.contains(this.ignore, stype)) return false
+
     const needs = CONTROLLER_STRUCTURES[stype][this.rcl]
     const structs = this.room.findStructs(stype)
     if (structs.length >= needs) return false

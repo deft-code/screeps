@@ -162,7 +162,7 @@ const autoReact = (flag) => {
 Room.prototype.runLabs = function () {
   if (!this.memory.labs) {
     this.memory.labs = {}
-    console.log('Creating memory for labs in', this.name)
+    this.log('Creating memory for labs')
   }
   for (const flag of this.find(FIND_FLAGS)) {
     if (flag.color !== COLOR_CYAN) continue

@@ -18,6 +18,7 @@ module.exports = class CreepMineral {
     const ret = this.harvest(mineral)
     if (ret === ERR_TIRED) return 'waiting'
     if (ret === OK) return 'mined'
+    if (ret === ERR_NOT_ENOUGH_RESOURCES) return 'empty'
 
     this.log(ret)
     return false

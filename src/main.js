@@ -11,6 +11,9 @@ require('struct')
 const terminals = require('struct.terminal')
 require('struct.tower')
 require('struct.link')
+require('struct.controller')
+require('struct.container')
+require('struct.lab')
 
 require('team')
 require('team.egg')
@@ -41,6 +44,7 @@ const mods = [
   'role.cart',
   'role.chemist',
   'role.claimer',
+  'role.cleaner',
   'role.collector',
   'role.coresrc',
   'role.ctrl',
@@ -77,7 +81,10 @@ for (const mod of mods) {
 const kMaxCPU = 300
 
 function canRun (cpu, bucket) {
-  if (cpu > kMaxCPU) return false
+  if (cpu > kMaxCPU) {
+    debug.warn('CPU Throttled')
+    return false
+  }
   if (Game.cpu.bucket < bucket - 750) return false
   if (cpu > Game.cpu.limit && Game.cpu.bucket < bucket) return false
   return true
@@ -106,52 +113,6 @@ function shuffleRun (objs, bucket, ...funcs) {
   }
 }
 
-function patch () {
-  Game.rooms.W22N19.addSpot('aux', Game.rooms.W22N19.getPositionAt(41, 13))
-  Game.rooms.W22N19.addSpot('auxsrc', Game.rooms.W22N19.getPositionAt(32, 40))
-  Game.rooms.W22N19.addSpot('core', Game.rooms.W22N19.getPositionAt(30, 40))
-  Game.rooms.W22N19.addSpot('coresrc', Game.rooms.W22N19.getPositionAt(29, 5))
-  Game.rooms.W22N19.addSpot('ctrl', Game.rooms.W22N19.getPositionAt(37, 13))
-  Game.rooms.W22N19.addSpot('mineral', Game.rooms.W22N19.getPositionAt(37, 22))
-
-  Game.rooms.W23N19.addSpot('aux', Game.rooms.W23N19.getPositionAt(13, 20))
-  Game.rooms.W23N19.addSpot('auxsrc', Game.rooms.W23N19.getPositionAt(15, 19))
-  Game.rooms.W23N19.addSpot('core', Game.rooms.W23N19.getPositionAt(14, 42))
-  Game.rooms.W23N19.addSpot('coresrc', Game.rooms.W23N19.getPositionAt(15, 44))
-  Game.rooms.W23N19.addSpot('ctrl', Game.rooms.W23N19.getPositionAt(33, 5))
-  Game.rooms.W23N19.addSpot('mineral', Game.rooms.W23N19.getPositionAt(4, 14))
-
-  Game.rooms.W23N22.addSpot('aux', Game.rooms.W23N22.getPositionAt(27, 8))
-  Game.rooms.W23N22.addSpot('auxsrc', Game.rooms.W23N22.getPositionAt(28, 6))
-  Game.rooms.W23N22.addSpot('core', Game.rooms.W23N22.getPositionAt(28, 42))
-  Game.rooms.W23N22.addSpot('coresrc', Game.rooms.W23N22.getPositionAt(28, 44))
-  Game.rooms.W23N22.addSpot('ctrl', Game.rooms.W23N22.getPositionAt(32, 11))
-  Game.rooms.W23N22.addSpot('mineral', Game.rooms.W23N22.getPositionAt(5, 10))
-
-  Game.rooms.W24N17.addSpot('aux', Game.rooms.W24N17.getPositionAt(11, 25))
-  Game.rooms.W24N17.addSpot('auxsrc', Game.rooms.W24N17.getPositionAt(9, 25))
-  Game.rooms.W24N17.addSpot('core', Game.rooms.W24N17.getPositionAt(18, 26))
-  Game.rooms.W24N17.addSpot('coresrc', Game.rooms.W24N17.getPositionAt(20, 26))
-  Game.rooms.W24N17.addSpot('ctrl', Game.rooms.W24N17.getPositionAt(32, 28))
-  Game.rooms.W24N17.addSpot('mineral', Game.rooms.W24N17.getPositionAt(45, 12))
-
-  Game.rooms.W25N23.addSpot('aux', Game.rooms.W25N23.getPositionAt(24, 36))
-  Game.rooms.W25N23.addSpot('auxsrc', Game.rooms.W25N23.getPositionAt(26, 35))
-  Game.rooms.W25N23.addSpot('core', Game.rooms.W25N23.getPositionAt(24, 43))
-  Game.rooms.W25N23.addSpot('coresrc', Game.rooms.W25N23.getPositionAt(26, 42))
-  Game.rooms.W25N23.addSpot('ctrl', Game.rooms.W25N23.getPositionAt(26, 32))
-  Game.rooms.W25N23.addSpot('mineral', Game.rooms.W25N23.getPositionAt(12, 23))
-
-  Game.rooms.W27N22.addSpot('aux', Game.rooms.W27N22.getPositionAt(28, 29))
-  Game.rooms.W27N22.addSpot('auxsrc', Game.rooms.W27N22.getPositionAt(26, 30))
-  Game.rooms.W27N22.addSpot('core', Game.rooms.W27N22.getPositionAt(17, 6))
-  Game.rooms.W27N22.addSpot('coresrc', Game.rooms.W27N22.getPositionAt(16, 4))
-  Game.rooms.W27N22.addSpot('ctrl', Game.rooms.W27N22.getPositionAt(25, 36))
-  Game.rooms.W27N22.addSpot('mineral', Game.rooms.W27N22.getPositionAt(43, 11))
-}
-
-patch()
-
 function drain (t, room) {
   if (!t) return
   if (t.cooldown) return
@@ -173,7 +134,8 @@ function main () {
 
   drain(null, 'W22N19')
 
-  Game.rooms.W24N17.drawSpots()
+  // Game.rooms.W24N17.drawSpots()
+  // Game.rooms.W24N17.keeper().draw()
 
   const rooms = _.shuffle(_.values(Game.rooms))
   const flags = _.shuffle(_.values(Game.flags))
@@ -199,6 +161,7 @@ function main () {
   shuffleRun(rooms, 9000,
     'runFlags',
     'runKeeper',
+    'runLabs',
     'runLinks',
     'runTerminal',
     'spawningRun'

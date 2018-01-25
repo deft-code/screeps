@@ -21,3 +21,14 @@ Flag.prototype.darkRun = function () {
     this.darkTeam()
   }
 }
+
+Flag.prototype.temp = function () {
+  if (this.memory.room !== this.pos.roomName) {
+    this.memory.room = this.pos.roomName
+    this.memory.born = Game.time
+  }
+
+  if (Game.time > 1500 + this.memory.born) {
+    this.remove()
+  }
+}

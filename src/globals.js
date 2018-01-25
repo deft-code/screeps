@@ -1,3 +1,7 @@
+const lib = require('lib')
+
+global.lup = x => lib.lookup(x)
+
 global.busyCreeps = (n) => {
   const x = _.sortBy(Game.creeps, c => c.memory.cpu / (Game.time - c.memory.birth)).reverse()
   for (let i = 0; i < n; i++) {
