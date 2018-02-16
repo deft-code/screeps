@@ -1,9 +1,7 @@
-const shed = require('shed')
-
 module.exports = class CreepWorker {
   roleWorker () {
     this.dlog('worker!')
-    let what = this.idleEmergencyUpgrade() || this.taskTask()
+    let what = this.idleEmergencyUpgrade() || this.taskTask() || this.moveRoom(this.team)
     if (what) return what
 
     const upgrade = !this.room.storage || this.room.storage.store.energy > 10000
@@ -23,8 +21,6 @@ module.exports = class CreepWorker {
   }
 
   afterWorker () {
-    if (shed.med()) return
-
     this.idleNom()
     this.idleRecharge()
     if (this.carryTotal > this.carryFree) {

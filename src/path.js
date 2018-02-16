@@ -1,21 +1,14 @@
-
 const lib = require('lib')
 
 const packXY = (pos) => pos.x * 100 + pos.y
 const unpackY = (xy) => xy % 100
 const unpackX = (xy) => Math.floor(xy / 100)
+const unpackXY = (xy) => [unpackX(xy), unpackY(xy)]
 
-RoomPosition.unpack = (packed) => {
-  const [xy, ref] = packed
-  return new RoomPosition(
-    unpackX(xy),
-    unpackY(xy),
-    exports.roomDeref(ref))
-}
+lib.roProp(RoomPosition, 'xy', packXY)
 
-RoomPosition.prototype.pack = function () {
-  return [exports.roomRef(this.roomName), packXY(this)]
-}
+lib.roProp(RoomPosition, 'exit',
+  p => p.x <= 0 || p.y <= 0 || p.x >= 49 || p.y >= 49)
 
 Room.prototype.packPos = function (pos) {
   return packXY(pos)
@@ -25,66 +18,69 @@ Room.prototype.unpackPos = function (xy) {
   return this.getPositionAt(unpackX(xy), unpackY(xy))
 }
 
-const gRefs = {}
-exports.roomRef = (name) => {
-  const id = gRefs[name]
-  if (id) return id
-
-  for (const i in Memory.roomRefs) {
-    gRefs[Memory.roomRefs[i]] = i + 1
+module.exports = class Path {
+  constructor (mem) {
+    this.mem = mem
   }
-  return gRefs[name] || 0
-}
 
-exports.roomDeref = (id) => {
-  if (id && id >= Memory.roomRefs.length) return null
-  return Memory.roomRefs[id - 1]
-}
-
-// exports.mkPath = function (...pos) {
-//  const ret = [pos.length]
-//  let seg = pos[0].pack()
-//  for (let i = 1; i < pos; i++) {
-//    if (exports.roomRef(p.roomName) !== seg[0]) {
-//      ret.push(seg)
-//      seg = p.pack()
-//    } else {
-//      seg.push(packXY(p))
-//    }
-//  }
-//  ret.push(seg)
-//  return ret
-// }
-
-exports.getPos = (path, i) => {
-  if (i >= path[0]) return null
-
-  for (let r = 1; r < path.length; r++) {
-    const seg = path[r]
-    const n = seg.length - 1
-    if (i >= n) {
-      i -= n
-      continue
+  static make (...pos) {
+    const mem = []
+    let seg = [pos[0].roomName]
+    for (const p of pos) {
+      if (p.roomName !== seg[0]) {
+        mem.push(seg)
+        seg = [p.roomName]
+      }
+      seg.push(p.xy)
     }
-    const x = seg[i * 2 + 1]
-    const y = seg[i * 2 + 2]
-    const room = exports.roomDeref(seg[0])
-    return new RoomPosition(x, y, room)
+    mem.push(seg)
+    return new this(mem)
+  }
+
+  // [Symbol.iterator] () {
+  //  for(const seg of this.mem) {
+  //    const name = seg[0]
+  //    for(let i = 1; i<seg.length; i++) {
+  //      const x = unpackX(seg[i])
+  //      const y = unpackY(seg[i])
+  //      yeild new RoomPosition(x, y, name)
+  //    }
+  //  }
+  // }
+
+  toJSON () {
+    return this.mem
+  }
+
+  get length () {
+    if (!this._length) {
+      this._length = _.sum(this.mem, seg => seg.length - 1)
+    }
+    return this._length
+  }
+
+  draw () {
+    for (const seg of this.mem) {
+      const v = new RoomVisual(seg[0])
+      const xys = _.map(seg.slice(1), unpackXY)
+      v.poly(xys, {
+        stroke: 'red',
+        lineStyle: 'dashed'
+      })
+    }
+  }
+
+  get (i) {
+    for (const seg of this.mem) {
+      const nxy = seg.length - 1
+      if (i < nxy) {
+        return new RoomPosition(unpackX(seg[i + 1]), unpackY(seg[i + 1]), seg[0])
+      }
+      i -= nxy
+    }
+    return null
   }
 }
-
-// exports.iter = function(path) {
-//  for(let r = 1; r<path.length; r++) {
-//    const seg = path[r];
-//    const room = exports.roomDeref(seg[0]);
-//    for(let i = 1; i<seg.length; i++) {
-//      yield new RoomPosition(
-//        unpackX(seg[i]),
-//        unpackY(seg[i]),
-//        room);
-//    }
-//  }
-// };
 
 // const kMaxStall = 7
 // const kStuckCreep = 0xfe
@@ -92,79 +88,33 @@ exports.getPos = (path, i) => {
 
 // const gCache = {}
 
-exports.isHostile = (roomOrName) => {
-  const name = lib.getRoomName(roomOrName)
-  switch (name) {
-    case 'W87S89':
-    case 'W83S84':
-    case 'W83S85':
-    case 'W83S86':
-      return true
-  }
-  return false
-}
-
-exports.serializePath = (startPos, path) => {
-  let serializedPath = ''
-  let lastPosition = startPos
-  for (let position of path) {
-    if (position.roomName === lastPosition.roomName) {
-      serializedPath += lastPosition.getDirectionTo(position)
-    }
-    lastPosition = position
-  }
-  return serializedPath
-}
-
-exports.consumePath = (creep, path) => {
-  if (!path.length) return ERR_INVALID_ARGS
-
-  if (exports.getStallTicks(creep) === 0) {
-    path = path.substr(1)
-  }
-
-  if (!path.length) return ERR_INVALID_ARGS
-  const dir = path[0]
-
-  return creep.move(dir)
-}
-
-exports.routeTo = (fromRoom, destRoom) => {
-  const from = lib.getRoomName(fromRoom)
-  const dest = lib.getRoomName(destRoom)
-  const route = Game.map.findRoute(from, dest, {
-    routeCallback: (roomName) => {
-      if (lib.isHighway(roomName)) return 1
-      if (exports.isHostile(roomName)) return 10
-      return 2.5
-    }})
-  return _.map(route, entry => entry.room)
-}
-
-exports.positionAtDirection = (origin, direction) => {
-  let offsetX = [0, 0, 1, 1, 1, 0, -1, -1, -1]
-  let offsetY = [0, -1, -1, 0, 1, 1, 1, 0, -1]
-  return new RoomPosition(origin.x + offsetX[direction], origin.y + offsetY[direction], origin.roomName)
-}
-
-// exports.get = (roomName) => {
-//  const entry = gCache[roomName]
-//  const room = Game.rooms[roomName]
-//  if (!entry) {
-//    if (!room) return new PathFinder.CostMatrix()
-//  } else {
-//    if (entry.t === Game.time || !room) {
-//      return entry.mat
+// exports.serializePath = (startPos, path) => {
+//  let serializedPath = ''
+//  let lastPosition = startPos
+//  for (let position of path) {
+//    if (position.roomName === lastPosition.roomName) {
+//      serializedPath += lastPosition.getDirectionTo(position)
 //    }
+//    lastPosition = position
+//  }
+//  return serializedPath
+// }
+
+// exports.consumePath = (creep, path) => {
+//  if (!path.length) return ERR_INVALID_ARGS
+
+//  if (exports.getStallTicks(creep) === 0) {
+//    path = path.substr(1)
 //  }
 
-//  const mat = new PathFinder.CostMatrix()
-//  addStructures(mat, room)
-//  addCreeps(mat, room)
+//  if (!path.length) return ERR_INVALID_ARGS
+//  const dir = path[0]
 
-//  gCache[room.name] = {
-//    t: Game.time,
-//    mat: mat
-//  }
-//  return mat
+//  return creep.move(dir)
+// }
+
+// exports.positionAtDirection = (origin, direction) => {
+//  let offsetX = [0, 0, 1, 1, 1, 0, -1, -1, -1]
+//  let offsetY = [0, -1, -1, 0, 1, 1, 1, 0, -1]
+//  return new RoomPosition(origin.x + offsetX[direction], origin.y + offsetY[direction], origin.roomName)
 // }

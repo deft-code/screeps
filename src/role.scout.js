@@ -1,6 +1,6 @@
 module.exports = class CreepScout {
   roleScout () {
-    const what = this.taskTask() || this.taskBoostOne() || this.goSign()
+    const what = this.taskTask() || this.goSign()
     if (what) return what
 
     if (this.atTeam) {
@@ -10,7 +10,7 @@ module.exports = class CreepScout {
           this.dlog('Scout flee')
           return this.idleFlee(this.room.hostiles, 6)
         } else if (!this.pos.inRangeTo(creep, 10)) {
-          return this.moveRange(creep, 10)
+          return this.moveRange(creep, {range: 10})
         }
       }
     }
@@ -44,10 +44,18 @@ module.exports = class CreepScout {
 }
 
 const signs = {
+  W21N18: 'RIP Ricochet1k',
+  W22N12: 'Strongmint Was Here',
   W22N19: 'The Pit',
+  W23N17: 'Just Goofin Around',
+  W23N18: 'Here lies Loena',
   W24N17: 'Fortress of Solitude',
   W24N18: 'Remote Harvestation',
   W26N18: 'Remote Harvestation',
   W27N19: 'The Lowest Bar in the World',
-  W33N19: 'Western Frontier'
+  W28N18: 'The Last Lupus',
+  W29N21: 'RIP Nossarian',
+  W33N19: 'Western Frontier',
+  W34N19: 'RIP Charles Dankwin',
+  W35N18: 'RIP explosion33'
 }

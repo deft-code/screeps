@@ -199,6 +199,20 @@ exports.oppositeDir = function (dir) {
   return oppositeLookup.get(dir)
 }
 
+exports.dirName = function (dir) {
+  switch (dir) {
+    case TOP: return 'top'
+    case TOP_RIGHT: return 'top_right'
+    case RIGHT: return 'right'
+    case BOTTOM_RIGHT: return 'bottom_right'
+    case BOTTOM: return 'bottom'
+    case BOTTOM_LEFT: return 'bottom_left'
+    case LEFT: return 'left'
+    case TOP_LEFT: return 'top_left'
+  }
+  return 'bad_dir'
+}
+
 exports.roomposExit = (pos) =>
     pos.x <= 0 || pos.y <= 0 || pos.x >= 49 || pos.y >= 49
 

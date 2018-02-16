@@ -11,10 +11,11 @@ module.exports = class CreepCtrl {
       const struct = lib.lookup(this.memory.struct) ||
         _(this.room.lookForAtRange(LOOK_STRUCTURES, this.room.controller.pos, 4, true))
           .map(spot => spot[LOOK_STRUCTURES])
-          .filter(s => s.structureType !== STRUCTURE_TOWER)
+          .filter(s => s.structureType !== STRUCTURE_TOWER && s.structureType !== STRUCTURE_EXTENSION)
           .find(s => s.energy || (s.store && s.store.energy))
       if (struct) {
         this.memory.struct = struct.id
+        this.dlog(JSON.stringify(this.memory))
         if (!this.goWithdraw(struct, RESOURCE_ENERGY, false)) {
           delete this.memory.struct
         }

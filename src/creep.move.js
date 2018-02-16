@@ -1,6 +1,7 @@
 const lib = require('lib')
 const util = require('util')
 const matrix = require('matrix')
+const routes = require('routes')
 
 module.exports = class CreepMove {
   moveDir (dir) {
@@ -32,12 +33,7 @@ module.exports = class CreepMove {
     this.dlog('moveTarget', weight, fatigue, target)
 
     const routeCB = (roomName) => {
-      switch (roomName) {
-        case 'W83S85':
-        case 'W83S86':
-        case 'W87S89':
-          return 10
-      }
+      if (routes.isHostile(roomName)) return 10
       return undefined
     }
 
@@ -125,14 +121,17 @@ module.exports = class CreepMove {
   }
 
   idleRetreat (part) {
-    if (!this.partsByType[part]) return false
-    if (this.activeByType[part]) return false
+    if (!this.hurts) return false
+    if (this.hits >= this.hurts) {
+      if (!this.partsByType[part]) return false
+      if (this.activeByType[part]) return false
+    }
     this.dlog('retreating')
     return this.moveRange(this.home.controller)
   }
 
   actionHospital () {
-    if (this.hurts > 100 || this.hits < 100) {
+    if (this.hurts > 100 || (this.hurts > 0 && this.hits < 100)) {
       return this.moveRange(this.home.controller)
     }
     return false

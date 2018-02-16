@@ -8,6 +8,17 @@ class RoomExtras {
 }
 lib.merge(Room, RoomExtras)
 
+Memory.stats.rooms = {}
+
+Room.prototype.stats = function () {
+  if (!this.controller) return
+  Memory.stats.rooms[this.name] = {
+    rcl: this.controller.level,
+    controllerProgress: this.controller.progress,
+    controllerProgressTotal: this.controller.progressTotal
+  }
+}
+
 Room.prototype.runFlags = function () {
   const flags = _.shuffle(this.find(FIND_FLAGS))
   for (const flag of flags) {

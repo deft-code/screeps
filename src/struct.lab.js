@@ -7,20 +7,35 @@ class LabExtra {
     if (!this.planType) return false
     if (this.mineralType && this.planType !== this.mineralType) return false
 
-    if (this.mineralAmount < 100) return true
-    return lib.isBoost(this.planType) && this.mineralAmount < 2300
+    return this.mineralAmount < 100
   }
 
   mineralDrain () {
     if (this.mineralAmount && this.planType !== this.mineralType) return true
-    if (this.mineralAmount > 2900) return true
-    return !lib.isBoost(this.planType) && this.mineralAmount > 700
+    return this.mineralAmount > 700
+  }
+
+  get boost () {
+    if (!this.memory.boost) return null
+    if (Game.time > this.memory.boostTime) {
+      delete this.memory.boost
+      return null
+    }
+    return this.memory.boost
+  }
+
+  set boost (mineral) {
+    if (!_.contains(RESOURCES_ALL, mineral)) {
+      delete this.memory.boost
+      return null
+    }
+    this.memory.boost = mineral
+    this.memory.boostTime = Game.time + 15
+    return this.memory.boost
   }
 
   get planType () {
-    if (!this.memory.planType) return null
-
-    return this.memory.planType
+    return this.boost || this.memory.planType || null
   }
 
   set planType (mineral) {
@@ -111,6 +126,13 @@ const splitLabs = (labs) => {
 }
 
 Room.prototype.setLabs = function (resource) {
+  if (this.memory.labs.current === resource) {
+    this.log('skip set', resource)
+    return
+  }
+
+  this.memory.labs.current = resource
+
   const [inner, outer] = splitLabs(this.findStructs(STRUCTURE_LAB))
   const parts = k.Reactions[resource]
   if (!parts) return
@@ -159,6 +181,36 @@ const autoReact = (flag) => {
   autoSet(flag, flag.memory.target)
 }
 
+const reactOrder = [
+  RESOURCE_CATALYZED_UTRIUM_ACID,
+  RESOURCE_CATALYZED_GHODIUM_ACID,
+  RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
+  RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
+  RESOURCE_CATALYZED_ZYNTHIUM_ACID,
+  RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
+  RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
+  RESOURCE_GHODIUM,
+  RESOURCE_CATALYZED_LEMERGIUM_ACID
+]
+
+StructureTerminal.prototype.autoReact = function () {
+  if ((Game.time + this.pos.xy) % 500 !== 0) return
+  if (this.room.findStructs(STRUCTURE_LAB).length < 3) return
+
+  this.room.log('Auto Reaction')
+  for (const ar of reactOrder) {
+    this.room.log('auto reacting', ar)
+    if ((this.store[ar] || 0) > 9000) continue
+    for (const r of k.ReactionAll[ar]) {
+      if ((this.store[r] || 0) < 3000) {
+        this.room.log('Setting Labs', ar, r)
+        this.room.setLabs(r)
+        return
+      }
+    }
+  }
+}
+
 Room.prototype.runLabs = function () {
   if (!this.memory.labs) {
     this.memory.labs = {}
@@ -190,7 +242,21 @@ Room.prototype.runLabs = function () {
         break
     }
   }
-  for (let lab of this.findStructs(STRUCTURE_LAB)) {
-    if (lab.run()) return
+  if (this.terminal && this.terminal.my) {
+    this.terminal.autoReact()
+  }
+  const labs = this.findStructs(STRUCTURE_LAB)
+  for (let lab of labs) {
+    if (lab.planType !== lab.mineralType && lab.mineralType) {
+      this.visual.text(`${lab.planType}:${lab.mineralType}`, lab.pos, {color: '0xAAAAAA', font: 0.3})
+    } else {
+      this.visual.text(lab.planType, lab.pos, {color: '0xAAAAAA', font: 0.4})
+    }
+  }
+  const i = Game.time % 10
+  if (i < labs.length) {
+    if (!labs[i].run()) {
+      this.visual.circle(labs[i].pos, {fill: 'color'})
+    }
   }
 }

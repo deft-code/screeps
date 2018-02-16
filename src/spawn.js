@@ -15,24 +15,26 @@ exports.run = () => {
 
   eggs.sort(eggOrder)
 
+  const done = {}
   for (let egg of eggs) {
-    const ret = runEgg(egg)
-    if (ret) return ret
-  }
-}
-
-function runEgg (egg) {
-  const eggMem = Memory.creeps[egg].egg
-  const spawns = findSpawns(eggMem)
-  const [spawn, body] = buildBody(spawns, eggMem)
-  if (!spawn) return false
-  debug.log(egg, spawn, JSON.stringify(_.countBy(body)))
-
-  const err = spawn.spawnCreep(body, egg)
-  if (err !== OK) {
-    debug.log(spawn, 'Failed to spawn', egg, err, JSON.stringify(eggMem))
-  } else {
-    delete Memory.creeps[egg].egg
+    const eggMem = Memory.creeps[egg].egg
+    const t = Game.flags[eggMem.team]
+    const tr = t.pos.roomName
+    if (done[tr]) continue
+    const spawns = findSpawns(eggMem)
+    const [spawn, body] = buildBody(spawns, eggMem)
+    if (!spawn) continue
+    const sr = spawn.room.name
+    if (done[sr]) continue
+    debug.log(egg, spawn, JSON.stringify(_.countBy(body)))
+    const err = spawn.spawnCreep(body, egg)
+    if (err !== OK) {
+      spawn.room.log(spawn, 'FAILED to spawn', egg, err, JSON.stringify(eggMem))
+    } else {
+      done[sr] = true
+      done[tr] = true
+      delete Memory.creeps[egg].egg
+    }
   }
 }
 
@@ -53,6 +55,15 @@ function remoteSpawns (all, tname) {
     const d = routes.dist(tname, s.room.name)
     return d > 0 && d <= mdist
   })
+}
+
+function maxSpawns (all, tname) {
+  const close = _.filter(all, s => routes.dist(tname, s.pos.roomName) <= 10)
+  const mlvl = _.max(close.map(s => s.room.controller.level))
+  const lvl = _.filter(close, s => s.room.controller.level >= mlvl)
+  const mspawn = _.min(lvl, s => routes.dist(tname, s.pos.roomName))
+  const mdist = routes.dist(tname, mspawn.pos.roomName) + 1
+  return _.filter(lvl, s => routes.dist(tname, s.pos.roomName) <= mdist)
 }
 
 function findSpawns (eggMem) {
@@ -77,11 +88,17 @@ function findSpawns (eggMem) {
     case 'close':
       spawns = closeSpawns(allSpawns, tname)
       break
+    case 'max':
+      spawns = maxSpawns(allSpawns, tname)
+      break
     case 'remote':
       spawns = remoteSpawns(allSpawns, tname)
       break
     default:
-      debug.log('Missing spawn algo', eggMem.spawn)
+      spawns = _.filter(allSpawns, s => s.room.name === eggMem.spawn)
+      if (!spawns.length) {
+        debug.log('Missing spawn algo', eggMem.spawn)
+      }
       break
   }
   return _.filter(spawns, s => !s.spawning)
@@ -197,6 +214,15 @@ function buildBody (spawns, eggMem) {
         energy: spawn.room.energyAvailable
       }))
       break
+    case 'collector':
+      spawn = energySpawn(spawns, 800)
+      if (!spawn) break
+      body = energyDef(_.defaults({}, eggMem, {
+        move: 2,
+        per: [CARRY],
+        energy: spawn.room.energyAvailable
+      }))
+      break
     case 'coresrc':
       spawn = _.find(spawns,
         s => s.room.energyAvailable >= 700)
@@ -206,9 +232,19 @@ function buildBody (spawns, eggMem) {
     case 'ctrl':
       [spawn, body] = buildCtrl(spawns, eggMem)
       break
+    case 'declaimer':
+      spawn = energySpawn(spawns, 650)
+      if (!spawn) break
+      body = energyDef(_.defaults({}, eggMem, {
+        move: 1,
+        per: [CLAIM],
+        energy: spawn.room.energyAvailable
+      }))
+      break
     case 'defender':
       spawn = _.find(spawns,
         s => s.room.energyAvailable * 2 >= s.room.energyCapacityAvailable)
+      if (!spawn) break
       body = energyDef(_.defaults({}, eggMem, {
         move: 2,
         per: [ATTACK],

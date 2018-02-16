@@ -56,6 +56,14 @@ Flag.prototype.remoteEgg = function (name, mem = {}) {
   }))
 }
 
+Flag.prototype.maxEgg = function (name, mem = {}) {
+  return this.makeEgg(name, _.defaultsDeep({}, mem, {
+    egg: {
+      spawn: 'max'
+    }
+  }))
+}
+
 Flag.prototype.auxEgg = function () {
   return this.localEgg('aux', {egg: {body: 'shunt'}})
 }
@@ -88,6 +96,10 @@ Flag.prototype.cleanerEgg = function () {
   return this.closeEgg('cleaner')
 }
 
+Flag.prototype.collectorEgg = function () {
+  return this.closeEgg('collector')
+}
+
 Flag.prototype.coresrcEgg = function () {
   return this.localEgg('coresrc')
 }
@@ -98,6 +110,10 @@ Flag.prototype.coreEgg = function () {
 
 Flag.prototype.ctrlEgg = function (mem) {
   return this.localEgg('ctrl', mem)
+}
+
+Flag.prototype.declaimerEgg = function (mem) {
+  return this.maxEgg('declaimer', mem)
 }
 
 Flag.prototype.defenderEgg = function (mem) {
@@ -149,6 +165,11 @@ Flag.prototype.miniEgg = function (mem) {
     egg: {body: 'mini'}})
 }
 
+Flag.prototype.paverEgg = function () {
+  return this.closeEgg('paver', {
+    egg: {body: 'worker'}})
+}
+
 Flag.prototype.rebootEgg = function () {
   return this.localEgg('reboot')
 }
@@ -163,6 +184,21 @@ Flag.prototype.scoutEgg = function (mem) {
 
 Flag.prototype.towerEgg = function () {
   return this.remoteEgg('tower')
+}
+
+Flag.prototype.truckagaEgg = function (mem) {
+  return this.closeEgg('truckaga', {
+    egg: {body: 'collector'}})
+}
+
+Flag.prototype.truckerEgg = function (mem) {
+  return this.closeEgg('trucker', {
+    egg: {body: 'collector'}})
+}
+
+Flag.prototype.upgraderEgg = function () {
+  return this.localEgg('upgrader', {
+    egg: {body: 'worker'}})
 }
 
 Flag.prototype.wolfEgg = function () {

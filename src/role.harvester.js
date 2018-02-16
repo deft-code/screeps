@@ -5,9 +5,21 @@ module.exports = class CreepHarvester {
     return this.roleHarvester(1)
   }
 
+  afterHarvestaga () {
+    return this.afterHarvester()
+  }
+
+  afterHarvester () {
+    this.idleBuild() || this.idleRepair()
+  }
+
   roleHarvester (card = 0) {
     let what = this.taskTask()
     if (what) return what
+
+    if (!this.team.room) {
+      return this.moveRoom(this.team)
+    }
 
     let src = lib.lookup(this.memory.src)
     if (!src) {

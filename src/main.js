@@ -1,3 +1,4 @@
+require('matrix')
 require('Traveler')
 require('flag')
 require('globals')
@@ -6,6 +7,7 @@ require('path')
 require('room')
 require('room.keeper')
 require('source')
+require('perma')
 
 require('struct')
 const terminals = require('struct.terminal')
@@ -14,6 +16,8 @@ require('struct.link')
 require('struct.controller')
 require('struct.container')
 require('struct.lab')
+
+const market = require('market')
 
 require('team')
 require('team.egg')
@@ -48,6 +52,7 @@ const mods = [
   'role.collector',
   'role.coresrc',
   'role.ctrl',
+  'role.declaimer',
   'role.defender',
   'role.drain',
   'role.dropper',
@@ -61,6 +66,7 @@ const mods = [
   'role.minecart',
   'role.miner',
   'role.mineral',
+  'role.paver',
   'role.ram',
   'role.reboot',
   'role.reserver',
@@ -68,6 +74,7 @@ const mods = [
   'role.shunt',
   'role.srcer',
   'role.stomper',
+  'role.trucker',
   'role.upgrader',
   'role.wolf',
   'role.worker'
@@ -134,6 +141,9 @@ function main () {
 
   drain(null, 'W22N19')
 
+  // const eye = lib.lookup('59d2525b7101a04915bb71a5')
+  // debug.log(eye, eye.observeRoom('W32N19'))
+
   // Game.rooms.W24N17.drawSpots()
   // Game.rooms.W24N17.keeper().draw()
 
@@ -153,7 +163,10 @@ function main () {
   if (canRun(Game.cpu.getUsed(), 4000)) {
     spawn.run()
   }
-  shuffleRun(rooms, 5000, 'otherTowers')
+  shuffleRun(rooms, 5000,
+    'otherTowers',
+    'stats'
+  )
   if (canRun(Game.cpu.getUsed(), 9000)) {
     terminals.run()
   }
@@ -163,8 +176,27 @@ function main () {
     'runKeeper',
     'runLabs',
     'runLinks',
-    'runTerminal',
+    // 'runTerminal',
     'spawningRun'
   )
-  debug.log('Run', Math.floor(Game.cpu.getUsed()), '/', Game.cpu.limit, Game.cpu.bucket, Game.time)
+  if (canRun(Game.cpu.getUsed(), 9000)) {
+    market.run()
+  }
+  // debug.log('Run', Math.floor(Game.cpu.getUsed()), '/', Game.cpu.limit, Game.cpu.bucket, Game.time)
+
+  Memory.stats.ncreeps = _.size(Game.creeps)
+  Memory.stats.mcreeps = _.size(Memory.creeps)
+  Memory.stats.nstructs = _.size(Game.structures)
+  Memory.stats.nsites = _.size(Game.constructionSites)
+  Memory.stats.nspawns = _.size(Game.spawns)
+  Memory.stats.nspawning = _.filter(Game.spawns, s => s.spawning).length
+  Memory.stats.spawntime = _.sum(Game.spawns, s => (s.spawning && s.spawning.remainingTime) || 0)
+  Memory.stats.spawntimetotal = _.sum(Game.spawns, s => (s.spawning && s.spawning.needTime) || 0)
+  Memory.stats.cpu = Game.cpu
+  Memory.stats.gcl = {
+    level: Game.gcl.level,
+    progress: Math.floor(Game.gcl.progress),
+    progressTotal: Math.floor(Game.gcl.progressTotal)
+  }
+  Memory.stats.cpu.used = Math.floor(Game.cpu.getUsed())
 }

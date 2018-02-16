@@ -238,11 +238,72 @@ class TerminalExtra {
   }
 }
 
+lib.merge(StructureTerminal, TerminalExtra)
+
 Room.prototype.runTerminal = function () {
   const t = this.terminal
   if (!t || !t.my || this.controller.level < 6) return false
 
   this.terminal.run()
+}
+
+function mineralBalance () {
+  const terminals = _.shuffle(Game.terminals)
+  for (const from of terminals) {
+    if (from.cooldown) continue
+    const rs = _.shuffle(_.keys(from.store))
+    for (const r of rs) {
+      if (r === RESOURCE_ENERGY) continue
+      if (r === RESOURCE_POWER) continue
+
+      if (from.store[r] > 100) {
+        const have = _.any(from.room.findStructs(STRUCTURE_LAB),
+        l => l.planType === r)
+        for (const dest of terminals) {
+          if (!dest.store[r]) {
+            const need = _.any(dest.room.findStructs(STRUCTURE_LAB),
+            l => l.planType === r)
+            if (!need) continue
+            let num = 0
+            if (from.store[r] >= 200) {
+              num = Math.min(1000, Math.floor(from.store[r] / 2))
+            }
+            if (from.store[r] < 200 && !have) {
+              num = from.store[r]
+            }
+            if (num) {
+              const err = from.send(r, num, dest.room.name)
+              debug.log(`Terminal send ${err}: ${from.room.name} ${r}x${num} ${dest.room.name}`)
+              return dest.room.name
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+function sellOff () {
+  const ts = _.shuffle(Game.terminals)
+  for (const t of ts) {
+    if (t.cooldown) continue
+    if (t.storeTotal < 150000) continue
+    const rs = _.shuffle(_.keys(t.store))
+    t.room.dlog('resources', rs)
+    for (const r of rs) {
+      if (r === RESOURCE_ENERGY) continue
+      if (r === RESOURCE_POWER) continue
+      if (t.store[r] > kMaxMineral) {
+        if (t.store.energy > 1000) {
+          if (t.sell(r) === OK) {
+            t.room.log('auto sale!', r)
+            return 'sell:' + r
+          }
+        }
+      }
+    }
+  }
+  return false
 }
 
 function energyBalance () {
@@ -265,10 +326,11 @@ function energyBalance () {
   // debug.log('recv', recv.room, recv.store.energy, delta, amount)
   const err = send.send(RESOURCE_ENERGY, amount, recv.room.name)
   debug.log('BALANCED', err, send.room.name, recv.room.name, amount)
+  return err === OK
 }
 
 exports.run = function (x) {
-  energyBalance()
+  mineralBalance() ||
+  energyBalance() ||
+    sellOff()
 }
-
-lib.merge(StructureTerminal, TerminalExtra)

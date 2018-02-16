@@ -135,7 +135,6 @@ Creep.prototype.spawningRun = function () {
     return
   }
   if (!this.memory.home) {
-    debug.log(this)
     this.memory.home = this.room.name
     this.memory.cpu = 0
   }

@@ -109,7 +109,7 @@ function balanceLinks (room) {
   let cache = balanceCache[room.name]
   room.dlog(JSON.stringify(cache))
   if (!cache || links.length !== cache.nlinks) {
-    room.log('refresh links', links.length, JSON.stringify(cache))
+    room.dlog('refresh links', links.length, JSON.stringify(cache))
     cache = {
       nlinks: links.length
     }
@@ -120,16 +120,20 @@ function balanceLinks (room) {
       room.visual.text('ctrl', ctrl.pos.x, ctrl.pos.y + 1)
     }
 
-    const store = room.storage.pos.findClosestByRange(links)
-    if (store.pos.inRangeTo(room.storage, 2)) {
-      cache.store = store.id
-      room.visual.text('store', store.pos.x, store.pos.y + 1)
+    if (room.storage) {
+      const store = room.storage.pos.findClosestByRange(links)
+      if (store.pos.inRangeTo(room.storage, 2)) {
+        cache.store = store.id
+        room.visual.text('store', store.pos.x, store.pos.y + 1)
+      }
     }
 
-    const term = room.terminal.pos.findClosestByRange(links)
-    if (term.pos.inRangeTo(room.terminal, 2)) {
-      cache.term = term.id
-      room.visual.text('term', term.pos.x, term.pos.y + 1)
+    if (room.terminal) {
+      const term = room.terminal.pos.findClosestByRange(links)
+      if (term.pos.inRangeTo(room.terminal, 2)) {
+        cache.term = term.id
+        room.visual.text('term', term.pos.x, term.pos.y + 1)
+      }
     }
     balanceCache[room.name] = cache
   }
@@ -211,7 +215,13 @@ Room.prototype.runLinks = function () {
     if (!ran) {
       ran = link.run()
     }
-    this.visual.text(link.mode, link.pos)
+    let t = '?'
+    if (link.mode === 'src') {
+      t = '+'
+    } else if (link.mode === 'sink') {
+      t = '-'
+    }
+    this.visual.text(t, link.pos)
   }
   balanceLinks(this)
 }

@@ -4,8 +4,7 @@ const kMaxStall = 5
 
 const gCache = {}
 
-exports.draw = (roomName) => {
-  const mat = exports.get(roomName)
+exports.drawMat = function (mat, roomName) {
   const vis = new RoomVisual(roomName)
   for (let x = 0; x < 50; x++) {
     for (let y = 0; y < 50; y++) {
@@ -15,8 +14,60 @@ exports.draw = (roomName) => {
       } else if (v === 1) {
         vis.circle(x, y, {fill: 'white', opacity: 1})
       } else if (v > 0) {
-        vis.circle(x, y, {fill: 'blue', opacity: 1})
+        if (v < 10) {
+          vis.circle(x, y, {fill: 'green', opacity: 1})
+        } else {
+          vis.circle(x, y, {fill: 'blue', opacity: 1})
+        }
       }
+    }
+  }
+}
+
+exports.draw = (roomName) => {
+  exports.drawMat(exports.get(roomName), roomName)
+}
+
+exports.addStructures = function (mat, room) {
+  for (const struct of room.find(FIND_STRUCTURES)) {
+    const [x, y] = [struct.pos.x, struct.pos.y]
+    switch (struct.structureType) {
+      case STRUCTURE_RAMPART:
+        if (!struct.my) {
+          mat.set(x, y, 0xff)
+        }
+        break
+
+      case STRUCTURE_ROAD:
+        mat.set(x, y, 1)
+        break
+
+      case STRUCTURE_CONTROLLER:
+      case STRUCTURE_EXTRACTOR:
+        // There is a wall underneath.
+        break
+
+      case STRUCTURE_KEEPER_LAIR:
+        exports.setArea(mat, struct.pos, 3, 20)
+        break
+
+      default:
+        if (struct.structureType !== STRUCTURE_CONTAINER) {
+          mat.set(x, y, 0xff)
+        }
+        break
+    }
+  }
+  for (const site of room.find(FIND_MY_CONSTRUCTION_SITES)) {
+    const [x, y] = [site.pos.x, site.pos.y]
+    switch (site.structureType) {
+      case STRUCTURE_RAMPART:
+      case STRUCTURE_ROAD:
+      case STRUCTURE_CONTAINER:
+        break
+      default:
+        mat.set(x, y, 0xff)
+        break
     }
   }
 }
@@ -34,7 +85,7 @@ exports.get = (roomName) => {
   }
 
   const mat = new PathFinder.CostMatrix()
-  addStructures(mat, room)
+  exports.addStructures(mat, room)
   addCreeps(mat, room)
 
   gCache[room.name] = {
@@ -84,15 +135,14 @@ exports.getStallTicks = (creep) => {
   return Game.time - cmem.t
 }
 
-const setArea = (room, mat, pos, range, cost) => {
+exports.setArea = function (mat, pos, range, cost) {
   for (let dx = -range; dx <= range; dx++) {
     for (let dy = -range; dy <= range; dy++) {
       const [x, y] = [pos.x + dx, pos.y + dy]
       if (x < 0 || y < 0) continue
       if (x > 49 || y > 49) continue
-      const t = Game.map.getTerrainAt(x, y, room.name)
+      const t = Game.map.getTerrainAt(x, y, pos.roomName)
       if (t === 'wall') continue
-      // TODO Should swamps be set to more?
       mat.set(x, y, cost)
     }
   }
@@ -111,53 +161,9 @@ const addCreeps = (mat, room) => {
 
     const info = creep.info
     if (info.rangedAttack) {
-      setArea(room, mat, creep.pos, 3, 20)
+      exports.setArea(mat, creep.pos, 3, 20)
     } else if (info.attack) {
-      setArea(room, mat, creep.pos, 1, 20)
-    }
-  }
-}
-
-const addStructures = (mat, room) => {
-  for (const struct of room.find(FIND_STRUCTURES)) {
-    const [x, y] = [struct.pos.x, struct.pos.y]
-    switch (struct.structureType) {
-      case STRUCTURE_RAMPART:
-        if (!struct.my) {
-          mat.set(x, y, 0xff)
-        }
-        break
-
-      case STRUCTURE_ROAD:
-        mat.set(x, y, 1)
-        break
-
-      case STRUCTURE_CONTROLLER:
-      case STRUCTURE_EXTRACTOR:
-        // There is a wall underneath.
-        break
-
-      case STRUCTURE_KEEPER_LAIR:
-        setArea(room, mat, struct.pos, 3, 20)
-        break
-
-      default:
-        if (struct.structureType !== STRUCTURE_CONTAINER) {
-          mat.set(x, y, 0xff)
-        }
-        break
-    }
-  }
-  for (const site of room.find(FIND_MY_CONSTRUCTION_SITES)) {
-    const [x, y] = [site.pos.x, site.pos.y]
-    switch (site.structureType) {
-      case STRUCTURE_RAMPART:
-      case STRUCTURE_ROAD:
-      case STRUCTURE_CONTAINER:
-        break
-      default:
-        mat.set(x, y, 0xff)
-        break
+      exports.setArea(mat, creep.pos, 1, 20)
     }
   }
 }

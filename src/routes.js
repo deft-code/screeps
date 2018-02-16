@@ -8,10 +8,12 @@ Memory.routes = Memory.routes || {}
 exports.isHostile = (roomOrName) => {
   const name = lib.getRoomName(roomOrName)
   switch (name) {
-    case 'W87S89':
-    case 'W83S84':
-    case 'W83S85':
-    case 'W83S86':
+    case 'W22N15':
+    case 'W23N15':
+    case 'W23N16':
+    case 'W25N13':
+    case 'W27N14':
+    case 'W27N16':
       return true
   }
   return false
