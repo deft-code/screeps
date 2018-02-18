@@ -31,6 +31,18 @@ exports.unlookup = (objid) => {
   ids[objid.id] = objid
 }
 
+exports.errStr = (err) => {
+  switch (err) {
+    case ERR_BUSY: return 'ERR_BUSY'
+    case ERR_INVALID_ARGS: return 'ERR_INVALID_ARGS'
+    case ERR_INVALID_TARGET: return 'ERR_INVALID_TARGET'
+    case ERR_NOT_IN_RANGE: return 'ERR_NOT_IN_RANGE'
+    case ERR_TIRED: return 'ERR_TIRED'
+    case OK: return 'OK'
+  }
+  return 'err' + err
+}
+
 exports.getRoomName = (roomOrName) => {
   if (_.isString(roomOrName)) {
     return roomOrName

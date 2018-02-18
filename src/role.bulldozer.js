@@ -39,7 +39,9 @@ module.exports = class CreepBulldozer {
   }
 
   taskStompAll () {
-    return this.taskStomp(this.pos.findClosestByRange(FIND_HOSTILE_CONSTRUCTION_SITES))
+    const sites = _.filter(this.room.find(FIND_HOSTILE_CONSTRUCTION_SITES),
+      s => s.structureType !== STRUCTURE_EXTRACTOR)
+    return this.taskStomp(this.pos.findClosestByRange(sites))
   }
 
   taskStomp (site) {

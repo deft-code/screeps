@@ -181,24 +181,12 @@ const autoReact = (flag) => {
   autoSet(flag, flag.memory.target)
 }
 
-const reactOrder = [
-  RESOURCE_CATALYZED_UTRIUM_ACID,
-  RESOURCE_CATALYZED_GHODIUM_ACID,
-  RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
-  RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
-  RESOURCE_CATALYZED_ZYNTHIUM_ACID,
-  RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
-  RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
-  RESOURCE_GHODIUM,
-  RESOURCE_CATALYZED_LEMERGIUM_ACID
-]
-
 StructureTerminal.prototype.autoReact = function () {
   if ((Game.time + this.pos.xy) % 500 !== 0) return
   if (this.room.findStructs(STRUCTURE_LAB).length < 3) return
 
   this.room.log('Auto Reaction')
-  for (const ar of reactOrder) {
+  for (const ar of k.ReactOrder) {
     this.room.log('auto reacting', ar)
     if ((this.store[ar] || 0) > 9000) continue
     for (const r of k.ReactionAll[ar]) {

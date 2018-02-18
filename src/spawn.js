@@ -339,6 +339,7 @@ function buildBody (spawns, eggMem) {
     case 'scout':
       spawn = _.find(spawns,
         s => s.room.energyAvailable >= 300)
+      if (!spawn) break
       body = [MOVE]
       debug.log('scout', spawns, spawn, body)
       break

@@ -104,7 +104,8 @@ Flag.prototype.teamDeclaim = function () {
 
 Flag.prototype.teamWipe = function () {
   const ss = this.room.find(FIND_HOSTILE_STRUCTURES)
-  if (!ss || _.all(ss, s => s.structureType === STRUCTURE_RAMPART || s.structureType === STRUCTURE_CONTROLLER)) {
+  const target = this.pos.lookFor(LOOK_STRUCTURES)
+  if (target.length < 1 && (!ss || _.all(ss, s => s.structureType === STRUCTURE_RAMPART || s.structureType === STRUCTURE_CONTROLLER))) {
     this.setColor(COLOR_BLUE, COLOR_BROWN)
     return
   }
@@ -113,8 +114,9 @@ Flag.prototype.teamWipe = function () {
 
 Flag.prototype.teamWho = function () {
   const r = this.what().toLowerCase()
-  this.dlog('new creep', r)
-  return this.paceRole(r, 1500, {})
+  const pace = this.memory.pace || 1500
+  this.dlog('new creep', r, pace)
+  return this.paceRole(r, pace, {})
 }
 
 Flag.prototype.teamDone = function () {

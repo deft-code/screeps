@@ -24,14 +24,21 @@ Room.prototype.contForMineral = function (mineral) {
 
 module.exports = class CreepChemist {
   roleChemist () {
-    this.dlog('role chemist')
-    return this.taskTask() ||
-      this.taskMoveRoom(this.team) ||
-      this.taskResortMinerals() ||
-      this.taskSortMinerals() ||
+    const what = this.taskTask() ||
+      this.taskMoveRoom(this.team)
+    if (what) return what
+
+    if (this.carryTotal) {
+      return this.taskNukerFill() ||
+        this.taskSortMinerals() ||
+        this.taskLabEnergy()
+    }
+
+    return this.taskResortMinerals() ||
       this.taskLabFill() ||
       this.taskLabEnergy() ||
-      this.moveNear(this.room.terminal)
+      this.taskNukerFill() ||
+      this.moveRange(this.room.terminal)
   }
 
   afterChemist () {
@@ -43,14 +50,23 @@ module.exports = class CreepChemist {
 
     const lab = _.find(this.room.findStructs(STRUCTURE_LAB),
       s => s.energyFree)
+    this.dlog(lab)
     if (lab) {
       return this.taskTransfer(lab, RESOURCE_ENERGY) || this.taskWithdraw(this.room.terminal, RESOURCE_ENERGY)
     }
     return this.taskTransfer(this.room.terminal, RESOURCE_ENERGY)
   }
 
+  taskNukerFill () {
+    if (!this.room.terminal.store[RESOURCE_GHODIUM]) return false
+    const nuker = _.first(this.room.findStructs(STRUCTURE_NUKER))
+    if (!nuker) return false
+    if (nuker.ghodium >= nuker.ghodiumCapacity) return false
+
+    return this.taskTransfer(nuker, RESOURCE_GHODIUM) || this.taskWithdraw(this.room.terminal, RESOURCE_GHODIUM)
+  }
+
   taskLabFill () {
-    this.dlog('taskLabFill')
     for (const lab of this.room.findStructs(STRUCTURE_LAB)) {
       this.dlog('lab fill type:', lab.planType, 'fill:', lab.mineralFill())
       if (!this.room.terminal.store[lab.planType]) continue

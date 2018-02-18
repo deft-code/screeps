@@ -1,5 +1,6 @@
 const lib = require('lib')
 const debug = require('debug')
+const k = require('constants')
 
 const kEnergyLow = 50000
 const kEnergyHi = 60000
@@ -81,56 +82,45 @@ class TerminalExtra {
   }
 
   sell (resource, amount = 1000) {
-    const order = this.max(resource)
-    if (!order) return order
-    const err = this.deal(order.id, Math.min(order.amount, amount))
-    debug.log(`${this.room.name}:${err} sell ${JSON.stringify(order)}`)
-    return err
+    const orders = _.filter(
+      Game.market.getAllOrders({resourceType: resource}),
+      o => !Game.market.orders[o.id] && o.type === ORDER_BUY && o.amount > 0)
+
+    const order = _.max(orders, o =>
+      100000 * o.price + Game.market.calcTransactionCost(1000, this.room.name, o.roomName))
+    // Order might be -Infinity, but it will result in ERR_INVALID_ARGS
+
+    return this.deal(order, amount)
   }
 
   buy (resource, amount = 1000) {
-    const order = this.min(resource)
-    if (!order) return order
-    const err = this.deal(order.id, Math.min(order.amount, amount))
-    debug.log(`${this.room.name}:${err} buy ${JSON.stringify(order)}`)
+    const orders = _.filter(
+      Game.market.getAllOrders({resourceType: resource}),
+      o => !Game.market.orders[o.id] && o.type === ORDER_SELL && o.amount > 0)
+
+    const order = _.min(orders, o =>
+      100000 * o.price + Game.market.calcTransactionCost(1000, this.room.name, o.roomName))
+    // Order might be Infinity, but it will result in ERR_INVALID_ARGS
+
+    return this.deal(order, amount)
+  }
+
+  deal (order, amount = 1000) {
+    const err = Game.market.deal(order.id, Math.min(order.amount, amount), this.room.name)
+    this.room.log(`${lib.errStr(err)} ${JSON.stringify(order)}`)
     return err
   }
 
-  deal (id, amount = 1000) {
-    return Game.market.deal(id, amount, this.room.name)
-  }
-
   buyOrder (resource, amount = 10000) {
-    const [mnid, mxid] = this.calc(resource)
-    const mn = Game.market.getOrderById(mnid)
-    const mx = Game.market.getOrderById(mxid)
-
-    const price = Math.min(
-      // Safety net never buy for more than 10.
-      10 * 1000,
-      Math.round(1000 * mx.price) + 1,
-      Math.round(1000 * mn.price))
-
-    return this.order(ORDER_BUY, resource, price, amount)
+    const m = Memory.market[resource]
+    const p = Math.min(Math.max(m.buy + 1, m.buy95), Math.round(1.1 * m.buy99))
+    return this.order(ORDER_BUY, resource, p, amount)
   }
 
   sellOrder (resource, amount = 10000) {
-    const [mnid, mxid] = this.calc(resource)
-    const mn = Game.market.getOrderById(mnid)
-    const mx = Game.market.getOrderById(mxid)
-
-    const mnp = Math.round(1000 * mn.price)
-
-    const price = Math.min(
-      10 * 1000,
-      2 * mnp,
-      Math.max(
-        Math.round(1000 * mx.price),
-        mnp - 1))
-
-    debug.log(`sell order ${this.room} price:${price} mn:${mn.price}, mx:${mx.price}`)
-
-    return this.order(ORDER_SELL, resource, price, amount)
+    const m = Memory.market[resource]
+    const p = Math.max(Math.min(m.sell - 1, m.sell95), Math.round(0.9 * m.sell99))
+    return this.order(ORDER_SELL, resource, p, amount)
   }
 
   order (type, resource, price, amount) {
@@ -143,142 +133,59 @@ class TerminalExtra {
 
     if (myOrder) {
       const op = Math.round(myOrder.price * 1000)
-      let err
-      if (op !== price) {
-        err = Game.market.changeOrderPrice(myOrder.id, price / 1000)
-        debug.log(`Updating price:'${err}' to ${price} on ${JSON.stringify(myOrder)}`)
+      const dp = Math.abs(op - price)
+      if (price < 10 * dp) {
+        const err = Game.market.changeOrderPrice(myOrder.id, price / 1000)
+        this.room.log(`Updating price:'${err}' to ${price} on ${JSON.stringify(myOrder)}`)
         if (err !== OK) {
           return err
         }
       }
       if (2 * myOrder.remainingAmount < amount) {
-        err = Game.market.extendOrder(myOrder.id, amount - myOrder.remainingAmount)
+        const err = Game.market.extendOrder(myOrder.id, amount - myOrder.remainingAmount)
         debug.log(`Updating amount:'${err}' to ${amount}: ${JSON.stringify(myOrder)}`)
         if (err !== OK) {
           return err
         }
       }
-      return err
-    } else {
-      const err = Game.market.createOrder(type, resource, price / 1000, amount, this.room.name)
-      debug.log(`Creating order:'${err}' ${this}, ${resource}`)
-      return err
+      return OK
     }
+
+    const err = Game.market.createOrder(type, resource, price / 1000, amount, this.room.name)
+    this.room.log(`Creating order:'${err}' ${resource}`)
+    return err
   }
 
-  run () {
-    if (this.cooldown) return
-    return this.runBalance() ||
-      this.runBuys()
-  }
-
-  runBalance () {
-    const terminals = _.shuffle(_.map(_.filter(Game.rooms, r => r.terminal && r.terminal.my), 'terminal'))
-    const rs = _.shuffle(_.keys(this.store))
-    for (const r of rs) {
-      if (r === RESOURCE_ENERGY) continue
-      if (r === RESOURCE_POWER) continue
-
-      if (this.store[r] > 100) {
-        const have = _.any(this.room.findStructs(STRUCTURE_LAB),
-          l => l.planType === r)
-        for (const terminal of terminals) {
-          if (!terminal.store[r]) {
-            const need = _.any(terminal.room.findStructs(STRUCTURE_LAB),
-              l => l.planType === r)
-            if (!need) continue
-            let num = 0
-            if (this.store[r] >= 200) {
-              num = Math.min(1000, Math.floor(this.store[r] / 2))
-            }
-            if (this.store[r] < 200 && !have) {
-              num = this.store[r]
-            }
-            if (num) {
-              const err = this.send(r, num, terminal.room.name)
-              console.log(`Terminal send ${err}: ${this.room.name} ${r}x${num} ${terminal.room.name}`)
-              return terminal.room.name
-            }
-          }
-        }
-        if (this.store[r] > kMaxMineral) {
-          // TODO renable later
-          // this.sellOrder(r);
-          if (this.store.energy > 1000) {
-            if (this.sell(r) === OK) {
-              debug.log('auto sale!')
-              return 'sell:' + r
-            }
-          }
-        }
-      }
-    }
-    return false
-  }
-
-  runBuys () {
+  autoBuy (mineral) {
+    if (!_.contains(k.CoreMinerals, mineral)) return false
     if (Game.market.credits < 100000) return false
-
-    const labs = _.shuffle(this.room.findStructs(STRUCTURE_LAB))
-    for (const lab of labs) {
-      if (!lab.planType) continue
-      if (lab.mineralType && lab.planType !== lab.mineralType) continue
-      if (lab.planType.length !== 1 || lab.planType === RESOURCE_GHODIUM) continue
-      if (this.store[lab.planType]) continue
-      if (lab.mineralAmount >= 5) continue
-      // TODO reenable later.
-      // this.buyOrder(lab.planType);
-      const err = this.buy(lab.planType)
-      debug.log('autobuy', err, lab.room.name, lab.planType)
-      if (err === OK) {
-        return `autobuy:${lab.planType}:${this.room.name}`
-      }
-    }
-    return false
   }
 }
 
 lib.merge(StructureTerminal, TerminalExtra)
 
-Room.prototype.runTerminal = function () {
-  const t = this.terminal
-  if (!t || !t.my || this.controller.level < 6) return false
+StructureTerminal.prototype.requestMineral = function (mineral, max = 1000) {
+  const terminals = _.filter(Game.terminals,
+    t => !t.cooldown && t.id !== this.id && t.store[mineral] > 200)
+  if (terminals.length === 0) return false
 
-  this.terminal.run()
+  const best = _.max(terminals, t => t.store[mineral])
+  const num = Math.min(max, Math.floor(best.store[mineral] / 2))
+  const err = best.send(mineral, num, this.room.name)
+  this.room.log(`Terminal send ${lib.errStr(err)}: ${best.room.name} ${mineral}x${num}`)
+  return best.room.name
 }
 
 function mineralBalance () {
   const terminals = _.shuffle(Game.terminals)
-  for (const from of terminals) {
-    if (from.cooldown) continue
-    const rs = _.shuffle(_.keys(from.store))
+  for (const t of terminals) {
+    if (t.storeTotal > 250000) continue
+    const rs = _.shuffle(_.uniq(_.map(t.room.findStructs(STRUCTURE_LAB), l => l.planType))).concat(k.ReactOrder)
     for (const r of rs) {
-      if (r === RESOURCE_ENERGY) continue
-      if (r === RESOURCE_POWER) continue
-
-      if (from.store[r] > 100) {
-        const have = _.any(from.room.findStructs(STRUCTURE_LAB),
-        l => l.planType === r)
-        for (const dest of terminals) {
-          if (!dest.store[r]) {
-            const need = _.any(dest.room.findStructs(STRUCTURE_LAB),
-            l => l.planType === r)
-            if (!need) continue
-            let num = 0
-            if (from.store[r] >= 200) {
-              num = Math.min(1000, Math.floor(from.store[r] / 2))
-            }
-            if (from.store[r] < 200 && !have) {
-              num = from.store[r]
-            }
-            if (num) {
-              const err = from.send(r, num, dest.room.name)
-              debug.log(`Terminal send ${err}: ${from.room.name} ${r}x${num} ${dest.room.name}`)
-              return dest.room.name
-            }
-          }
-        }
-      }
+      if (!r) continue
+      if (t.store[r] > 100) continue
+      const ret = t.requestMineral(r)
+      if (ret) return ret
     }
   }
 }
@@ -294,6 +201,7 @@ function sellOff () {
       if (r === RESOURCE_ENERGY) continue
       if (r === RESOURCE_POWER) continue
       if (t.store[r] > kMaxMineral) {
+        t.sellOrder(r)
         if (t.store.energy > 1000) {
           if (t.sell(r) === OK) {
             t.room.log('auto sale!', r)
@@ -331,6 +239,6 @@ function energyBalance () {
 
 exports.run = function (x) {
   mineralBalance() ||
-  energyBalance() ||
+    energyBalance() ||
     sellOff()
 }

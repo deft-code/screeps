@@ -176,7 +176,6 @@ function main () {
     'runKeeper',
     'runLabs',
     'runLinks',
-    // 'runTerminal',
     'spawningRun'
   )
   if (canRun(Game.cpu.getUsed(), 9000)) {
@@ -184,6 +183,8 @@ function main () {
   }
   // debug.log('Run', Math.floor(Game.cpu.getUsed()), '/', Game.cpu.limit, Game.cpu.bucket, Game.time)
 
+  Memory.stats.credits = Game.market.credits
+  Memory.stats.ticks = Game.time
   Memory.stats.ncreeps = _.size(Game.creeps)
   Memory.stats.mcreeps = _.size(Memory.creeps)
   Memory.stats.nstructs = _.size(Game.structures)
