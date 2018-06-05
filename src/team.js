@@ -51,6 +51,10 @@ Flag.prototype.darkTeam = function () {
     return this.teamDone()
   }
 
+  if (this.what().toLowerCase() === 'logo') {
+    logoDraw(this)
+  }
+
   return this.paceRole('scout', 1500, {})
 }
 
@@ -86,8 +90,97 @@ Flag.prototype.teamWhat = function () {
       return this.teamDeclaim()
     case 'wipe':
       return this.teamWipe()
+    case 'logo':
+      return this.teamLogo()
+    case 'commando':
+      return this.teamCommando()
+    case 'startup': return this.teamStartup()
+    case 'zombie':
+      return this.teamZombie()
     default:
       this.log('Bad Mission', w)
+  }
+}
+
+Flag.prototype.teamStartup = function () {
+  if (this.room.storage && this.room.storage.my) {
+    this.pos.createFlag('Home', COLOR_BLUE, COLOR_BLUE)
+    this.setColor(COLOR_BLUE, COLOR_BROWN)
+  }
+  const cap = this.room.energyCapacityAvailable
+  return reboot(this) ||
+    startup(this) ||
+    suppressMicro(this) ||
+    (cap < 550) ||
+    controller(this) ||
+    hauler(this) ||
+    harvester(this) ||
+    (cap < 800) ||
+    worker(this)
+}
+
+Flag.prototype.teamCommando = function () {
+  const ntowers = this.room.findStructs(STRUCTURE_TOWER).length
+  if (ntowers > 3) return false
+  let role = 'rambo'
+  if (ntowers > 2) return 'tonya'
+  if (this.memory.junior) {
+    role += 'jr'
+  }
+  return this.paceRole(role, 1400)
+}
+
+function logoDraw (flag) {
+  const v = new RoomVisual(flag.pos.roomName)
+  const dx = flag.pos.x
+  const dy = flag.pos.y
+  for (let xy of Memory.logo) {
+    const x = Math.floor(xy / 100)
+    const y = xy % 100
+    v.circle(dx + x, dy + y)
+  }
+}
+
+Flag.prototype.teamZombie = function () {
+  let n = 1200
+  let r = 0
+  if (this.room) {
+    if (this.room.storage) r += this.room.storage.storeTotal
+    if (this.room.terminal) r += this.room.terminal.storeTotal
+  }
+  if (r > 100000) n = 900
+  if (r > 200000) n = 600
+  if (r > 300000) n = 300
+
+  return this.paceRole('zombiefarmer', n)
+}
+
+Flag.prototype.teamLogo = function () {
+  logoDraw(this)
+  if (!this.room.controller.my) {
+    return claimer(this)
+  }
+  const nsites = this.room.find(FIND_MY_CONSTRUCTION_SITES).length
+  if (nsites > 0) {
+    if (bootstrap(this, 1400)) return
+  }
+  if (nsites > 3) return
+  if (_.size(Game.constructionSites) > 50) return
+  if (this.room.controller.level < 2) return
+  const dx = this.pos.x
+  const dy = this.pos.y
+  for (let xy of Memory.logo) {
+    const p = this.room.unpackPos(xy)
+    const x = p.x
+    const y = p.y
+    const err = this.room.createConstructionSite(dx + x, dy + y, STRUCTURE_WALL)
+    if (err === OK) return
+    if (err === ERR_RCL_NOT_ENOUGH) return
+  }
+  if (nsites === 0) {
+    this.room.controller.unclaim()
+    _.forEach(this.creeps, c => c.suicide() || true)
+    this.setColor(COLOR_BLUE, COLOR_BROWN)
   }
 }
 
@@ -120,6 +213,15 @@ Flag.prototype.teamWho = function () {
 }
 
 Flag.prototype.teamDone = function () {
+  for (const creep of this.memory.creeps) {
+    const m = Memory.creeps[creep]
+    if (m && m.egg) {
+      this.log('Aborting Egg', creep, JSON.stringify(m))
+      delete Memory.creeps[creep]
+      return false
+    }
+  }
+
   if (this.memory.creeps.length === 0) this.remove()
 }
 
@@ -137,12 +239,18 @@ function gc (flag) {
   return []
 }
 
+Flag.prototype.hasEgg = function (role) {
+  return _.any(this.memory.creeps,
+    c => c.startsWith(role) && Memory.creeps[c] && Memory.creeps[c].egg)
+}
+
 Flag.prototype.paceRole = function (role, rate, mem) {
   if (rate < 150) return false
 
   const when = this.memory.when = this.memory.when || {}
   const wrole = when[role]
   if (!wrole || wrole + rate < Game.time) {
+    if (this.hasEgg(role)) return false
     when[role] = Game.time + _.random(10)
     const fname = `${role}Egg`
     return this[fname](mem)
@@ -189,6 +297,7 @@ Flag.prototype.teamCore = function () {
       defender(this) ||
       tower(this) ||
       bootstrap(this) ||
+      harvester(this) ||
       false
   }
   return reboot(this) ||
@@ -227,7 +336,14 @@ Flag.prototype.teamRemote = function () {
     false
   if (spawned) return spawned
 
-  for (const src of this.room.find(FIND_SOURCES)) {
+  this.makePathway(
+    this.room.find(FIND_SOURCES),
+    Game.storages.concat(Game.terminals))
+}
+
+Flag.prototype.makePathway = function (srcs, dests) {
+  let prevPaths = []
+  for (const src of srcs) {
     let srcPath
     if (!this.memory[src.note]) {
       const cb = (roomName) => {
@@ -241,21 +357,25 @@ Flag.prototype.teamRemote = function () {
         if (r.controller) {
           matrix.setArea(mat, r.controller.pos, 1, 0xf3)
         }
+        for (const n of prevPaths) {
+          const prevPath = new Path(this.memory[n])
+          prevPath.setMat(mat, roomName)
+        }
         return mat
       }
       const before = Game.cpu.getUsed()
-      const dests = _.map(Game.storages,
+      const targets = _.map(dests,
       s => ({
         range: 2,
         pos: s.pos
       }))
-      const ret = PathFinder.search(src.pos, dests, {
+      const ret = PathFinder.search(src.pos, targets, {
         plainCost: 2,
         swampCost: 2,
         heuristicWeight: 1,
         roomCallback: cb
       })
-      srcPath = Path.make(...ret.path.slice(1))
+      srcPath = Path.make(...ret.path)
       this.memory[src.note] = srcPath
       this.log('BUILD PATH', Game.cpu.getUsed() - before, ret.incomplete, ret.path.length, ret.ops)
     } else {
@@ -265,6 +385,7 @@ Flag.prototype.teamRemote = function () {
       this.log('srcPath length', srcPath.length)
       srcPath.draw()
     }
+    prevPaths.push(src.note)
     const i = Game.time % srcPath.length
     const ip = srcPath.get(i)
     const r = Game.rooms[ip.roomName]
@@ -295,11 +416,11 @@ Flag.prototype.teamRemote = function () {
 }
 
 function auxsrc (flag) {
-  return flag.replaceRole('auxsrc', 1)
+  return coresrc(flag, 'auxsrc')
 }
 
-function bootstrap (flag) {
-  return flag.paceRole('bootstrap', 400)
+function bootstrap (flag, n = 400) {
+  return flag.paceRole('bootstrap', n)
 }
 
 function chemist (flag) {
@@ -320,11 +441,13 @@ function controller (flag) {
       cap = k.RCL2Energy
     }
   }
-  return flag.replaceRole('ctrl', 28, {egg: {ecap: cap}})
+  return flag.replaceRole('ctrl', 28, {
+    boosts: [RESOURCE_CATALYZED_GHODIUM_ACID],
+    egg: {ecap: cap}})
 }
 
-function coresrc (flag) {
-  return flag.replaceRole('coresrc', 1)
+function coresrc (flag, role = 'coresrc') {
+  return flag.replaceRole(role, 1)
 }
 
 function hauler (flag) {
@@ -347,34 +470,11 @@ function harvester (flag) {
     flag.paceRole('harvestaga', n)
 }
 
-function reboot (flag) {
-  const creeps = flag.room.find(FIND_MY_CREEPS)
-  if (_.some(creeps, c => c.role === 'hauler')) return false
-
-  return flag.replaceRole('reboot', 1)
-}
-
-function reserve (flag) {
-  if (flag.room.memory.thostiles) return false
-
-  const controller = flag.room.controller
-  const claimed = controller && controller.owner
-  if (claimed) return false
-
-  if (controller.resTicks > 1000) return false
-  let n = 450
-  if (controller.resTicks < 450) {
-    n = 225
-  }
-
-  return flag.paceRole('reserver', n, {})
-}
-
 function cart (flag) {
   const n = flag.room.find(FIND_SOURCES).length
   if (!n) return false
 
-  return flag.paceRole('cart', 1400 / n)
+  return flag.paceRole('cart', 700 / n)
 }
 
 function defender (flag) {
@@ -437,6 +537,29 @@ function paver (flag) {
   return flag.paceRole('paver', 1500)
 }
 
+function reboot (flag) {
+  const creeps = flag.room.find(FIND_MY_CREEPS)
+  if (_.some(creeps, c => c.role === 'hauler' || c.role === 'startup')) return false
+
+  return flag.replaceRole('reboot', 1)
+}
+
+function reserve (flag) {
+  if (flag.room.memory.thostiles) return false
+
+  const controller = flag.room.controller
+  const claimed = controller && controller.owner
+  if (claimed) return false
+
+  if (controller.resTicks > 1000) return false
+  let n = 450
+  if (controller.resTicks < 450) {
+    n = 225
+  }
+
+  return flag.paceRole('reserver', n, {})
+}
+
 function shunts (flag) {
   let ncore = 0
   let naux = 0
@@ -452,11 +575,26 @@ function shunts (flag) {
     flag.replaceRole('aux', naux)
 }
 
+function startup (flag) {
+  const cap = flag.room.energyCapacityAvailable
+  let n = 9000
+  if (cap >= 550) n = 6000
+  if (cap >= 800) n = 3000
+
+  return flag.replaceRole('startup', n)
+}
+
 function suppressGuard (flag) {
-  const t = flag.room.memory.thostiles
+  const t = flag.room.memory.thostiles || 0
   if (t < 3) return false
   const rate = Math.max(1500 - t, 350)
   return flag.paceRole('guard', rate)
+}
+
+function suppressMicro (flag) {
+  const e = flag.room.memory.tenemies
+  if (!e) return false
+  return flag.paceRole('micro', 1500)
 }
 
 function suppressMini (flag) {
@@ -466,7 +604,7 @@ function suppressMini (flag) {
 }
 
 function suppressWolf (flag) {
-  const t = flag.room.memory.thostiles
+  const t = flag.room.memory.thostiles || 0
   if (t < 300) return false
   const rate = Math.max(1500 - t, 350)
   return flag.paceRole('wolf', rate)
@@ -492,14 +630,19 @@ function upgrader (flag) {
   return flag.replaceRole('upgrader', n)
 }
 
+function nworker (room) {
+  if (room.find(FIND_MY_CONSTRUCTION_SITES).length) return 1
+  if (room.storage && room.storage.my && room.storage.store.energy > 500000) return 1
+  if (_.any(room.findStructs(STRUCTURE_CONTAINER), s => s.hits < 10000)) return 1
+
+  if (room.storage && room.storage.my && room.storage.energy < 160000) return 0
+
+  const wr = _.sample(room.findStructs(STRUCTURE_WALL, STRUCTURE_RAMPART))
+  if (wr && wr.hits < room.wallMax) return 1
+
+  return 0
+}
+
 function worker (flag) {
-  let n = 0
-  if (flag.room.find(FIND_MY_CONSTRUCTION_SITES).length) {
-    n = 1
-  } else if (flag.room.storage && flag.room.storage.my && flag.room.storage.store.energy > 500000) {
-    n = 1
-  } else if (_.any(flag.room.findStructs(STRUCTURE_CONTAINER), s => s.hits < 10000)) {
-    n = 1
-  }
-  return flag.replaceRole('worker', n)
+  return flag.replaceRole('worker', nworker(flag.room))
 }

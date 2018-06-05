@@ -1,8 +1,6 @@
-const lib = require('lib')
-
 module.exports = class CreepMHauler {
   roleMineral () {
-    const cont = lib.lookup(this.memory.cont)
+    const cont = Game.getObjectById(this.memory.cont)
     if (!cont) return this.idleRecycle()
 
     if (this.movePos(cont)) return 'moving'

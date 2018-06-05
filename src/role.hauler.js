@@ -5,12 +5,12 @@ module.exports = class CreepHauler {
 
     if (!this.atTeam) return this.taskMoveFlag(this.team)
 
-    if (this.room.myStorage &&
+    if (this.room.storage && this.room.storage.storeCapacity &&
       this.ticksToLive < 2 * this.pos.getRangeTo(this.room.storage)) {
       return this.taskTransferStorage()
     }
 
-    what = this.taskTransferTowers(100)
+    what = this.taskTransferTowers(200)
     if (what) return what
 
     if (this.room.energyFreeAvailable) {
@@ -56,7 +56,7 @@ module.exports = class CreepHauler {
       return false
     }
 
-    what = this.taskTransferTowers(800)
+    what = this.taskTransferTowers(750)
     if (what) return what
 
     const structs = _.shuffle(this.room.findStructs(
@@ -88,7 +88,7 @@ module.exports = class CreepHauler {
   }
 
   taskTransferStorage () {
-    if (!this.room.myStorage) return false
+    if (!this.room.storage) return false
     const res = _.sample(_.keys(this.carry))
     if (!this.carry[res]) return false
     return this.taskTransfer(this.room.storage, res)

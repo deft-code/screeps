@@ -1,10 +1,11 @@
+const routes = require('routes')
 module.exports = class CreepBootstrap {
+  roleStartup () { return this.roleBootstrap() }
+  afterStartup () { return this.afterBootstrap() }
+
   roleBootstrap () {
-    this.dlog('enter bootstrap')
     let what = this.idleEmergencyUpgrade() || this.taskTask()
     if (what) return what
-
-    this.dlog('bootstrap retask')
 
     if (!this.atTeam) {
       return this.taskMoveFlag(this.team)
@@ -47,13 +48,24 @@ module.exports = class CreepBootstrap {
       this.idleNom()
       this.idleRecharge()
       this.idleTransferExtra()
+      // This drains all energy on Storage and prevents extension filling
+      // this.idleBuild() || this.idleRepair()
     } else if (this.carryTotal) {
-      this.drop(RESOURCE_ENERGY)
-      this.say('Dump!')
+      if (routes.dist(this.team.pos.roomName, this.room.name) > 1) {
+        this.drop(RESOURCE_ENERGY)
+        this.say('Dump!')
+      } else {
+        if (Game.time % 2 === 0) {
+          this.say('I think')
+        } else {
+          this.say('I can')
+        }
+      }
     }
 
     if (this.carryTotal > this.carryFree) {
       this.idleBuild() || this.idleRepair() || this.idleUpgrade()
     }
+    this.idleHarvest()
   }
 }

@@ -1,11 +1,8 @@
-const lib = require('lib')
-const debug = require('debug')
-
 module.exports = class CreepMineral {
   roleMineral () {
-    let cont = lib.lookup(this.memory.cont)
+    let cont = Game.getObjectById(this.memory.cont)
     if (!cont) {
-      debug.log('Missing cont')
+      this.log('Missing cont')
       return false
       // return this.idleRecycle()
     }
@@ -22,6 +19,5 @@ module.exports = class CreepMineral {
 
     this.log(ret)
     return false
-    // return this.idleRecycle()
   }
 }

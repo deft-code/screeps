@@ -1,4 +1,4 @@
-const debug = require('debug')
+// const debug = require('debug')
 const k = require('constants')
 
 if (!Memory.market) {
@@ -39,7 +39,7 @@ exports.run = function () {
     m.buy95 = Math.round((m.buy95 * 19 + bPrice) / 20)
     m.buy99 = Math.round((m.buy99 * 99 + bPrice) / 100)
   } else {
-    debug.log('Too Few buy offers', r)
+    // debug.log('Too Few buy offers', r)
   }
 
   if (sPrice > 0) {
@@ -47,7 +47,7 @@ exports.run = function () {
     m.sell95 = Math.round((m.sell95 * 19 + sPrice) / 20)
     m.sell99 = Math.round((m.sell99 * 99 + sPrice) / 100)
   } else {
-    debug.log('Too Few sell offers', r)
+    // debug.log('Too Few sell offers', r)
   }
 }
 

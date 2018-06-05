@@ -2,7 +2,7 @@ const kStuckCreep = 100
 const kStuckRange = 2
 const kMaxStall = 5
 
-const gCache = {}
+let gCache = {}
 
 exports.drawMat = function (mat, roomName) {
   const vis = new RoomVisual(roomName)
@@ -33,7 +33,8 @@ exports.addStructures = function (mat, room) {
     const [x, y] = [struct.pos.x, struct.pos.y]
     switch (struct.structureType) {
       case STRUCTURE_RAMPART:
-        if (!struct.my) {
+        if (!struct.my && !struct.isPublic) {
+          // debug.warn(room.name, struct.isPublic)
           mat.set(x, y, 0xff)
         }
         break
@@ -72,15 +73,21 @@ exports.addStructures = function (mat, room) {
   }
 }
 
+const kNull = new PathFinder.CostMatrix()
+
 exports.get = (roomName) => {
   const entry = gCache[roomName]
   const room = Game.rooms[roomName]
   if (!entry) {
-    if (!room) return new PathFinder.CostMatrix()
+    if (!room) {
+      // console.log(`Null Matrix ${roomName}`)
+      return {_bits: kNull._bits}
+    }
   } else {
     if (entry.t === Game.time || !room) {
       if (!room) console.log(`Blind Matrix ${roomName}`)
-      return entry.mat
+      // return PathFinder.CostMatrix.deserialize(entry.mat)
+      return {_bits: entry.mat}
     }
   }
 
@@ -90,9 +97,9 @@ exports.get = (roomName) => {
 
   gCache[room.name] = {
     t: Game.time,
-    mat: mat
+    mat: mat._bits
   }
-  return mat
+  return {_bits: mat._bits}
 }
 
 exports.repath = (me) => (roomName) => {

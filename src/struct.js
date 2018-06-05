@@ -1,5 +1,5 @@
-const util = require('util')
 const lib = require('lib')
+const util = require('util')
 
 class StructureExtra {
   get note () {

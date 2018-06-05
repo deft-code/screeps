@@ -16,12 +16,14 @@ module.exports = class CreepScout {
     }
     this.dlog('Scout move')
     return this.moveRoom(this.team) ||
+      this.taskStompAll() ||
       this.moveRange(this.team)
   }
 
   goSign () {
     if (!this.room.controller) return false
-    const want = signs[this.room.name] || ''
+    const want = signs[this.room.name]
+    if (!want) return false
     let sign = false
     if (want.length) {
       sign = !this.room.controller.sign ||
@@ -44,10 +46,13 @@ module.exports = class CreepScout {
 }
 
 const signs = {
+  E17S19: "Shibdib's Doorbell",
+  W18N18: 'Zombie Farm',
+  W19N18: 'Zombie Farm',
   W21N18: 'RIP Ricochet1k',
   W22N12: 'Strongmint Was Here',
   W22N19: 'The Pit',
-  W23N17: 'Just Goofin Around',
+  W23N17: "You weren't using it",
   W23N18: 'Here lies Loena',
   W24N17: 'Fortress of Solitude',
   W24N18: 'Remote Harvestation',

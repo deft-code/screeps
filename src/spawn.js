@@ -34,6 +34,8 @@ exports.run = () => {
       done[sr] = true
       done[tr] = true
       delete Memory.creeps[egg].egg
+      Memory.creeps[egg].home = sr
+      Memory.creeps[egg].start = Game.time
     }
   }
 }
@@ -163,9 +165,11 @@ function energySpawn (spawns, min, max = 12300) {
 function buildBody (spawns, eggMem) {
   let spawn
   let body = []
+  let e
   switch (eggMem.body) {
     case 'bootstrap':
-      spawn = energySpawn(spawns, 1300)
+      // spawn = energySpawn(spawns, 1300)
+      spawn = energySpawn(spawns, 800)
       if (!spawn) break
       body = energyDef(_.defaults({}, eggMem, {
         move: 2,
@@ -193,18 +197,17 @@ function buildBody (spawns, eggMem) {
       })
       break
     case 'chemist':
-      spawn = energySpawn(spawns, 750)
-      if (!spawn) break
       body = [CARRY, CARRY, MOVE,
         CARRY, CARRY, MOVE,
         CARRY, CARRY, MOVE,
         CARRY, CARRY, MOVE,
         CARRY, CARRY, MOVE]
+      spawn = energySpawn(spawns, bodyCost(body))
+      if (!spawn) break
       break
     case 'claimer':
-      spawn = energySpawn(spawns, 650)
-      if (!spawn) break
       body = [MOVE, CLAIM]
+      spawn = energySpawn(spawns, bodyCost(body))
       break
     case 'cleaner':
       spawn = energySpawn(spawns, 650)
@@ -224,10 +227,10 @@ function buildBody (spawns, eggMem) {
       }))
       break
     case 'coresrc':
-      spawn = _.find(spawns,
-        s => s.room.energyAvailable >= 700)
-      if (!spawn) break
       body = [WORK, WORK, WORK, WORK, WORK, WORK, CARRY, MOVE]
+      e = bodyCost(body)
+      spawn = _.find(spawns,
+        s => s.room.energyAvailable >= e)
       break
     case 'ctrl':
       [spawn, body] = buildCtrl(spawns, eggMem)
@@ -255,13 +258,16 @@ function buildBody (spawns, eggMem) {
       spawn = _.find(spawns,
         s => s.room.energyAvailable >= eggMem.energy)
       if (!spawn) break
+      if (spawn.room.energyAvailable < 550) {
+        eggMem.energy = spawn.room.energyAvailable
+      }
       body = energyDef(_.defaults({}, eggMem, {
         move: 2,
         per: [CARRY]
       }))
       break
     case 'farmer':
-      spawn = energySpawn(spawns, 550)
+      spawn = energySpawn(spawns, 300)
       if (!spawn) break
       body = energyDef({
         move: 1,
@@ -293,12 +299,19 @@ function buildBody (spawns, eggMem) {
       }))
       break
     case 'miner':
-      spawn = energySpawn(spawns, 800)
+      spawn = energySpawn(spawns, 800) ||
+        energySpawn(spawns, 550) ||
+        energySpawn(spawns, 400)
       if (!spawn) break
-      body = [MOVE, MOVE, MOVE, CARRY, WORK, WORK, WORK, WORK, WORK, WORK]
-      if (spawn.room.energyAvailable >= 800) {
-        body.push(MOVE, MOVE)
-      }
+      e = spawn.room.energyAvailable
+      body = [MOVE, CARRY, WORK, WORK, WORK]
+      if (e >= 450) body = [MOVE, MOVE, CARRY, WORK, WORK, WORK]
+      if (e >= 500) body = [MOVE, CARRY, WORK, WORK, WORK, WORK]
+      if (e >= 550) body = [MOVE, MOVE, CARRY, WORK, WORK, WORK, WORK]
+      if (e >= 600) body = [MOVE, CARRY, WORK, WORK, WORK, WORK, WORK]
+      if (e >= 650) body = [MOVE, MOVE, CARRY, WORK, WORK, WORK, WORK, WORK]
+      if (e >= 700) body = [MOVE, MOVE, MOVE, CARRY, WORK, WORK, WORK, WORK, WORK]
+      if (e >= 800) body = [MOVE, MOVE, MOVE, CARRY, WORK, WORK, WORK, WORK, WORK, WORK]
       break
     case 'mineral':
       spawn = energySpawn(spawns, 800)
@@ -310,13 +323,29 @@ function buildBody (spawns, eggMem) {
       }))
       break
     case 'mini':
-      spawn = _.find(spawns, s => s.room.energyAvailable >= 500)
       body = [RANGED_ATTACK, MOVE, MOVE, HEAL]
+      e = bodyCost(body)
+      spawn = _.find(spawns, s => s.room.energyAvailable >= e)
+      break
+    case 'rambo':
+      body = [
+        TOUGH, TOUGH, TOUGH, TOUGH,
+        RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,
+        RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,
+        RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,
+        RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,
+        RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,
+        RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,
+        MOVE, MOVE, MOVE, MOVE, MOVE,
+        MOVE, MOVE, MOVE, MOVE, MOVE,
+        HEAL, HEAL, HEAL, HEAL,
+        HEAL, HEAL, HEAL, HEAL]
+      spawn = energySpawn(spawns, bodyCost(body))
       break
     case 'reboot':
-      spawn = _.find(spawns,
-        s => s.room.energyAvailable >= 200)
       body = [WORK, CARRY, MOVE]
+      e = bodyCost(body)
+      spawn = _.find(spawns, s => s.room.energyAvailable >= e)
       break
     case 'reserver':
       spawn = energySpawn(spawns, 650)
@@ -339,17 +368,36 @@ function buildBody (spawns, eggMem) {
     case 'scout':
       spawn = _.find(spawns,
         s => s.room.energyAvailable >= 300)
-      if (!spawn) break
       body = [MOVE]
-      debug.log('scout', spawns, spawn, body)
       break
     case 'shunt':
       spawn = _.find(spawns,
         s => s.room.energyAvailable >= 250)
       body = [CARRY, CARRY, CARRY, CARRY, MOVE]
       break
+    case 'startup':
+      spawn = energySpawn(spawns, 300)
+      if (!spawn) break
+      switch (spawn.room.energyCapacityAvailable) {
+        // case 300: body = [WORK, CARRY, CARRY, MOVE, MOVE]; break
+        case 300: body = [WORK, WORK, CARRY, MOVE]; break
+        case 350: body = [WORK, WORK, CARRY, MOVE, MOVE]; break
+        case 400:
+        case 450: body = [WORK, WORK, CARRY, CARRY, MOVE, MOVE]; break
+        case 500: body = [WORK, WORK, WORK, CARRY, MOVE, MOVE, MOVE]; break
+        case 550: body = [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE]; break
+        default:
+          body = energyDef({
+            move: 2,
+            per: [WORK, CARRY],
+            energy: spawn.room.energyAvailable
+          })
+          break
+      }
+      break
     case 'tower':
-      spawn = energySpawn(spawns, 1300)
+      // spawn = energySpawn(spawns, 1300)
+      spawn = energySpawn(spawns, 800)
       if (!spawn) break
       body = energyDef(_.defaults({}, eggMem, {
         move: 1,
@@ -389,6 +437,10 @@ const partPriority = (part) => _.indexOf(partsOrdered, part)
 const orderParts = (l, r) => partPriority(l) - partPriority(r)
 
 // const sortFromOrder = (items, order) => items.sort((l, r) => _.indexOf(order, l) - _.indexOf(order, r))
+
+function bodyCost (body) {
+  return _.sum(body, part => BODYPART_COST[part])
+}
 
 const defCost = (def) => {
   let cost = 0
@@ -438,7 +490,7 @@ function energyDef (def) {
   def.level = 2
   let cost = defCost(def)
   const max = def.max || 50
-  while (cost < def.energy && def.level <= max) {
+  while (cost <= def.energy && def.level <= max) {
     def.level++
     cost = defCost(def)
   }

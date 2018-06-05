@@ -1,6 +1,3 @@
-// const debug = require('debug')
-const lib = require('lib')
-
 module.exports = class CreepShunt {
   roleAux () { return this.roleCore() }
   afterAux () { return this.afterCore() }
@@ -81,7 +78,7 @@ module.exports = class CreepShunt {
   }
 
   nearSpawn () {
-    let s = lib.lookup(this.memory.spawn)
+    let s = Game.getObjectById(this.memory.spawn)
     if (this.pos.isNearTo(s)) return s
 
     s = _.find(this.room.findStructs(STRUCTURE_SPAWN),

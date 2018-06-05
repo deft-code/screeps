@@ -80,41 +80,15 @@ module.exports = class Path {
     }
     return null
   }
+
+  setMat (mat, roomName, val = 1) {
+    for (const seg of this.mem) {
+      if (seg[0] !== roomName) continue
+      for (let i = 1; i < seg.length; i++) {
+        const x = unpackX(seg[i])
+        const y = unpackY(seg[i])
+        mat.set(x, y, val)
+      }
+    }
+  }
 }
-
-// const kMaxStall = 7
-// const kStuckCreep = 0xfe
-// const kStuckRange = 2
-
-// const gCache = {}
-
-// exports.serializePath = (startPos, path) => {
-//  let serializedPath = ''
-//  let lastPosition = startPos
-//  for (let position of path) {
-//    if (position.roomName === lastPosition.roomName) {
-//      serializedPath += lastPosition.getDirectionTo(position)
-//    }
-//    lastPosition = position
-//  }
-//  return serializedPath
-// }
-
-// exports.consumePath = (creep, path) => {
-//  if (!path.length) return ERR_INVALID_ARGS
-
-//  if (exports.getStallTicks(creep) === 0) {
-//    path = path.substr(1)
-//  }
-
-//  if (!path.length) return ERR_INVALID_ARGS
-//  const dir = path[0]
-
-//  return creep.move(dir)
-// }
-
-// exports.positionAtDirection = (origin, direction) => {
-//  let offsetX = [0, 0, 1, 1, 1, 0, -1, -1, -1]
-//  let offsetY = [0, -1, -1, 0, 1, 1, 1, 0, -1]
-//  return new RoomPosition(origin.x + offsetX[direction], origin.y + offsetY[direction], origin.roomName)
-// }

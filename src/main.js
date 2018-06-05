@@ -1,3 +1,4 @@
+require('ai')
 require('matrix')
 require('Traveler')
 require('flag')
@@ -7,8 +8,8 @@ require('path')
 require('room')
 require('room.keeper')
 require('source')
-require('perma')
 
+require('tombs')
 require('struct')
 const terminals = require('struct.terminal')
 require('struct.tower')
@@ -68,6 +69,7 @@ const mods = [
   'role.mineral',
   'role.paver',
   'role.ram',
+  'role.rambo',
   'role.reboot',
   'role.reserver',
   'role.scout',
@@ -77,7 +79,8 @@ const mods = [
   'role.trucker',
   'role.upgrader',
   'role.wolf',
-  'role.worker'
+  'role.worker',
+  'role.zombiefarmer'
 ]
 
 for (const mod of mods) {
@@ -133,18 +136,55 @@ function drain (t, room) {
   }
 }
 
+// Game.rooms.W29N11.addSpot('aux', 4326)
+// Game.rooms.W29N11.addSpot('auxsrc', 1514)
+// Game.rooms.W29N11.addSpot('core', 4539)
+// Game.rooms.W29N11.addSpot('coresrc', 2445)
+// Game.rooms.W29N11.addSpot('mineral', 2225)
+
+const up = Game.time
+let ngc = 0
+
+function init () {
+  if (!Memory.stats) {
+    Memory.stats = {}
+  }
+
+  if (!Memory.creeps) {
+    Memory.creeps = {}
+  }
+
+  const s = _.sample(Game.spawns)
+  if (!s) return
+
+  const f = Game.flags.Startup
+  if (!f) {
+    s.pos.createFlag('Startup', COLOR_BLUE, COLOR_RED)
+  }
+}
+
+// Game.rooms.E13S19.addSpot('aux', Game.rooms.E13S19.getPositionAt(43, 30))
 module.exports.loop = main
 function main () {
+  // Game.rooms.E13S19.addSpot('core', Game.rooms.E13S19.getPositionAt(34, 29))
+  // Game.rooms.E13S19.addSpot('auxsrc', Game.rooms.E13S19.getPositionAt(6, 43))
+  // Game.rooms.E13S19.addSpot('mineral', Game.rooms.E13S19.getPositionAt(32, 11))
+
   const crooms = _.filter(Game.rooms, r => r.controller && r.controller.level > 3 && r.controller.my)
   Game.terminals = _.shuffle(_.compact(_.map(crooms, r => r.terminal)))
   Game.storages = _.shuffle(_.compact(_.map(crooms, r => r.storage)))
+  Game.observers = _.shuffle(_.compact(_.map(crooms, r => _.first(r.findStructs(STRUCTURE_OBSERVER)))))
+
+  if (crooms.length === 0) {
+    init()
+  }
 
   drain(null, 'W22N19')
 
-  // const eye = lib.lookup('59d2525b7101a04915bb71a5')
+  // const eye = Game.getObjectById('59d2525b7101a04915bb71a5')
   // debug.log(eye, eye.observeRoom('W32N19'))
 
-  // Game.rooms.W24N17.drawSpots()
+  // Game.rooms.W29N11.drawSpots()
   // Game.rooms.W24N17.keeper().draw()
 
   const rooms = _.shuffle(_.values(Game.rooms))
@@ -181,7 +221,37 @@ function main () {
   if (canRun(Game.cpu.getUsed(), 9000)) {
     market.run()
   }
+
+  const nflags = _.size(Game.flags)
+  const mflags = _.size(Memory.flags)
+  if (mflags >= nflags) {
+    const fnames = _.keys(Memory.flags)
+    for (const fname of fnames) {
+      if (!Game.flags[fname]) {
+        delete Memory.flags[fname]
+        debug.log('Cleaned up', fname)
+        break
+      }
+    }
+  }
+
   // debug.log('Run', Math.floor(Game.cpu.getUsed()), '/', Game.cpu.limit, Game.cpu.bucket, Game.time)
+  if (typeof Game.cpu.getHeapStatistics === 'function') {
+    let heapStats = Game.cpu.getHeapStatistics()
+    Memory.stats.heap = heapStats.total_heap_size
+    let heapPercent = Math.round((heapStats.total_heap_size / heapStats.heap_size_limit) * 100)
+    if (heapPercent > 90) {
+      console.log('Garbage Collection!')
+      ngc++
+      gc()
+    }
+    // console.log(Game.time - up, 'heap usage:', Math.round((heapStats.total_heap_size) / 1048576), 'MB +', Math.round((heapStats.externally_allocated_size) / 1048576), 'MB of', Math.round(heapStats.heap_size_limit / 1048576), 'MB (', heapPercent, '% )')
+  }
+
+  // debug.log(Math.floor(Game.cpu.getUsed() * 1000))
+
+  Memory.stats.uptime = Game.time - up
+  Memory.stats.ngc = ngc
 
   Memory.stats.credits = Game.market.credits
   Memory.stats.ticks = Game.time

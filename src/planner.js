@@ -1,5 +1,4 @@
 const debug = require('debug')
-const lib = require('lib')
 
 module.exports = function runPlanner (flag) {
   switch (flag.secondaryColor) {
@@ -186,13 +185,13 @@ class BasePlan {
 
   orderSrcs () {
     if (this.memory.srcs) {
-      this.srcs = _.map(this.memory.srcs, lib.lookup)
+      this.srcs = _.map(this.memory.srcs, Game.getObjectById)
       return true
     }
 
     this.srcs = this.room.find(FIND_SOURCES)
     if (this.srcs.length !== 2) {
-      debug.log('too few srcs')
+      this.room.log('too few srcs')
     }
     this.srcs.sort((a, b) => a.pos.getRangeTo(this.room.controller) - b.pos.getRangeTo(this.room.controller))
     this.room.visual.line(this.flag.pos, this.srcs[0].pos, {color: 'red'})
@@ -222,7 +221,7 @@ class BasePlan {
 
     const ret = this.findPath(from, 2)
     if (ret.incomplete) {
-      debug.log('Failed path', JSON.stringify(ret))
+      this.room.log('Failed path', JSON.stringify(ret))
       return false
     }
     this.room.visual.poly(ret.path)
@@ -251,7 +250,7 @@ class BasePlan {
 
     const ret = this.findPath(from, range)
     if (ret.incomplete) {
-      debug.log('Failed path', JSON.stringify(ret))
+      this.room.log('Failed path', JSON.stringify(ret))
       return false
     }
     this.room.visual.poly(ret.path)
@@ -557,12 +556,19 @@ class BasePlan {
 
     const p = this.getSpot('lab')
 
+    // const lab = `
+    //  rll.n
+    //  lrllr
+    //  llrlr
+    //  .llrp
+    //  orrs.`
+
     const lab = `
-      rll.n
-      lrllr
-      llrlr
-      .llrp
-      orrs.`
+      llrln
+      lrlrr
+      rlrlr
+      lrllp
+      rsrro`
 
     const px = p.x - 2
     const py = p.y - 2

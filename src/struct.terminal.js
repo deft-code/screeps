@@ -6,7 +6,7 @@ const kEnergyLow = 50000
 const kEnergyHi = 60000
 const kMaxMineral = 35000
 
-let gCache = {}
+const kMinCredits = Game.shard.name === 'swc' ? 10000 : 100000
 
 class TerminalExtra {
   energyFill () {
@@ -15,70 +15,6 @@ class TerminalExtra {
 
   energyDrain () {
     return this.store.energy > kEnergyHi
-  }
-
-  calc (resource) {
-    if (gCache.time !== Game.time) {
-      gCache = {
-        time: Game.time,
-        min: {},
-        max: {}
-      }
-    }
-
-    if (gCache[resource]) {
-      return gCache[resource]
-    }
-
-    const orders = Game.market.getAllOrders({resourceType: resource})
-    let mn = null
-    let mx = null
-    for (const order of orders) {
-      if (order.amount < 100) continue
-
-      // Exclude my own orders
-      if (Game.market.orders[order.id]) continue
-
-      if (order.type === ORDER_BUY) {
-        if (!mx) {
-          mx = order
-        } else if (mx.price < order.price) {
-          mx = order
-        } else if (mx.price === order.price) {
-          const mdist = Game.market.calcTransactionCost(1000, this.room.name, mx.roomName)
-          const odist = Game.market.calcTransactionCost(1000, this.room.name, order.roomName)
-          if (odist < mdist) {
-            mx = order
-          }
-        }
-      } else {
-        // Prevent wild sell orders from bankrupting me.
-        if (order.price > 10) continue
-
-        if (!mn) {
-          mn = order
-        } else if (mn.price > order.price) {
-          mn = order
-        } else if (mn.price === order.price) {
-          const mdist = Game.market.calcTransactionCost(1000, this.room.name, mn.roomName)
-          const odist = Game.market.calcTransactionCost(1000, this.room.name, order.roomName)
-          if (odist < mdist) {
-            mn = order
-          }
-        }
-      }
-    }
-
-    gCache[resource] = [mn && mn.id, mx && mx.id]
-    return gCache[resource]
-  }
-
-  min (resource) {
-    return Game.market.getOrderById(this.calc(resource)[0])
-  }
-
-  max (resource) {
-    return Game.market.getOrderById(this.calc(resource)[1])
   }
 
   sell (resource, amount = 1000) {
@@ -97,7 +33,20 @@ class TerminalExtra {
     const orders = _.filter(
       Game.market.getAllOrders({resourceType: resource}),
       o => !Game.market.orders[o.id] && o.type === ORDER_SELL && o.amount > 0)
+    return this.doBuy(orders, amount)
+  }
 
+  safeBuy (resource, amount = 1000) {
+    const m = Memory.market[resource]
+    if (!m) return ERR_NOT_FOUND
+    const max = (1.1 * m.sell99) / 1000
+    const orders = _.filter(
+      Game.market.getAllOrders({resourceType: resource}),
+      o => !Game.market.orders[o.id] && o.type === ORDER_SELL && o.amount > 0 && o.price < max)
+    return this.doBuy(orders, amount)
+  }
+
+  doBuy (orders, amount) {
     const order = _.min(orders, o =>
       100000 * o.price + Game.market.calcTransactionCost(1000, this.room.name, o.roomName))
     // Order might be Infinity, but it will result in ERR_INVALID_ARGS
@@ -106,8 +55,17 @@ class TerminalExtra {
   }
 
   deal (order, amount = 1000) {
-    const err = Game.market.deal(order.id, Math.min(order.amount, amount), this.room.name)
-    this.room.log(`${lib.errStr(err)} ${JSON.stringify(order)}`)
+    if (!_.isObject(order)) {
+      const o = Game.market.getOrderById(order)
+      if (!o) {
+        this.room.dlog('bad order', order)
+        return ERR_INVALID_ARGS
+      }
+      order = o
+    }
+    const n = Math.min(order.amount, amount)
+    const err = Game.market.deal(order.id, n, this.room.name)
+    this.room.log(`${lib.errStr(err)}, ${n}, ${JSON.stringify(order)}`)
     return err
   }
 
@@ -119,6 +77,10 @@ class TerminalExtra {
 
   sellOrder (resource, amount = 10000) {
     const m = Memory.market[resource]
+    if (!m || !m.sell) {
+      this.room.dlog('Bad market', resource, amount)
+      return
+    }
     const p = Math.max(Math.min(m.sell - 1, m.sell95), Math.round(0.9 * m.sell99))
     return this.order(ORDER_SELL, resource, p, amount)
   }
@@ -152,13 +114,17 @@ class TerminalExtra {
     }
 
     const err = Game.market.createOrder(type, resource, price / 1000, amount, this.room.name)
-    this.room.log(`Creating order:'${err}' ${resource}`)
+    this.room.log(`Creating order:${lib.errStr(err)} ${resource} ${price}x${amount}`)
     return err
   }
 
   autoBuy (mineral) {
     if (!_.contains(k.CoreMinerals, mineral)) return false
-    if (Game.market.credits < 100000) return false
+    this.room.log('credits', Game.market.credits, kMinCredits, Game.market.credits, kMinCredits)
+    if (Game.market.credits < kMinCredits) return false
+    const err = this.safeBuy(mineral)
+    this.room.log('AUTOBUY', lib.errStr(err), mineral)
+    this.buyOrder(mineral)
   }
 }
 
@@ -186,6 +152,7 @@ function mineralBalance () {
       if (t.store[r] > 100) continue
       const ret = t.requestMineral(r)
       if (ret) return ret
+      t.autoBuy(r)
     }
   }
 }
@@ -233,12 +200,27 @@ function energyBalance () {
   const amount = Math.floor(Math.min(delta, recv.storeFree / 2))
   // debug.log('recv', recv.room, recv.store.energy, delta, amount)
   const err = send.send(RESOURCE_ENERGY, amount, recv.room.name)
-  debug.log('BALANCED', err, send.room.name, recv.room.name, amount)
+  debug.log('BALANCED', lib.errStr(err), send.room.name, recv.room.name, amount)
   return err === OK
 }
 
+function cleanup () {
+  const n = _.size(Game.market.orders)
+  if (n < 49) return false
+  const done = _.filter(Game.market.orders, o => o.remainingAmount <= 0)
+  debug.log(`Cleaning up ${done.length} orders`)
+  for (const order of done) {
+    const err = Game.market.cancelOrder(order.id)
+    if (err !== OK) {
+      debug.log('BAD Cancel', lib.errStr(err), JSON.stringify(order))
+    }
+  }
+  return true
+}
+
 exports.run = function (x) {
-  mineralBalance() ||
+  cleanup() ||
+    mineralBalance() ||
     energyBalance() ||
     sellOff()
 }

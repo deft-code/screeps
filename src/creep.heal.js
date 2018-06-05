@@ -15,7 +15,13 @@ module.exports = class CreepHeal {
       return this.goHeal(creep, false)
     }
 
-    if (this.intents.range) return false
+    if (this.intents.range) {
+      // Overheal
+      if (this.room.hostiles.length > 0) {
+        return this.goHeal(this, false)
+      }
+      return false
+    }
 
     creep = _(this.room.lookForAtRange(LOOK_CREEPS, this.pos, 3, true))
       .map(spot => spot[LOOK_CREEPS])
@@ -25,6 +31,12 @@ module.exports = class CreepHeal {
     if (creep) {
       return this.goRangedHeal(creep)
     }
+
+    // Overheal
+    if (this.room.hostiles.length > 0) {
+      return this.goHeal(this, false)
+    }
+
     return false
   }
 

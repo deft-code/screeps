@@ -6,7 +6,7 @@ class CreepExtra {
     if (!this.memory.home) {
       this.memory.home = this.pos.roomName
     }
-    return Game.rooms[this.memory.home] || Game.spawns[this.memory.spawn]
+    return Game.rooms[this.memory.home] || this.teamRoom || this.room
   }
 
   get team () {
@@ -55,7 +55,7 @@ class CreepExtra {
   }
 
   get fullInfo () {
-    if (this.name) {
+    if (this.my) {
       let info = this.memory.info
       if (!info) {
         info = this.memory.info = this.bodyInfo(true)
@@ -122,10 +122,17 @@ class CreepExtra {
 lib.merge(Creep, CreepExtra)
 
 Room.prototype.spawningRun = function () {
+  if (!this.controller) return
+  if (!this.controller.my) return
   const spawns = _.shuffle(this.findStructs(STRUCTURE_SPAWN))
   for (const spawn of spawns) {
     if (!spawn.spawning) break
-    Game.creeps[spawn.spawning.name].spawningRun()
+    const c = Game.creeps[spawn.spawning.name]
+    if (c) {
+      c.spawningRun()
+    } else {
+      this.log(`Missing creep '${spawn.spawning.name}' from '${spawn.name}', left ${spawn.spawning.remainingTime}`)
+    }
   }
 }
 
@@ -138,6 +145,7 @@ Creep.prototype.spawningRun = function () {
     this.memory.home = this.room.name
     this.memory.cpu = 0
   }
+  this.doBoosts()
 }
 
 Creep.prototype.run = function () {

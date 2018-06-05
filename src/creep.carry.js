@@ -25,11 +25,11 @@ module.exports = class CreepCarry {
     for (let spot of spots) {
       const s = spot.structure
       switch (s.structureType) {
-        case STRUCTURE_CONTAINER:
-          if (!this.room.energyFreeAvailable && s.mode === 'sink') {
-            return this.goTransfer(s, RESOURCE_ENERGY, false)
-          }
-          break
+        // case STRUCTURE_CONTAINER:
+        //  if (!this.room.energyFreeAvailable && s.mode === 'sink') {
+        //    return this.goTransfer(s, RESOURCE_ENERGY, false)
+        //  }
+        //  break
         case STRUCTURE_TOWER:
           if (this.room.energyFreeAvailable > 0) break
         // fallthrough
@@ -321,29 +321,54 @@ module.exports = class CreepCarry {
     if (!this.carryFree) return false
     if (this.intents.pickup) return false
 
-    const spot =
-        _.sample(this.room.lookForAtRange(LOOK_RESOURCES, this.pos, 1, true))
-    return this.goPickup(spot && spot.resource, false)
+    const spot = _.sample(this.room.lookForAtRange(LOOK_RESOURCES, this.pos, 1, true))
+    if (spot) {
+      return this.goPickup(spot[LOOK_RESOURCES], false)
+    }
+
+    const tomb = _.find(
+      this.room.lookForAtRange(LOOK_TOMBSTONES, this.pos, 1, true),
+      spot => spot[LOOK_TOMBSTONES].storeTotal > 0)
+    if (tomb) {
+      const t = tomb[LOOK_TOMBSTONES]
+      return this.taskWithdraw(t, util.randomResource(t.store))
+    }
+    return false
   }
 
   idleNom () {
     if (!this.carryFree) return false
     if (this.intents.pickup) return false
 
-    const spot = _.sample(
-      _.filter(
+    const spot = _.find(
         this.room.lookForAtRange(LOOK_RESOURCES, this.pos, 1, true),
         spot => spot[LOOK_RESOURCES].resourceType === RESOURCE_ENERGY)
-      )
-    if (spot) this.dlog(spot)
-    return this.goPickup(spot && spot[LOOK_RESOURCES], false)
+    if (spot) {
+      this.dlog(spot)
+      return this.goPickup(spot[LOOK_RESOURCES], false)
+    }
+
+    const tomb = _.find(
+      this.room.lookForAtRange(LOOK_TOMBSTONES, this.pos, 1, true),
+      spot => spot[LOOK_TOMBSTONES].store[RESOURCE_ENERGY] > 0)
+    if (tomb) {
+      this.dlog(tomb)
+      return this.goWithdraw(tomb[LOOK_TOMBSTONES], RESOURCE_ENERGY, false)
+    }
+    return false
   }
 
   taskPickupAny () {
     const resource = _.find(
         this.room.find(FIND_DROPPED_RESOURCES),
-        r => this.pos.inRangeTo(r, r.amount) &&
-            (this.room.terminal || r.resourceType === RESOURCE_ENERGY))
+        r => {
+          if (r.amount < 20) return false
+          if (!this.pos.inRangeTo(r, r.amount)) return false
+          if (this.room.controller && this.room.controller.my) {
+            if (!this.room.terminal && r.resourceType !== RESOURCE_ENERGY) return false
+          }
+          return true
+        })
     return this.taskPickup(resource)
   }
 

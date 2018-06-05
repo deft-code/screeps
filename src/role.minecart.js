@@ -1,5 +1,3 @@
-const lib = require('lib')
-const debug = require('debug')
 const util = require('util')
 
 module.exports = class CreepMinecart {
@@ -7,9 +5,9 @@ module.exports = class CreepMinecart {
     const what = this.taskTask()
     if (what) return what
 
-    let cont = lib.lookup(this.memory.cont)
+    let cont = Game.getObjectById(this.memory.cont)
     if (!cont) {
-      debug.log('Missing cont')
+      this.log('Missing cont')
       return false
       // return this.idleRecycle()
     }

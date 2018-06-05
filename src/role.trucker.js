@@ -1,4 +1,3 @@
-const lib = require('lib')
 const Path = require('path')
 
 module.exports = class Trucker {
@@ -8,7 +7,7 @@ module.exports = class Trucker {
   afterTruckaga () { return this.afterTrucker() }
 
   roleTrucker (which = 0) {
-    const what = this.taskTask()
+    const what = this.idleRetreat(CARRY) || this.taskTask()
     if (what) return what
 
     if (this.carryFree < this.carryTotal) {
@@ -23,7 +22,7 @@ module.exports = class Trucker {
       return this.moveRoom(this.team)
     }
 
-    let cont = lib.lookup(this.memory.cont)
+    let cont = Game.getObjectById(this.memory.cont)
     if (!cont) {
       const srcs = this.team.room.find(FIND_SOURCES)
       const ss = _.sortBy(srcs, 'xy')

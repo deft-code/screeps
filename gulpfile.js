@@ -20,6 +20,20 @@ gulp.task('ptr', function () {
   gulp.src('src/*.js').pipe(screeps(credentials))
 })
 
+gulp.task('swc', function () {
+  credentials.branch = 'default'
+  credentials.host = 'swc.screepspl.us'
+  credentials.password = 'firsttime'
+  gulp.src('src/*.js').pipe(screeps(credentials))
+})
+
+gulp.task('plus', function () {
+  credentials.branch = 'default'
+  credentials.host = 'server1.screepspl.us'
+  credentials.password = 'firsttime'
+  gulp.src('src/*.js').pipe(screeps(credentials))
+})
+
 gulp.task('fetch', function () {
   const options = {
     hostname: 'screeps.com',

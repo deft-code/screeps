@@ -17,7 +17,7 @@ module.exports = class CreepFarmer {
     }
 
     if (this.pos.roomName === this.team.pos.roomName) {
-      return this.taskRoadUpkeep() || this.taskFarm() || this.taskMoveRoom(this.dropRoom().controller)
+      return this.taskFarm() || this.taskMoveRoom(this.dropRoom().controller)
     }
 
     return this.taskMoveFlag(this.team)

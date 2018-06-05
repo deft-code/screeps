@@ -1,16 +1,33 @@
-const debug = require('debug')
 const lib = require('lib')
 
 class RoomExtras {
   get energyFreeAvailable () {
     return Math.max(0, this.energyCapacityAvailable - this.energyAvailable)
   }
+
+  get wallMax () {
+    if (!this.controller) return 0
+    if (!this.controller.my) return 0
+
+    switch (this.controller.level) {
+      case 1: return 0
+      case 2: return 100
+      case 3:
+      case 4: return 10000
+      case 5: return 100000
+      case 6: return 1000000
+      case 7: return 6000000
+      case 8: return 21000000
+    }
+    return 0
+  }
 }
 lib.merge(Room, RoomExtras)
 
-Memory.stats.rooms = {}
-
 Room.prototype.stats = function () {
+  if (!Memory.stats.rooms) {
+    Memory.stats.rooms = {}
+  }
   if (!this.controller) return
   Memory.stats.rooms[this.name] = {
     rcl: this.controller.level,
@@ -25,7 +42,7 @@ Room.prototype.runFlags = function () {
     try {
       flag.run()
     } catch (err) {
-      debug.log(this, flag, err, err.stack)
+      this.log(flag, err, err.stack)
     }
   }
 }
@@ -45,8 +62,11 @@ Room.prototype.lookForAtRange = function (look, pos, range, array) {
 }
 
 Room.prototype.addSpot = function (name, p) {
+  if (!_.isFinite(p)) {
+    p = this.packPos(p)
+  }
   const spots = this.memory.spots = this.memory.spots || {}
-  spots[name] = this.packPos(p)
+  spots[name] = p
 }
 
 Room.prototype.getSpot = function (name) {
@@ -67,7 +87,8 @@ Room.prototype.drawSpots = function () {
   })
 }
 
-const kAllies = []
+const kAllies = [
+]
 
 function ratchet (room, what, up) {
   const twhat = `t${what}`
@@ -99,9 +120,8 @@ Room.prototype.init = function () {
   this.melees = []
 
   for (let c of this.find(FIND_CREEPS)) {
-    lib.unlookup(c)
     if (!c.my) {
-      if (c.owner.username in kAllies) {
+      if (_.contains(kAllies, c.owner.username)) {
         this.allies.push(c)
       } else {
         this.enemies.push(c)
@@ -143,7 +163,7 @@ Room.prototype.runCreeps = function () {
     try {
       creep.run()
     } catch (err) {
-      debug.log(this, creep, err, '\n', err.stack)
+      this.log(creep, err, '\n', err.stack)
     }
   }
 }
@@ -166,7 +186,7 @@ Room.prototype.runAfter = function () {
     try {
       creep.after()
     } catch (err) {
-      debug.log(this, creep, err, '\n', err.stack)
+      this.log(creep, err, '\n', err.stack)
     }
   }
 }
@@ -178,7 +198,7 @@ Room.prototype.runDefense = function () {
           STRUCTURE_TOWER, STRUCTURE_SPAWN, STRUCTURE_EXTENSION)
       if (_.find(structs, s => s.hits < s.hitsMax)) {
         const ret = this.controller.activateSafeMode()
-        debug.log(this, 'SAFE MODE!', ret)
+        this.log('SAFE MODE!', ret)
         Game.notify(`SAFE MODE:${ret}! ${this}`, 30)
       }
     }

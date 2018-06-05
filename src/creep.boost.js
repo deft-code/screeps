@@ -1,23 +1,32 @@
 module.exports = class CreepBoost {
+  doBoosts () {
+    if (this.spawning || this.ticksToLive < 100) {
+      if (this.memory.boosts) {
+        this.room.requestBoosts(this.memory.boosts)
+      }
+    }
+  }
+
   taskBoostOne () {
     if (!_.size(this.memory.boosts)) return false
     const mineral = this.memory.boosts.pop()
     const what = this.taskBoostMineral(mineral)
     if (!what) {
-      console.log(`ERROR: ${this} unable to boost ${mineral}`)
+      this.log(`ERROR: unable to boost ${mineral}`)
     }
     return what
   }
 
   taskBoostMineral (mineral) {
-    const lab = _.find(this.room.findStructs(STRUCTURE_LAB),
-      lab => lab.mineralType === mineral && lab.mineralAmount > 30)
-    return this.taskBoost(lab)
+    return this.taskBoost(this.room.requestBoost(mineral))
   }
 
   taskBoost (lab) {
+    this.doBoosts()
     lab = this.checkId('boost', lab)
     if (!lab) return false
+    lab.room.requestBoost(lab.planType)
+
     if (lab.mineralAmount < LAB_BOOST_MINERAL) return false
     if (lab.energy < LAB_BOOST_ENERGY) return false
 
@@ -26,7 +35,7 @@ module.exports = class CreepBoost {
       return this.moveNear(lab)
     }
     if (err !== OK) {
-      console.log(`UNEXPECTED boost error: ${err}, ${this}, ${lab}`)
+      this.log(`UNEXPECTED boost error: ${err}, ${lab}`)
       return false
     }
     return 'success'

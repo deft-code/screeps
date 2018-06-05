@@ -66,7 +66,7 @@ module.exports = class CreepMove {
   }
 
   moveBump (target) {
-    if (!target || !this.pos.isNearTo(target)) return false
+    if (!target || !this.pos.isNearTo(target) || this.id === target.id) return false
     this.moveDir(this.pos.getDirectionTo(target))
   }
 
@@ -120,13 +120,15 @@ module.exports = class CreepMove {
     return this.moveDir(this.pos.getDirectionAway(creep))
   }
 
-  idleRetreat (part) {
-    if (!this.hurts) return false
-    if (this.hits >= this.hurts) {
-      if (!this.partsByType[part]) return false
-      if (this.activeByType[part]) return false
+  idleRetreat (...parts) {
+    if (this.hurts < 100) return false
+    if (this.hits > this.hurts) {
+      for (const part of parts) {
+        if (!this.partsByType[part]) continue
+        if (this.activeByType[part]) return false
+      }
     }
-    this.dlog('retreating')
+    this.dlog('retreating', this.hits, this.hurts, parts)
     return this.moveRange(this.home.controller)
   }
 

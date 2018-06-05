@@ -1,3 +1,4 @@
+const lib = require('lib')
 module.exports = class CreepClaimer {
   roleClaimer () {
     const what = this.taskTask() || this.moveRoom(this.team) || this.moveNear(this.room.controller)
@@ -11,7 +12,7 @@ module.exports = class CreepClaimer {
       }
     } else {
       const err = this.claimController(this.teamRoom.controller)
-      this.dlog('claim error:', err)
+      this.dlog('claim error:', lib.errStr(err))
     }
   }
 

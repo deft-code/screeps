@@ -1,10 +1,8 @@
-const lib = require('lib')
-
 module.exports = class CreepRepair {
   idleRepairRoad () {
     if (this.room.controller && this.room.controller.my && this.room.controller.level >= 3) return false
     if (this.intents.melee || this.intents.range) return false
-    let repair = lib.lookup(this.memory.repair)
+    let repair = Game.getObjectById(this.memory.repair)
     this.dlog('idle repair', repair)
     if (!repair || !repair.hurts) {
       this.dlog('New idle road target')
@@ -32,7 +30,7 @@ module.exports = class CreepRepair {
   idleRepair () {
     this.dlog('start idle repair', this.intents.melee, this.intents.range)
     if (this.intents.melee || this.intents.range) return false
-    let repair = lib.lookup(this.memory.repair)
+    let repair = Game.getObjectById(this.memory.repair)
     this.dlog('idle repair', repair)
     if (!repair || !repair.hurts) {
       this.dlog('New idle repair target')
@@ -42,6 +40,7 @@ module.exports = class CreepRepair {
         .find(struct => {
           if (!struct.hurts) return false
           if (struct.structureType === STRUCTURE_WALL || struct.structureType === STRUCTURE_RAMPART) {
+            this.dlog(struct.hurts, this.room.wallMax)
             return struct.hits < this.room.wallMax
           }
           return struct.hurts >= power || this.room.hitsMax < power

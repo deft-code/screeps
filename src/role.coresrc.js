@@ -1,6 +1,3 @@
-const lib = require('lib')
-const debug = require('debug')
-
 module.exports = class CreepCore {
   roleAuxsrc () { return this.roleCoresrc() }
 
@@ -21,7 +18,7 @@ module.exports = class CreepCore {
     if (what) return what
 
     const p = this.teamRoom.getSpot(this.role)
-    let src = lib.lookup(this.memory.src)
+    let src = Game.getObjectById(this.memory.src)
     if (!src) {
       const spots = this.room.lookForAtRange(LOOK_SOURCES, p, 1, true)
       this.log('finding sources', spots)
@@ -30,12 +27,12 @@ module.exports = class CreepCore {
     }
 
     if (!this.carryCapacity) {
-      debug.log('simple harvest')
+      this.log('simple harvest')
       return this.goHarvest(src, false)
     }
 
-    let spawn = lib.lookup(this.memory.spawn)
-    let store = lib.lookup(this.memory.store)
+    let spawn = Game.getObjectById(this.memory.spawn)
+    let store = Game.getObjectById(this.memory.store)
     if (!spawn || !store) {
       const looks = this.room.lookForAtRange(LOOK_STRUCTURES, p, 1, true)
       for (const look of looks) {

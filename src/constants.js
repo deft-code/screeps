@@ -28,6 +28,7 @@ exports.CoreMinerals = [
   RESOURCE_KEANIUM,
   RESOURCE_LEMERGIUM,
   RESOURCE_OXYGEN,
+  RESOURCE_POWER,
   RESOURCE_UTRIUM,
   RESOURCE_ZYNTHIUM
 ]
@@ -105,9 +106,11 @@ exports.ReactionAll = {
   'XKH2O': ['KH', 'OH', 'KH2O', 'XKH2O'],
   'XLH2O': ['LH', 'OH', 'LH2O', 'XLH2O'],
   'XUH2O': ['UH', 'OH', 'UH2O', 'XUH2O'],
+  'XZH2O': ['ZH', 'OH', 'ZH2O', 'XZH2O'],
 
   'XGHO2': ['ZK', 'UL', 'G', 'OH', 'GO', 'GHO2', 'XGHO2'],
   'XKHO2': ['KO', 'OH', 'KHO2', 'XKHO2'],
   'XLHO2': ['LO', 'OH', 'LHO2', 'XLHO2'],
-  'XUHO2': ['UO', 'OH', 'UHO2', 'XUHO2']
+  'XUHO2': ['UO', 'OH', 'UHO2', 'XUHO2'],
+  'XZHO2': ['ZO', 'OH', 'ZHO2', 'XZHO2']
 }

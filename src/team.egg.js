@@ -21,7 +21,8 @@ function findName (role) {
 
 Flag.prototype.makeEgg = function (role, mem) {
   const name = findName(role)
-  Memory.creeps[name] = _.defaultsDeep({}, mem, {
+  const over = this.memory.over || {}
+  Memory.creeps[name] = _.defaultsDeep({egg: {}}, over, mem, {
     team: this.name,
     egg: {
       team: this.name,
@@ -35,7 +36,8 @@ Flag.prototype.makeEgg = function (role, mem) {
 Flag.prototype.localEgg = function (name, mem = {}) {
   return this.makeEgg(name, _.defaultsDeep({}, mem, {
     egg: {
-      spawn: 'local'
+      spawn: 'local',
+      priority: 5
     }
   }))
 }
@@ -43,7 +45,8 @@ Flag.prototype.localEgg = function (name, mem = {}) {
 Flag.prototype.closeEgg = function (name, mem = {}) {
   return this.makeEgg(name, _.defaultsDeep({}, mem, {
     egg: {
-      spawn: 'close'
+      spawn: 'close',
+      priority: 15
     }
   }))
 }
@@ -51,7 +54,8 @@ Flag.prototype.closeEgg = function (name, mem = {}) {
 Flag.prototype.remoteEgg = function (name, mem = {}) {
   return this.makeEgg(name, _.defaultsDeep({}, mem, {
     egg: {
-      spawn: 'remote'
+      spawn: 'remote',
+      priority: 10
     }
   }))
 }
@@ -59,7 +63,8 @@ Flag.prototype.remoteEgg = function (name, mem = {}) {
 Flag.prototype.maxEgg = function (name, mem = {}) {
   return this.makeEgg(name, _.defaultsDeep({}, mem, {
     egg: {
-      spawn: 'max'
+      spawn: 'max',
+      priority: 9
     }
   }))
 }
@@ -140,7 +145,7 @@ Flag.prototype.harvesterEgg = function () {
 
 Flag.prototype.haulerEgg = function () {
   return this.localEgg('hauler', {
-    egg: {energy: Math.min(2500, this.room.energyCapacityAvailable / 3)}
+    egg: {energy: Math.min(2500, this.room.energyCapacityAvailable / 2)}
   })
 }
 
@@ -170,6 +175,16 @@ Flag.prototype.paverEgg = function () {
     egg: {body: 'worker'}})
 }
 
+Flag.prototype.ramboEgg = function (mem) {
+  return this.maxEgg('rambo', {
+    boosts: [
+      RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
+      RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
+      RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
+      RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE]
+  })
+}
+
 Flag.prototype.rebootEgg = function () {
   return this.localEgg('reboot')
 }
@@ -180,6 +195,10 @@ Flag.prototype.reserverEgg = function (mem) {
 
 Flag.prototype.scoutEgg = function (mem) {
   return this.closeEgg('scout', mem)
+}
+
+Flag.prototype.startupEgg = function () {
+  return this.localEgg('startup')
 }
 
 Flag.prototype.towerEgg = function () {
@@ -207,4 +226,9 @@ Flag.prototype.wolfEgg = function () {
 
 Flag.prototype.workerEgg = function () {
   return this.localEgg('worker')
+}
+
+Flag.prototype.zombiefarmerEgg = function () {
+  return this.closeEgg('zombiefarmer', {
+    egg: {body: 'collector'}})
 }

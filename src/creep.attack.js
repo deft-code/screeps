@@ -56,7 +56,7 @@ module.exports = class CreepAttack {
   taskMassAttackStructs (structType) {
     const s = this.room.find(FIND_HOSTILE_STRUCTURES)
     const targets = _.filter(s, s => s.structureType === structType)
-    return this.taskMassAttackStruct(_.sample(targets))
+    return this.taskMassAttack(_.sample(targets))
   }
 
   taskMassAttack (struct) {

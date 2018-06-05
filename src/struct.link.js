@@ -138,9 +138,9 @@ function balanceLinks (room) {
     balanceCache[room.name] = cache
   }
 
-  const ctrl = lib.lookup(cache.ctrl)
-  const store = lib.lookup(cache.store)
-  const term = lib.lookup(cache.term)
+  const ctrl = Game.getObjectById(cache.ctrl)
+  const store = Game.getObjectById(cache.store)
+  const term = Game.getObjectById(cache.term)
   if (ctrl) {
     ctrl.mode = 'sink'
     if (ctrl.energy === 0) {
@@ -162,7 +162,7 @@ function balanceLinks (room) {
     }
   }
 
-  room.dlog('ctrl', ctrl)
+  room.dlog('ctrl', ctrl && ctrl.note)
 
   if (!term) return
   if (!store) return
@@ -221,7 +221,7 @@ Room.prototype.runLinks = function () {
     } else if (link.mode === 'sink') {
       t = '-'
     }
-    this.visual.text(t, link.pos)
+    this.visual.text(t, link.pos.x, link.pos.y + 0.23)
   }
   balanceLinks(this)
 }

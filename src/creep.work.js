@@ -6,16 +6,15 @@ module.exports = class CreepWork {
     if (!this.carry.energy) return false
     const controller = this.room.controller
     if (!controller || !controller.my) return false
-    if (controller.level === 8 && controller.ticksToDowngrade > 4000) return false
-    if (controller.progress < controller.progressTotal && controller.ticksToDowngrade > 4000) return false
-    if (Game.shard.ptr && controller.ticksToDowngrade > 4000) return false
+    if (controller.level === 8 && controller.ticksToDowngrade > 2000) return false
+    if (controller.progress < controller.progressTotal && controller.ticksToDowngrade > 2000) return false
+    if (Game.shard.ptr && controller.ticksToDowngrade > 2000) return false
 
-    return this.goUpgradeController(controller)
+    return this.taskUpgradeRoom()
   }
 
   idleUpgrade () {
     if (this.intents.melee || this.intents.range) return false
-    if (!this.room.base) return false
 
     return this.goUpgradeController(this.room.controller, false)
   }
@@ -27,6 +26,7 @@ module.exports = class CreepWork {
   taskUpgrade (controller) {
     if (!this.carry.energy) return false
     controller = this.checkId('upgrade', controller)
+    if (!controller || !controller.my) return false
     return this.goUpgradeController(controller)
   }
 
@@ -58,6 +58,13 @@ module.exports = class CreepWork {
       return this.moveRange(controller)
     }
     return false
+  }
+
+  idleHarvest () {
+    if (this.intents.melee || this.intents.range) return false
+    const srcs = this.room.find(FIND_SOURCES_ACTIVE)
+    const src = _.find(srcs, s => this.pos.isNearTo(s))
+    return this.goHarvest(src, false)
   }
 
   taskHarvestSpots () {

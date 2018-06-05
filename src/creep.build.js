@@ -1,7 +1,9 @@
 module.exports = class CreepBuild {
   idleBuild () {
     if (this.intents.melee || this.intents.range) return false
-    const site = _.sample(this.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3))
+    const site = _(this.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3))
+                     .sortBy(site => site.progressTotal - site.progress)
+                     .first()
     return this.goBuild(site, false)
   }
 
@@ -27,7 +29,13 @@ module.exports = class CreepBuild {
   }
 
   taskBuildSites (sites) {
-    return this.taskBuildNearSites(sites) || this.taskBuildClosestSites(sites)
+    return this.taskBuildBestSites(_.filter(sites, s => this.pos.inRangeTo(s, 3))) ||
+      this.taskBuildBestSites(sites)
+  }
+
+  taskBuildBestSites (sites) {
+    const site = _.first(_.sortBy(sites, s => s.progressTotal - s.progress))
+    return this.taskBuild(site)
   }
 
   taskBuildNearSites (sites) {

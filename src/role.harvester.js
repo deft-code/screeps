@@ -1,5 +1,3 @@
-const lib = require('lib')
-
 module.exports = class CreepHarvester {
   roleHarvestaga () {
     return this.roleHarvester(1)
@@ -10,6 +8,7 @@ module.exports = class CreepHarvester {
   }
 
   afterHarvester () {
+    this.idleNom()
     this.idleBuild() || this.idleRepair()
   }
 
@@ -21,7 +20,7 @@ module.exports = class CreepHarvester {
       return this.moveRoom(this.team)
     }
 
-    let src = lib.lookup(this.memory.src)
+    let src = Game.getObjectById(this.memory.src)
     if (!src) {
       if (!this.moveRoom(this.team)) {
         const srcs = this.teamRoom.find(FIND_SOURCES)

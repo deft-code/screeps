@@ -13,7 +13,7 @@ module.exports = class RoleDeclaimer {
         this.log('ATTACKED!', c)
       }
       if (err === ERR_TIRED) {
-        this.log('Already attacked', c)
+        this.dlog('Already attacked', c)
       }
       return false
     }
