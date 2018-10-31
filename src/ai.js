@@ -1,3 +1,45 @@
+const debug = require('debug')
+const stack = require('stack')
+
+class AI extends debug.Debuggable {
+  constructor (name) {
+    super()
+    this.name = name
+  }
+
+  get kind () {
+    return stack.where().split('#')[0]
+  }
+
+  get memory () {
+    return this.room.memory
+  }
+
+  get room () {
+    return Game.rooms[this.name]
+  }
+
+  init () {
+    this.cache = {}
+    this.log('init')
+  }
+
+  run () {
+  }
+
+  after () {
+  }
+
+  optional () {
+  }
+
+  toString () {
+    return `[${this.kind} ${this.name}]`
+  }
+}
+
+module.exports = AI
+
 const gAIs = new Map()
 
 Object.defineProperty(Room.prototype, 'ai', {
@@ -10,10 +52,8 @@ Object.defineProperty(Room.prototype, 'ai', {
   }
 })
 
-const AIDefault = require('ai.default')
-
 function calcAI (room) {
-  return room.memory.ai || room.memory.autoAI || 'default'
+  return room.memory.ai || 'core'
 }
 
 function makeAI (room) {
@@ -24,5 +64,5 @@ function makeAI (room) {
   } catch (err) {
     room.log(aitype, err, err.stack)
   }
-  return new AIDefault(room.name)
+  return new AI(room.name)
 }

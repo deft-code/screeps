@@ -6,7 +6,6 @@ module.exports = class CreepBoost {
       }
     }
   }
-
   taskBoostOne () {
     if (!_.size(this.memory.boosts)) return false
     const mineral = this.memory.boosts.pop()

@@ -51,14 +51,14 @@ module.exports = class CreepShunt {
     this.idleNom()
     this.structAtSpot(STRUCTURE_RAMPART)
 
-    const p = this.teamRoom.getSpot(this.role)
+    const p = this.teamRoom.getSpot(this.role.role)
     if (this.pos.isEqualTo(p)) {
       this.idleImmortal()
     }
   }
 
   moveSpot () {
-    const where = this.memory.spot || this.role
+    const where = this.memory.spot || this.role.role
     const p = this.teamRoom.getSpot(where)
     if (!this.pos.isEqualTo(p)) {
       return this.movePos(p)
@@ -67,7 +67,7 @@ module.exports = class CreepShunt {
   }
 
   structAtSpot (stype) {
-    const p = this.teamRoom.getSpot(this.role)
+    const p = this.teamRoom.getSpot(this.role.role)
     const struct = _.find(p.lookFor(LOOK_STRUCTURES),
       s => s.structureType === stype)
     if (struct) return

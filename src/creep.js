@@ -1,5 +1,4 @@
 const lib = require('lib')
-const debug = require('debug')
 
 class CreepExtra {
   get home () {
@@ -88,10 +87,6 @@ class CreepExtra {
     return this.hostile || this.activeByType[WORK] > 1
   }
 
-  get role () {
-    return _.first(_.words(this.name))
-  }
-
   get where () {
     return `<a href="/a/#!/room/${Game.shard.name}/${this.pos.roomName}">${this.pos.roomName}</a>`
   }
@@ -134,65 +129,6 @@ Room.prototype.spawningRun = function () {
       this.log(`Missing creep '${spawn.spawning.name}' from '${spawn.name}', left ${spawn.spawning.remainingTime}`)
     }
   }
-}
-
-Creep.prototype.spawningRun = function () {
-  if (!this.spawning) {
-    debug.log(this, 'Not Spawning!')
-    return
-  }
-  if (!this.memory.home) {
-    this.memory.home = this.room.name
-    this.memory.cpu = 0
-  }
-  this.doBoosts()
-}
-
-Creep.prototype.run = function () {
-  if (this.spawning) {
-    debug.log(this, "shouldn't be spawning")
-    return 'spawning'
-  }
-
-  const start = Game.cpu.getUsed()
-  this.intents = {}
-
-  const role = _.camelCase('role ' + this.role)
-  const roleFunc = this[role] || this.roleUndefined
-  const what = roleFunc.apply(this)
-
-  if (this.memory.task) {
-    const first = this.memory.task.first
-    if (first && first.roomName === this.room.name) {
-      this.room.visual.line(this.pos, first)
-    }
-    delete this.memory.task.first
-  }
-
-  const total = Math.floor(1000 * (Game.cpu.getUsed() - start))
-  this.memory.cpu += total
-
-  let rate = this.memory.cpu
-  const age = CREEP_LIFE_TIME - this.ticksToLive
-  if (age > 0) {
-    rate = Math.floor(rate / age)
-  }
-
-  this.dlog(`cpu ${total}:${rate} ${what}`)
-}
-
-Creep.prototype.after = function () {
-  if (!this.intents) {
-    debug.log(this, 'missing intents!')
-  }
-  const start = Game.cpu.getUsed()
-
-  const after = _.camelCase('after ' + this.role)
-  const afterFunc = this[after] || this.afterUndefined
-  if (_.isFunction(afterFunc)) afterFunc.apply(this)
-
-  const total = Math.floor(1000 * (Game.cpu.getUsed() - start))
-  this.memory.cpu += total
 }
 
 // Fatigue generated when `creep` moves.

@@ -1,3 +1,4 @@
+const shed = require('shed')
 require('ai')
 require('matrix')
 require('Traveler')
@@ -87,61 +88,6 @@ for (const mod of mods) {
   lib.merge(Creep, require(mod))
 }
 
-// TODO increase this once throttling is an issue
-const kMaxCPU = 300
-
-function canRun (cpu, bucket) {
-  if (cpu > kMaxCPU) {
-    debug.warn('CPU Throttled')
-    return false
-  }
-  if (Game.cpu.bucket < bucket - 750) return false
-  if (cpu > Game.cpu.limit && Game.cpu.bucket < bucket) return false
-  return true
-}
-
-function shuffleRun (objs, bucket, ...funcs) {
-  if (!canRun(Game.cpu.getUsed(), bucket)) return
-
-  let runs = []
-  for (const f of funcs) {
-    runs.push(..._.map(objs, obj => [obj, f]))
-  }
-  runs = _.shuffle(runs)
-  for (const [obj, f] of runs) {
-    if (!canRun(Game.cpu.getUsed(), bucket)) break
-    try {
-      obj[f]()
-    } catch (err) {
-      if (err.usedCpu > 0) {
-        debug.log(obj, f, err.usedCpu)
-      } else {
-        debug.log(obj, f, err, err.stack)
-        Game.notify(err.stack, 30)
-      }
-    }
-  }
-}
-
-function drain (t, room) {
-  if (!t) return
-  if (t.cooldown) return
-  const recs = _.shuffle(_.keys(t.store))
-  for (const r of recs) {
-    if (r === RESOURCE_ENERGY) continue
-    if (t.store[r] < 100) continue
-    const err = t.send(r, t.store[r], room)
-    t.room.log(r, t.store[r], room, err)
-    return
-  }
-}
-
-// Game.rooms.W29N11.addSpot('aux', 4326)
-// Game.rooms.W29N11.addSpot('auxsrc', 1514)
-// Game.rooms.W29N11.addSpot('core', 4539)
-// Game.rooms.W29N11.addSpot('coresrc', 2445)
-// Game.rooms.W29N11.addSpot('mineral', 2225)
-
 const up = Game.time
 let ngc = 0
 
@@ -163,66 +109,37 @@ function init () {
   }
 }
 
-// Game.rooms.E13S19.addSpot('aux', Game.rooms.E13S19.getPositionAt(43, 30))
 module.exports.loop = main
 function main () {
-  // Game.rooms.E13S19.addSpot('core', Game.rooms.E13S19.getPositionAt(34, 29))
-  // Game.rooms.E13S19.addSpot('auxsrc', Game.rooms.E13S19.getPositionAt(6, 43))
-  // Game.rooms.E13S19.addSpot('mineral', Game.rooms.E13S19.getPositionAt(32, 11))
+  const ais = _.map(Game.rooms, 'ai')
+  shed.run(ais, 500, 'init')
 
-  const crooms = _.filter(Game.rooms, r => r.controller && r.controller.level > 3 && r.controller.my)
-  Game.terminals = _.shuffle(_.compact(_.map(crooms, r => r.terminal)))
-  Game.storages = _.shuffle(_.compact(_.map(crooms, r => r.storage)))
-  Game.observers = _.shuffle(_.compact(_.map(crooms, r => _.first(r.findStructs(STRUCTURE_OBSERVER)))))
+  const combat = _.filter(ais, ai => ai.isCombat)
+  shed.run(combat, 500, 'run')
+  shed.run(combat, 1500, 'after')
 
-  if (crooms.length === 0) {
+  const claimed = _.filter(ais, ai => ai.isClaimed && !ai.isCombat)
+  shed.run(claimed, 2000, 'run')
+  shed.run(claimed, 2000, 'after')
+
+  const remote = _.filter(ais, ai => !ai.isClaimed && !ai.isCombat)
+  shed.run(remote, 4000, 'run')
+  shed.run(remote, 4000, 'after')
+
+  shed.run([spawn, market, terminals], 5000, 'run')
+
+  shed.run(combat, 6000, 'optional')
+  shed.run(claimed, 7000, 'optional')
+  shed.run(remote, 8000, 'optional')
+
+  const flags = _.shuffle(_.values(Game.flags))
+  shed.run(flags, 9000, 'darkRun')
+
+  if (!flags.length) {
     init()
   }
 
-  drain(null, 'W22N19')
-
-  // const eye = Game.getObjectById('59d2525b7101a04915bb71a5')
-  // debug.log(eye, eye.observeRoom('W32N19'))
-
-  // Game.rooms.W29N11.drawSpots()
-  // Game.rooms.W24N17.keeper().draw()
-
-  const rooms = _.shuffle(_.values(Game.rooms))
-  const flags = _.shuffle(_.values(Game.flags))
-  shuffleRun(rooms, 500, 'init')
-  shuffleRun(rooms, 1500, 'combatTowers')
-  shuffleRun(rooms, 2000, 'combatCreeps')
-  shuffleRun(rooms, 3000,
-    'claimCreeps',
-    'combatAfter'
-  )
-  shuffleRun(rooms, 4000,
-    'remoteCreeps')
-  shuffleRun(rooms, 4000,
-    'otherAfter')
-  if (canRun(Game.cpu.getUsed(), 4000)) {
-    spawn.run()
-  }
-  shuffleRun(rooms, 5000,
-    'otherTowers',
-    'stats'
-  )
-  if (canRun(Game.cpu.getUsed(), 9000)) {
-    terminals.run()
-  }
-  shuffleRun(flags, 9000, 'darkRun')
-  shuffleRun(rooms, 9000,
-    'runFlags',
-    'runKeeper',
-    'runLabs',
-    'runLinks',
-    'spawningRun'
-  )
-  if (canRun(Game.cpu.getUsed(), 9000)) {
-    market.run()
-  }
-
-  const nflags = _.size(Game.flags)
+  const nflags = flags.length
   const mflags = _.size(Memory.flags)
   if (mflags >= nflags) {
     const fnames = _.keys(Memory.flags)
@@ -248,11 +165,8 @@ function main () {
     // console.log(Game.time - up, 'heap usage:', Math.round((heapStats.total_heap_size) / 1048576), 'MB +', Math.round((heapStats.externally_allocated_size) / 1048576), 'MB of', Math.round(heapStats.heap_size_limit / 1048576), 'MB (', heapPercent, '% )')
   }
 
-  // debug.log(Math.floor(Game.cpu.getUsed() * 1000))
-
   Memory.stats.uptime = Game.time - up
   Memory.stats.ngc = ngc
-
   Memory.stats.credits = Game.market.credits
   Memory.stats.ticks = Game.time
   Memory.stats.ncreeps = _.size(Game.creeps)

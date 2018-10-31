@@ -37,11 +37,11 @@ class Debuggable {
   }
 }
 
-exports.log = (...o) => {
+function log (...o) {
   console.log(stack.where(2), ...o)
 }
 
-const warn = (key, ...o) => {
+const _warn = (key, ...o) => {
   const warned = Game.warned = Game.warned || {}
   if (!warned[key]) {
     warned[key] = true
@@ -49,9 +49,15 @@ const warn = (key, ...o) => {
   }
 }
 
-exports.warn = (...o) => {
+function warn (...o) {
   const prefix = stack.where(2)
-  warn(prefix, prefix, ...o)
+  _warn(prefix, prefix, ...o)
+}
+
+module.exports = {
+  Debuggable,
+  log,
+  warn
 }
 
 lib.merge(Flag, Debuggable)

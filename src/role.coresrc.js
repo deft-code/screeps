@@ -5,7 +5,7 @@ module.exports = class CreepCore {
 
   afterCoresrc () {
     this.structAtSpot(STRUCTURE_RAMPART)
-    const p = this.teamRoom.getSpot(this.role)
+    const p = this.teamRoom.getSpot(this.role.role)
     if (this.pos.isEqualTo(p)) {
       this.idleImmortal()
       this.idleNom()
@@ -17,7 +17,7 @@ module.exports = class CreepCore {
     const what = this.moveSpot()
     if (what) return what
 
-    const p = this.teamRoom.getSpot(this.role)
+    const p = this.teamRoom.getSpot(this.role.role)
     let src = Game.getObjectById(this.memory.src)
     if (!src) {
       const spots = this.room.lookForAtRange(LOOK_SOURCES, p, 1, true)

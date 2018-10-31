@@ -19,6 +19,11 @@ exports.run = () => {
   for (let egg of eggs) {
     const eggMem = Memory.creeps[egg].egg
     const t = Game.flags[eggMem.team]
+    if (!t) {
+      delete Memory.creeps[egg]
+      debug.log('Bad Egg!', egg, JSON.stringify(eggMem))
+      continue
+    }
     const tr = t.pos.roomName
     if (done[tr]) continue
     const spawns = findSpawns(eggMem)

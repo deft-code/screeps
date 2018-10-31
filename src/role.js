@@ -1,15 +1,16 @@
 const debug = require('debug')
-const k = require('constants')
-const spawners = require('spawners')
 
 const gRoles = new Map()
 
-class Role {
-  static role () {
-    return this.calcRole(this.name)
+Object.defineProperty(Creep.prototype, 'role', {
+  get () {
+    return Role.find(this.name)
   }
+})
 
+class Role extends debug.Debuggable {
   static calcRole (name) {
+    return _.first(_.words(name))
   }
 
   static find (name) {
@@ -49,100 +50,37 @@ class Role {
   static body (spawns) {
   }
 
+  constructor (name) {
+    super()
+    this.name = name
+  }
+
+  get role () {
+    return this.constructor.name.toLowerCase()
+  }
+
+  get creep () {
+    return Game.creeps[this.name]
+  }
+
   init () {
-    this.cache.intents = {}
+    this.cache = {
+      intents: {}
+    }
   }
 
   spawning () {
-    return this.c.spawningRun()
+  }
+
+  pre () {
+  }
+
+  again() {
   }
 
   run () {
-    return this.c.run()
   }
 
   after () {
-    return this.c.after()
   }
-}
-
-class Ctrl extends Role {
-  static egg (flag) {
-    return this.makeEgg(flag, 10)
-  }
-
-  static spawn (name) {
-    return new CtrlSpawner(name)
-  }
-}
-
-class CtrlSpawner extends spawners.LocalSpawner {
-  constructor (name) {
-    super(name)
-    this.extra = name
-  }
-
-  findSpawn () {
-    const r = this.teamRoom
-    if (!r) return null
-
-    if (r.controller.level > 7) {
-      return _.find(this.spawns, s => s.room.energyAvailable >= 2050)
-    }
-
-    if (r.controller.level > 6) {
-      return _.find(this.spawns, s => s.room.energyAvailable >= 4200)
-    }
-
-    return this.fullSpawn()
-  }
-
-  body () {
-    const r = this.teamRoom()
-    if (!r) return null
-
-    if (r.storage.energy < 150000) {
-      return [MOVE, WORK, CARRY]
-    }
-
-    if (r.controller > 7 && this.energyAvailable >= 2050) {
-      return [
-        MOVE, MOVE, MOVE, MOVE,
-        MOVE, MOVE, MOVE, MOVE,
-        WORK, WORK, WORK, WORK, WORK,
-        WORK, WORK, WORK, WORK, WORK,
-        WORK, WORK, WORK, WORK, WORK,
-        CARRY, CARRY, CARRY]
-    }
-
-    if (this.energyAvailable >= 2050) {
-      return [
-        MOVE, MOVE, MOVE, MOVE, MOVE,
-        MOVE, MOVE, MOVE, MOVE, MOVE,
-        MOVE, MOVE, MOVE, MOVE, MOVE,
-
-        WORK, WORK, WORK, WORK, WORK,
-        WORK, WORK, WORK, WORK, WORK,
-        WORK, WORK, WORK, WORK, WORK,
-        WORK, WORK, WORK, WORK, WORK,
-        WORK, WORK, WORK, WORK, WORK,
-        WORK, WORK, WORK, WORK, WORK,
-
-        CARRY, CARRY, CARRY, CARRY, CARRY]
-    }
-
-    const base = [CARRY]
-    if (this.energyAvailable > k.RCL4Energy) {
-      base.push(CARRY)
-    }
-    return this.bodyDef({
-      move: 2,
-      per: [WORK],
-      base
-    })
-  }
-}
-
-module.exports = {
-  Ctrl
 }
