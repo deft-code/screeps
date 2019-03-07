@@ -46,7 +46,6 @@ module.exports = class CreepScout {
 }
 
 const signs = {
-  E17S19: "Shibdib's Doorbell",
   W18N18: 'Zombie Farm',
   W19N18: 'Zombie Farm',
   W21N18: 'RIP Ricochet1k',

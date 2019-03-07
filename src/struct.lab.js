@@ -63,7 +63,6 @@ class LabExtra {
 
   get memory () {
     if (!this.my) return {}
-    // if (!this.room.memory.labs) this.room.memory.labs = {}
     const labmem = this.room.memory.labs
     let mem = labmem[this.id]
     if (!mem) {

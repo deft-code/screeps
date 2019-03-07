@@ -34,21 +34,23 @@ gulp.task('plus', function () {
   gulp.src('src/*.js').pipe(screeps(credentials))
 })
 
-gulp.task('fetch', function () {
+gulp.task('fetch', () => {
   const options = {
     hostname: 'screeps.com',
     port: '443',
-    path: '/ptr/api/user/code',
+    path: '/api/user/code',
     method: 'GET',
     auth: credentials.email + ':' + credentials.password
   }
 
-  const req = https.request(options, function (res) {
-    var raw = ''
-    res.on('data', function (chunk) {
+  console.log("before request")
+
+  const req = https.request(options, (res) => {
+    let raw = ''
+    res.on('data', (chunk) => {
       raw += chunk
     })
-    res.on('end', function () {
+    res.on('end', () => {
       try {
         var x = JSON.parse(raw)
         for (var mod in x.modules) {
@@ -56,16 +58,16 @@ gulp.task('fetch', function () {
             continue
           }
           var f = './src/' + mod + '.js'
-          fs.writeFile(f, x.modules[mod])
+          fs.writeFileSync(f, x.modules[mod])
         }
       } catch (err) {
-        console.error(err)
-        console.error(raw)
+        console.error('end error:', err)
+        //console.error(raw)
       }
     })
   })
   req.on('error', function (e) {
-    console.error(e)
+    console.error('request error:', e)
   })
   req.end()
 })

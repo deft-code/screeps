@@ -9,6 +9,8 @@ module.exports = class Trucker {
   roleTrucker (which = 0) {
     const what = this.idleRetreat(CARRY) || this.taskTask()
     if (what) return what
+    
+    this.notifyWhenAttacked(false);
 
     if (this.carryFree < this.carryTotal) {
       const drop = Game.rooms[this.memory.drop] || this.home

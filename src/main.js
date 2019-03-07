@@ -1,5 +1,4 @@
-const shed = require('shed')
-require('ai')
+
 require('matrix')
 require('Traveler')
 require('flag')
@@ -9,6 +8,7 @@ require('path')
 require('room')
 require('room.keeper')
 require('source')
+require('perma')
 
 require('tombs')
 require('struct')
@@ -69,6 +69,7 @@ const mods = [
   'role.miner',
   'role.mineral',
   'role.paver',
+  'role.power',
   'role.ram',
   'role.rambo',
   'role.reboot',
@@ -87,6 +88,61 @@ const mods = [
 for (const mod of mods) {
   lib.merge(Creep, require(mod))
 }
+
+// TODO increase this once throttling is an issue
+const kMaxCPU = 300
+
+function canRun (cpu, bucket) {
+  if (cpu > kMaxCPU) {
+    debug.warn('CPU Throttled')
+    return false
+  }
+  if (Game.cpu.bucket < bucket - 750) return false
+  if (cpu > Game.cpu.limit && Game.cpu.bucket < bucket) return false
+  return true
+}
+
+function shuffleRun (objs, bucket, ...funcs) {
+  if (!canRun(Game.cpu.getUsed(), bucket)) return
+
+  let runs = []
+  for (const f of funcs) {
+    runs.push(..._.map(objs, obj => [obj, f]))
+  }
+  runs = _.shuffle(runs)
+  for (const [obj, f] of runs) {
+    if (!canRun(Game.cpu.getUsed(), bucket)) break
+    try {
+      obj[f]()
+    } catch (err) {
+      if (err.usedCpu > 0) {
+        debug.log(obj, f, err.usedCpu)
+      } else {
+        debug.log(obj, f, err, err.stack)
+        Game.notify(err.stack, 30)
+      }
+    }
+  }
+}
+
+function drain (t, room) {
+  if (!t) return
+  if (t.cooldown) return
+  const recs = _.shuffle(_.keys(t.store))
+  for (const r of recs) {
+    if (r === RESOURCE_ENERGY) continue
+    if (t.store[r] < 100) continue
+    const err = t.send(r, t.store[r], room)
+    t.room.log(r, t.store[r], room, err)
+    return
+  }
+}
+
+// Game.rooms.W29N11.addSpot('aux', 4326)
+// Game.rooms.W29N11.addSpot('auxsrc', 1514)
+// Game.rooms.W29N11.addSpot('core', 4539)
+// Game.rooms.W29N11.addSpot('coresrc', 2445)
+// Game.rooms.W29N11.addSpot('mineral', 2225)
 
 const up = Game.time
 let ngc = 0
@@ -109,37 +165,92 @@ function init () {
   }
 }
 
+function powerHack() {
+    const r = Game.rooms.W29N11
+    const t = r.terminal
+    const s = Game.getObjectById("5c574d80b8cfe8383392fb37")
+    if (t.cooldown > 0) {
+        debug.log("Terminal busy", t.cooldown)
+    } else {
+        if (Game.market.credits < 20000000) {
+            debug.log("Too few credits", Game.market.credits)
+        } else {
+            if(t.storeFree < 10000) {
+                debug.log("Too little space")
+            } else {
+                if((t.store.power || 0) > 10000) {
+                    debug.log("POWER OVERWHELMING")
+                } else {
+                    debug.log("Buy power", t.buy(RESOURCE_POWER))
+                }
+            }
+        }
+    }
+    
+    if (r.storage.store.energy > 100000) {
+        s.processPower()
+    }
+    if (s.power > 0 || t.store.power > 0) {
+        Game.spawns.Aycaga.spawnCreep([MOVE, CARRY, CARRY, CARRY], "power")
+    }
+}
+
 module.exports.loop = main
 function main () {
-  const ais = _.map(Game.rooms, 'ai')
-  shed.run(ais, 500, 'init')
+  const crooms = _.filter(Game.rooms, r => r.controller && r.controller.level > 3 && r.controller.my)
+  Game.terminals = _.shuffle(_.compact(_.map(crooms, r => r.terminal)))
+  Game.storages = _.shuffle(_.compact(_.map(crooms, r => r.storage)))
+  Game.observers = _.shuffle(_.compact(_.map(crooms, r => _.first(r.findStructs(STRUCTURE_OBSERVER)))))
 
-  const combat = _.filter(ais, ai => ai.isCombat)
-  shed.run(combat, 500, 'run')
-  shed.run(combat, 1500, 'after')
-
-  const claimed = _.filter(ais, ai => ai.isClaimed && !ai.isCombat)
-  shed.run(claimed, 2000, 'run')
-  shed.run(claimed, 2000, 'after')
-
-  const remote = _.filter(ais, ai => !ai.isClaimed && !ai.isCombat)
-  shed.run(remote, 4000, 'run')
-  shed.run(remote, 4000, 'after')
-
-  shed.run([spawn, market, terminals], 5000, 'run')
-
-  shed.run(combat, 6000, 'optional')
-  shed.run(claimed, 7000, 'optional')
-  shed.run(remote, 8000, 'optional')
-
-  const flags = _.shuffle(_.values(Game.flags))
-  shed.run(flags, 9000, 'darkRun')
-
-  if (!flags.length) {
+  if (crooms.length === 0) {
     init()
   }
 
-  const nflags = flags.length
+  drain(null, 'W22N19')
+
+  // const eye = Game.getObjectById('59d2525b7101a04915bb71a5')
+  // debug.log(eye, eye.observeRoom('W32N19'))
+
+  // Game.rooms.W29N11.drawSpots()
+  // Game.rooms.W24N17.keeper().draw()
+
+  const rooms = _.shuffle(_.values(Game.rooms))
+  const flags = _.shuffle(_.values(Game.flags))
+  shuffleRun(rooms, 500, 'init')
+  shuffleRun(rooms, 1500, 'combatTowers')
+  shuffleRun(rooms, 2000, 'combatCreeps')
+  shuffleRun(rooms, 3000,
+    'claimCreeps',
+    'combatAfter'
+  )
+  shuffleRun(rooms, 4000,
+    'remoteCreeps')
+  shuffleRun(rooms, 4000,
+    'otherAfter')
+  if (canRun(Game.cpu.getUsed(), 4000)) {
+    spawn.run()
+  }
+  shuffleRun(rooms, 5000,
+    'otherTowers',
+    'stats'
+  )
+  if (canRun(Game.cpu.getUsed(), 9000)) {
+    terminals.run()
+    powerHack()
+  }
+  shuffleRun(flags, 9000, 'darkRun')
+  shuffleRun(rooms, 9000,
+    'runFlags',
+    'runKeeper',
+    'runLabs',
+    'runLinks',
+    'spawningRun'
+  )
+  if (canRun(Game.cpu.getUsed(), 9000)) {
+    market.run()
+  }
+
+  const nflags = _.size(Game.flags)
   const mflags = _.size(Memory.flags)
   if (mflags >= nflags) {
     const fnames = _.keys(Memory.flags)
@@ -167,6 +278,7 @@ function main () {
 
   Memory.stats.uptime = Game.time - up
   Memory.stats.ngc = ngc
+
   Memory.stats.credits = Game.market.credits
   Memory.stats.ticks = Game.time
   Memory.stats.ncreeps = _.size(Game.creeps)

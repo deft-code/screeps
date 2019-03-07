@@ -112,6 +112,13 @@ function findSpawns (eggMem) {
 }
 
 function buildCtrl (spawns, eggMem) {
+  // Disable tiny ctrl
+  if (false && eggMem.ecap > k.RCL7Energy) {
+    return [
+      _.find(spawns, s => s.room.energyAvailable >= 500), [
+        MOVE, WORK, CARRY]] 
+  }
+  
   if (eggMem.ecap > k.RCL7Energy) {
     return [
       _.find(spawns, s => s.room.energyAvailable >= 2050), [
@@ -173,8 +180,7 @@ function buildBody (spawns, eggMem) {
   let e
   switch (eggMem.body) {
     case 'bootstrap':
-      // spawn = energySpawn(spawns, 1300)
-      spawn = energySpawn(spawns, 800)
+      spawn = energySpawn(spawns, 1300)
       if (!spawn) break
       body = energyDef(_.defaults({}, eggMem, {
         move: 2,
@@ -272,7 +278,7 @@ function buildBody (spawns, eggMem) {
       }))
       break
     case 'farmer':
-      spawn = energySpawn(spawns, 300)
+      spawn = energySpawn(spawns, 550)
       if (!spawn) break
       body = energyDef({
         move: 1,
@@ -381,10 +387,11 @@ function buildBody (spawns, eggMem) {
       body = [CARRY, CARRY, CARRY, CARRY, MOVE]
       break
     case 'startup':
+      debug.log('startup')
       spawn = energySpawn(spawns, 300)
+      debug.log('startup', spawn)
       if (!spawn) break
       switch (spawn.room.energyCapacityAvailable) {
-        // case 300: body = [WORK, CARRY, CARRY, MOVE, MOVE]; break
         case 300: body = [WORK, WORK, CARRY, MOVE]; break
         case 350: body = [WORK, WORK, CARRY, MOVE, MOVE]; break
         case 400:
@@ -394,6 +401,7 @@ function buildBody (spawns, eggMem) {
         default:
           body = energyDef({
             move: 2,
+            base: [MOVE, CARRY],
             per: [WORK, CARRY],
             energy: spawn.room.energyAvailable
           })
@@ -401,8 +409,7 @@ function buildBody (spawns, eggMem) {
       }
       break
     case 'tower':
-      // spawn = energySpawn(spawns, 1300)
-      spawn = energySpawn(spawns, 800)
+      spawn = energySpawn(spawns, 1300)
       if (!spawn) break
       body = energyDef(_.defaults({}, eggMem, {
         move: 1,

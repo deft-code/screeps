@@ -416,7 +416,7 @@ Flag.prototype.makePathway = function (srcs, dests) {
 }
 
 function auxsrc (flag) {
-  return coresrc(flag, 'auxsrc')
+  return flag.replaceRole('auxsrc', 1)
 }
 
 function bootstrap (flag, n = 400) {
@@ -446,8 +446,8 @@ function controller (flag) {
     egg: {ecap: cap}})
 }
 
-function coresrc (flag, role = 'coresrc') {
-  return flag.replaceRole(role, 1)
+function coresrc (flag) {
+  return flag.replaceRole('coresrc', 1)
 }
 
 function hauler (flag) {
@@ -474,7 +474,7 @@ function cart (flag) {
   const n = flag.room.find(FIND_SOURCES).length
   if (!n) return false
 
-  return flag.paceRole('cart', 700 / n)
+  return flag.paceRole('cart', 1400 / n)
 }
 
 function defender (flag) {

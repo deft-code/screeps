@@ -275,10 +275,10 @@ class BasePlan {
             fill: 'transparent'
           })
 
+    const t = Game.map.getRoomTerrain(from.roomName)
     for (let x = 0; x < 50; x++) {
       for (let y = 0; y < 50; y++) {
-        const t = Game.map.getTerrainAt(x, y, from.roomName)
-        if (t === 'wall') {
+        if (t.get(x,y) === TERRAIN_MASK_WALL) {
           obs.push({
             pos: this.room.getPositionAt(x, y),
             range: range
@@ -342,10 +342,10 @@ class BasePlan {
     const mat = new PathFinder.CostMatrix()
 
     const c = this.getSpot('centroid')
+    const t = Game.map.getRoomTerrain(this.room.name)
     for (let x = 0; x < 50; x++) {
       for (let y = 0; y < 50; y++) {
-        const t = Game.map.getTerrainAt(x, y, this.room.name)
-        if (t === 'wall') continue
+        if (t.get(x,y) === TERRAIN_MASK_WALL) continue
 
         const p = this.room.getPositionAt(x, y)
         const d = p.getRangeTo(c)

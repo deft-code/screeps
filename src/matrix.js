@@ -1,3 +1,5 @@
+const debug = require('debug')
+
 const kStuckCreep = 100
 const kStuckRange = 2
 const kMaxStall = 5
@@ -34,7 +36,7 @@ exports.addStructures = function (mat, room) {
     switch (struct.structureType) {
       case STRUCTURE_RAMPART:
         if (!struct.my && !struct.isPublic) {
-          // debug.warn(room.name, struct.isPublic)
+          debug.warn(room.name, struct.isPublic)
           mat.set(x, y, 0xff)
         }
         break
@@ -143,13 +145,13 @@ exports.getStallTicks = (creep) => {
 }
 
 exports.setArea = function (mat, pos, range, cost) {
+  const t = Game.map.getRoomTerrain(pos.roomName)
   for (let dx = -range; dx <= range; dx++) {
     for (let dy = -range; dy <= range; dy++) {
       const [x, y] = [pos.x + dx, pos.y + dy]
       if (x < 0 || y < 0) continue
       if (x > 49 || y > 49) continue
-      const t = Game.map.getTerrainAt(x, y, pos.roomName)
-      if (t === 'wall') continue
+      if (t.get(x, y) === TERRAIN_MASK_WALL) continue
       mat.set(x, y, cost)
     }
   }

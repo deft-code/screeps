@@ -6,7 +6,8 @@ const kEnergyLow = 50000
 const kEnergyHi = 60000
 const kMaxMineral = 35000
 
-const kMinCredits = Game.shard.name === 'swc' ? 10000 : 100000
+// Set this really high while market code is new
+const kMinCredits = 4000000 // 100000
 
 class TerminalExtra {
   energyFill () {
@@ -29,10 +30,10 @@ class TerminalExtra {
     return this.deal(order, amount)
   }
 
-  buy (resource, amount = 1000) {
+  buy (resource, amount = 1000, max=2) {
     const orders = _.filter(
       Game.market.getAllOrders({resourceType: resource}),
-      o => !Game.market.orders[o.id] && o.type === ORDER_SELL && o.amount > 0)
+      o => !Game.market.orders[o.id] && o.type === ORDER_SELL && o.amount > 0 && o.price < max)
     return this.doBuy(orders, amount)
   }
 
@@ -120,7 +121,6 @@ class TerminalExtra {
 
   autoBuy (mineral) {
     if (!_.contains(k.CoreMinerals, mineral)) return false
-    this.room.log('credits', Game.market.credits, kMinCredits, Game.market.credits, kMinCredits)
     if (Game.market.credits < kMinCredits) return false
     const err = this.safeBuy(mineral)
     this.room.log('AUTOBUY', lib.errStr(err), mineral)
