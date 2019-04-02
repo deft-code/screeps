@@ -347,6 +347,17 @@
       "WORLD_HEIGHT"
     ]
   },
+  "devDependencies": {
+    "@types/lodash": "^3.10.1",
+    "@types/screeps": "^2.5.3",
+    "gulp": "^3.9.1",
+    "gulp-clean": "^0.3.2",
+    "gulp-screeps": "^1.0.4",
+    "gulp-tslint": "^6.0.1",
+    "gulp-typescript": "^3.0.0",
+    "tslint": "^5.12.0",
+    "typescript": "^3.3"
+  },
   "dependencies": {
     "gulp": "^3.9.1",
     "gulp-screeps": "^1.0.4"

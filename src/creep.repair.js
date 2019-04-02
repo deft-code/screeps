@@ -28,7 +28,7 @@ module.exports = class CreepRepair {
   }
 
   idleRepair () {
-    this.dlog('start idle repair', this.intents.melee, this.intents.range)
+    this.dlog('start idle repair, melee/range intents:', this.intents.melee, this.intents.range)
     if (this.intents.melee || this.intents.range) return false
     let repair = Game.getObjectById(this.memory.repair)
     this.dlog('idle repair', repair)

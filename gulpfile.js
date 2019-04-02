@@ -1,12 +1,36 @@
 
+
 const gulp = require('gulp')
 const credentials = require('./credentials.js')
 const https = require('https')
 const screeps = require('gulp-screeps')
 const fs = require('fs')
 
-gulp.task('deploy', function () {
-  gulp.src('src/*.js').pipe(screeps(credentials))
+const ts = require('gulp-typescript');
+const tsProject = ts.createProject('tsconfig.json', { typescript: require('typescript') });
+
+gulp.task('compile', [], function () {
+    return tsProject.src()
+      .pipe(tsProject())
+      .on('error', (err) => global.compileFailed = true)
+      .js.pipe(gulp.dest('distjs'));
+  })
+
+gulp.task('watchCompile', ['compile'], function() {
+  return gulp.watch('src/*', ['compile']);
+});
+
+gulp.task('clean', function () {
+  return gulp.src(['dist/*', 'distjs/*'], { read: false, allowEmpty: true })
+    .pipe(clean());
+});
+
+gulp.task('deploy', ['compile'], function () {
+  gulp.src('distjs/*.js').pipe(screeps(credentials))
+})
+
+gulp.task('watch', ['deploy'], function() {
+  return gulp.watch('src/*', ['deploy']);
 })
 
 gulp.task('sim', function () {
@@ -14,10 +38,14 @@ gulp.task('sim', function () {
   gulp.src('src/*.js').pipe(screeps(credentials))
 })
 
-gulp.task('ptr', function () {
+gulp.task('ptr', ['compile'], function () {
   credentials.branch = 'default'
   credentials.ptr = true
-  gulp.src('src/*.js').pipe(screeps(credentials))
+  gulp.src('distjs/*.js').pipe(screeps(credentials))
+})
+
+gulp.task('watchPtr', ['ptr'], function() {
+  return gulp.watch('src/*', ['ptr']);
 })
 
 gulp.task('swc', function () {

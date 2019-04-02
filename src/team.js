@@ -4,8 +4,8 @@ const matrix = require('matrix')
 const Path = require('path')
 // const routes = require('routes')
 
-class FlagExtra {
-  get creeps () {
+class TeamExtra extends Flag {
+  get creeps() {
     if (!this._creeps) {
       this._creeps = _(this.memory.creeps)
         .map(c => Game.creeps[c])
@@ -15,14 +15,14 @@ class FlagExtra {
     return this._creeps
   }
 
-  get creepsByRole () {
+  get creepsByRole() {
     if (!this._creepsByRole) {
       this._creepsByRole = _.groupBy(this.creeps, 'role')
     }
     return this._creepsByRole
   }
 
-  get countByRole () {
+  get countByRole() {
     if (!this._countByRole) {
       this._countByRole = _.countBy(this.memory.creeps,
         n => _.first(_.words(n)))
@@ -31,7 +31,7 @@ class FlagExtra {
   }
 }
 
-lib.merge(Flag, FlagExtra)
+lib.merge(Flag, TeamExtra)
 
 Flag.prototype.countRole = function (role) {
   return this.countByRole[role] || 0
@@ -95,8 +95,8 @@ Flag.prototype.teamWhat = function () {
     case 'commando':
       return this.teamCommando()
     case 'startup': return this.teamStartup()
-    case 'zombie':
-      return this.teamZombie()
+    case 'kraken': return this.teamKraken();
+    case 'zombie': return this.teamZombie()
     default:
       this.log('Bad Mission', w)
   }
@@ -130,7 +130,7 @@ Flag.prototype.teamCommando = function () {
   return this.paceRole(role, 1400)
 }
 
-function logoDraw (flag) {
+function logoDraw(flag) {
   const v = new RoomVisual(flag.pos.roomName)
   const dx = flag.pos.x
   const dy = flag.pos.y
@@ -153,6 +153,42 @@ Flag.prototype.teamZombie = function () {
   if (r > 300000) n = 300
 
   return this.paceRole('zombiefarmer', n)
+}
+
+Flag.prototype.teamKraken = function () {
+  const v = new RoomVisual(this.pos.roomName)
+  const mask = [
+    ' ####   ###   ####',
+    '##  #  #####  #  ##',
+    '#  ## ####### ##  #',
+    '# ##  #######  ## #',
+    '#    #########    #',
+    '#### ######### ####',
+    '   #   #####   #',
+    '   #############',
+    '##    # ### #    ##',
+    '#  ####  #  ###   #',
+    '# ##  #######  ## #',
+    '###   #######   ###',
+    '     ## # # ##',
+    '#### #  # #  # ####',
+    '#    #  # #  #    #',
+    '##  ## ## ## ##  ##',
+    ' ####  #   #  ####',
+    '      ##   ##',
+    '    ###     ###',
+    '    #   # #   #',
+    '    ##  # #  ##',
+    '     #### ####'
+  ]
+  for (let y = 0; y < mask.length; y++) {
+    const row = mask[y];
+    for (let x = 0; x < row.length; x++) {
+      if(row[x] === '#') {
+        v.circle(this.pos.x + x, this.pos.y + y);
+      }
+    }
+  }
 }
 
 Flag.prototype.teamLogo = function () {
@@ -225,7 +261,7 @@ Flag.prototype.teamDone = function () {
   if (this.memory.creeps.length === 0) this.remove()
 }
 
-function gc (flag) {
+function gc(flag) {
   flag.memory.creeps = flag.memory.creeps || []
   for (let cname of flag.memory.creeps) {
     if (!Memory.creeps[cname]) {
@@ -365,10 +401,10 @@ Flag.prototype.makePathway = function (srcs, dests) {
       }
       const before = Game.cpu.getUsed()
       const targets = _.map(dests,
-      s => ({
-        range: 2,
-        pos: s.pos
-      }))
+        s => ({
+          range: 2,
+          pos: s.pos
+        }))
       const ret = PathFinder.search(src.pos, targets, {
         plainCost: 2,
         swampCost: 2,
@@ -415,25 +451,25 @@ Flag.prototype.makePathway = function (srcs, dests) {
   return false
 }
 
-function auxsrc (flag) {
+function auxsrc(flag) {
   return flag.replaceRole('auxsrc', 1)
 }
 
-function bootstrap (flag, n = 400) {
+function bootstrap(flag, n = 400) {
   return flag.paceRole('bootstrap', n)
 }
 
-function chemist (flag) {
+function chemist(flag) {
   const nlab = flag.room.findStructs(STRUCTURE_LAB).length
   if (nlab < 1 || !flag.room.terminal) return false
   return flag.replaceRole('chemist', 1)
 }
 
-function claimer (flag) {
+function claimer(flag) {
   return flag.paceRole('claimer', 1000)
 }
 
-function controller (flag) {
+function controller(flag) {
   let cap = flag.room.energyAvailable
 
   if (flag.room.storage) {
@@ -443,14 +479,15 @@ function controller (flag) {
   }
   return flag.replaceRole('ctrl', 28, {
     boosts: [RESOURCE_CATALYZED_GHODIUM_ACID],
-    egg: {ecap: cap}})
+    egg: { ecap: cap }
+  })
 }
 
-function coresrc (flag) {
+function coresrc(flag) {
   return flag.replaceRole('coresrc', 1)
 }
 
-function hauler (flag) {
+function hauler(flag) {
   const storage = flag.room.storage
   const nlink = flag.room.findStructs(STRUCTURE_LINK).length
   let nhauler = 150
@@ -461,7 +498,7 @@ function hauler (flag) {
   return flag.replaceRole('hauler', nhauler)
 }
 
-function harvester (flag) {
+function harvester(flag) {
   let n = 0
   if (flag.room.find(FIND_SOURCES).length > 1) {
     n = 1450
@@ -470,25 +507,25 @@ function harvester (flag) {
     flag.paceRole('harvestaga', n)
 }
 
-function cart (flag) {
+function cart(flag) {
   const n = flag.room.find(FIND_SOURCES).length
   if (!n) return false
 
   return flag.paceRole('cart', 1400 / n)
 }
 
-function defender (flag) {
+function defender(flag) {
   if (flag.room.memory.tassaulters < 5) return false
 
   return flag.replaceRole('defender', 1500 * flag.room.assaulters.length)
 }
 
-function tower (flag) {
+function tower(flag) {
   if (flag.room.findStructs(STRUCTURE_TOWER).length) return false
   return flag.replaceRole('tower', 1)
 }
 
-function micro (flag) {
+function micro(flag) {
   if (flag.room.memory.tassaulters > 0) return false
   if (flag.room.memory.tenemies <= 0) return false
 
@@ -502,7 +539,7 @@ function micro (flag) {
 //  return flag.paceRole('miner', 1400 / n)
 // }
 
-function mineral (flag) {
+function mineral(flag) {
   const xtr = _.first(flag.room.findStructs(STRUCTURE_EXTRACTOR))
   if (!xtr) return false
 
@@ -523,28 +560,28 @@ function mineral (flag) {
   const m = _.first(flag.room.find(FIND_MINERALS))
   if (!m.mineralAmount) return false
 
-  if (flag.replaceRole('mineral', 150, {cont: cont.id})) return 'mineral'
+  if (flag.replaceRole('mineral', 150, { cont: cont.id })) return 'mineral'
 
   if (cont.storeTotal >= 1650) {
-    return flag.replaceRole('minecart', 150, {cont: cont.id})
+    return flag.replaceRole('minecart', 150, { cont: cont.id })
   }
 
   return false
 }
 
-function paver (flag) {
+function paver(flag) {
   if (!flag.room.find(FIND_MY_CONSTRUCTION_SITES).length) return false
   return flag.paceRole('paver', 1500)
 }
 
-function reboot (flag) {
+function reboot(flag) {
   const creeps = flag.room.find(FIND_MY_CREEPS)
   if (_.some(creeps, c => c.role === 'hauler' || c.role === 'startup')) return false
 
   return flag.replaceRole('reboot', 1)
 }
 
-function reserve (flag) {
+function reserve(flag) {
   if (flag.room.memory.thostiles) return false
 
   const controller = flag.room.controller
@@ -560,7 +597,7 @@ function reserve (flag) {
   return flag.paceRole('reserver', n, {})
 }
 
-function shunts (flag) {
+function shunts(flag) {
   let ncore = 0
   let naux = 0
   if (flag.room.storage && flag.room.storage.my) {
@@ -575,7 +612,7 @@ function shunts (flag) {
     flag.replaceRole('aux', naux)
 }
 
-function startup (flag) {
+function startup(flag) {
   const cap = flag.room.energyCapacityAvailable
   let n = 9000
   if (cap >= 550) n = 6000
@@ -584,33 +621,33 @@ function startup (flag) {
   return flag.replaceRole('startup', n)
 }
 
-function suppressGuard (flag) {
+function suppressGuard(flag) {
   const t = flag.room.memory.thostiles || 0
   if (t < 3) return false
   const rate = Math.max(1500 - t, 350)
   return flag.paceRole('guard', rate)
 }
 
-function suppressMicro (flag) {
+function suppressMicro(flag) {
   const e = flag.room.memory.tenemies
   if (!e) return false
   return flag.paceRole('micro', 1500)
 }
 
-function suppressMini (flag) {
+function suppressMini(flag) {
   const e = flag.room.memory.tenemies
   if (!e) return false
   return flag.paceRole('mini', 1500)
 }
 
-function suppressWolf (flag) {
+function suppressWolf(flag) {
   const t = flag.room.memory.thostiles || 0
   if (t < 300) return false
   const rate = Math.max(1500 - t, 350)
   return flag.paceRole('wolf', rate)
 }
 
-function trucker (flag) {
+function trucker(flag) {
   let n = 0
   if (flag.room.find(FIND_SOURCES).length > 1) {
     n = 1450
@@ -619,7 +656,7 @@ function trucker (flag) {
     flag.paceRole('truckaga', n)
 }
 
-function upgrader (flag) {
+function upgrader(flag) {
   if (flag.room.controller.level >= 8) return false
   if (!flag.room.storage) return false
   const e = flag.room.storage.store.energy
@@ -630,7 +667,7 @@ function upgrader (flag) {
   return flag.replaceRole('upgrader', n)
 }
 
-function nworker (room) {
+function nworker(room) {
   if (room.find(FIND_MY_CONSTRUCTION_SITES).length) return 1
   if (room.storage && room.storage.my && room.storage.store.energy > 500000) return 1
   if (_.any(room.findStructs(STRUCTURE_CONTAINER), s => s.hits < 10000)) return 1
@@ -643,6 +680,6 @@ function nworker (room) {
   return 0
 }
 
-function worker (flag) {
+function worker(flag) {
   return flag.replaceRole('worker', nworker(flag.room))
 }

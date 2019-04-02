@@ -1,0 +1,30 @@
+{
+  "tmp": {
+    "noimplicitany": false,
+    "noimplicitthis": false,
+    "strictnullchecks": false,
+    "strictPropertyInitialization": false
+  },
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es6",
+    "moduleResolution": "Node",
+    "outDir": "distjs",
+    "baseUrl": "src/",
+    "inlineSources": true,
+    "inlineSourceMap": true,
+    "sourceMap": false,
+    "strict": true,
+    "experimentalDecorators": true,
+    "noImplicitReturns": true,
+    "allowSyntheticDefaultImports": true,
+    "allowUnreachableCode": false,
+    "allowJs": true,
+    "strictPropertyInitialization": false
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

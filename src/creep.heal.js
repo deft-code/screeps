@@ -1,5 +1,5 @@
 module.exports = class CreepHeal {
-  idleHeal () {
+  idleHeal() {
     if (this.intents.melee) return false
 
     if (this.hurts) {
@@ -40,7 +40,7 @@ module.exports = class CreepHeal {
     return false
   }
 
-  goHeal (creep, move = true) {
+  goHeal(creep, move = true) {
     const err = this.heal(creep)
     if (err === OK) {
       this.intents.melee = creep
@@ -53,7 +53,7 @@ module.exports = class CreepHeal {
     return false
   }
 
-  goRangedHeal (creep, move = true) {
+  goRangedHeal(creep, move = true) {
     const err = this.rangedHeal(creep)
     if (err === OK) {
       this.intents.melee = this.intents.range = creep

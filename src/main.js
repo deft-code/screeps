@@ -1,3 +1,5 @@
+import { canRun, run } from "shed";
+import * as debug from "debug";
 
 require('matrix')
 require('Traveler')
@@ -24,10 +26,11 @@ const market = require('market')
 require('team')
 require('team.egg')
 
+require("powercreep");
+
 require('creep')
 
 const lib = require('lib')
-const debug = require('debug')
 const spawn = require('spawn')
 
 const mods = [
@@ -92,17 +95,17 @@ for (const mod of mods) {
 // TODO increase this once throttling is an issue
 const kMaxCPU = 300
 
-function canRun (cpu, bucket) {
-  if (cpu > kMaxCPU) {
-    debug.warn('CPU Throttled')
-    return false
-  }
-  if (Game.cpu.bucket < bucket - 750) return false
-  if (cpu > Game.cpu.limit && Game.cpu.bucket < bucket) return false
-  return true
-}
+// function canRun (cpu, bucket) {
+//   if (cpu > kMaxCPU) {
+//     debug.warn('CPU Throttled')
+//     return false
+//   }
+//   if (Game.cpu.bucket < bucket - 750) return false
+//   if (cpu > Game.cpu.limit && Game.cpu.bucket < bucket) return false
+//   return true
+// }
 
-function shuffleRun (objs, bucket, ...funcs) {
+function shuffleRun(objs, bucket, ...funcs) {
   if (!canRun(Game.cpu.getUsed(), bucket)) return
 
   let runs = []
@@ -125,7 +128,7 @@ function shuffleRun (objs, bucket, ...funcs) {
   }
 }
 
-function drain (t, room) {
+function drain(t, room) {
   if (!t) return
   if (t.cooldown) return
   const recs = _.shuffle(_.keys(t.store))
@@ -147,7 +150,7 @@ function drain (t, room) {
 const up = Game.time
 let ngc = 0
 
-function init () {
+function init() {
   if (!Memory.stats) {
     Memory.stats = {}
   }
@@ -166,37 +169,37 @@ function init () {
 }
 
 function powerHack() {
-    const r = Game.rooms.W29N11
-    const t = r.terminal
-    const s = Game.getObjectById("5c574d80b8cfe8383392fb37")
-    if (t.cooldown > 0) {
-        debug.log("Terminal busy", t.cooldown)
+  const r = Game.rooms.W29N11
+  const t = r.terminal
+  const s = Game.getObjectById("5c574d80b8cfe8383392fb37")
+  if (t.cooldown > 0) {
+    debug.log("Terminal busy", t.cooldown)
+  } else {
+    if (Game.market.credits < 20000000) {
+      debug.log("Too few credits", Game.market.credits)
     } else {
-        if (Game.market.credits < 20000000) {
-            debug.log("Too few credits", Game.market.credits)
+      if (t.storeFree < 10000) {
+        debug.log("Too little space")
+      } else {
+        if ((t.store.power || 0) > 10000) {
+          // debug.log("POWER OVERWHELMING")
         } else {
-            if(t.storeFree < 10000) {
-                debug.log("Too little space")
-            } else {
-                if((t.store.power || 0) > 10000) {
-                    debug.log("POWER OVERWHELMING")
-                } else {
-                    debug.log("Buy power", t.buy(RESOURCE_POWER))
-                }
-            }
+          debug.log("Buy power", t.buy(RESOURCE_POWER))
         }
+      }
     }
-    
-    if (r.storage.store.energy > 100000) {
-        s.processPower()
-    }
-    if (s.power > 0 || t.store.power > 0) {
-        Game.spawns.Aycaga.spawnCreep([MOVE, CARRY, CARRY, CARRY], "power")
-    }
+  }
+
+  if (r.storage.store.energy > 10000) {
+    s.processPower();
+  }
+  if (s.power > 0 || t.store.power > 0) {
+    Game.spawns.Aycaga.spawnCreep([MOVE, CARRY, CARRY, CARRY], "power")
+  }
 }
 
 module.exports.loop = main
-function main () {
+function main() {
   const crooms = _.filter(Game.rooms, r => r.controller && r.controller.level > 3 && r.controller.my)
   Game.terminals = _.shuffle(_.compact(_.map(crooms, r => r.terminal)))
   Game.storages = _.shuffle(_.compact(_.map(crooms, r => r.storage)))
@@ -214,38 +217,34 @@ function main () {
   // Game.rooms.W29N11.drawSpots()
   // Game.rooms.W24N17.keeper().draw()
 
-  const rooms = _.shuffle(_.values(Game.rooms))
-  const flags = _.shuffle(_.values(Game.flags))
-  shuffleRun(rooms, 500, 'init')
-  shuffleRun(rooms, 1500, 'combatTowers')
-  shuffleRun(rooms, 2000, 'combatCreeps')
-  shuffleRun(rooms, 3000,
-    'claimCreeps',
-    'combatAfter'
-  )
-  shuffleRun(rooms, 4000,
-    'remoteCreeps')
-  shuffleRun(rooms, 4000,
-    'otherAfter')
-  if (canRun(Game.cpu.getUsed(), 4000)) {
-    spawn.run()
+  run(Game.rooms, 500, r => r.init());
+
+  const remote = _.values(Game.rooms);
+  const combat = _.remove(remote, r => r.enemies > 0);
+  const claimed = _.remove(remote, r => r.controller && r.controller.my);
+
+  run(combat, 1000, r => r.run());
+  run(Game.powerCreeps, 2000, p => p.run());
+  run(combat, 2000, r => r.after());
+  run(claimed, 2000, r => r.run());
+  run(claimed, 2500, r => r.after());
+  run(remote, 3000, r => r.run());
+  run(remote, 4000, r => r.after());
+  run(combat, 5000, r => r.optional());
+  run(claimed, 5500, r => r.optional());
+  run(remote, 6000, r => r.optional());
+
+  if(canRun(Game.cpu.getUsed(), 4000)){
+    spawn.run();
   }
-  shuffleRun(rooms, 5000,
-    'otherTowers',
-    'stats'
-  )
+
   if (canRun(Game.cpu.getUsed(), 9000)) {
     terminals.run()
     powerHack()
   }
-  shuffleRun(flags, 9000, 'darkRun')
-  shuffleRun(rooms, 9000,
-    'runFlags',
-    'runKeeper',
-    'runLabs',
-    'runLinks',
-    'spawningRun'
-  )
+
+  run(Game.flags, 9000, f => f.darkRun());
+
   if (canRun(Game.cpu.getUsed(), 9000)) {
     market.run()
   }

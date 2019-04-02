@@ -1,18 +1,18 @@
 module.exports = class CreepHarvester {
-  roleHarvestaga () {
+  roleHarvestaga() {
     return this.roleHarvester(1)
   }
 
-  afterHarvestaga () {
+  afterHarvestaga() {
     return this.afterHarvester()
   }
 
-  afterHarvester () {
+  afterHarvester() {
     this.idleNom()
     this.idleBuild() || this.idleRepair()
   }
 
-  roleHarvester (card = 0) {
+  roleHarvester(card = 0) {
     let what = this.taskTask()
     if (what) return what
 
@@ -36,7 +36,7 @@ module.exports = class CreepHarvester {
       }
     }
 
-    if (!this.pos.isEqualTo(src.bestSpot)) return this.movePos({pos: src.bestSpot})
+    if (!this.pos.isEqualTo(src.bestSpot)) return this.movePos({ pos: src.bestSpot })
 
     if (!this.memory.active) {
       this.memory.active = Game.time
@@ -63,20 +63,19 @@ module.exports = class CreepHarvester {
     return this.taskRepair(cont) || this.goWithdraw(cont, RESOURCE_ENERGY, false) || 'waiting'
   }
 
-  makeCont () {
+  makeCont() {
+    this.dlog("cont", this.memory.cont);
     let cont = Game.getObjectById(this.memory.cont)
     if (cont) return cont
 
-    for (const spot of this.pos.look()) {
-      switch (spot.type) {
-        case LOOK_CONSTRUCTION_SITES:
-        case LOOK_STRUCTURES:
-          const s = spot[spot.type]
-          if (s.structureType === STRUCTURE_CONTAINER) {
-            this.memory.cont = s.id
-            return s
-          }
-          break
+    const sites = this.pos.lookFor(LOOK_CONSTRUCTION_SITES);
+    const structs = this.pos.lookFor(LOOK_STRUCTURES);
+    const stuff = sites.concat(structs);
+
+    for (const s of stuff) {
+      if (s.structureType === STRUCTURE_CONTAINER) {
+        this.memory.cont = s.id;
+        return s;
       }
     }
     return null

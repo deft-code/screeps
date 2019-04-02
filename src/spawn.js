@@ -2,6 +2,7 @@ const debug = require('debug')
 const routes = require('routes')
 const k = require('constants')
 
+
 function eggOrder (lname, rname) {
   const lpriority = _.get(Memory.creeps, `[${lname}].egg.priority`, 10)
   const rpriority = _.get(Memory.creeps, `[${rname}].egg.priority`, 10)

@@ -46,6 +46,11 @@ class StructureExtra {
     }
     return 1 - (this.hits / myMax)
   }
+
+  toString() {
+    return util.structNote(this.structureType, this.pos) + ':' + this.pos.roomName;
+  }
+
 }
 
 lib.merge(Structure, StructureExtra)

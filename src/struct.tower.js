@@ -12,18 +12,6 @@ const oneAttack = (towers, creep) => one(towers, StructureTower.prototype.attack
 const oneHeal = (towers, creep) => one(towers, StructureTower.prototype.heal, creep)
 const oneRepair = (towers, creep) => one(towers, StructureTower.prototype.repair, creep)
 
-Room.prototype.combatTowers = function () {
-  if (!this.controller || !this.controller.my) return false
-  if (this.enemies.length !== 0) return false
-  this.runTowers()
-}
-
-Room.prototype.otherTowers = function () {
-  if (!this.controller || !this.controller.my) return false
-  if (this.enemies.length === 0) return false
-  this.runTowers()
-}
-
 Room.prototype.runTowers = function () {
   let towers = _.filter(this.findStructs(STRUCTURE_TOWER), t => t.energy >= 10)
   if (!towers.length) return
