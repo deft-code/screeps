@@ -50,8 +50,6 @@ class GlobalCache {
     hotCache = new Map<string, any>();
     coldCache = new Map<string, any>();
 
-
-
     getKey(obj: CacheRoot): string {
         return (obj as OwnedStructure).id || (obj as Flag).name
     }
@@ -73,7 +71,7 @@ class GlobalCache {
             return cache;
         }
 
-        const newCache = {};
+        const newCache = { birth: Game.time};
         this.hotCache.set(key, newCache);
         return newCache;
     }
@@ -110,4 +108,20 @@ export function injectAll() {
 
     theCache.inject(Room);
     theCache.inject(RoomObject);
+}
+
+declare global {
+    interface RoomObjectCache {
+        birth: number
+    }
+    interface FlagTick {
+
+    }
+    interface FlagCache extends RoomObjectCache  {
+
+    }
+    interface Flag {
+        tick: FlagTick
+        cache: FlagCache
+    }
 }

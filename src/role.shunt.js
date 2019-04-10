@@ -44,7 +44,7 @@ module.exports = class CreepShunt {
       return this.goWithdraw(link, RESOURCE_ENERGY, false) ||
           this.goTransfer(store, RESOURCE_ENERGY, false)
     }
-    return 'done'
+    return 'finish'
   }
 
   afterCore () {

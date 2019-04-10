@@ -26,7 +26,8 @@ export function fromXY(xy: number, name: string): RoomPosition {
 
 export function getDirectionTo(from: RoomPosition, to: RoomPosition): DirectionConstant | 0 {
     if (from.roomName === to.roomName) {
-        return from.getDirectionTo(to)
+        if(from.isEqualTo(to)) return 0;
+        return from.getDirectionTo(to);
     }
     const exits = Game.map.describeExits(from.roomName)
     if (!exits) return 0
@@ -717,6 +718,7 @@ class Step {
         }
         const dir = getDirectionTo(this.creep.pos, this.path.first)
         const err = this.creep.move(dir as DirectionConstant)
+        // console.log("moved", this.creep.pos, dir, this.path.first, err);
         if (err === OK) {
             return dir
         }
@@ -786,7 +788,7 @@ class Step {
     walkTo(): WalkReturnCode {
         // Target has moved or there is a new target
         if (!this.dest.isEqualTo(this.prev)) {
-            console.log('new walk', this.dest, this.prev, JSON.stringify(this.creep.memory._walk))
+            //console.log('new walk', this.dest, this.prev, JSON.stringify(this.creep.memory._walk))
             const goal = cleanGoal({ pos: this.dest, range: this.range })
             // New destintation is too far to rewalk
             if (this.dest.getRangeTo(this.prev) > 3 || this.path.size < 3) {
@@ -812,16 +814,22 @@ class Step {
         //console.log("move again", this.creep.pos, this.path.first, this.path.second)
         // Either moved successfully or got bumped closer
         if (this.creep.pos.isEqualTo(this.path.first) || this.creep.pos.isNearTo(this.path.second)) {
+            //console.log("STEP THE PATH", JSON.stringify(this.path), JSON.stringify(this.creep.memory._walk))
             if (this.path.done) {
                 console.log("path is empty", JSON.stringify(this.path), JSON.stringify(this.creep.memory._walk))
                 // path ran out build a new one.
                 const [err, path] = this.planSteps(this.creep.pos,
                     [cleanGoal({ pos: this.dest, range: this.range })],
                     this.creep.ticksToLive || CREEP_LIFE_TIME);
+                if(err < OK) return err as ScreepsReturnCode;
                 this.path = path
                 return this.step()
             }
             this.path = this.path.step()
+            if(!this.path.done && this.creep.pos.isNearTo(this.path.second)) {
+                //console.log("DOUBLE TIME");
+                this.path = this.path.step()
+            }
             return this.waryStep()
         }
 
@@ -892,23 +900,6 @@ class Step {
         }
         if (nmoves >= weight * 5) {
             swampCost = 1
-        }
-
-        const destRoom = goals[0].pos.roomName;
-        const lDist = Game.map.getRoomLinearDistance(pos.roomName, destRoom);
-        if (lDist > 4 || this.rewalker.getRouteDist(pos.roomName, destRoom) > 4) {
-            let waypoint = destRoom;
-            let range = 23;
-            if (lDist > 10) {
-                range = 2 + 50 * (lDist - 3);
-            } else {
-                const route = this.rewalker.getRoute(pos.roomName, destRoom);
-                waypoint = route[4];
-            }
-            goals = [{
-                pos: new RoomPosition(25, 25, waypoint),
-                range,
-            }];
         }
 
         const ret = PathFinder.search(

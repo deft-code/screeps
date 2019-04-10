@@ -32,7 +32,7 @@ exports.run = () => {
     if (!spawn) continue
     const sr = spawn.room.name
     if (done[sr]) continue
-    debug.log(egg, spawn, JSON.stringify(_.countBy(body)))
+    //debug.log(egg, spawn, JSON.stringify(_.countBy(body)))
     const err = spawn.spawnCreep(body, egg)
     if (err !== OK) {
       spawn.room.log(spawn, 'FAILED to spawn', egg, err, JSON.stringify(eggMem))

@@ -165,6 +165,9 @@ Creep.prototype.run = function () {
   const role = _.camelCase('role ' + this.role)
   const roleFunc = this[role] || this.roleUndefined
   const what = roleFunc.apply(this)
+  if(what === 'done' || what === 'again') {
+    this.log("BAD WHAT", what);
+  }
 
   if (this.memory.task) {
     const first = this.memory.task.first

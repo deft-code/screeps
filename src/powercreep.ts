@@ -14,7 +14,7 @@ const powerTasker = new Tasker();
 const nowander = ['TuN9aN0', 'smokeman'];
 function isOmnomwombatTerritory(roomName: string): boolean {
     let parsed = /^([WE])([0-9]+)([NS])([0-9]+)$/.exec(roomName);
-    if(!parsed) return false;
+    if (!parsed) return false;
     let xDir = parsed[1];
     let xNum = parseInt(parsed[2], 10);
     let yDir = parsed[3];
@@ -28,6 +28,12 @@ function isOmnomwombatTerritory(roomName: string): boolean {
         && yNum < 10);
 }
 
+function shouldIgnore(ctrlr: StructureController): boolean {
+    const name = (ctrlr.sign && ctrlr.sign.username) ||
+                (ctrlr.owner && ctrlr.owner.username) ||
+                (ctrlr.reservation && ctrlr.reservation.username);
+    return name && _.contains(nowander, name) || isOmnomwombatTerritory(ctrlr.pos.roomName);
+}
 
 class PowerCreepExtra extends PowerCreep {
     get role() { return this.name }
@@ -56,10 +62,11 @@ class PowerCreepExtra extends PowerCreep {
         if (this.pos.roomName === name) return 'done';
         this.taskNull(name);
         const ret = rewalker.walkTo(this, new RoomPosition(25, 25, name), 24);
+        this.dlog("rewalk", ret);
         if (ret >= OK) {
             return "walking"
         }
-        this.log("walktTo Error:", debug.errStr(ret as ScreepsReturnCode));
+        this.log("walktTo Error:", debug.errStr(ret as ScreepsReturnCode), this.pos, JSON.stringify(this.memory));
         return false;
     }
 
@@ -86,11 +93,18 @@ class PowerCreepExtra extends PowerCreep {
         return !!this.room
     }
 
+    roleHeimdall(): TaskRet {
+        if(this.shard !== Game.shard.name) return false;
+        this.log("restart", JSON.stringify(this.memory));
+
+        return this.taskPingPong(Game.flags.Ping, Game.flags.Pong);
+    }
+
     roleMagellan(): TaskRet {
         if (!this.ticksToLive || !this.room) {
             const r = _.find(_.shuffle(Game.rooms), r => r.controller && r.controller.my && r.controller.level === 8 && r.findStructs(STRUCTURE_POWER_SPAWN).length > 0);
-            if( !r ) {
-                this.log ("No homes!");
+            if (!r) {
+                this.log("No homes!");
                 return "homeless";
             }
             const err = this.spawnRoom('W29N11')
@@ -101,7 +115,7 @@ class PowerCreepExtra extends PowerCreep {
             return "spawned"
         }
 
-        this.log("restarted", JSON.stringify(this.memory));
+        //this.log("restarted", JSON.stringify(this.memory));
 
         let ret = this.taskEnableCtrlr(this.room.controller);
         if (ret) return ret;
@@ -162,16 +176,9 @@ class PowerCreepExtra extends PowerCreep {
         if (!ctrlr) return false;
         const ef = this.memory.enableFailed = this.memory.enableFailed || [];
         if (_.includes(ef, ctrlr.pos.roomName)) return true;
-        if (ctrlr.owner && _.contains(nowander, ctrlr.owner.username)) {
+        if(shouldIgnore(ctrlr)) {
             ef.push(ctrlr.pos.roomName);
-            return true;
-        }
-        if (ctrlr.reservation && _.contains(nowander, ctrlr.reservation.username)) {
-            ef.push(ctrlr.pos.roomName);
-            return true;
-        }
-        if (isOmnomwombatTerritory(ctrlr.pos.roomName)) {
-            ef.push(ctrlr.pos.roomName);
+            this.log("Ignoring new room", ctrlr.pos.roomName);
             return true;
         }
         return false;
@@ -189,7 +196,7 @@ class PowerCreepExtra extends PowerCreep {
             ef.push(ctrlr.pos.roomName);
             return false;
         }
-        if(this.ignorePower(ctrlr)) return false;
+        if (this.ignorePower(ctrlr)) return false;
         if (ctrlr.isPowerEnabled) return false;
         const ret = this.enableRoom(ctrlr);
         if (ret === OK) return 'done';
@@ -211,11 +218,31 @@ class PowerCreepExtra extends PowerCreep {
         return "thing";
     }
 
-    taskPing(): TaskRet {
-        this.log("task name", this.taskNull());
-        return false;
+    taskPingPong(ping: Flag | null, pong: Flag | null): TaskRet {
+        return this.taskPing(ping) || this.taskPing(pong) || "again";
+    }
+
+    taskPing(ping: Flag | null) : TaskRet {
+        if(!ping) return false;
+
+        if(this.pos.isNearTo(ping)) return false;
+
+        return this.taskMoveNear(ping);
+    }
+
+    taskMoveNear(obj : (Targetable & {pos: RoomPosition}) | string | null ): TaskRet {
+        obj = this.task(obj);
+        if(!obj) {
+            return false
+        }
+
+        const ret  = rewalker.walkTo(this, obj.pos, 1);
+        if(ret > OK) return 'moved';
+        return 'done';
     }
 }
+
+
 
 merge(PowerCreep, PowerCreepExtra);
 merge(PowerCreep, debug.Debuggable);

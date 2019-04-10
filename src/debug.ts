@@ -62,16 +62,16 @@ export function errStr(err: ScreepsReturnCode) {
   switch (err) {
     case OK: return 'OK';
     case -OK: return 'OK';
-    case ERR_BUSY: return 'EBusy';
-    case ERR_FULL: return 'EFull';
-    case ERR_INVALID_ARGS: return 'EBadArgs';
-    case ERR_INVALID_TARGET: return 'ETarget';
-    case ERR_NOT_ENOUGH_RESOURCES: return 'EFewRes';
-    case ERR_NOT_IN_RANGE: return 'ERange';
-    case ERR_TIRED: return 'ETired'
-    case ERR_NOT_ENOUGH_ENERGY: return 'ENeedE';
-    case ERR_NOT_ENOUGH_EXTENSIONS: return 'ENeedExt';
-    case ERR_NOT_ENOUGH_RESOURCES: return 'ENeedRes';
+    case ERR_BUSY: return 'ERR_BUSY';
+    case ERR_FULL: return 'ERR_FULL';
+    case ERR_INVALID_ARGS: return 'ERR_INVALID_ARGS';
+    case ERR_INVALID_TARGET: return 'ERR_INVALID_TARGET';
+    case ERR_NOT_ENOUGH_RESOURCES: return 'ERR_NOT_ENOUGH_RESOURCES';
+    case ERR_NOT_IN_RANGE: return 'ERR_NOT_IN_RANGE';
+    case ERR_TIRED: return 'ERR_TIRED'
+    case ERR_NOT_ENOUGH_ENERGY: return 'ERR_NEED_ENERGY';
+    case ERR_NOT_ENOUGH_EXTENSIONS: return 'ERR_NEED_EXTENSIONS';
+    case ERR_NOT_ENOUGH_RESOURCES: return 'ERR_NOT_ENOUGH_RESOURCES';
     default: return 'ERR' + -err
   }
 }
@@ -136,7 +136,7 @@ export class Debuggable {
 
   errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode {
     if (err !== OK) {
-      console.log(location(2), this, errStr(err), ...str);
+      console.log(location(2), this, errStr(err), JSON.stringify(err), ...str);
     }
     return err;
   }
@@ -144,6 +144,10 @@ export class Debuggable {
 
 declare global {
   interface Flag {
+    log(...args: any[]): void
+    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
+  }
+  interface Room {
     log(...args: any[]): void
     errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
   }

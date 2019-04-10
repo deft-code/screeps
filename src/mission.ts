@@ -8,16 +8,14 @@ declare global {
     }
     interface Flag {
         runMission(): void
+        role: string
     }
 }
+
 
 const missionTasker = new Tasker();
 
 class MissionExtra extends FlagExtra {
-    get role() {
-        return this.teamWhat();
-    }
-
     task<T extends Targetable>(target: T | string | null | undefined, ...args: (string | number)[]): T | null {
         return missionTasker.task(this, 4, target, ...args);
     }
@@ -28,21 +26,6 @@ class MissionExtra extends FlagExtra {
 
     runMission() {
         missionTasker.looper(this);
-    }
-
-    taskDupe() {
-        if (this.quantity() < 1) {
-            for (let i = 1; i < 100; i++) {
-                const next: string = this.name + 1
-                const err = this.pos.createFlag(next, this.color, this.secondaryColor);
-                if (err === ERR_NAME_EXISTS) continue;
-                this.errlog(err);
-                this.remove();
-                return false;
-            }
-            this.log("no dupes available", this.quantity());
-        }
-        return false;
     }
 }
 

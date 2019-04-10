@@ -1,4 +1,9 @@
 
+interface RoomVisual {
+    structure(x: number, y: number, stype: StructureConstant, opts?: {opacity: number}): ScreepsReturnCode
+    animatedPosition(x: number, y: number): ScreepsReturnCode
+}
+
 interface StructureController {
     isPowerEnabled: boolean
 }
@@ -20,6 +25,7 @@ interface PowerCreep extends RoomObject {
     name: string
     ticksToLive: number
     room: Room
+    shard?: string
 
     move(dir: DirectionConstant): CreepMoveReturnCode
     spawn(s: StructurePowerSpawn): OK | ERR_INVALID_TARGET
@@ -51,6 +57,7 @@ declare const require: (module: string) => any;
 // add your custom typings here
 
 interface Flag {
+    id: string
     runTeam(): void
     darkTeam(): void
     teamWhat(): string

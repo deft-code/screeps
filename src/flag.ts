@@ -12,13 +12,33 @@ declare global {
 const missionTasker = new Tasker();
 
 export class FlagExtra extends Flag {
+  get id(): string {
+    return 'flag_' + this.name;
+  }
+
+  get parent() {
+    const i = this.name.indexOf('_');
+    if (i < 0) return null;
+    return this.name.substring(i + 1);
+  }
+
+  get self() {
+    const i = this.name.indexOf('_');
+    if (i < 0) return this.name;
+    return this.name.substring(0, i);
+  }
+
+  get role() {
+    return this.what().toLowerCase();
+  }
+
   what() {
-    return _.words(this.name)[0]
+    return _.words(this.self)[0]
   }
 
   quantity(): number {
-    const words = _.words(this.name);
-    if(words.length < 2) return 0;
+    const words = _.words(this.self);
+    if (words.length < 2) return 0;
     return parseInt(words[1]);
   }
 
@@ -30,6 +50,8 @@ export class FlagExtra extends Flag {
         return this.runTeam()
       case COLOR_ORANGE:
         return require('planner')(this)
+      case COLOR_CYAN:
+        return this.runMeta();
     }
   }
 
@@ -38,6 +60,20 @@ export class FlagExtra extends Flag {
     if (this.color === COLOR_BLUE) {
       this.darkTeam()
     }
+  }
+
+  dupe() {
+    if (this.quantity() > 0) return true;
+    for (let i = 1; i < 100; i++) {
+      const next: string = this.name + 1
+      const err = this.pos.createFlag(next, this.color, this.secondaryColor);
+      if (err === ERR_NAME_EXISTS) continue;
+      this.errlog(err);
+      this.remove();
+      return false;
+    }
+    this.log("no dupes available", this.quantity());
+    return false;
   }
 
   temp() {

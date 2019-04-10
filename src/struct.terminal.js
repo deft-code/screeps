@@ -86,12 +86,23 @@ class TerminalExtra {
   }
 
   order(type, resource, price, amount) {
-    const myOrder = _.find(
-      Game.market.orders,
-      o =>
-        Game.map.getRoomLinearDistance(o.roomName, this.room.name, true) < 10 &&
-        o.type === type &&
-        o.resourceType === resource)
+    let myOrder;
+    if (resource === RESOURCE_ENERGY || type === ORDER_SELL) {
+      myOrder = _.find(
+        Game.market.orders,
+        o =>
+          o.roomName === this.pos.roomName &&
+          o.type === type &&
+          o.resourceType === resource)
+
+    } else {
+      myOrder = _.find(
+        Game.market.orders,
+        o =>
+          Game.map.getRoomLinearDistance(o.roomName, this.room.name, true) < 10 &&
+          o.type === type &&
+          o.resourceType === resource)
+    }
 
     if (myOrder) {
       const op = Math.round(myOrder.price * 1000)
@@ -154,9 +165,9 @@ function mineralBalance() {
       if (!r) continue
       if (t.store[r] > 100) continue
       const ret = t.requestMineral(r)
-      t.room.log("request ret", ret, r, rs);
+      //t.room.log("request ret", ret, r, rs);
       if (ret) return ret
-      if(autobuy) {
+      if (autobuy) {
         const err = t.room.errlog(t.autoBuy(r), "autobuy", r);
         autobuy = err != ERR_FULL;
       }
@@ -228,9 +239,8 @@ function cleanup() {
 }
 
 exports.run = function (x) {
-  true ||
   cleanup() ||
     mineralBalance() ||
-    energyBalance() ||
+    energyBalance() |
     sellOff()
 }
