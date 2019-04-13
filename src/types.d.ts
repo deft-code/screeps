@@ -57,6 +57,7 @@ declare const require: (module: string) => any;
 // add your custom typings here
 
 interface Flag {
+    self: string;
     id: string
     runTeam(): void
     darkTeam(): void

@@ -10,7 +10,7 @@ exports.getset = (obj, path, def) => {
   return got
 }
 
-exports.lookup = (id) => {
+exports.bad_lookup = (id) => {
   if (!id) return null
   if (id.length === 24) {
     const ids = Game._ids = Game._ids || {}
@@ -24,11 +24,6 @@ exports.lookup = (id) => {
     }
   }
   return Game.creeps[id] || Game.flags[id] || Game.rooms[id] || null
-}
-
-exports.unlookup = (objid) => {
-  const ids = Game._ids = Game._ids || {}
-  ids[objid.id] = objid
 }
 
 exports.errStr = (err) => {
