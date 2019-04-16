@@ -12,14 +12,14 @@ exports.drawMat = function (mat, roomName) {
     for (let y = 0; y < 50; y++) {
       const v = mat.get(x, y)
       if (v === 0xff) {
-        vis.circle(x, y, {fill: 'red', opacity: 1})
+        vis.circle(x, y, { fill: 'red', opacity: 1 })
       } else if (v === 1) {
-        vis.circle(x, y, {fill: 'white', opacity: 1})
+        vis.circle(x, y, { fill: 'white', opacity: 1 })
       } else if (v > 0) {
         if (v < 10) {
-          vis.circle(x, y, {fill: 'green', opacity: 1})
+          vis.circle(x, y, { fill: 'green', opacity: 1 })
         } else {
-          vis.circle(x, y, {fill: 'blue', opacity: 1})
+          vis.circle(x, y, { fill: 'blue', opacity: 1 })
         }
       }
     }
@@ -35,8 +35,10 @@ exports.addStructures = function (mat, room) {
     const [x, y] = [struct.pos.x, struct.pos.y]
     switch (struct.structureType) {
       case STRUCTURE_RAMPART:
-        if (!struct.my && !struct.isPublic) {
-          debug.warn(room.name, struct.isPublic)
+        if (!struct.my) {
+          if (struct.isPublic) {
+            debug.warn(room.name, "has public ramaparts", struct.isPublic)
+          }
           mat.set(x, y, 0xff)
         }
         break
@@ -83,13 +85,13 @@ exports.get = (roomName) => {
   if (!entry) {
     if (!room) {
       // console.log(`Null Matrix ${roomName}`)
-      return {_bits: kNull._bits}
+      return { _bits: kNull._bits }
     }
   } else {
     if (entry.t === Game.time || !room) {
       if (!room) console.log(`Blind Matrix ${roomName}`)
       // return PathFinder.CostMatrix.deserialize(entry.mat)
-      return {_bits: entry.mat}
+      return { _bits: entry.mat }
     }
   }
 
@@ -101,7 +103,7 @@ exports.get = (roomName) => {
     t: Game.time,
     mat: mat._bits
   }
-  return {_bits: mat._bits}
+  return { _bits: mat._bits }
 }
 
 exports.repath = (me) => (roomName) => {
@@ -118,7 +120,7 @@ exports.repath = (me) => (roomName) => {
 const calcStall = (room) => {
   const mem = room.memory.stalls || {}
   if (mem.t === Game.time) return
-  const newMem = {t: Game.time}
+  const newMem = { t: Game.time }
   for (const creep of room.find(FIND_CREEPS)) {
     const prev = mem[creep.id]
     if (!prev || prev.x !== creep.pos.x || prev.y !== creep.pos.y) {

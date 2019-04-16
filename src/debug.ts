@@ -55,6 +55,7 @@ export function warn(...str: any[]) {
   const loc = location(2);
   if (warned.has(loc)) return;
 
+  warned.add(loc);
   console.log(loc, ...str);
 }
 
