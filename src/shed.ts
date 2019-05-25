@@ -3,18 +3,26 @@ import * as debug from 'debug';
 const kMaxCPU = 350
 const kMinBucket = 50;
 
+const minBucket = 500 - Game.cpu.limit;
+
 export function canRun(cpu: number, bucket: number) {
     if (cpu > kMaxCPU) {
-        debug.warn('CPU Throttled')
+        debug.warn('Max CPU Throttled')
         return false
     }
-    if (Game.cpu.bucket < kMinBucket) {
-        debug.log('Bucket Throttled')
-        return false
+    if (Game.cpu.bucket < minBucket) {
+        debug.warn("Bucket Throttled:", `${Game.cpu.bucket} < ${minBucket}`);
+        return false;
     }
-    if (Game.cpu.bucket < bucket - 500) return false
-    if (cpu > Game.cpu.limit && Game.cpu.bucket < bucket) return false
-    return true
+
+    const delta = Game.cpu.limit - Game.cpu.getUsed();
+    const dbucket = Game.cpu.bucket + delta;
+
+    if (dbucket < bucket) {
+        debug.warn("CPU Throttled:", `${Game.cpu.getUsed()}:${Game.cpu.bucket}`);
+        return false;
+    }
+    return true;
 }
 
 export function run<T>(objs: T[], bucket: number, func: (t: T) => void) {

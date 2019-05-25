@@ -3,7 +3,7 @@ const routes = require('routes')
 const k = require('constants')
 
 
-function eggOrder (lname, rname) {
+function eggOrder(lname, rname) {
   const lpriority = _.get(Memory.creeps, `[${lname}].egg.priority`, 10)
   const rpriority = _.get(Memory.creeps, `[${rname}].egg.priority`, 10)
   return lpriority - rpriority
@@ -46,7 +46,7 @@ exports.run = () => {
   }
 }
 
-function closeSpawns (all, tname) {
+function closeSpawns(all, tname) {
   const mdist = _(all)
     .map(s => routes.dist(tname, s.pos.roomName))
     .min()
@@ -54,7 +54,7 @@ function closeSpawns (all, tname) {
     routes.dist(tname, s.pos.roomName) <= mdist + 1)
 }
 
-function remoteSpawns (all, tname) {
+function remoteSpawns(all, tname) {
   const mdist = _(all)
     .map(s => routes.dist(tname, s.pos.roomName))
     .filter(d => d > 0)
@@ -65,7 +65,7 @@ function remoteSpawns (all, tname) {
   })
 }
 
-function maxSpawns (all, tname) {
+function maxSpawns(all, tname) {
   const close = _.filter(all, s => routes.dist(tname, s.pos.roomName) <= 10)
   const mlvl = _.max(close.map(s => s.room.controller.level))
   const lvl = _.filter(close, s => s.room.controller.level >= mlvl)
@@ -74,7 +74,7 @@ function maxSpawns (all, tname) {
   return _.filter(lvl, s => routes.dist(tname, s.pos.roomName) <= mdist)
 }
 
-function findSpawns (eggMem) {
+function findSpawns(eggMem) {
   const allSpawns = _.shuffle(Game.spawns)
   const tname = Game.flags[eggMem.team].pos.roomName
 
@@ -112,14 +112,14 @@ function findSpawns (eggMem) {
   return _.filter(spawns, s => !s.spawning)
 }
 
-function buildCtrl (spawns, eggMem) {
+function buildCtrl(spawns, eggMem) {
   // Disable tiny ctrl
   if (false && eggMem.ecap > k.RCL7Energy) {
     return [
       _.find(spawns, s => s.room.energyAvailable >= 500), [
-        MOVE, WORK, CARRY]] 
+        MOVE, WORK, CARRY]]
   }
-  
+
   if (eggMem.ecap > k.RCL7Energy) {
     return [
       _.find(spawns, s => s.room.energyAvailable >= 2050), [
@@ -169,13 +169,13 @@ function buildCtrl (spawns, eggMem) {
   return [spawn, body]
 }
 
-function energySpawn (spawns, min, max = 12300) {
+function energySpawn(spawns, min, max = 12300) {
   return _.find(spawns,
-        s => (s.room.energyAvailable >= max || s.room.energyFreeAvailable === 0) &&
-            s.room.energyCapacityAvailable >= min)
+    s => (s.room.energyAvailable >= max || s.room.energyFreeAvailable === 0) &&
+      s.room.energyCapacityAvailable >= min)
 }
 
-function buildBody (spawns, eggMem) {
+function buildBody(spawns, eggMem) {
   let spawn
   let body = []
   let e
@@ -278,6 +278,14 @@ function buildBody (spawns, eggMem) {
         per: [CARRY]
       }))
       break
+    case 'hub':
+      body = [CARRY, CARRY,
+        CARRY, CARRY,
+        CARRY, CARRY,
+        CARRY, CARRY,
+        CARRY, MOVE];
+      spawn = _.find(spawns, s => s.room.energyAvailable >= 500);
+      break;
     case 'farmer':
       spawn = energySpawn(spawns, 550)
       if (!spawn) break
@@ -451,7 +459,7 @@ const orderParts = (l, r) => partPriority(l) - partPriority(r)
 
 // const sortFromOrder = (items, order) => items.sort((l, r) => _.indexOf(order, l) - _.indexOf(order, r))
 
-function bodyCost (body) {
+function bodyCost(body) {
   return _.sum(body, part => BODYPART_COST[part])
 }
 
@@ -499,7 +507,7 @@ const defBody = (def) => {
   return parts
 }
 
-function energyDef (def) {
+function energyDef(def) {
   def.level = 2
   let cost = defCost(def)
   const max = def.max || 50

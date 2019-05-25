@@ -149,6 +149,11 @@ Flag.prototype.haulerEgg = function () {
   })
 }
 
+Flag.prototype.hubEgg = function () {
+  return this.localEgg('hub', {
+    egg: {body: 'hub'}});
+}
+
 Flag.prototype.microEgg = function (mem) {
   return this.closeEgg('micro', mem)
 }

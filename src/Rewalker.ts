@@ -373,7 +373,8 @@ export class Rewalker {
         return owned.owner.username === SYSTEM_USERNAME
     }
 
-    planWalk(c: Creep | PowerCreep, goals: Array<Goal>): number {
+    // Return index of plan destination or ERR_* constant.
+    planWalk(c: Creep | PowerCreep, goals: Goal[]): number {
         const step = new Step(c, c.pos, 1, this)
         const clean = goals.map(cleanGoal)
         const [i, path] = step.planSteps(c.pos, clean, c.ticksToLive || CREEP_LIFE_TIME)

@@ -143,16 +143,6 @@ export class Debuggable {
   }
 }
 
-declare global {
-  interface Flag {
-    log(...args: any[]): void
-    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
-  }
-  interface Room {
-    log(...args: any[]): void
-    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
-  }
-}
 lib.merge(Flag, Debuggable)
 lib.merge(Creep, Debuggable)
 lib.merge(Room, Debuggable)

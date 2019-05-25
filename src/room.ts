@@ -3,7 +3,7 @@ import { run } from 'shed'
 
 declare global {
   interface RoomMemory {
-    [what: string]: number
+    //[what: string]: number
     role?: string
     spots?: {
       [name: string]: number
@@ -81,9 +81,9 @@ Room.prototype.addSpot = function (name: string, p: number | RoomPosition) {
 }
 
 Room.prototype.getSpot = function (name: string) {
-  const xy = (this.memory.spots || {})[name]
-  if (!xy) return null
-  return this.unpackPos(xy)
+  const xy = (this.memory.spots || {})[name];
+  if (xy) return this.unpackPos(xy);
+  return this.meta.getSpot(name);
 }
 
 Room.prototype.drawSpots = function () {
@@ -105,19 +105,19 @@ Room.prototype.drawSpots = function () {
 const kAllies = ['no one']
 
 function ratchet(room: Room, what: string, up: boolean) {
-  const twhat = `t${what}`
-  const whattime = `${what}time`
+  const twhat = `t${what}` as "tassaulters";
+  const whattime = `${what}time` as "assaulterstime"
 
   if (!room.memory[whattime]) room.memory[whattime] = Game.time
 
   if (up) {
     if (!room.memory[twhat]) room.memory[twhat] = 0
-    room.memory[twhat]++
+    room.memory[twhat]!++
     room.memory[whattime] = Game.time
   } else {
-    const delta = Game.time - room.memory[whattime]
+    const delta = Game.time - room.memory[whattime]!
     if (delta > 10) {
-      room.memory[twhat] = 0
+      room.memory[twhat as "tassaulters"] = 0
     }
   }
 }

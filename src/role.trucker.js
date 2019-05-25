@@ -1,4 +1,4 @@
-const Path = require('path')
+import {Path} from "path";
 
 module.exports = class Trucker {
   roleTruckaga () {

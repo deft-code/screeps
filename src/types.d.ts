@@ -1,11 +1,94 @@
+interface Game {
+    storages: StructureStorage[]
+    terminals: StructureTerminal[]
+}
 
 interface RoomVisual {
-    structure(x: number, y: number, stype: StructureConstant, opts?: {opacity: number}): ScreepsReturnCode
+    structure(x: number, y: number, stype: StructureConstant, opts?: { opacity: number }): ScreepsReturnCode
     animatedPosition(x: number, y: number): ScreepsReturnCode
 }
 
 interface StructureController {
     isPowerEnabled: boolean
+    resTicks: number
+    reservable: boolean
+}
+
+declare const PWR_GENERATE_OPS: 1;
+declare const PWR_OPERATE_SPAWN: 2;
+declare const PWR_OPERATE_TOWER: 3;
+declare const PWR_OPERATE_STORAGE: 4;
+declare const PWR_OPERATE_LAB: 5;
+declare const PWR_OPERATE_EXTENSION: 6;
+declare const PWR_OPERATE_OBSERVER: 7;
+declare const PWR_OPERATE_TERMINAL: 8;
+declare const PWR_DISRUPT_SPAWN: 9;
+declare const PWR_DISRUPT_TOWER: 10;
+declare const PWR_DISRUPT_SOURCE: 11;
+declare const PWR_SHIELD: 12;
+declare const PWR_REGEN_SOURCE: 13;
+declare const PWR_REGEN_MINERAL: 14;
+declare const PWR_DISRUPT_TERMINAL: 15;
+declare const PWR_OPERATE_POWER: 16;
+declare const PWR_FORTIFY: 17;
+declare const PWR_OPERATE_CONTROLLER: 18;
+declare const PWR_OPERATE_FACTORY: 19;
+
+type PWR_GENERATE_OPS = 1;
+type PWR_OPERATE_SPAWN = 2;
+type PWR_OPERATE_TOWER = 3;
+type PWR_OPERATE_STORAGE = 4;
+type PWR_OPERATE_LAB = 5;
+type PWR_OPERATE_EXTENSION = 6;
+type PWR_OPERATE_OBSERVER = 7;
+type PWR_OPERATE_TERMINAL = 8;
+type PWR_DISRUPT_SPAWN = 9;
+type PWR_DISRUPT_TOWER = 10;
+type PWR_DISRUPT_SOURCE = 11;
+type PWR_SHIELD = 12;
+type PWR_REGEN_SOURCE = 13;
+type PWR_REGEN_MINERAL = 14;
+type PWR_DISRUPT_TERMINAL = 15;
+type PWR_OPERATE_POWER = 16;
+type PWR_FORTIFY = 17;
+type PWR_OPERATE_CONTROLLER = 18;
+type PWR_OPERATE_FACTORY = 19;
+
+type PowerType = PWR_GENERATE_OPS |
+    PWR_OPERATE_SPAWN |
+    PWR_OPERATE_TOWER |
+    PWR_OPERATE_STORAGE |
+    PWR_OPERATE_LAB |
+    PWR_OPERATE_EXTENSION |
+    PWR_OPERATE_OBSERVER |
+    PWR_OPERATE_TERMINAL |
+    PWR_DISRUPT_SPAWN |
+    PWR_DISRUPT_TOWER |
+    PWR_DISRUPT_SOURCE |
+    PWR_SHIELD |
+    PWR_REGEN_SOURCE |
+    PWR_REGEN_MINERAL |
+    PWR_DISRUPT_TERMINAL |
+    PWR_OPERATE_POWER |
+    PWR_FORTIFY |
+    PWR_OPERATE_CONTROLLER |
+    PWR_OPERATE_FACTORY;
+
+
+interface EffectEntry {
+    power: PowerType
+    level: number
+    ticksRemaining: number
+}
+
+interface RoomObject {
+    effects: EffectEntry[]
+    effectTTL(pwr: PowerType): number
+}
+
+
+interface PowerCreepTick {
+    power?: PowerType
 }
 
 interface PowerCreepConstructor {
@@ -26,15 +109,24 @@ interface PowerCreep extends RoomObject {
     ticksToLive: number
     room: Room
     shard?: string
+    powers: {
+        [pwr in PowerType]?: {
+            level: number
+            cooldown: number
+        }
+    }
+    tick: PowerCreepTick
 
     move(dir: DirectionConstant): CreepMoveReturnCode
     spawn(s: StructurePowerSpawn): OK | ERR_INVALID_TARGET
     enableRoom(s: StructureController): OK | ERR_NOT_IN_RANGE
     renew(s: StructurePowerSpawn | StructurePowerBank): ScreepsReturnCode
+    usePower(pwr: PowerType, obj: RoomObject): ScreepsReturnCode
 
     role: string
     log(...args: any[]): void
     dlog(...args: any[]): void
+    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
     memory: any
 }
 
@@ -61,7 +153,30 @@ interface Flag {
     id: string
     runTeam(): void
     darkTeam(): void
-    teamWhat(): string
+    debug: boolean
+}
+
+interface SourceTick {
+    regen?: boolean
+}
+
+interface Source {
+    note: string
+    tick: SourceTick
+    regenTTL: number
+}
+
+interface FlagMemory {
+    creeps?: string[]
+    junior?: boolean
+    pace?: number
+    when?: {
+        [role: string]: number
+    }
+}
+
+interface CreepMemory {
+    egg?: any
 }
 
 interface Creep {
@@ -70,6 +185,14 @@ interface Creep {
     assault: boolean
     hostile: boolean
     melee: boolean
+    spawnTime: number
+    role: string
+    goTransfer(s: Structure, r: ResourceConstant, move: boolean): boolean
+    goWithdraw(w: Withdrawable, r: ResourceConstant, move: boolean): boolean
+    moveSpot(): boolean
+
+    carryFree: number
+    carryTotal: number
 }
 
 interface RoomCache {
@@ -78,6 +201,15 @@ interface RoomCache {
 
 interface RoomTick {
 
+}
+
+interface RoomMemory {
+    tassaulters?: number
+    tenemies?: number
+    thostiles?: number
+    assaulterstime?: number
+    enemiestime?: number
+    hostilestime?: number
 }
 
 interface Room {
@@ -111,6 +243,9 @@ interface Room {
         [key: string]: AnyStructure[]
     }
 
+    log(...args: any[]): void
+    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
+
     runTowers(): void
     runDefense(): void
     runKeeper(): void
@@ -119,10 +254,15 @@ interface Room {
     spawningRun(): void
 
     drawSpots(): void
+
+    wallMax: number
 }
 
 interface Flag {
     run(): void
+    log(...args: any[]): void
+    dlog(...args: any[]): void
+    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
 }
 
 interface RoomPosition {
@@ -183,6 +323,7 @@ interface StructureLab {
 
 interface StructureLink {
     energyFree: number
+    mode: string
 }
 
 interface StructureNuker {

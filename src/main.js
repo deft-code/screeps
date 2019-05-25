@@ -4,6 +4,9 @@ import * as debug from "debug";
 import * as cache from "cache";
 cache.injectAll();
 
+import 'roomobj';
+import 'role.hub';
+
 require('Visual');
 
 require('metastruct');
@@ -30,7 +33,7 @@ require('struct.lab')
 
 const market = require('market')
 
-require('team')
+import "team";
 require('team.egg')
 
 
@@ -112,12 +115,6 @@ function drain(t, room) {
     return
   }
 }
-
-// Game.rooms.W29N11.addSpot('aux', 4326)
-// Game.rooms.W29N11.addSpot('auxsrc', 1514)
-// Game.rooms.W29N11.addSpot('core', 4539)
-// Game.rooms.W29N11.addSpot('coresrc', 2445)
-// Game.rooms.W29N11.addSpot('mineral', 2225)
 
 const up = Game.time
 let ngc = 0
@@ -206,7 +203,7 @@ function main() {
   run(claimed, 5500, r => r.optional());
   run(remote, 6000, r => r.optional());
 
-  if(canRun(Game.cpu.getUsed(), 4000)){
+  if (canRun(Game.cpu.getUsed(), 4000)) {
     spawn.run();
   }
 
@@ -220,9 +217,6 @@ function main() {
   if (canRun(Game.cpu.getUsed(), 9000)) {
     market.run()
   }
-
-  Game.getObjectById("5b3928079305742f3e69cb98").observeRoom('W21N15');
-
 
   const nflags = _.size(Game.flags)
   const mflags = _.size(Memory.flags)
@@ -249,25 +243,4 @@ function main() {
     }
     // console.log(Game.time - up, 'heap usage:', Math.round((heapStats.total_heap_size) / 1048576), 'MB +', Math.round((heapStats.externally_allocated_size) / 1048576), 'MB of', Math.round(heapStats.heap_size_limit / 1048576), 'MB (', heapPercent, '% )')
   }
-
-  Memory.stats.uptime = Game.time - up
-  Memory.stats.ngc = ngc
-
-  Memory.stats.credits = Game.market.credits
-  Memory.stats.ticks = Game.time
-  Memory.stats.ncreeps = _.size(Game.creeps)
-  Memory.stats.mcreeps = _.size(Memory.creeps)
-  Memory.stats.nstructs = _.size(Game.structures)
-  Memory.stats.nsites = _.size(Game.constructionSites)
-  Memory.stats.nspawns = _.size(Game.spawns)
-  Memory.stats.nspawning = _.filter(Game.spawns, s => s.spawning).length
-  Memory.stats.spawntime = _.sum(Game.spawns, s => (s.spawning && s.spawning.remainingTime) || 0)
-  Memory.stats.spawntimetotal = _.sum(Game.spawns, s => (s.spawning && s.spawning.needTime) || 0)
-  Memory.stats.cpu = Game.cpu
-  Memory.stats.gcl = {
-    level: Game.gcl.level,
-    progress: Math.floor(Game.gcl.progress),
-    progressTotal: Math.floor(Game.gcl.progressTotal)
-  }
-  Memory.stats.cpu.used = Math.floor(Game.cpu.getUsed())
 }

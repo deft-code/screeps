@@ -7,7 +7,7 @@
   },
   "compilerOptions": {
     "module": "commonjs",
-    "target": "es6",
+    "target": "esnext",
     "moduleResolution": "Node",
     "outDir": "distjs",
     "baseUrl": "src/",

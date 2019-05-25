@@ -1,9 +1,14 @@
-const lib = require('lib')
+import * as lib from 'lib';
 
 const gSpots = new Map()
 const gBestSpots = new Map()
 
-class SourceExtra {
+class SourceExtra extends Source {
+  get regenTTL() {
+    if(this.tick.regen) return 300;
+    return this.effectTTL(PWR_REGEN_SOURCE);
+  }
+
   get spots () {
     const key = JSON.stringify(this.pos)
     if (!gSpots[key]) {

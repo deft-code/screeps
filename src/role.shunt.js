@@ -1,8 +1,8 @@
 module.exports = class CreepShunt {
-  roleAux () { return this.roleCore() }
-  afterAux () { return this.afterCore() }
+  roleAux() { return this.roleCore() }
+  afterAux() { return this.afterCore() }
 
-  roleCore () {
+  roleCore() {
     if (this.moveSpot()) return 'moved'
 
     const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
@@ -42,32 +42,35 @@ module.exports = class CreepShunt {
           this.goWithdraw(store, RESOURCE_ENERGY, false)
       }
       return this.goWithdraw(link, RESOURCE_ENERGY, false) ||
-          this.goTransfer(store, RESOURCE_ENERGY, false)
+        this.goTransfer(store, RESOURCE_ENERGY, false)
     }
     return 'finish'
   }
 
-  afterCore () {
+  afterCore() {
     this.idleNom()
     this.structAtSpot(STRUCTURE_RAMPART)
 
     const p = this.teamRoom.getSpot(this.role)
-    if (this.pos.isEqualTo(p)) {
+    if (p && this.pos.isEqualTo(p)) {
       this.idleImmortal()
     }
   }
 
-  moveSpot () {
+  moveSpot() {
     const where = this.memory.spot || this.role
     const p = this.teamRoom.getSpot(where)
+    if (!p) return false;
     if (!this.pos.isEqualTo(p)) {
+      this.log("moving to", p);
       return this.movePos(p)
     }
     return false
   }
 
-  structAtSpot (stype) {
+  structAtSpot(stype) {
     const p = this.teamRoom.getSpot(this.role)
+    if (!p) return
     const struct = _.find(p.lookFor(LOOK_STRUCTURES),
       s => s.structureType === stype)
     if (struct) return
@@ -77,19 +80,19 @@ module.exports = class CreepShunt {
     }
   }
 
-  nearSpawn () {
+  nearSpawn() {
     let s = Game.getObjectById(this.memory.spawn)
     if (this.pos.isNearTo(s)) return s
 
     s = _.find(this.room.findStructs(STRUCTURE_SPAWN),
-        ss => this.pos.isNearTo(ss))
+      ss => this.pos.isNearTo(ss))
     if (s) {
       this.memory.spawn = s.id
     }
     return s
   }
 
-  idleImmortal () {
+  idleImmortal() {
     if (this.room.energyFreeAvailable === 0 || this.ticksToLive < 200) {
       const s = this.nearSpawn()
       if (!s) return
