@@ -141,16 +141,6 @@ module.exports = class CreepChemist {
     return this.goTransfer(lab, lab.mineralType || lab.planType)
   }
 
-  taskWithdrawLab (lab) {
-    lab = this.checkId('withdraw lab', lab)
-    if (!lab) return false
-    if (!lab.mineralAmount) return false
-    if (!this.carryFree) return false
-    this.dlog('withdrawing', lab, lab.mineralAmount, lab.mineralType)
-
-    return this.goWithdraw(lab, lab.mineralType)
-  }
-
   taskWithdrawMinerals (store) {
     this.dlog(`withdraw minerals ${store}`)
     if (!store) return false

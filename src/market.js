@@ -1,5 +1,5 @@
-const debug = require('debug')
-const k = require('constants')
+import * as debug from 'debug';
+import * as k from 'constants';
 
 if (!Memory.market) {
   Memory.market = {}

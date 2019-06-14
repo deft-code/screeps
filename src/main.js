@@ -7,53 +7,49 @@ cache.injectAll();
 import 'roomobj';
 import 'role.hub';
 
-require('Visual');
+import 'Visual';
 
-require('metastruct');
-require('mission');
-require('matrix')
-require('Traveler')
-require('flag')
-require('globals')
-require('constants')
-require('path')
-require('room')
-require('room.keeper')
-require('source')
-require('perma')
+import 'metastruct';
+import 'mission';
+import 'matrix';
+import 'Traveler';
+import 'flag';
+import 'globals';
+import 'constants';
+import 'path';
+import 'room';
+import 'room.keeper';
+import 'source';
+import 'perma';
 
-require('tombs')
-require('struct')
-const terminals = require('struct.terminal')
-require('struct.tower')
-require('struct.link')
-require('struct.controller')
-require('struct.container')
-require('struct.lab')
+import 'tombs';
+import 'struct';
+import * as terminals from 'struct.terminal';
+import 'struct.tower';
+import 'struct.link';
+import 'struct.controller';
+import 'struct.container';
+import 'struct.lab';
 
-const market = require('market')
+import * as market from 'market';
 
 import "team";
-require('team.egg')
+import 'team.egg';
 
 
-require("powercreep");
+import 'powercreep';
 
-require('creep')
+import 'creep';
 
-const lib = require('lib')
-const spawn = require('spawn')
+import * as lib from 'lib';
+import * as spawn from 'spawn';
 
 const mods = [
   'creep.attack',
-  'creep.boost',
   'creep.build',
-  'creep.carry',
   'creep.dismantle',
   'creep.heal',
-  'creep.move',
   'creep.repair',
-  'creep.role',
   'creep.work',
 
   'role.archer',
@@ -144,7 +140,7 @@ function powerHack() {
   if (t.cooldown > 0) {
     debug.log("Terminal busy", t.cooldown)
   } else {
-    if (Game.market.credits < 20000000) {
+    if (Game.market.credits < 10000000) {
       debug.log("Too few credits", Game.market.credits)
     } else {
       if (t.storeFree < 10000) {

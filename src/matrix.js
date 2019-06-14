@@ -1,4 +1,4 @@
-const debug = require('debug')
+import * as debug from 'debug';
 
 const kStuckCreep = 100
 const kStuckRange = 2
@@ -6,7 +6,7 @@ const kMaxStall = 5
 
 let gCache = {}
 
-exports.drawMat = function (mat, roomName) {
+export function drawMat(mat, roomName) {
   const vis = new RoomVisual(roomName)
   for (let x = 0; x < 50; x++) {
     for (let y = 0; y < 50; y++) {
@@ -79,7 +79,7 @@ exports.addStructures = function (mat, room) {
 
 const kNull = new PathFinder.CostMatrix()
 
-exports.get = (roomName) => {
+export function getMat(roomName) {
   const entry = gCache[roomName]
   const room = Game.rooms[roomName]
   if (!entry) {

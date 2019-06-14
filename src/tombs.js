@@ -1,5 +1,5 @@
-const lib = require('lib')
-const util = require('util')
+import * as lib from 'lib';
+import * as util from 'util';
 
 class TombsExtra {
   get note () {

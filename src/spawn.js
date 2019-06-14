@@ -1,6 +1,6 @@
-const debug = require('debug')
-const routes = require('routes')
-const k = require('constants')
+import * as debug from 'debug';
+import * as routes from 'routes';
+import * as k from 'constants';
 
 
 function eggOrder(lname, rname) {

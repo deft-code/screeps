@@ -1,11 +1,11 @@
-const lib = require('lib')
-const debug = require('debug')
+import * as lib from 'lib';
+import * as debug from 'debug';
 
 const kMinRouteAge = 1500
 
 Memory.routes = Memory.routes || {}
 
-exports.isHostile = (roomOrName) => {
+export function isHostile(roomOrName) {
   const name = lib.getRoomName(roomOrName)
   switch (name) {
     case 'W22N15':

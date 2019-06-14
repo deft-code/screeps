@@ -1,4 +1,4 @@
-const debug = require('debug')
+import * as debug from 'debug';
 
 module.exports = function runPlanner (flag) {
   switch (flag.secondaryColor) {

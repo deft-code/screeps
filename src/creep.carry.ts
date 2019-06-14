@@ -1,22 +1,50 @@
-const util = require('util')
-const k = require('constants')
+import { CreepMove } from "creep.move";
+import * as util from 'util';
+import * as k from 'constants';
+import { TaskRet } from "Tasker";
+import { isStore } from "guards";
+import { Link, Mode } from "struct.link";
+import { injecter } from "roomobj";
 
-module.exports = class CreepCarry {
-  idleTransferAny () {
+declare global {
+  interface ExtensionTick {
+    taken?: string
+  }
+
+  interface CreepTaskMem {
+    resource?: ResourceConstant
+  }
+
+  interface Creep {
+    taskSortMineral(r: ResourceConstant): TaskRet
+  }
+}
+
+
+
+export function randomResource(resources: StoreDefinition): ResourceConstant {
+  const recs = _.keys(resources) as ResourceConstant[];
+  if (resources.energy > 0) return _.sample(recs);
+  return _.sample(_.filter(recs, r => r !== RESOURCE_ENERGY));
+}
+
+@injecter(Creep)
+export class CreepCarry extends CreepMove {
+  idleTransferAny() {
     if (!this.carry.energy) return false
     if (this.intents.transfer) return false
 
     const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
 
     const spot = _.find(
-        spots, spot => spot.structure.energyFree || spot.structure.storeFree)
+      spots, spot => spot.structure.energyFree || spot.structure.storeFree)
 
     if (!spot) return false
 
-    return this.goTransfer(spot[LOOK_STRUCTURES], RESOURCE_ENERGY, false)
+    return this.goTransfer(spot[LOOK_STRUCTURES] as XferStruct, RESOURCE_ENERGY, false)
   }
 
-  idleTransferExtra () {
+  idleTransferExtra() {
     if (!this.carry.energy) return false
     if (this.intents.transfer) return false
 
@@ -36,64 +64,64 @@ module.exports = class CreepCarry {
         case STRUCTURE_SPAWN:
         case STRUCTURE_EXTENSION:
           if (s.energyFree) {
-            return this.goTransfer(s, RESOURCE_ENERGY, false)
+            return this.goTransfer(s as StructureExtension, RESOURCE_ENERGY, false)
           }
       }
     }
     return false
   }
 
-  taskTransferTowers (amount) {
-    const towers = this.room.findStructs(STRUCTURE_TOWER)
+  taskTransferTowers(amount: number) {
+    const towers = this.room.findStructs(STRUCTURE_TOWER) as StructureTower[];
     const tower = _.find(towers, t => t.energy < amount)
     return this.taskTransfer(tower, RESOURCE_ENERGY)
   }
 
-  taskTransferPool () {
+  taskTransferPool() {
     this.dlog('taskTransferPool')
     if (!this.room.energyFreeAvailable) return false
 
     const extns = _.filter(
-        this.room.findStructs(STRUCTURE_EXTENSION),
-        p => p.energyFree && !p.taken)
+      this.room.findStructs(STRUCTURE_EXTENSION) as StructureExtension[],
+      p => p.energyFree && !p.tick.taken)
     const extn = this.pos.findClosestByRange(extns)
 
     if (extn) {
-      extn.taken = this.name
+      extn.tick.taken = this.name
       return this.taskTransfer(extn, RESOURCE_ENERGY)
     }
 
     // fill spawns last to give srcers a chance to fill them.
     const spawns = _.filter(
       this.room.findStructs(STRUCTURE_SPAWN),
-        p => p.energyFree)
+      p => p.energyFree)
     const spawn = this.pos.findClosestByRange(spawns)
 
     return this.taskTransfer(spawn, RESOURCE_ENERGY)
   }
 
-  taskTransferMinerals () {
+  taskTransferMinerals() {
     this.dlog('taskTransferMinerals')
     const store = this.room.terminal || this.room.storage
     if (!store) return false
 
-    const mineral = _.find(_.keys(this.carry), m => m !== RESOURCE_ENERGY)
+    const mineral = _.find(_.keys(this.carry) as ResourceConstant[], m => m !== RESOURCE_ENERGY);
 
     return this.taskTransfer(store, mineral)
   }
 
-  taskTransferEnergy () {
+  taskTransferEnergy() {
     this.dlog('taskTransferEnergy')
     let stores = this.room.findStructs(
-        STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL)
+      STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL) as StoreStructure[]
     stores = _.filter(stores, s => s.storeFree * 2 > this.carry.energy)
 
     const store = this.pos.findClosestByRange(stores)
     this.dlog('closest store', store)
 
     const batteries = _.filter(
-        this.room.find(FIND_STRUCTURES),
-        b => b.energyFree * 2 > this.carry.energy)
+      this.room.find(FIND_STRUCTURES),
+      b => b.energyFree * 2 > this.carry.energy) as EnergyStruct[];
 
     const battery = this.pos.findClosestByRange(batteries)
 
@@ -106,38 +134,38 @@ module.exports = class CreepCarry {
     return this.taskTransfer(battery, RESOURCE_ENERGY)
   }
 
-  taskTransferResources () {
-    const resource = util.randomResource(this.carry)
+  taskTransferResources() {
+    const resource = randomResource(this.carry)
     switch (resource) {
       case RESOURCE_ENERGY:
         return this.taskTransferEnergy()
       case RESOURCE_POWER:
-        const ps = _.first(this.room.findActive(STRUCTURE_NUKER))
+        const ps = _.first(this.room.findStructs(STRUCTURE_NUKER))
         return this.taskTransfer(ps, resource) || this.taskSortMineral(resource)
       case RESOURCE_GHODIUM:
-        const nuker = _.first(this.room.findActive(STRUCTURE_NUKER))
+        const nuker = _.first(this.room.findStructs(STRUCTURE_NUKER))
         return this.taskTransfer(nuker, resource) || this.taskSortMineral(resource)
     }
-    return this.taskTransferMinerals(resource)
+    return this.taskTransferMinerals();
   }
 
-  taskTransfer (struct, resource) {
+  taskTransfer(struct: XferStruct | undefined | null, resource: ResourceConstant | undefined) {
     struct = this.checkId('transfer', struct)
     if (!struct) return false
 
     if (!resource) {
-      resource = this.memory.task.resource
+      resource = this.memory.task!.resource!;
     } else {
-      this.memory.task.resource = resource
+      this.memory.task!.resource = resource
     }
 
     if (!this.carry[resource]) return false
 
-    if (struct.store) {
+    if (isStore(struct)) {
       if (!struct.storeFree) return false
     } else {
-      const r = struct[resource]
-      const rCap = struct[`${resource}Capacity`]
+      const r = struct[resource as "energy"];
+      const rCap = struct[`${resource}Capacity` as "energyCapacity"];
       if (r >= rCap) return false
     }
 
@@ -145,7 +173,7 @@ module.exports = class CreepCarry {
     return this.goTransfer(struct, resource)
   }
 
-  goTransfer (target, resource, move = true) {
+  goTransfer(target: XferStruct, resource: ResourceConstant, move = true) {
     this.dlog('goTransfer', target, resource)
     const err = this.transfer(target, resource)
     if (err === OK) {
@@ -159,15 +187,15 @@ module.exports = class CreepCarry {
     return false
   }
 
-  idleWithdrawExtra () {
+  idleWithdrawExtra() {
     if (!this.carryFree) return false
     if (this.intents.withdraw) return false
 
     const spots =
-        _.shuffle(this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true))
+      _.shuffle(this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true))
 
     for (let spot of spots) {
-      const s = spot.structure
+      const s = spot.structure as XferStruct;
       switch (s.structureType) {
         case STRUCTURE_CONTAINER:
           if (s.mode === 'src' && s.store.energy) {
@@ -175,7 +203,7 @@ module.exports = class CreepCarry {
           }
           break
         case STRUCTURE_LINK:
-          if (s.mode === 'src' && s.energy) {
+          if ((s as Link).mode === Mode.src && s.energy) {
             return this.goWithdraw(s, RESOURCE_ENERGY, false)
           }
           break
@@ -192,30 +220,30 @@ module.exports = class CreepCarry {
     return false
   }
 
-  idleRecharge () {
+  idleRecharge() {
     if (this.carryFree < this.carry.energy) return false
     if (this.intents.withdraw) return false
 
     const spots = _.shuffle(this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true))
 
     for (let spot of spots) {
-      const s = spot.structure
+      const s = spot.structure as XferStruct;
       if (s.structureType === STRUCTURE_SPAWN) continue
       if (s.structureType === STRUCTURE_EXTENSION) continue
       if (s.structureType === STRUCTURE_TOWER) continue
-      if ((s.store && s.store.energy) || s.energy) {
+      if ((isStore(s) && s.store.energy) || (!isStore(s) && s.energy)) {
         return this.goWithdraw(s, RESOURCE_ENERGY, false)
       }
     }
     return false
   }
 
-  taskRechargeLimit (limit) {
+  taskRechargeLimit(limit: number) {
     this.dlog(`recharge ${limit}`)
 
     if (!this.carryFree) return false
 
-    let all = []
+    let all: (Resource | Withdrawable)[] = []
     if (this.room.hostiles.length === 0 || limit < 10) {
       all = _.filter(
         this.room.find(FIND_DROPPED_RESOURCES),
@@ -230,11 +258,11 @@ module.exports = class CreepCarry {
         STRUCTURE_POWER_SPAWN,
         STRUCTURE_STORAGE,
         STRUCTURE_TERMINAL
-      ),
-      s => (s.store && s.store.energy >= limit) || s.energy >= limit
+      ) as XferStruct[],
+      s => (isStore(s) && s.store.energy >= limit) || (!isStore(s) && s.energy >= limit)
     ))
 
-    let e = this.pos.findClosestByRange(all)
+    let e = this.pos.findClosestByRange(all) as any;
 
     if (e && e.structureType) {
       return this.taskWithdraw(e, RESOURCE_ENERGY)
@@ -242,29 +270,29 @@ module.exports = class CreepCarry {
     return this.taskPickup(e)
   }
 
-  taskRecharge () {
+  taskRecharge() {
     return this.taskRechargeLimit(this.carryFree / 3) || this.taskRechargeLimit(1)
   }
 
-  taskWithdrawAny () {
+  taskWithdrawAny() {
     if (!this.carryFree) return false
 
     const structs = _.shuffle(this.room.find(FIND_STRUCTURES))
     for (const struct of structs) {
-      const what = this.taskWithdrawResource(struct)
+      const what = this.taskWithdrawResource(struct as XferStruct)
       if (what) return what
     }
     return false
   }
 
-  taskWithdrawResource (struct) {
+  taskWithdrawResource(struct: XferStruct) {
     if (!struct) return false
     switch (struct.structureType) {
       case STRUCTURE_CONTAINER:
       case STRUCTURE_TERMINAL:
       case STRUCTURE_STORAGE:
         if (!struct.storeTotal) return false
-        return this.taskWithdraw(struct, util.randomResource(struct.store))
+        return this.taskWithdraw(struct, randomResource(struct.store))
       case STRUCTURE_EXTENSION:
       case STRUCTURE_TOWER:
       case STRUCTURE_LINK:
@@ -280,30 +308,41 @@ module.exports = class CreepCarry {
     return false
   }
 
-  taskWithdraw (struct, resource) {
+  taskWithdrawLab(lab: StructureLab | null) {
+    lab = this.checkId('withdraw lab', lab)
+    if (!lab) return false
+    if (!lab.mineralAmount) return false
+    if (!this.carryFree) return false
+    this.dlog('withdrawing', lab, lab.mineralAmount, lab.mineralType)
+
+    return this.goWithdraw(lab, lab.mineralType!)
+  }
+
+
+  taskWithdraw(struct: Withdrawable | null, resource: ResourceConstant) {
     struct = this.checkId('withdraw', struct)
     if (!struct) return false
     if (!this.carryFree) return false
 
     if (!resource) {
-      resource = this.memory.task.resource
+      resource = this.memory.task!.resource!;
     } else {
-      this.memory.task.resource = resource
+      this.memory.task!.resource = resource;
     }
 
-    if (struct.store) {
+    if (isStore(struct)) {
       if (!struct.store[resource]) {
         this.dlog('empty store', struct)
         return false
       }
-    } else if (!struct[resource]) {
+    } else if (!struct[resource as "energy"]) {
       return false
     }
 
     return this.goWithdraw(struct, resource)
   }
 
-  goWithdraw (target, resource, move = true) {
+  goWithdraw(target: Withdrawable, resource: ResourceConstant, move = true) {
     this.dlog('goWithdraw', target, resource)
     const err = this.withdraw(target, resource)
     if (err === OK) {
@@ -317,7 +356,7 @@ module.exports = class CreepCarry {
     return false
   }
 
-  idleNomNom () {
+  idleNomNom() {
     if (!this.carryFree) return false
     if (this.intents.pickup) return false
 
@@ -331,18 +370,18 @@ module.exports = class CreepCarry {
       spot => spot[LOOK_TOMBSTONES].storeTotal > 0)
     if (tomb) {
       const t = tomb[LOOK_TOMBSTONES]
-      return this.taskWithdraw(t, util.randomResource(t.store))
+      return this.taskWithdraw(t, randomResource(t.store))
     }
     return false
   }
 
-  idleNom () {
+  idleNom() {
     if (!this.carryFree) return false
     if (this.intents.pickup) return false
 
     const spot = _.find(
-        this.room.lookForAtRange(LOOK_RESOURCES, this.pos, 1, true),
-        spot => spot[LOOK_RESOURCES].resourceType === RESOURCE_ENERGY)
+      this.room.lookForAtRange(LOOK_RESOURCES, this.pos, 1, true),
+      spot => spot[LOOK_RESOURCES].resourceType === RESOURCE_ENERGY)
     if (spot) {
       this.dlog(spot)
       return this.goPickup(spot[LOOK_RESOURCES], false)
@@ -358,21 +397,21 @@ module.exports = class CreepCarry {
     return false
   }
 
-  taskPickupAny () {
+  taskPickupAny() {
     const resource = _.find(
-        this.room.find(FIND_DROPPED_RESOURCES),
-        r => {
-          if (r.amount < 20) return false
-          if (!this.pos.inRangeTo(r, r.amount)) return false
-          if (this.room.controller && this.room.controller.my) {
-            if (!this.room.terminal && r.resourceType !== RESOURCE_ENERGY) return false
-          }
-          return true
-        })
-    return this.taskPickup(resource)
+      this.room.find(FIND_DROPPED_RESOURCES),
+      r => {
+        if (r.amount < 20) return false
+        if (!this.pos.inRangeTo(r, r.amount)) return false
+        if (this.room.controller && this.room.controller.my) {
+          if (!this.room.terminal && r.resourceType !== RESOURCE_ENERGY) return false
+        }
+        return true
+      }) || null;
+    return this.taskPickup(resource);
   }
 
-  taskPickup (resource) {
+  taskPickup(resource: Resource | null) {
     resource = this.checkId('pickup', resource)
     if (!resource) return false
     if (!this.carryFree) return false
@@ -383,7 +422,7 @@ module.exports = class CreepCarry {
     return what
   }
 
-  goPickup (resource, move = true) {
+  goPickup(resource: Resource, move = true) {
     const err = this.pickup(resource)
     if (err === OK) {
       this.intents.pickup = resource
@@ -395,7 +434,7 @@ module.exports = class CreepCarry {
     return false
   }
 
-  taskDrop (flag) {
+  taskDrop(flag: Flag | null) {
     if (!this.carry.energy) return false
     flag = this.checkFlag('drop', flag)
     if (!flag) return false

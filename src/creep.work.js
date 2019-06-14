@@ -1,5 +1,5 @@
-const lib = require('lib')
-// const debug = require('debug')
+import * as lib from 'lib';
+// import * as debug from 'debug';
 
 module.exports = class CreepWork {
   idleEmergencyUpgrade () {

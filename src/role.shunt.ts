@@ -1,4 +1,15 @@
-module.exports = class CreepShunt {
+import { extender } from "roomobj";
+import { Mode, isLink } from "struct.link";
+
+declare global {
+  interface CreepMemory {
+    spawn?: string
+    spot?: string
+  }
+}
+
+@extender
+class CreepShunt extends Creep {
   roleAux() { return this.roleCore() }
   afterAux() { return this.afterCore() }
 
@@ -6,10 +17,10 @@ module.exports = class CreepShunt {
     if (this.moveSpot()) return 'moved'
 
     const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
-    const structs = _.shuffle(_.map(spots, s => s[LOOK_STRUCTURES]))
+    const structs = _.shuffle(_.map(spots, s => s[LOOK_STRUCTURES])) as AnyOwnedStructure[];
 
-    let store
-    let link
+    let store: StructureStorage | StructureTerminal;
+    let link: StructureLink;
     let estruct
     for (const struct of structs) {
       switch (struct.structureType) {
@@ -32,12 +43,12 @@ module.exports = class CreepShunt {
 
     if (estruct) {
       return this.goTransfer(estruct, RESOURCE_ENERGY, false) ||
-        this.goWithdraw(link, RESOURCE_ENERGY, false) ||
-        this.goWithdraw(store, RESOURCE_ENERGY, false)
+        this.goWithdraw(link!, RESOURCE_ENERGY, false) ||
+        this.goWithdraw(store!, RESOURCE_ENERGY, false)
     }
 
-    if (link) {
-      if (link.mode === 'src') {
+    if (isLink(link)) {
+      if (link.mode === Mode.src) {
         return this.goTransfer(link, RESOURCE_ENERGY, false) ||
           this.goWithdraw(store, RESOURCE_ENERGY, false)
       }
@@ -68,7 +79,7 @@ module.exports = class CreepShunt {
     return false
   }
 
-  structAtSpot(stype) {
+  structAtSpot(stype: BuildableStructureConstant) {
     const p = this.teamRoom.getSpot(this.role)
     if (!p) return
     const struct = _.find(p.lookFor(LOOK_STRUCTURES),
@@ -80,12 +91,12 @@ module.exports = class CreepShunt {
     }
   }
 
-  nearSpawn() {
-    let s = Game.getObjectById(this.memory.spawn)
-    if (this.pos.isNearTo(s)) return s
+  nearSpawn(): StructureSpawn | null {
+    let s = Game.getObjectById<StructureSpawn>(this.memory.spawn)
+    if (s && this.pos.isNearTo(s)) return s
 
-    s = _.find(this.room.findStructs(STRUCTURE_SPAWN),
-      ss => this.pos.isNearTo(ss))
+    s = _.find(this.room.findStructs(STRUCTURE_SPAWN) as StructureSpawn[],
+      ss => this.pos.isNearTo(ss)) || null;
     if (s) {
       this.memory.spawn = s.id
     }
@@ -93,7 +104,7 @@ module.exports = class CreepShunt {
   }
 
   idleImmortal() {
-    if (this.room.energyFreeAvailable === 0 || this.ticksToLive < 200) {
+    if (this.room.energyFreeAvailable === 0 || this.ticksToLive! < 200) {
       const s = this.nearSpawn()
       if (!s) return
       if (s._renew) {

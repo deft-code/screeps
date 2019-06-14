@@ -1,4 +1,4 @@
-const debug = require('debug')
+import * as debug from 'debug';
 
 let lastI = 0
 function findName (role) {

@@ -1,4 +1,4 @@
-const debug = require('debug')
+import * as debug from 'debug';
 
 Room.prototype.keeper = function () {
   if (!this._keeper) {

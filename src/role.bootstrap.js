@@ -1,4 +1,4 @@
-const routes = require('routes')
+import * as routes from 'routes';
 module.exports = class CreepBootstrap {
   roleStartup () { return this.roleBootstrap() }
   afterStartup () { return this.afterBootstrap() }

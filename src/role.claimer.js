@@ -1,4 +1,4 @@
-const lib = require('lib')
+import * as lib from 'lib';
 module.exports = class CreepClaimer {
   roleClaimer () {
     const what = this.taskTask() || this.moveRoom(this.team) || this.moveNear(this.room.controller)

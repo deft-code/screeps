@@ -1,4 +1,4 @@
-const routes = require('routes')
+import * as routes from 'routes';
 
 class Spawner {
   constructor (name) {

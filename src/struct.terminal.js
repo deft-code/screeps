@@ -1,6 +1,6 @@
-const lib = require('lib')
-const debug = require('debug')
-const k = require('constants')
+import * as lib from 'lib';
+import * as debug from 'debug';
+import * as k from 'constants';
 
 const kEnergyLow = 50000
 const kEnergyHi = 60000

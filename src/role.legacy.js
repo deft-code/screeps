@@ -1,4 +1,4 @@
-const debug = require('debug')
+import * as debug from 'debug';
 const Role = require('role')
 
 module.exports = class Legacy extends Role {

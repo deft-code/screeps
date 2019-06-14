@@ -4,11 +4,13 @@ function mergePrototypes(klassProto: any, extraProto: any) {
         Object.defineProperties(klassProto, descs);
 }
 
-function merge(klass: any, extra: any) {
+export type ScreepsClass = CreepConstructor;
+
+function merge(klass: ScreepsClass, extra: any) {
     mergePrototypes(klass.prototype, extra.prototype);
 }
 
-function injecter(klass: any) {
+export function injecter(klass: ScreepsClass) {
     return function (extra: any) {
         merge(klass, extra);
     }

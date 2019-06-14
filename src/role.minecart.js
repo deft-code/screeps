@@ -1,4 +1,4 @@
-const util = require('util')
+import {randomResource} from 'util';
 
 module.exports = class CreepMinecart {
   roleMinecart () {
@@ -19,7 +19,7 @@ module.exports = class CreepMinecart {
     }
 
     if (this.carryTotal) {
-      const r = util.randomResource(this.carry)
+      const r = randomResource(this.carry)
       return this.taskTransfer(this.teamRoom.terminal, r)
     }
 

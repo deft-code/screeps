@@ -71,7 +71,7 @@ class GlobalCache {
             return cache;
         }
 
-        const newCache = { birth: Game.time};
+        const newCache = { birth: Game.time };
         this.hotCache.set(key, newCache);
         return newCache;
     }
@@ -84,13 +84,13 @@ class GlobalCache {
     }
 
     clear() {
-        this.expireTick = Game.time + _.random(20,50);
+        this.expireTick = Game.time + _.random(20, 50);
         const dead = this.coldCache;
         this.coldCache = this.hotCache;
         this.hotCache = new Map();
-        for( const [key, value] of dead) {
+        for (const [key, value] of dead) {
             const obj = Game.getObjectById(key) || Game.flags[key] || Game.rooms[key];
-            if(!obj) continue
+            if (!obj) continue
             this.hotCache.set(key, value);
         }
     }
@@ -114,14 +114,37 @@ declare global {
     interface RoomObjectCache {
         birth: number
     }
+
     interface FlagTick {
 
     }
-    interface FlagCache extends RoomObjectCache  {
+    interface FlagCache extends RoomObjectCache {
 
     }
     interface Flag {
         tick: FlagTick
         cache: FlagCache
+    }
+
+    interface CreepTick {
+
+    }
+    interface CreepCache extends RoomObjectCache {
+
+    }
+    interface Creep {
+        tick: CreepTick
+        cache: CreepCache
+    }
+
+    interface ExtensionTick {
+
+    }
+    interface ExtensionCache extends RoomObjectCache {
+
+    }
+    interface StructureExtension {
+        tick: ExtensionTick
+        cache: ExtensionCache
     }
 }

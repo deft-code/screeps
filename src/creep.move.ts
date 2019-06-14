@@ -1,39 +1,52 @@
-const lib = require('lib')
-const util = require('util')
-const matrix = require('matrix')
-const routes = require('routes')
+import * as lib from 'lib';
+import * as util from 'util';
+import * as matrix from 'matrix';
+import {isHostile} from 'routes';
+import { injecter } from 'roomobj';
+import { CreepRole } from 'creep.role';
 
-module.exports = class CreepMove {
-  moveDir (dir) {
+type HasPos = { pos: RoomPosition };
+type ObjPos = RoomPosition | HasPos;
+
+
+declare global {
+  interface Creep {
+    travelTo(target: ObjPos, opt: any): ScreepsReturnCode;
+  }
+}
+
+@injecter(Creep)
+export class CreepMove extends CreepRole {
+  moveDir(dir: DirectionConstant) {
     return this.moveHelper(this.move(dir), dir)
   }
 
-  movePos (target, opts = {}) {
-    opts = _.defaults(opts, {range: 0})
+  movePos(target: ObjPos, opts: any = {}) {
+    opts = _.defaults(opts, { range: 0 })
     return this.moveTarget(target, opts)
   }
 
-  moveNear (target, opts = {}) {
-    opts = _.defaults(opts, {range: 1})
+  moveNear(target: ObjPos, opts: any = {}) {
+    opts = _.defaults(opts, { range: 1 })
     return this.moveTarget(target, opts)
   }
 
-  moveRange (target, opts = {}) {
-    opts = _.defaults(opts, {range: 3})
+  moveRange(target: ObjPos, opts: any = {}) {
+    opts = _.defaults(opts, { range: 3 })
     const what = this.moveTarget(target, opts)
     this.dlog(`moveRange ${what}`)
     return what
   }
 
-  moveTarget (target, opts = {}) {
+  moveTarget(target: ObjPos, opts: { range: number }) {
     if (!target || this.pos.inRangeTo(target, opts.range)) return false
 
     const weight = this.weight
-    const fatigue = this.info.fatigue
+    const fatigue = this.info.fatigue!;
     this.dlog('moveTarget', weight, fatigue, target)
 
-    const routeCB = (roomName) => {
-      if (routes.isHostile(roomName)) return 10
+    const routeCB = (roomName: string) => {
+      if (isHostile(roomName)) return 10
       return undefined
     }
 
@@ -41,17 +54,18 @@ module.exports = class CreepMove {
       ignoreRoads: fatigue > weight,
       // allowHostile: true,
       routeCallback: routeCB,
-      roomCallback: matrix.get
+      roomCallback: matrix.getMat
     })
     return this.moveHelper(this.travelTo(target, opts), lib.getPos(target))
   }
 
-  moveHelper (err, intent) {
+
+  moveHelper(err: ScreepsReturnCode, intent: any) {
     switch (err) {
       case ERR_TIRED:
       case ERR_BUSY:
         if (this.debug) this.say(util.errString(err))
-        // fallthrough
+      // fallthrough
       case OK:
         this.intents.move = intent
         return `move ${intent}`
@@ -60,17 +74,17 @@ module.exports = class CreepMove {
     return false
   }
 
-  movePeace (target) {
+  movePeace(target: HasPos) {
     if (this.room.memory.tenemies) return false
     return this.moveRange(target)
   }
 
-  moveBump (target) {
+  moveBump(target: (HasPos & { id: string }) | null) {
     if (!target || !this.pos.isNearTo(target) || this.id === target.id) return false
-    this.moveDir(this.pos.getDirectionTo(target))
+    return this.moveDir(this.pos.getDirectionTo(target))
   }
 
-  fleeHostiles () {
+  fleeHostiles() {
     if (!this.room.hostiles.length) return false
 
     if (this.hurts) return this.idleFlee(this.room.hostiles, 5)
@@ -78,9 +92,9 @@ module.exports = class CreepMove {
     return this.idleFlee(this.room.hostiles, 3)
   }
 
-  idleFlee (creeps, range) {
+  idleFlee(creeps: Creep[], range: number) {
     const room = this.room
-    const callback = (roomName) => {
+    const callback = (roomName: string) => {
       if (roomName !== room.name) {
         console.log('Unexpected room', roomName)
         return false
@@ -104,10 +118,10 @@ module.exports = class CreepMove {
       return mat
     }
     const ret = PathFinder.search(
-        this.pos, _.map(creeps, creep => ({pos: creep.pos, range: range})), {
-          flee: true,
-          roomCallback: callback
-        })
+      this.pos, _.map(creeps, creep => ({ pos: creep.pos, range: range })), {
+        flee: true,
+        roomCallback: callback
+      })
 
     const next = _.first(ret.path)
     if (!next) return false
@@ -115,31 +129,26 @@ module.exports = class CreepMove {
     return this.moveDir(this.pos.getDirectionTo(next))
   }
 
-  idleAway (creep) {
-    if (!creep) return false
-    return this.moveDir(this.pos.getDirectionAway(creep))
-  }
-
-  idleRetreat (...parts) {
+  idleRetreat(...parts: BodyPartConstant[]) {
     if (this.hurts < 100) return false
     if (this.hits > this.hurts) {
       for (const part of parts) {
-        if (!this.partsByType[part]) continue
-        if (this.activeByType[part]) return false
+        if (!this.partsByType.get(part)) continue;
+        if (this.activeByType.get(part)) return false;
       }
     }
     this.dlog('retreating', this.hits, this.hurts, parts)
-    return this.moveRange(this.home.controller)
+    return this.moveRange(this.home.controller!)
   }
 
-  actionHospital () {
+  actionHospital() {
     if (this.hurts > 100 || (this.hurts > 0 && this.hits < 100)) {
-      return this.moveRange(this.home.controller)
+      return this.moveRange(this.home.controller!)
     }
     return false
   }
 
-  moveRoom (obj, opts = {}) {
+  moveRoom(obj: HasPos | null, opts = {range: 1}) {
     if (!obj) return false
     const x = this.pos.x
     const y = this.pos.y
@@ -161,16 +170,16 @@ module.exports = class CreepMove {
     const oy = obj.pos.y
     const range = Math.max(1, Math.min(ox, oy, 49 - ox, 49 - oy) - 1)
     this.dlog('moveRoom', range, obj.pos.roomName, this.room)
-    opts = _.defaults(opts, {range: range})
+    opts = _.defaults(opts, { range: range })
     return this.moveTarget(obj, opts)
   }
 
-  taskMoveRoom (obj) {
+  taskMoveRoom(obj: RoomObject|null) {
     obj = this.checkId('move room', obj)
     return this.moveRoom(obj)
   }
 
-  taskMoveFlag (flag, opts = {}) {
+  taskMoveFlag(flag: Flag | null, opts = {range: 1}) {
     flag = this.checkFlag('move flag', flag)
     return this.moveRoom(flag, opts)
   }

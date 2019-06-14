@@ -1,4 +1,4 @@
-const lib = require('lib')
+import * as lib from 'lib';
 
 class ExtraController {
   get resTicks () {

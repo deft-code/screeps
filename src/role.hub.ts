@@ -1,5 +1,6 @@
 import { extender } from "roomobj";
 import { TaskRet } from "Tasker";
+import { Link, Mode } from "struct.link";
 
 function ratio(s: StructureStorage | StructureTerminal) {
     if (s.storeCapacity === 0) return 10;
@@ -17,7 +18,7 @@ class CreepHub extends Creep {
         const structs = _.shuffle(_.map(spots, s => s[LOOK_STRUCTURES])) as (EnergyStruct | StoreStructure)[];
         let store: StructureStorage | null = null;
         let term: StructureTerminal | null = null;
-        let link: StructureLink | null = null;
+        let link: Link | null = null;
         let estruct: EnergyStruct | null = null;
         for (const struct of structs) {
             switch (struct.structureType) {
@@ -29,7 +30,7 @@ class CreepHub extends Creep {
                     if (struct.energyFree) estruct = struct
                     break
                 case STRUCTURE_LINK:
-                    link = struct
+                    link = struct as Link;
                     break
                 case STRUCTURE_STORAGE:
                     store = struct; break;
@@ -48,7 +49,7 @@ class CreepHub extends Creep {
             }
         }
 
-        if (!xfer && link && link.mode === 'src' && link.energyFree) {
+        if (!xfer && link && link.mode === Mode.src && link.energyFree) {
             if (this.carry.energy) {
                 xfer = xfer || this.goTransfer(link, RESOURCE_ENERGY, false);
             } else {
@@ -87,14 +88,14 @@ class CreepHub extends Creep {
 
         let wd = false;
         if (this.carryFree) {
-            if (link && ((link.mode === 'sink' && link.energy) || link.cooldown > 10)) {
+            if (link && ((link.mode === Mode.sink && link.energy) || link.cooldown > 10)) {
                 wd = wd || this.goWithdraw(link, RESOURCE_ENERGY, false);
             }
 
             const brat = ratio(batt);
             const krat = ratio(sink);
 
-            this.log('wd', wd, 'brat', batt, brat, "krat", sink, krat);
+            //this.log('wd', wd, 'brat', batt, brat, "krat", sink, krat);
 
             if (!wd && (needE || (brat - krat > 0.1 && this.carryTotal === 0))) {
                 wd = wd || this.goWithdraw(batt, RESOURCE_ENERGY, false);

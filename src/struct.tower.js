@@ -1,4 +1,4 @@
-const debug = require('debug')
+import * as debug from 'debug';
 
 const one = (towers, func, obj) => {
   if (!obj) return towers

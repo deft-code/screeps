@@ -1,5 +1,6 @@
 import * as lib from 'lib'
 import { run } from 'shed'
+import { balanceSplit } from 'struct.link';
 
 declare global {
   interface RoomMemory {

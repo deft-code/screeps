@@ -1,5 +1,5 @@
-const lib = require('lib')
-const k = require('constants')
+import * as lib from 'lib';
+import * as k from 'constants';
 
 class LabExtra {
   mineralFill () {

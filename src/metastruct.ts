@@ -218,7 +218,7 @@ class MetaManager {
     get memory(): { metas: MetaMem[] } {
         let roomMem = Memory.rooms[this.name];
         if (!roomMem) {
-            roomMem = Memory.rooms[this.name] = {};
+            roomMem = Memory.rooms[this.name] = {links: {}};
         }
         let metaMem = roomMem.meta;
         if (!metaMem) {

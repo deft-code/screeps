@@ -1,53 +1,53 @@
- const lib = require('lib')
+import * as lib from 'lib';
 
- class Perma {
-   get o () {
-     return this.obj()
-   }
+class Perma {
+  get o() {
+    return this.obj()
+  }
 
-   static get (name) {
-     if (!this.all) this.all = {}
+  static get(name) {
+    if (!this.all) this.all = {}
 
-     if (!this.all[name]) {
-       this.all[name] = new this(name)
-     }
-     return this.all[name]
-   }
- }
+    if (!this.all[name]) {
+      this.all[name] = new this(name)
+    }
+    return this.all[name]
+  }
+}
 
- class PRoom extends Perma {
-   constructor (name) {
-     super()
-     this.name = name
-   }
+class PRoom extends Perma {
+  constructor(name) {
+    super()
+    this.name = name
+  }
 
-   obj () {
-     return Game.rooms[this.name]
-   }
- }
+  obj() {
+    return Game.rooms[this.name]
+  }
+}
 
- class PPos extends Perma {
-   get pos () {
-     return this.o.pos
-   }
+class PPos extends Perma {
+  get pos() {
+    return this.o.pos
+  }
 
-   get room () {
-     return PRoom.get(this.pos.roomName)
-   }
- }
+  get room() {
+    return PRoom.get(this.pos.roomName)
+  }
+}
 
- class PFlag extends PPos {
-   constructor (name) {
-     super()
-     this.name = name
-   }
+class PFlag extends PPos {
+  constructor(name) {
+    super()
+    this.name = name
+  }
 
-   obj () {
-     return Game.flags[this.name]
-   }
- }
+  obj() {
+    return Game.flags[this.name]
+  }
+}
 
- lib.roProp(Flag, 'p', f => PFlag.get(f.name))
+lib.roProp(Flag, 'p', f => PFlag.get(f.name))
 
 // class PResource extends PRoomObj {
 // }
