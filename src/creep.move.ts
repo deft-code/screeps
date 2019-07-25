@@ -183,4 +183,15 @@ export class CreepMove extends CreepRole {
     flag = this.checkFlag('move flag', flag)
     return this.moveRoom(flag, opts)
   }
+
+  moveSpot() {
+    const where = this.memory.spot || this.role
+    const p = this.teamRoom.getSpot(where)
+    if (!p) return false;
+    if (!this.pos.isEqualTo(p)) {
+      this.dlog("moving to", p);
+      return this.movePos(p)
+    }
+    return false
+  }
 }

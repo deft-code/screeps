@@ -29,8 +29,9 @@ function toMode(val: string): Mode {
     case "sink": return Mode.sink;
 
     case Mode.dump:
-    case Mode.src:
     case Mode.hub:
+    case Mode.sink:
+    case Mode.src:
       return val;
   }
   return Mode.pause;
@@ -63,6 +64,9 @@ function getCache(room: Room) {
 function makeCache(room: Room) {
   const links = room.findStructs(STRUCTURE_LINK) as Link[];
 
+
+  debug.log("setting links in:", room.name);
+
   const cache: Cache = {
     nlinks: links.length,
     modes: new Map<number, Mode>(),
@@ -78,7 +82,7 @@ function makeCache(room: Room) {
 
   const s = room.storage;
   if (s) {
-    const l = _.find(links, l => s.pos.inRangeTo(l, 2))
+    const l = _.find(links, l => s.pos.inRangeTo(l, 2));
     if (l) {
       cache.modes.set(l.pos.xy, Mode.hub);
       cache.store = l.id;
@@ -88,8 +92,9 @@ function makeCache(room: Room) {
 
   const t = room.terminal;
   if (t) {
-    const l = _.find(links, l => t.pos.inRangeTo(l, 2))
+    const l = _.find(links, l => t.pos.inRangeTo(l, 2));
     if (l) {
+      debug.log("setting hub for", l);
       cache.modes.set(l.pos.xy, Mode.hub);
       cache.term = l.id;
       _.remove(links, other => other.id === l.id);
@@ -172,7 +177,7 @@ export class Link extends StructureLink {
 }
 
 export function hubNeed(room: Room): number {
-  return _.max(_.map(room.findStructs(STRUCTURE_TERMINAL) as Link[],
+  return _.max(_.map(room.findStructs(STRUCTURE_LINK) as Link[],
     l => {
       if (l.mode !== Mode.sink) return 0;
       return l.energyFree;
@@ -212,11 +217,64 @@ export function balanceSplit(room: Room) {
   }
 }
 
+function fibSeq(n: number) {
+  if (n <= 1) return 1;
+  if (n <= 3) return 2;
+  if (n <= 6) return 3;
+  if (n <= 10) return 4;
+  if (n <= 15) return 5;
+  if (n <= 21) return 6;
+  if (n <= 28) return 7;
+  return 8;
+}
+
+function drawCooldown(p: RoomPosition, cd: number) {
+  if (cd < 2) return
+
+  const segs = fibSeq(cd - 1);
+
+  const v = new RoomVisual(p.roomName);
+  const x = p.x;
+  const y = p.y;
+  const d = 0.5;
+  const dd = 0.33;
+
+
+  const points: [number, number][] = [[x, y + d], [x - dd, y + dd]];
+  while (segs > 1) {
+    points.push([x - d, y]);
+
+    if (segs < 3) break;
+    points.push([x - dd, y - dd]);
+
+    if (segs < 4) break;
+    points.push([x, y - d]);
+
+    if (segs < 5) break;
+    points.push([x + dd, y - dd]);
+
+    if (segs < 6) break;
+    points.push([x + d, y]);
+
+    if (segs < 7) break;
+    points.push([x + dd, y + dd]);
+
+    if (segs < 8) break;
+    points.push([x, y + d]);
+
+    break;
+  }
+
+  v.poly(points);
+}
+
 export function runLinks(room: Room) {
   const links = _.shuffle(room.findStructs(STRUCTURE_LINK) as Link[]);
+  //room.log("here", links.length);
 
   links.forEach(link => {
     room.visual.text(link.mode, link.pos.x, link.pos.y + 0.23)
+    drawCooldown(link.pos, link.cooldown);
   });
 
   const hubs = _.filter(links, link => link.mode === Mode.hub);
@@ -261,7 +319,6 @@ export function runLinks(room: Room) {
   }
   return false;
 }
-
 
 Room.prototype.runLinks = function () {
   runLinks(this);

@@ -1,6 +1,6 @@
 import { merge } from "lib";
 import * as debug from "debug";
-import { Tasker, Targetable, TaskMemory, TaskRet } from 'Tasker';
+import { Tasker, Targetable, TaskMemory, TaskRet, MemoryTask } from 'Tasker';
 import { defaultRewalker, Goal, WalkReturnCode, cleanGoal } from "Rewalker";
 
 const rewalker = defaultRewalker();
@@ -33,6 +33,13 @@ function shouldIgnore(ctrlr: StructureController): boolean {
         (ctrlr.owner && ctrlr.owner.username) ||
         (ctrlr.reservation && ctrlr.reservation.username);
     return name && _.contains(nowander, name) || isOmnomwombatTerritory(ctrlr.pos.roomName);
+}
+
+declare global {
+    interface PowerCreepMemory{
+        enableFailed?: string[]
+        task?: MemoryTask
+    }
 }
 
 class PowerCreepExtra extends PowerCreep {
@@ -88,7 +95,7 @@ class PowerCreepExtra extends PowerCreep {
         powerTasker.looper(this);
     }
 
-    spawnRoom(roomName: string): ERR_INVALID_ARGS | ERR_INVALID_TARGET | OK {
+    spawnRoom(roomName: string ) {
         const room = Game.rooms[roomName];
         if (!room) return ERR_INVALID_ARGS;
         return this.spawn(_.first(room.findStructs(STRUCTURE_POWER_SPAWN)) as StructurePowerSpawn);
@@ -163,13 +170,14 @@ class PowerCreepExtra extends PowerCreep {
     taskRegenSources(room: Room): TaskRet {
         const p = this.powers[PWR_REGEN_SOURCE];
         if (!p) return false;
+        const cd = p.cooldown || 0;
 
         const srcs = _.filter(
             room.find(FIND_SOURCES),
             src => {
                 const ttl = src.regenTTL;
                 const d = this.pos.getRangeTo(src);
-                return ttl < d && p.cooldown <= ttl;
+                return ttl < d && cd <= ttl;
             });
         if (!srcs.length) return false;
 
@@ -187,10 +195,11 @@ class PowerCreepExtra extends PowerCreep {
 
         const p = this.powers[PWR_REGEN_SOURCE];
         if (!p) return false;
+        const cd = p.cooldown || 0;
 
         const ttl = src.effectTTL(PWR_REGEN_SOURCE);
         const d = this.pos.getRangeTo(src);
-        if (ttl > d || p.cooldown > d) return false;
+        if (ttl > d || cd > d) return false;
 
         if (this.tick.power) return "wait";
         const ret = this.usePower(PWR_REGEN_SOURCE, src);
@@ -209,7 +218,7 @@ class PowerCreepExtra extends PowerCreep {
     }
 
     taskHomeRenew(): TaskRet {
-        if (this.ticksToLive > 1500) return false;
+        if (this.ticksToLive! > 1500) return false;
 
         const pss = _.map(
             _.filter(Game.rooms,
@@ -231,8 +240,8 @@ class PowerCreepExtra extends PowerCreep {
     }
 
     taskMaybeRenew(name?: string): TaskRet {
-        if (this.ticksToLive > 4500) return false;
-        let room = this.room;
+        if (this.ticksToLive! > 4500) return false;
+        let room = this.room!;
         if (name) room = Game.rooms[name];
         const ps = _.first(room.findStructs(STRUCTURE_POWER_SPAWN) as StructurePowerSpawn[]);
         if (ps && ps.my) {
@@ -242,7 +251,7 @@ class PowerCreepExtra extends PowerCreep {
     }
 
     taskRenew(ps: StructurePowerSpawn | StructurePowerBank | null): TaskRet {
-        if (this.ticksToLive > 4500) return false;
+        if (this.ticksToLive! > 4500) return false;
         ps = this.task(ps);
         if (!ps) return false;
         const ret = this.renew(ps);

@@ -1,14 +1,14 @@
 {
   "devDependencies": {
     "@types/lodash": "^3.10.1",
-    "@types/screeps": "^2.5.3",
+    "@types/screeps": "^2.5.4",
     "gulp": "^3.9.1",
     "gulp-clean": "^0.3.2",
     "gulp-screeps": "^1.0.8",
     "gulp-tslint": "^6.0.1",
     "gulp-typescript": "^3.0.0",
-    "tslint": "^5.16.0",
-    "typescript": "^3.4.4"
+    "tslint": "^5.18.0",
+    "typescript": "^3.5.3"
   },
   "dependencies": {
     "gulp": "^3.9.1"

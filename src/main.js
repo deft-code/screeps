@@ -2,6 +2,8 @@ import { canRun, run } from "shed";
 import * as debug from "debug";
 
 import * as cache from "cache";
+const xx = Game.time;
+console.log(Game.time, ":", Game.time - xx, "injecting, tick and cache");
 cache.injectAll();
 
 import 'roomobj';
@@ -20,7 +22,6 @@ import 'path';
 import 'room';
 import 'room.keeper';
 import 'source';
-import 'perma';
 
 import 'tombs';
 import 'struct';
@@ -44,6 +45,7 @@ import 'creep';
 import * as lib from 'lib';
 import * as spawn from 'spawn';
 
+import 'role.shunt';
 const mods = [
   'creep.attack',
   'creep.build',
@@ -53,7 +55,6 @@ const mods = [
   'creep.work',
 
   'role.archer',
-  'role.block',
   'role.bootstrap',
   'role.bulldozer',
   'role.caboose',
@@ -85,7 +86,6 @@ const mods = [
   'role.reboot',
   'role.reserver',
   'role.scout',
-  'role.shunt',
   'role.srcer',
   'role.stomper',
   'role.trucker',
@@ -96,6 +96,11 @@ const mods = [
 ]
 
 for (const mod of mods) {
+  // const m = require(mod);
+  // if(typeof m !== 'Function') {
+  //   debug.log("bad creep module", m);
+  //   continue;
+  // }
   lib.merge(Creep, require(mod))
 }
 
@@ -163,8 +168,17 @@ function powerHack() {
   }
 }
 
+let t1 = 0;
+let t2 = 0;
+let t3 = 0;
+let t4 = 0;
+
+
+
 module.exports.loop = main
 function main() {
+  const t = (new Date()).getTime();
+  debug.log("epoch seconds", t);
   const crooms = _.filter(Game.rooms, r => r.controller && r.controller.level > 3 && r.controller.my)
   Game.terminals = _.shuffle(_.compact(_.map(crooms, r => r.terminal)))
   Game.storages = _.shuffle(_.compact(_.map(crooms, r => r.storage)))

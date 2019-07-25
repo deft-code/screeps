@@ -1,6 +1,7 @@
 import * as lib from 'lib'
 import { run } from 'shed'
 import { balanceSplit } from 'struct.link';
+import { humanize } from 'pace';
 
 declare global {
   interface RoomMemory {
@@ -59,7 +60,7 @@ function stats(room: Room) {
   }
 }
 
-Room.prototype.findStructs = function (...types) {
+Room.prototype.findStructs = function (...types: StructureConstant[]) {
   if (!this.structsByType) {
     this.structsByType =
       _.groupBy(this.find(FIND_STRUCTURES), 'structureType')
@@ -91,7 +92,7 @@ Room.prototype.drawSpots = function () {
   let i = 1
   let x = 25;
   let y = 25;
-  if(this.controller) {
+  if (this.controller) {
     x = this.controller.pos.x;
     y = this.controller.pos.y;
   }
@@ -169,6 +170,7 @@ Room.prototype.optional = function () {
   this.runLabs();
   this.runLinks();
   this.spawningRun();
+  drawMinerals(this);
 }
 
 Room.prototype.runDefense = function () {
@@ -181,6 +183,15 @@ Room.prototype.runDefense = function () {
         this.log('SAFE MODE!', ret)
         Game.notify(`SAFE MODE:${ret}! ${this}`, 30)
       }
+    }
+  }
+}
+
+function drawMinerals(room: Room) {
+  const mins = room.find(FIND_MINERALS);
+  for (const min of mins) {
+    if (min.ticksToRegeneration > 0) {
+      room.visual.text(humanize(min.ticksToRegeneration), min.pos.x, min.pos.y + 1)
     }
   }
 }

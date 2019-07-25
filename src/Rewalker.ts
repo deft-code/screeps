@@ -328,6 +328,9 @@ declare global {
     interface CreepMemory {
         _walk?: MemState
     }
+    interface PowerCreepMemory {
+        _walk?: MemState
+    }
 }
 
 interface MemState {
@@ -588,13 +591,13 @@ export class Rewalker {
     }
 
     getRouteSet(fromRoom: string, destRoom: string): Set<string> {
-        const set = new Set()
-        set.add(fromRoom)
-        if (fromRoom === destRoom) return set
-        set.add(destRoom)
-        const [route, flip] = this._rawRoute(fromRoom, destRoom)
-        route.forEach(r => set.add(r))
-        return set
+        const set = new Set<string>();
+        set.add(fromRoom);
+        if (fromRoom === destRoom) return set;
+        set.add(destRoom);
+        const [route, flip] = this._rawRoute(fromRoom, destRoom);
+        route.forEach(r => set.add(r));
+        return set;
     }
 
     getRouteDist(fromRoom: string, destRoom: string): number {
@@ -704,7 +707,7 @@ class Step {
     store() {
         this.creep.memory._walk = [toXY(this.dest), this.dest.roomName, this.path.serialize()]
         if (this.incomplete) {
-            this.creep.memory._walk.push(1)
+            this.creep.memory._walk[3] = 1;
         }
     }
 

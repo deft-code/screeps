@@ -4,6 +4,7 @@ export function inject(cache: TickCache | GlobalCache, prop: string, klass: { pr
     Object.defineProperty(klass.prototype, prop, {
         get() { return cache.getCache(this); },
         set(val: Object) { cache.setCache(this, val); },
+        configurable: true,
     });
 }
 
@@ -138,7 +139,6 @@ declare global {
     }
 
     interface ExtensionTick {
-
     }
     interface ExtensionCache extends RoomObjectCache {
 
@@ -146,5 +146,14 @@ declare global {
     interface StructureExtension {
         tick: ExtensionTick
         cache: ExtensionCache
+    }
+
+    interface SpawnTick {
+    }
+    interface SpawnCache extends RoomObjectCache {
+    }
+    interface StructureSpawn {
+        tick: SpawnTick
+        cache: SpawnCache
     }
 }

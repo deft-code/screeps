@@ -1,6 +1,8 @@
-import { extender } from "roomobj";
+import { extender, injecter } from "roomobj";
 import { TaskRet } from "Tasker";
 import { Link, Mode } from "struct.link";
+import { CreepMove } from "creep.move";
+import { CreepCarry } from "creep.carry";
 
 function ratio(s: StructureStorage | StructureTerminal) {
     if (s.storeCapacity === 0) return 10;
@@ -10,8 +12,8 @@ function ratio(s: StructureStorage | StructureTerminal) {
     return s.store.energy / s.storeCapacity;
 }
 
-@extender
-class CreepHub extends Creep {
+@injecter(Creep)
+class CreepHub extends CreepCarry {
     roleHub(): TaskRet {
         if (this.moveSpot()) return 'moved';
         const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true);
@@ -39,7 +41,7 @@ class CreepHub extends Creep {
             }
         }
         let needE = false;
-        let xfer = false;
+        let xfer: TaskRet = false;
 
         if (estruct) {
             if (this.carry.energy) {
@@ -86,7 +88,7 @@ class CreepHub extends Creep {
             this.goTransfer(sink, RESOURCE_ENERGY, false);
         }
 
-        let wd = false;
+        let wd: TaskRet = false;
         if (this.carryFree) {
             if (link && ((link.mode === Mode.sink && link.energy) || link.cooldown > 10)) {
                 wd = wd || this.goWithdraw(link, RESOURCE_ENERGY, false);

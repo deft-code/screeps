@@ -20,8 +20,6 @@ declare global {
   }
 }
 
-
-
 export function randomResource(resources: StoreDefinition): ResourceConstant {
   const recs = _.keys(resources) as ResourceConstant[];
   if (resources.energy > 0) return _.sample(recs);

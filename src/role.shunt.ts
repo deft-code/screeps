@@ -1,15 +1,20 @@
-import { extender } from "roomobj";
+import { extender, injecter } from "roomobj";
 import { Mode, isLink } from "struct.link";
+import { CreepCarry } from "creep.carry";
 
 declare global {
   interface CreepMemory {
     spawn?: string
     spot?: string
   }
+  interface SpawnTick {
+    renew?: string
+  }
+
 }
 
-@extender
-class CreepShunt extends Creep {
+@injecter(Creep)
+class CreepShunt extends CreepCarry {
   roleAux() { return this.roleCore() }
   afterAux() { return this.afterCore() }
 
@@ -68,17 +73,6 @@ class CreepShunt extends Creep {
     }
   }
 
-  moveSpot() {
-    const where = this.memory.spot || this.role
-    const p = this.teamRoom.getSpot(where)
-    if (!p) return false;
-    if (!this.pos.isEqualTo(p)) {
-      this.log("moving to", p);
-      return this.movePos(p)
-    }
-    return false
-  }
-
   structAtSpot(stype: BuildableStructureConstant) {
     const p = this.teamRoom.getSpot(this.role)
     if (!p) return
@@ -107,12 +101,12 @@ class CreepShunt extends Creep {
     if (this.room.energyFreeAvailable === 0 || this.ticksToLive! < 200) {
       const s = this.nearSpawn()
       if (!s) return
-      if (s._renew) {
-        this.dlog('Double Renew', s, s._renew)
+      if (s.tick.renew) {
+        this.log('Double Renew', s, s.tick.renew)
         return
       }
       if (s.renewCreep(this) === OK) {
-        s._renew = this.name
+        s.tick.renew = this.name
       }
     }
   }

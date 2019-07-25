@@ -77,7 +77,7 @@ export class CreepRole extends CreepExtra {
   }
 
   roleUndefined(): TaskRet {
-    debug.log(`${this} Missing Role! ${JSON.stringify(this.memory)}`)
+    debug.log(`${this} Missing Role! "${this.role}" ${JSON.stringify(this.memory)}`)
     return false
   }
 
