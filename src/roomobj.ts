@@ -1,7 +1,7 @@
 function mergePrototypes(klassProto: any, extraProto: any) {
-        const descs = Object.getOwnPropertyDescriptors(extraProto);
-        delete descs.constructor;
-        Object.defineProperties(klassProto, descs);
+    const descs = Object.getOwnPropertyDescriptors(extraProto);
+    delete descs.constructor;
+    Object.defineProperties(klassProto, descs);
 }
 
 export type ScreepsClass = CreepConstructor;
@@ -22,9 +22,9 @@ export function extender(extra: any) {
 
 @extender
 class RoomObjExtra extends RoomObject {
-    effectTTL(pwr: PowerType): number{
+    effectTTL(pwr: PowerConstant): number {
         const p = _.find(this.effects, e => e.power === pwr);
-        if(!p) return 0;
+        if (!p) return 0;
         return p.ticksRemaining
     }
 }

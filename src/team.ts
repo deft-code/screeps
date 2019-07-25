@@ -5,6 +5,12 @@ const k = require('constants')
 const lib = require('lib')
 const matrix = require('matrix')
 
+declare global {
+  interface Memory {
+    logo: number[]
+  }
+}
+
 class TeamExtra extends FlagExtra {
   _creeps?: Creep[]
   _creepsByRole?: {

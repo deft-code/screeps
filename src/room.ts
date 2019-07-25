@@ -12,6 +12,9 @@ declare global {
     }
     nstructs?: number
   }
+  interface Memory {
+    stats: any
+  }
 }
 class RoomExtras extends Room {
   get energyFreeAvailable() {
