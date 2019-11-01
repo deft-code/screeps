@@ -5,6 +5,7 @@ import { TaskRet } from "Tasker";
 import { isStore } from "guards";
 import { Link, Mode } from "struct.link";
 import { injecter } from "roomobj";
+import { errStr } from "debug";
 
 declare global {
   interface ExtensionTick {
@@ -111,7 +112,7 @@ export class CreepCarry extends CreepMove {
   taskTransferEnergy() {
     this.dlog('taskTransferEnergy')
     let stores = this.room.findStructs(
-      STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL) as StoreStructure[]
+      STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL) as GenericStoreStructure[]
     stores = _.filter(stores, s => s.storeFree * 2 > this.carry.energy)
 
     const store = this.pos.findClosestByRange(stores)
@@ -148,27 +149,32 @@ export class CreepCarry extends CreepMove {
   }
 
   taskTransfer(struct: XferStruct | undefined | null, resource: ResourceConstant | undefined) {
-    struct = this.checkId('transfer', struct)
-    if (!struct) return false
+    struct = this.checkId('transfer', struct);
+    this.dlog("checked", struct);
+    if (!struct) return false;
 
     if (!resource) {
       resource = this.memory.task!.resource!;
     } else {
-      this.memory.task!.resource = resource
+      this.memory.task!.resource = resource;
     }
+    this.dlog("resource", resource);
 
-    if (!this.carry[resource]) return false
+    if (!this.carry[resource]) return false;
+    this.dlog("carrying");
 
     if (isStore(struct)) {
-      if (!struct.storeFree) return false
+      this.dlog(struct, "is a store");
+      if (!struct.storeFree) return false;
     } else {
       const r = struct[resource as "energy"];
+      this.dlog("dest energy", r);
       const rCap = struct[`${resource}Capacity` as "energyCapacity"];
-      if (r >= rCap) return false
+      if (r >= rCap) return false;
     }
 
-    if (!this.carry[resource]) return false
-    return this.goTransfer(struct, resource)
+    if (!this.carry[resource]) return false;
+    return this.goTransfer(struct, resource);
   }
 
   goTransfer(target: XferStruct, resource: ResourceConstant, move = true) {
@@ -181,7 +187,7 @@ export class CreepCarry extends CreepMove {
     if (move && err === ERR_NOT_IN_RANGE) {
       return this.moveNear(target)
     }
-    this.dlog('goTransfer error!', err, target, resource)
+    this.dlog('goTransfer error!', errStr(err), target, resource)
     return false
   }
 

@@ -46,7 +46,7 @@ export function log(...str: any[]) {
 
 let warnTime = Game.time;
 let warned = new Set<string>();
-export function warn(...str: any[]) {
+export function warn( ...str: any[]) {
   if (warnTime !== Game.time) {
     warned.clear();
     warnTime = Game.time;
@@ -67,12 +67,11 @@ export function errStr(err: ScreepsReturnCode) {
     case ERR_FULL: return 'ERR_FULL';
     case ERR_INVALID_ARGS: return 'ERR_INVALID_ARGS';
     case ERR_INVALID_TARGET: return 'ERR_INVALID_TARGET';
-    case ERR_NOT_ENOUGH_RESOURCES: return 'ERR_NOT_ENOUGH_RESOURCES';
-    case ERR_NOT_IN_RANGE: return 'ERR_NOT_IN_RANGE';
-    case ERR_TIRED: return 'ERR_TIRED'
     case ERR_NOT_ENOUGH_ENERGY: return 'ERR_NEED_ENERGY';
     case ERR_NOT_ENOUGH_EXTENSIONS: return 'ERR_NEED_EXTENSIONS';
     case ERR_NOT_ENOUGH_RESOURCES: return 'ERR_NOT_ENOUGH_RESOURCES';
+    case ERR_NOT_IN_RANGE: return 'ERR_NOT_IN_RANGE';
+    case ERR_TIRED: return 'ERR_TIRED'
     default: return 'ERR' + -err
   }
 }

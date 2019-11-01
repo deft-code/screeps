@@ -13,7 +13,6 @@ declare const module: { __initGlobals(): void };
 module.__initGlobals = tick;
 
 function tick() {
-    console.log("ticked");
     const next = (new Date()).getTime();
 
     if(lastTimestamp === 0) {

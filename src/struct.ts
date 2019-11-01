@@ -21,11 +21,11 @@ class StructureExtra extends Structure {
     return this.room.packPos(this.pos)
   }
 
-  get storeTotal(this: StoreStructure) {
+  get storeTotal(this: GenericStoreStructure) {
     return _.sum(this.store)
   }
 
-  get storeFree(this: StoreStructure) {
+  get storeFree(this: GenericStoreStructure) {
     return Math.max(0, this.storeCapacity - this.storeTotal)
   }
 

@@ -20,7 +20,7 @@ global.purgeWalls = (room, dry = true) => {
 
     n++
     if (dry) {
-      room.visual.circle(p, {radius: 0.5, fill: 'red'})
+      room.visual.circle(p, { radius: 0.5, fill: 'red' })
     } else {
       wall.destroy()
     }
@@ -55,6 +55,24 @@ global.wipe = (room) => {
 
   const structs = room.find(FIND_STRUCTURES)
   for (const s of structs) {
-    s.destroy()
+    if(s.structureType === STRUCTURE_EXTRACTOR) continue;
+    s.destroy();
   }
+
+  const sites = room.find(FIND_MY_CONSTRUCTION_SITES);
+  for (const s of sites) {
+    s.remove();
+  }
+}
+
+global.scalp = function (shard = 'none', ptr = true) {
+  _.map(Game.rooms, r => {
+    if (r.name.endsWith('N21') || r.name.endsWith('N22') || r.name.endsWith('N23') || r.name.endsWith('N24')) {
+      if (Game.shard.name === shard && Game.shard.ptr === ptr) {
+        wipe(r);
+      } else {
+        console.log("killing", r.name);
+      }
+    }
+  });
 }

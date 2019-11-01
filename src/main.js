@@ -1,3 +1,4 @@
+import 'memhack';
 import { canRun, run } from "shed";
 import * as debug from "debug";
 
@@ -142,7 +143,7 @@ function powerHack() {
   const r = Game.rooms.W29N11
   const t = r.terminal
   const s = Game.getObjectById("5c574d80b8cfe8383392fb37")
-  if (t.cooldown > 0) {
+  if (true || t.cooldown > 0) {
     debug.log("Terminal busy", t.cooldown)
   } else {
     if (Game.market.credits < 10000000) {
@@ -168,17 +169,8 @@ function powerHack() {
   }
 }
 
-let t1 = 0;
-let t2 = 0;
-let t3 = 0;
-let t4 = 0;
-
-
-
 module.exports.loop = main
 function main() {
-  const t = (new Date()).getTime();
-  debug.log("epoch seconds", t);
   const crooms = _.filter(Game.rooms, r => r.controller && r.controller.level > 3 && r.controller.my)
   Game.terminals = _.shuffle(_.compact(_.map(crooms, r => r.terminal)))
   Game.storages = _.shuffle(_.compact(_.map(crooms, r => r.storage)))
@@ -190,28 +182,22 @@ function main() {
 
   drain(null, 'W22N19')
 
-  // const eye = Game.getObjectById('59d2525b7101a04915bb71a5')
-  // debug.log(eye, eye.observeRoom('W32N19'))
-
-  // Game.rooms.W29N11.drawSpots()
-  // Game.rooms.W24N17.keeper().draw()
-
   run(Game.rooms, 500, r => r.init());
 
   const remote = _.values(Game.rooms);
   const combat = _.remove(remote, r => r.enemies > 0);
   const claimed = _.remove(remote, r => r.controller && r.controller.my);
 
-  run(combat, 1000, r => r.run());
-  run(Game.powerCreeps, 2000, p => p.run());
-  run(combat, 2000, r => r.after());
-  run(claimed, 2000, r => r.run());
-  run(claimed, 2500, r => r.after());
-  run(remote, 3000, r => r.run());
-  run(remote, 4000, r => r.after());
-  run(combat, 5000, r => r.optional());
-  run(claimed, 5500, r => r.optional());
-  run(remote, 6000, r => r.optional());
+  run(combat, 1000, combat => combat.run());
+  run(Game.powerCreeps, 2000, pc => pc.run());
+  run(combat, 2000, combat => combat.after());
+  run(claimed, 2000, claim => claim.run());
+  run(claimed, 2500, claim => claim.after());
+  run(remote, 3000, remote => remote.run());
+  run(remote, 4000, remote => remote.after());
+  run(combat, 5000, combat => combat.optional());
+  run(claimed, 5500, claim => claim.optional());
+  run(remote, 6000, remote => remote.optional());
 
   if (canRun(Game.cpu.getUsed(), 4000)) {
     spawn.run();

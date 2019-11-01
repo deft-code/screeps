@@ -17,7 +17,7 @@ class CreepHub extends CreepCarry {
     roleHub(): TaskRet {
         if (this.moveSpot()) return 'moved';
         const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true);
-        const structs = _.shuffle(_.map(spots, s => s[LOOK_STRUCTURES])) as (EnergyStruct | StoreStructure)[];
+        const structs = _.shuffle(_.map(spots, s => s[LOOK_STRUCTURES])) as (EnergyStruct | GenericStoreStructure)[];
         let store: StructureStorage | null = null;
         let term: StructureTerminal | null = null;
         let link: Link | null = null;
@@ -59,8 +59,8 @@ class CreepHub extends CreepCarry {
             }
         }
 
-        let batt: StoreStructure | null = null;
-        let sink: StoreStructure | null = null;
+        let batt: GenericStoreStructure | null = null;
+        let sink: GenericStoreStructure | null = null;
         if (store) {
             batt = store;
             sink = store;

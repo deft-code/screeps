@@ -248,17 +248,17 @@ interface StructureTower {
     energyFree: number
 }
 
-type StoreStructure = StructureContainer |
+type GenericStoreStructure = StructureContainer |
     StructureTerminal |
     StructureStorage;
 
-type Store = StoreStructure | Tombstone
+type GenericStoreObject = GenericStoreStructure | Tombstone
 
 type EnergyStruct = StructureSpawn | StructureExtension | StructureLab | StructureLink | StructureNuker | StructurePowerSpawn | StructureTower
 
-type Withdrawable = Store | EnergyStruct
+type Withdrawable = GenericStoreObject | EnergyStruct
 
-type XferStruct = StoreStructure | EnergyStruct;
+type XferStruct = GenericStoreStructure | EnergyStruct;
 
 interface Tombstone {
 

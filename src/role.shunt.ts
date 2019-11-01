@@ -24,8 +24,8 @@ class CreepShunt extends CreepCarry {
     const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
     const structs = _.shuffle(_.map(spots, s => s[LOOK_STRUCTURES])) as AnyOwnedStructure[];
 
-    let store: StructureStorage | StructureTerminal;
-    let link: StructureLink;
+    let store: StructureStorage | StructureTerminal | null = null;
+    let link: StructureLink | null = null;
     let estruct
     for (const struct of structs) {
       switch (struct.structureType) {
@@ -55,10 +55,10 @@ class CreepShunt extends CreepCarry {
     if (isLink(link)) {
       if (link.mode === Mode.src) {
         return this.goTransfer(link, RESOURCE_ENERGY, false) ||
-          this.goWithdraw(store, RESOURCE_ENERGY, false)
+          this.goWithdraw(store!, RESOURCE_ENERGY, false)
       }
       return this.goWithdraw(link, RESOURCE_ENERGY, false) ||
-        this.goTransfer(store, RESOURCE_ENERGY, false)
+        this.goTransfer(store!, RESOURCE_ENERGY, false)
     }
     return 'finish'
   }
