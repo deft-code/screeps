@@ -1,5 +1,6 @@
 import { FlagExtra } from "flag";
 import { Path, PathMem } from "path";
+import { injecter } from "roomobj";
 
 const k = require('constants')
 const lib = require('lib')
@@ -11,6 +12,7 @@ declare global {
   }
 }
 
+@injecter(Flag)
 class TeamExtra extends FlagExtra {
   _creeps?: Creep[]
   _creepsByRole?: {
@@ -147,8 +149,8 @@ class TeamExtra extends FlagExtra {
     let n = 1200
     let r = 0
     if (this.room) {
-      if (this.room!.storage) r += this.room!.storage.storeTotal
-      if (this.room!.terminal) r += this.room!.terminal.storeTotal
+      if (this.room!.storage) r += this.room!.storage.store.getUsedCapacity()
+      if (this.room!.terminal) r += this.room!.terminal.store.getUsedCapacity()
     }
     if (r > 100000) n = 900
     if (r > 200000) n = 600
@@ -338,7 +340,7 @@ class TeamExtra extends FlagExtra {
       hub(this) ||
       defender(this) ||
       micro(this) ||
-      bootstrap(this) ||
+      //bootstrap(this) ||
       harvester(this) ||
       // worker(this) ||
       controller(this) ||
@@ -606,7 +608,7 @@ function mineral(flag: TeamExtra) {
 
   if (!flag.room!.terminal) return false
 
-  if (flag.room!.terminal.storeFree < 50000) return false
+  if (flag.room!.terminal.store.getFreeCapacity() < 50000) return false
 
   const p = flag.room!.getSpot('mineral');
   if (!p) return false;
@@ -625,7 +627,7 @@ function mineral(flag: TeamExtra) {
 
   if (flag.replaceRole('mineral', 150, { cont: cont.id })) return 'mineral'
 
-  if (cont.storeTotal >= 1650) {
+  if (cont.store.getUsedCapacity() >= 1650) {
     return flag.replaceRole('minecart', 150, { cont: cont.id })
   }
 

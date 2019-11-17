@@ -1,7 +1,4 @@
-import * as lib from 'lib';
-import * as debug from 'debug';
 import { extender } from 'roomobj';
-import { Dictionary } from 'lodash';
 
 declare global {
   interface CreepCache {
@@ -20,6 +17,10 @@ declare global {
 
 @extender
 export class CreepExtra extends Creep {
+  toString() {
+    return `<a href="/a/#!/room/${Game.shard.name}/${this.pos.roomName}">${this.name}</a>`
+  }
+
   get partsByType() {
     if (!this.cache.partsByType) {
       this.cache.partsByType = new Map(_.pairs(_.countBy(this.body, part => part.type)) as [BodyPartConstant, number][]);
@@ -81,14 +82,6 @@ export class CreepExtra extends Creep {
     return CREEP_SPAWN_TIME * this.body.length
   }
 
-  get carryTotal() {
-    return _.sum(this.carry)
-  }
-
-  get carryFree() {
-    return this.carryCapacity - this.carryTotal
-  }
-
   get hurts() {
     return this.hitsMax - this.hits
   }
@@ -103,7 +96,7 @@ export class CreepExtra extends Creep {
   // Fatigue generated when `creep` moves.
   calcWeight() {
     let weight = 0
-    let carry = this.carryTotal
+    let carry = this.store.getUsedCapacity()
     for (let i = this.body.length - 1; i >= 0; i--) {
       const part = this.body[i]
       switch (part.type) {

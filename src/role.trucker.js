@@ -12,7 +12,7 @@ module.exports = class Trucker {
     
     this.notifyWhenAttacked(false);
 
-    if (this.carryFree < this.carryTotal) {
+    if (this.store.getFreeCapacity() < this.store.getUsedCapacity()) {
       const drop = Game.rooms[this.memory.drop] || this.home
       return this.taskTransfer(drop.storage, RESOURCE_ENERGY) ||
         this.moveRoom(drop.controller) ||

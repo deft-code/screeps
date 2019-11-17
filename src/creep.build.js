@@ -52,7 +52,7 @@ module.exports = class CreepBuild {
   }
 
   taskBuild (site) {
-    if (!this.carry.energy) return false
+    if (!this.store.energy) return false
     site = this.checkId('build', site)
     return this.goBuild(site)
   }

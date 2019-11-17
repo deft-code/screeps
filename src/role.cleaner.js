@@ -10,7 +10,7 @@ module.exports = class RoleCleaner {
   taskUnloot () {
     const cont = _.find(
       this.room.findStructs(STRUCTURE_CONTAINER),
-      c => c.storeFree)
+      c => c.store.getFreeCapacity())
     if (cont) {
       return this.taskTransfer(cont, RESOURCE_ENERGY)
     }

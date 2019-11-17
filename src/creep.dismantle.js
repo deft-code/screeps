@@ -27,7 +27,7 @@ module.exports = class CreepDismantle {
   taskDismantle (struct) {
     struct = this.checkId('dismantle', struct)
 
-    if (this.carryCapacity && !this.carryFree) {
+    if (this.carryCapacity && !this.store.getFreeCapacity()) {
       this.say('Full')
       return false
     }

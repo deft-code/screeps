@@ -239,7 +239,7 @@ class MetaManager {
         if (!room) return;
 
         if (Game.time < this.birth + this.begin) {
-            Game.rooms[this.name].log("Anti-thrashing");
+            Game.rooms[this.name].dlog("Anti-thrashing");
         }
 
         const nsites = room.find(FIND_MY_CONSTRUCTION_SITES).length

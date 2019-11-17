@@ -159,7 +159,7 @@ function mineralBalance() {
   let autobuy = true;
   const terminals = _.shuffle(Game.terminals)
   for (const t of terminals) {
-    if (t.storeTotal > 250000) continue
+    if (t.store.getUsedCapacity() > 250000) continue
     const rs = _.shuffle(_.uniq(_.map(t.room.findStructs(STRUCTURE_LAB), l => l.planType))).concat(k.ReactOrder)
     for (const r of rs) {
       if (!r) continue
@@ -179,7 +179,7 @@ function sellOff() {
   const ts = _.shuffle(Game.terminals)
   for (const t of ts) {
     if (t.cooldown) continue
-    if (t.storeTotal < 150000) continue
+    if (t.store.getUsedCapacity() < 150000) continue
     const rs = _.shuffle(_.keys(t.store))
     t.room.dlog('resources', rs)
     for (const r of rs) {
@@ -211,11 +211,11 @@ function energyBalance() {
 
   const recv = _.find(Game.terminals, t =>
     send.store.energy - t.store.energy > 10000 &&
-    t.storeFree > 1 &&
-    t.storeFree >= t.store.energy)
+    t.store.getFreeCapacity() > 1 &&
+    t.store.getFreeCapacity() >= t.store.energy)
   if (!recv) return false
   const delta = (send.store.energy - recv.store.energy) / 3
-  const amount = Math.floor(Math.min(delta, recv.storeFree / 2))
+  const amount = Math.floor(Math.min(delta, recv.store.getFreeCapacity() / 2))
   // debug.log('recv', recv.room, recv.store.energy, delta, amount)
   const err = send.send(RESOURCE_ENERGY, amount, recv.room.name)
   debug.log('BALANCED', debug.errStr(err), send.room.name, recv.room.name, amount)

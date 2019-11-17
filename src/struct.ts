@@ -1,11 +1,8 @@
-import * as util from 'util';
 import { extender } from 'roomobj';
 
 declare global {
   interface Structure {
     storeTotal: number
-    storeFree: number
-    energyFree: number
     obstacle: boolean
     hurts: number
   }
@@ -14,23 +11,29 @@ declare global {
 @extender
 class StructureExtra extends Structure {
   get note() {
-    return util.structNote(this.structureType, this.pos)
+    let t: string = this.structureType
+    switch (t) {
+      case STRUCTURE_WALL:
+        t = 'wall'
+        break
+      case STRUCTURE_EXTENSION:
+        t = 'extn'
+        break
+      case STRUCTURE_STORAGE:
+        t = 'store'
+        break
+      case STRUCTURE_TERMINAL:
+        t = 'term'
+        break
+      case STRUCTURE_CONTAINER:
+        t = 'contnr'
+        break
+    }
+    return t.slice(0, 6) + this.pos.xy;
   }
 
   get xy() {
     return this.room.packPos(this.pos)
-  }
-
-  get storeTotal(this: GenericStoreStructure) {
-    return _.sum(this.store)
-  }
-
-  get storeFree(this: GenericStoreStructure) {
-    return Math.max(0, this.storeCapacity - this.storeTotal)
-  }
-
-  get energyFree(this: EnergyStruct) {
-    return Math.max(0, this.energyCapacity - this.energy)
   }
 
   get obstacle() {
@@ -59,6 +62,6 @@ class StructureExtra extends Structure {
   }
 
   toString() {
-    return util.structNote(this.structureType, this.pos) + ':' + this.pos.roomName;
+    return `<a href="/a/#!/room/${Game.shard.name}/${this.pos.roomName}">${this.note}</a>`
   }
 }

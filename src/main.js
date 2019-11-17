@@ -18,6 +18,7 @@ import 'matrix';
 import 'Traveler';
 import 'flag';
 import 'globals';
+import 'console';
 import 'constants';
 import 'path';
 import 'room';
@@ -96,6 +97,7 @@ const mods = [
   'role.zombiefarmer'
 ]
 
+
 for (const mod of mods) {
   // const m = require(mod);
   // if(typeof m !== 'Function') {
@@ -149,7 +151,7 @@ function powerHack() {
     if (Game.market.credits < 10000000) {
       debug.log("Too few credits", Game.market.credits)
     } else {
-      if (t.storeFree < 10000) {
+      if (t.store.getFreeCapacity() < 10000) {
         debug.log("Too little space")
       } else {
         if ((t.store.power || 0) > 10000) {
@@ -169,8 +171,13 @@ function powerHack() {
   }
 }
 
+let lastClient = 0;
 module.exports.loop = main
 function main() {
+  if(Memory.client.time !== lastClient) {
+    debug.log(Game.time, "client", JSON.stringify(Memory.client));
+    lastClient = Memory.client.time;
+  }
   const crooms = _.filter(Game.rooms, r => r.controller && r.controller.level > 3 && r.controller.my)
   Game.terminals = _.shuffle(_.compact(_.map(crooms, r => r.terminal)))
   Game.storages = _.shuffle(_.compact(_.map(crooms, r => r.storage)))
@@ -179,7 +186,7 @@ function main() {
   if (crooms.length === 0) {
     init()
   }
-
+''
   drain(null, 'W22N19')
 
   run(Game.rooms, 500, r => r.init());
@@ -205,7 +212,6 @@ function main() {
 
   if (canRun(Game.cpu.getUsed(), 9000)) {
     terminals.run()
-    powerHack()
   }
 
   run(Game.flags, 9000, f => f.darkRun());

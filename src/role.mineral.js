@@ -9,7 +9,7 @@ module.exports = class CreepMineral {
 
     if (this.movePos(cont)) return 'moving'
 
-    if (cont.storeFree < this.info.mineral) return false
+    if (cont.store.getFreeCapacity() < this.info.mineral) return false
 
     const mineral = _.first(this.room.find(FIND_MINERALS))
     const ret = this.harvest(mineral)

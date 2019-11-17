@@ -89,7 +89,7 @@ export function getMat(roomName) {
     }
   } else {
     if (entry.t === Game.time || !room) {
-      if (!room) console.log(`Blind Matrix ${roomName}`)
+      if (!room) debug.dlog(`Blind Matrix ${roomName}`);
       // return PathFinder.CostMatrix.deserialize(entry.mat)
       return { _bits: entry.mat }
     }

@@ -3,7 +3,7 @@ module.exports = class Paver {
     const what = this.taskTask()
     if (what) return what
 
-    if (!this.carry.energy) {
+    if (!this.store.energy) {
       return this.taskRechargeHarvest() ||
         this.moveRoom(this.home.controller)
     }

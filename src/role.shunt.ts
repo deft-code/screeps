@@ -31,10 +31,10 @@ class CreepShunt extends CreepCarry {
       switch (struct.structureType) {
         case STRUCTURE_TOWER:
           if (estruct) break
-          if (struct.energyFree >= 200) estruct = struct
+          if (struct.store.getFreeCapacity(RESOURCE_ENERGY) >= 200) estruct = struct
           break
         case STRUCTURE_SPAWN:
-          if (struct.energyFree) estruct = struct
+          if (struct.store.getFreeCapacity(RESOURCE_ENERGY)) estruct = struct
           break
         case STRUCTURE_LINK:
           link = struct

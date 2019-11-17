@@ -17,7 +17,7 @@ Room.prototype.labForMineral = function (mineral) {
 }
 
 Room.prototype.contForMineral = function (mineral) {
-  const conts = _.filter(this.findStructs(STRUCTURE_CONTAINER), 'storeFree')
+  const conts = _.filter(this.findStructs(STRUCTURE_CONTAINER), s => s.store.getFreeCapacity())
   return _.find(conts, cont => cont.store[mineral]) ||
       _.find(conts, cont => cont.mode === 'sink') || _.first(conts)
 }
@@ -28,7 +28,7 @@ module.exports = class CreepChemist {
       this.taskMoveRoom(this.team)
     if (what) return what
 
-    if (this.carryTotal) {
+    if (this.store.getUsedCapacity()) {
       return this.taskNukerFill() ||
         this.taskSortMinerals() ||
         this.taskLabEnergy()
@@ -49,7 +49,7 @@ module.exports = class CreepChemist {
     if (!this.room.terminal || !this.room.terminal.my) return false
 
     const lab = _.find(this.room.findStructs(STRUCTURE_LAB),
-      s => s.energyFree)
+      s => s.store.getFreeCapacity(RESOURCE_ENERGY))
     this.dlog(lab)
     if (lab) {
       return this.taskTransfer(lab, RESOURCE_ENERGY) || this.taskWithdraw(this.room.terminal, RESOURCE_ENERGY)
@@ -77,7 +77,7 @@ module.exports = class CreepChemist {
   }
 
   taskHarvestMinerals () {
-    if (this.carryFree < this.info.mineral) return false
+    if (this.store.getFreeCapacity() < this.info.mineral) return false
     const extrs = this.room.findStructs(STRUCTURE_EXTRACTOR)
     if (!extrs.length) return false
     if (!this.room.terminal) return false
@@ -90,9 +90,9 @@ module.exports = class CreepChemist {
     mineral = this.checkId('harvest mineral', mineral)
     if (!mineral) return false
 
-    if (this.carryFree < this.info.mineral) return false
+    if (this.store.getFreeCapacity() < this.info.mineral) return false
 
-    if (this.carryTotal && this.ticksToLive < 2 * this.pos.getRangeTo(this.room.terminal)) {
+    if (this.store.getUsedCapacity() && this.ticksToLive < 2 * this.pos.getRangeTo(this.room.terminal)) {
       console.log('Emergency chemist dump')
       return this.taskTransferMinerals()
     }
@@ -117,7 +117,7 @@ module.exports = class CreepChemist {
   }
 
   taskSortMinerals () {
-    const mineral = nonenergy(this.carry)
+    const mineral = nonenergy(this.store)
     this.dlog('taskSortMinerals', mineral)
     if (!mineral) return false
     return this.taskSortMineral(mineral)
@@ -135,7 +135,7 @@ module.exports = class CreepChemist {
   taskTransferLab (lab) {
     lab = this.checkId('transfer lab', lab)
     if (!lab) return false
-    if (!this.carry[lab.planType]) return false
+    if (!this.store[lab.planType]) return false
     if (!lab.mineralFree) return false
 
     return this.goTransfer(lab, lab.mineralType || lab.planType)
@@ -158,12 +158,12 @@ module.exports = class CreepChemist {
     }
 
     const store = this.home.storage
-    if (store && store.storeTotal > store.store.energy) {
+    if (store && store.store.getUsedCapacity() > store.store.energy) {
       return this.taskWithdrawMinerals(store)
     }
 
     const cont = this.pos.findClosestByRange(
-        _.filter(this.room.myConts, c => c.storeTotal > c.store.energy))
+        _.filter(this.room.myConts, c => c.store.getUsedCapacity() > c.store.energy))
     return this.taskWithdrawMinerals(cont)
   }
 }

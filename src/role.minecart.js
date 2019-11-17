@@ -1,4 +1,4 @@
-import {randomResource} from 'util';
+import {randomResource} from 'creep.carry';
 
 module.exports = class CreepMinecart {
   roleMinecart () {
@@ -12,18 +12,18 @@ module.exports = class CreepMinecart {
       // return this.idleRecycle()
     }
 
-    if (!this.carryTotal) {
+    if (!this.store.getUsedCapacity()) {
       if (this.ticksToLive < 25) this.suicide()
       const m = this.moveNear(cont)
       if (m) return m
     }
 
-    if (this.carryTotal) {
-      const r = randomResource(this.carry)
+    if (this.store.getUsedCapacity()) {
+      const r = randomResource(this.store)
       return this.taskTransfer(this.teamRoom.terminal, r)
     }
 
-    if (cont.storeTotal >= this.carryFree || this.ticksToLive < 50) {
+    if (cont.store.getUsedCapacity() >= this.store.getFreeCapacity() || this.ticksToLive < 50) {
       return this.taskWithdrawResource(cont)
     }
 

@@ -2,6 +2,37 @@ import * as lib from 'lib';
 
 declare var Error: any;
 
+declare global {
+  interface Memory {
+    debug: boolean
+  }
+
+  interface Room {
+    debug: boolean
+    log(...args: any[]): void
+    dlog(...args: any[]): void
+    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
+  }
+  interface Flag {
+    debug: boolean
+    log(...args: any[]): void
+    dlog(...args: any[]): void
+    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
+  }
+  interface Creep {
+    debug: boolean
+    log(...args: any[]): void
+    dlog(...args: any[]): void
+    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
+  }
+  interface PowerCreep {
+    debug: boolean
+    log(...args: any[]): void
+    dlog(...args: any[]): void
+    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
+  }
+}
+
 interface Pos {
   line: number;
   file: string;
@@ -38,6 +69,12 @@ export function where(skip = 1): Pos {
 export function location(skip = 1) {
   const pos = where(skip + 1);
   return `${pos.file}:${pos.line}#${pos.func}`;
+}
+
+export function dlog(...str: any[]) {
+  if(Memory.debug) {
+    console.log(location(2), ...str);
+  }
 }
 
 export function log(...str: any[]) {
@@ -142,6 +179,8 @@ export class Debuggable {
   }
 }
 
-lib.merge(Flag, Debuggable)
+
 lib.merge(Creep, Debuggable)
+lib.merge(Flag, Debuggable)
+lib.merge(PowerCreep, Debuggable);
 lib.merge(Room, Debuggable)

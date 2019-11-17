@@ -3,11 +3,11 @@ module.exports = class CreepCollector {
     let what = this.idleRetreat(CARRY) || this.taskTask()
     if (what) return what
 
-    if (this.atTeam && this.carryFree) {
+    if (this.atTeam && this.store.getFreeCapacity()) {
       return this.taskCollect()
     }
 
-    if (this.carryTotal) {
+    if (this.store.getUsedCapacity()) {
       if (this.pos.roomName === this.dropRoom().name) {
         return this.taskTransferResources()
       }
@@ -23,7 +23,7 @@ module.exports = class CreepCollector {
 
   taskCollect () {
     this.dlog('collect')
-    if (!this.carryFree) return false
+    if (!this.store.getFreeCapacity()) return false
 
     return this.taskPickupAny() || this.taskWithdrawAny()
     // return this.taskWithdrawAny() || this.taskPickupAny();

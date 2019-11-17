@@ -3,10 +3,10 @@ module.exports = class CreepDropper {
     let what = this.taskTask()
     if (what) return what
 
-    if (this.carryTotal) {
+    if (this.store.getUsedCapacity()) {
       if (this.pos.isNearTo(this.team)) {
         const err = this.drop(RESOURCE_ENERGY)
-        return err === OK && this.carry.energy
+        return err === OK && this.store.energy
       }
       if (this.room.name === this.team.pos.roomName) {
         return this.moveNear(this.team)

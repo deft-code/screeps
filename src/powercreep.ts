@@ -43,12 +43,15 @@ declare global {
 }
 
 class PowerCreepExtra extends PowerCreep {
+    toString() {
+        if(this.pos) {
+            return `<a href="/a/#!/room/${Game.shard.name}/${this.pos.roomName}">${this.name}</a>`
+        }
+        return `[PowerCreep ${this.name}]`
+    }
+
     get role() { return this.name }
     get hurts() { return this.hitsMax - this.hits }
-
-    get carryTotal() { return _.sum(this.carry) }
-
-    get carryFree() { return this.carryCapacity - this.carryTotal }
 
     moveNear(pos: RoomPosition): ScreepsReturnCode {
         const ret = rewalker.walkTo(this, pos, 1);

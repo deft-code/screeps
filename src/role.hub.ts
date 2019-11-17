@@ -1,16 +1,8 @@
-import { extender, injecter } from "roomobj";
+import { injecter } from "roomobj";
 import { TaskRet } from "Tasker";
-import { Link, Mode } from "struct.link";
-import { CreepMove } from "creep.move";
+import { Link, Mode, hubNeed, storageBalance } from "struct.link";
 import { CreepCarry } from "creep.carry";
 
-function ratio(s: StructureStorage | StructureTerminal) {
-    if (s.storeCapacity === 0) return 10;
-    if (s.structureType === STRUCTURE_TERMINAL) {
-        return s.store.energy * 3 / s.storeCapacity;
-    }
-    return s.store.energy / s.storeCapacity;
-}
 
 @injecter(Creep)
 class CreepHub extends CreepCarry {
@@ -26,10 +18,10 @@ class CreepHub extends CreepCarry {
             switch (struct.structureType) {
                 case STRUCTURE_TOWER:
                     if (estruct) break
-                    if (struct.energyFree >= 200) estruct = struct
+                    if (struct.store.getFreeCapacity(RESOURCE_ENERGY) >= 200) estruct = struct
                     break
                 case STRUCTURE_SPAWN:
-                    if (struct.energyFree) estruct = struct
+                    if (struct.store.getFreeCapacity(RESOURCE_ENERGY)) estruct = struct
                     break
                 case STRUCTURE_LINK:
                     link = struct as Link;
@@ -44,62 +36,41 @@ class CreepHub extends CreepCarry {
         let xfer: TaskRet = false;
 
         if (estruct) {
-            if (this.carry.energy) {
+            if (this.store.energy) {
+                this.dlog('fill energy', estruct);
                 xfer = xfer || this.goTransfer(estruct, RESOURCE_ENERGY, false);
             } else {
                 needE = true;
             }
         }
 
-        if (!xfer && link && link.mode === Mode.src && link.energyFree) {
-            if (this.carry.energy) {
+        if (!xfer && link && (
+            (link.mode === Mode.src && link.store.getFreeCapacity(RESOURCE_ENERGY)) ||
+            (link.mode == Mode.hub && link.cooldown < 2 && hubNeed(this.room) > 100))) {
+            if (this.store.energy) {
                 xfer = xfer || this.goTransfer(link, RESOURCE_ENERGY, false);
             } else {
                 needE = true;
             }
         }
 
-        let batt: GenericStoreStructure | null = null;
-        let sink: GenericStoreStructure | null = null;
-        if (store) {
-            batt = store;
-            sink = store;
-            const srat = ratio(store);
-            if (term) {
-                const trat = ratio(term);
+        let [batt, sink, activeBalance] = storageBalance(store, term);
 
-                if (trat > srat) {
-                    batt = term;
-                }
-                if (trat < srat) {
-                    sink = term;
-                }
-            }
-        } else if (term) {
-            batt = term;
-            sink = term;
-        }
-
-        if (sink && !sink.storeFree) return false;
+        if (sink && !sink.store.getFreeCapacity()) return false;
 
         if (!sink || !batt) return false;
 
-        if (!xfer && this.carry.energy) {
+        if (!xfer && this.store.energy) {
             this.goTransfer(sink, RESOURCE_ENERGY, false);
         }
 
         let wd: TaskRet = false;
-        if (this.carryFree) {
-            if (link && ((link.mode === Mode.sink && link.energy) || link.cooldown > 10)) {
+        if (this.store.getFreeCapacity()) {
+            if (link && ((link.mode === Mode.sink && link.store.energy) || link.cooldown > 10)) {
                 wd = wd || this.goWithdraw(link, RESOURCE_ENERGY, false);
             }
 
-            const brat = ratio(batt);
-            const krat = ratio(sink);
-
-            //this.log('wd', wd, 'brat', batt, brat, "krat", sink, krat);
-
-            if (!wd && (needE || (brat - krat > 0.1 && this.carryTotal === 0))) {
+            if (!wd && (needE || (activeBalance && this.store.getUsedCapacity() === 0))) {
                 wd = wd || this.goWithdraw(batt, RESOURCE_ENERGY, false);
             }
         }

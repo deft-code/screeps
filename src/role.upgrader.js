@@ -3,7 +3,7 @@ module.exports = class CreepUpgrader {
     let what = this.taskTask()
     if (what) return what
 
-    if (this.carry.energy) {
+    if (this.store.energy) {
       return this.goUpgradeController(this.room.controller)
     }
     return this.taskRechargeHarvest()

@@ -28,9 +28,6 @@ interface PowerCreep extends RoomObject {
     tick: PowerCreepTick
 
     role: string
-    log(...args: any[]): void
-    dlog(...args: any[]): void
-    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
 }
 
 // type shim for nodejs' `require()` syntax
@@ -79,14 +76,7 @@ interface Creep {
     spawnTime: number
     role: string
 
-    carryFree: number
-    carryTotal: number
     teamRoom: Room
-
-    debug: boolean
-    log(...args: any[]): void
-    dlog(...args: any[]): void
-    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
 }
 
 interface RoomCache {
@@ -110,8 +100,6 @@ interface Room {
     findStructs<SType extends StructureConstant>(stype: SType): AllStructureTypes[SType][]
     //findStructs<SType extends StructureConstant>(stype: SType): Structure<SType>
     findStructs(...args: StructureConstant[]): AnyStructure[]
-    log(...args: any[]): void
-    dlog(...args: any[]): void
     cache: RoomCache
     tick: RoomTick
     energyFreeAvailable: number
@@ -143,9 +131,6 @@ interface Room {
         [key: string]: AnyStructure[]
     }
 
-    log(...args: any[]): void
-    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
-
     runTowers(): void
     runDefense(): void
     runKeeper(): void
@@ -160,9 +145,6 @@ interface Room {
 
 interface Flag {
     run(): void
-    log(...args: any[]): void
-    dlog(...args: any[]): void
-    errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode
 }
 
 interface RoomPosition {
@@ -170,28 +152,27 @@ interface RoomPosition {
 }
 
 type AllStructureTypes = {
-    [STRUCTURE_NUKER]: StructureNuker
-    [STRUCTURE_STORAGE]: StructureStorage
-    [STRUCTURE_TERMINAL]: StructureTerminal
+    [STRUCTURE_CONTAINER]: StructureContainer
+    [STRUCTURE_CONTROLLER]: StructureController
     [STRUCTURE_EXTENSION]: StructureExtension
+    [STRUCTURE_EXTRACTOR]: StructureExtractor
+    [STRUCTURE_INVADER_CORE]: StructureInvaderCore
+    [STRUCTURE_KEEPER_LAIR]: StructureKeeperLair
+    [STRUCTURE_LAB]: StructureLab
+    [STRUCTURE_LINK]: StructureLink
+    [STRUCTURE_NUKER]: StructureNuker
+    [STRUCTURE_OBSERVER]: StructureObserver
+    [STRUCTURE_PORTAL]: StructurePortal
+    [STRUCTURE_POWER_BANK]: StructurePowerBank
+    [STRUCTURE_POWER_SPAWN]: StructurePowerSpawn
     [STRUCTURE_RAMPART]: StructureRampart
     [STRUCTURE_ROAD]: StructureRoad
     [STRUCTURE_SPAWN]: StructureSpawn
-    [STRUCTURE_LINK]: StructureLink
-    [STRUCTURE_WALL]: StructureWall
-    [STRUCTURE_KEEPER_LAIR]: StructureKeeperLair
-    [STRUCTURE_CONTROLLER]: StructureController
     [STRUCTURE_STORAGE]: StructureStorage
-    [STRUCTURE_TOWER]: StructureTower
-    [STRUCTURE_OBSERVER]: StructureObserver
-    [STRUCTURE_POWER_BANK]: StructurePowerBank
-    [STRUCTURE_POWER_SPAWN]: StructurePowerSpawn
-    [STRUCTURE_EXTRACTOR]: StructureExtractor
-    [STRUCTURE_LAB]: StructureLab
     [STRUCTURE_TERMINAL]: StructureTerminal
-    [STRUCTURE_CONTAINER]: StructureContainer
-    [STRUCTURE_NUKER]: StructureNuker
-    [STRUCTURE_PORTAL]: StructurePortal
+    [STRUCTURE_TOWER]: StructureTower
+    [STRUCTURE_WALL]: StructureWall
+    [STRUCTURE_FACTORY]: StructureFactory
 }
 
 interface Structure {
@@ -199,64 +180,49 @@ interface Structure {
 }
 
 interface StructureContainer {
-    storeTotal: number
-    storeFree: number
     mode: "src" | "sink"
 }
 
 interface StructureStorage {
-    storeTotal: number
-    storeFree: number
 }
 
 interface StructureTerminal {
-    storeTotal: number
-    storeFree: number
 }
 
 interface Tombstone {
-    storeTotal: number
-    storeFree: number
 }
 
 interface StructureSpawn {
-    energyFree: number
 }
 
 interface StructureExtension {
-    energyFree: number
 }
 
 interface StructureLab {
-    energyFree: number
     planType: ResourceConstant
 }
 
 interface StructureLink {
-    energyFree: number
 }
 
 interface StructureNuker {
-    energyFree: number
 }
 
 interface StructurePowerSpawn {
-    energyFree: number
 }
 
 interface StructureTower {
-    energyFree: number
 }
 
 type GenericStoreStructure = StructureContainer |
     StructureTerminal |
     StructureStorage;
 
-type GenericStoreObject = GenericStoreStructure | Tombstone
+type StoreObject = GenericStoreStructure | Tombstone | Ruin
 
 type EnergyStruct = StructureSpawn | StructureExtension | StructureLab | StructureLink | StructureNuker | StructurePowerSpawn | StructureTower
 
-type Withdrawable = GenericStoreObject | EnergyStruct
+type Withdrawable = StoreObject | EnergyStruct
 
 type XferStruct = GenericStoreStructure | EnergyStruct;
 

@@ -98,7 +98,7 @@ StructureTerminal.prototype.setLabs = function (resource) {
 }
 
 StructureTerminal.prototype.autoReact = function (mineral) {
-  this.room.log('Mineral:', mineral)
+  this.room.dlog('Mineral:', mineral)
   for (const part of k.Reactions[mineral]) {
     if (_.contains(k.CoreMinerals, part)) continue
     if (this.store[part] >= 2000) continue
@@ -135,18 +135,18 @@ function mineralPlan (room) {
 }
 
 StructureTerminal.prototype.autoReactAll = function (override = false) {
-  if (!override && (Game.time + this.pos.xy) % 500 !== 0) return
-  if (this.room.findStructs(STRUCTURE_LAB).length < 3) return
+  if (!override && (Game.time + this.pos.xy) % 500 !== 0) return;
+  if (this.room.findStructs(STRUCTURE_LAB).length < 3) return;
 
-  const plans = mineralPlan(this)
+  const plans = mineralPlan(this);
 
   for (const [boost, n] of plans) {
-    this.room.log(boost, n)
-    if (this.store[boost] > n) continue
-    this.setLabs(this.autoReact(boost))
-    return
+    this.room.dlog(boost, n);
+    if (this.store[boost] > n) continue;
+    this.setLabs(this.autoReact(boost));
+    return;
   }
-  this.setLabs(RESOURCE_CATALYZED_GHODIUM_ACID)
+  this.setLabs(RESOURCE_CATALYZED_GHODIUM_ACID);
 }
 
 Room.prototype.orderedLabs = function () {

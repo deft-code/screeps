@@ -1,8 +1,7 @@
 import { CreepMove } from "creep.move";
-import * as util from 'util';
 import * as k from 'constants';
 import { TaskRet } from "Tasker";
-import { isStore } from "guards";
+import { isGenericStore, isStoreStruct } from "guards";
 import { Link, Mode } from "struct.link";
 import { injecter } from "roomobj";
 import { errStr } from "debug";
@@ -21,22 +20,22 @@ declare global {
   }
 }
 
-export function randomResource(resources: StoreDefinition): ResourceConstant {
+export function randomResource(resources: GenericStore): ResourceConstant {
   const recs = _.keys(resources) as ResourceConstant[];
-  if (resources.energy > 0) return _.sample(recs);
+  if (resources[RESOURCE_ENERGY] > 0) return _.sample(recs);
   return _.sample(_.filter(recs, r => r !== RESOURCE_ENERGY));
 }
 
 @injecter(Creep)
 export class CreepCarry extends CreepMove {
   idleTransferAny() {
-    if (!this.carry.energy) return false
+    if (!this.store.energy) return false
     if (this.intents.transfer) return false
 
     const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
 
     const spot = _.find(
-      spots, spot => spot.structure.energyFree || spot.structure.storeFree)
+      spots, spot => isStoreStruct(spot.structure) && spot.structure.store.getFreeCapacity(RESOURCE_ENERGY))
 
     if (!spot) return false
 
@@ -44,7 +43,7 @@ export class CreepCarry extends CreepMove {
   }
 
   idleTransferExtra() {
-    if (!this.carry.energy) return false
+    if (!this.store.energy) return false
     if (this.intents.transfer) return false
 
     const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
@@ -62,7 +61,7 @@ export class CreepCarry extends CreepMove {
         // fallthrough
         case STRUCTURE_SPAWN:
         case STRUCTURE_EXTENSION:
-          if (s.energyFree) {
+          if ((s as StructureExtension).store.getFreeCapacity(RESOURCE_ENERGY)) {
             return this.goTransfer(s as StructureExtension, RESOURCE_ENERGY, false)
           }
       }
@@ -72,7 +71,7 @@ export class CreepCarry extends CreepMove {
 
   taskTransferTowers(amount: number) {
     const towers = this.room.findStructs(STRUCTURE_TOWER) as StructureTower[];
-    const tower = _.find(towers, t => t.energy < amount)
+    const tower = _.find(towers, t => t.store.energy < amount)
     return this.taskTransfer(tower, RESOURCE_ENERGY)
   }
 
@@ -82,7 +81,7 @@ export class CreepCarry extends CreepMove {
 
     const extns = _.filter(
       this.room.findStructs(STRUCTURE_EXTENSION) as StructureExtension[],
-      p => p.energyFree && !p.tick.taken)
+      p => p.store.getFreeCapacity(RESOURCE_ENERGY) && !p.tick.taken)
     const extn = this.pos.findClosestByRange(extns)
 
     if (extn) {
@@ -93,7 +92,7 @@ export class CreepCarry extends CreepMove {
     // fill spawns last to give srcers a chance to fill them.
     const spawns = _.filter(
       this.room.findStructs(STRUCTURE_SPAWN),
-      p => p.energyFree)
+      p => p.store.getFreeCapacity(RESOURCE_ENERGY))
     const spawn = this.pos.findClosestByRange(spawns)
 
     return this.taskTransfer(spawn, RESOURCE_ENERGY)
@@ -104,37 +103,23 @@ export class CreepCarry extends CreepMove {
     const store = this.room.terminal || this.room.storage
     if (!store) return false
 
-    const mineral = _.find(_.keys(this.carry) as ResourceConstant[], m => m !== RESOURCE_ENERGY);
+    const mineral = _.find(_.keys(this.store) as ResourceConstant[], m => m !== RESOURCE_ENERGY);
 
     return this.taskTransfer(store, mineral)
   }
 
   taskTransferEnergy() {
     this.dlog('taskTransferEnergy')
-    let stores = this.room.findStructs(
-      STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL) as GenericStoreStructure[]
-    stores = _.filter(stores, s => s.storeFree * 2 > this.carry.energy)
-
-    const store = this.pos.findClosestByRange(stores)
-    this.dlog('closest store', store)
-
     const batteries = _.filter(
       this.room.find(FIND_STRUCTURES),
-      b => b.energyFree * 2 > this.carry.energy) as EnergyStruct[];
+      b => isStoreStruct(b) && b.store.getFreeCapacity(RESOURCE_ENERGY) * 2 > this.store.energy) as EnergyStruct[];
 
     const battery = this.pos.findClosestByRange(batteries)
-
-    if (store) {
-      if (battery && this.pos.getRangeTo(battery) <= this.pos.getRangeTo(store)) {
-        return this.taskTransfer(battery, RESOURCE_ENERGY)
-      }
-      return this.taskTransfer(store, RESOURCE_ENERGY)
-    }
     return this.taskTransfer(battery, RESOURCE_ENERGY)
   }
 
   taskTransferResources() {
-    const resource = randomResource(this.carry)
+    const resource = randomResource(this.store)
     switch (resource) {
       case RESOURCE_ENERGY:
         return this.taskTransferEnergy()
@@ -160,20 +145,11 @@ export class CreepCarry extends CreepMove {
     }
     this.dlog("resource", resource);
 
-    if (!this.carry[resource]) return false;
+    if (!this.store[resource]) return false;
     this.dlog("carrying");
 
-    if (isStore(struct)) {
-      this.dlog(struct, "is a store");
-      if (!struct.storeFree) return false;
-    } else {
-      const r = struct[resource as "energy"];
-      this.dlog("dest energy", r);
-      const rCap = struct[`${resource}Capacity` as "energyCapacity"];
-      if (r >= rCap) return false;
-    }
+    if (!struct.store.getFreeCapacity(resource)) return false;
 
-    if (!this.carry[resource]) return false;
     return this.goTransfer(struct, resource);
   }
 
@@ -192,7 +168,7 @@ export class CreepCarry extends CreepMove {
   }
 
   idleWithdrawExtra() {
-    if (!this.carryFree) return false
+    if (!this.store.getFreeCapacity()) return false
     if (this.intents.withdraw) return false
 
     const spots =
@@ -207,7 +183,7 @@ export class CreepCarry extends CreepMove {
           }
           break
         case STRUCTURE_LINK:
-          if ((s as Link).mode === Mode.src && s.energy) {
+          if ((s as Link).mode === Mode.src && s.store.energy) {
             return this.goWithdraw(s, RESOURCE_ENERGY, false)
           }
           break
@@ -215,7 +191,7 @@ export class CreepCarry extends CreepMove {
           // Don't idle withdraw unless the creep is already carrying a little.
           // This prevents the creep from immediately withdrawing after
           // transfer.
-          if (s.store.energy > k.EnergyReserve && this.carry.energy) {
+          if (s.store.energy > k.EnergyReserve && this.store.energy) {
             return this.goWithdraw(s, RESOURCE_ENERGY, false)
           }
           break
@@ -225,7 +201,7 @@ export class CreepCarry extends CreepMove {
   }
 
   idleRecharge() {
-    if (this.carryFree < this.carry.energy) return false
+    if (this.store.getFreeCapacity() < this.store.energy) return false
     if (this.intents.withdraw) return false
 
     const spots = _.shuffle(this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true))
@@ -235,7 +211,7 @@ export class CreepCarry extends CreepMove {
       if (s.structureType === STRUCTURE_SPAWN) continue
       if (s.structureType === STRUCTURE_EXTENSION) continue
       if (s.structureType === STRUCTURE_TOWER) continue
-      if ((isStore(s) && s.store.energy) || (!isStore(s) && s.energy)) {
+      if (isGenericStore(s) && s.store.energy) {
         return this.goWithdraw(s, RESOURCE_ENERGY, false)
       }
     }
@@ -245,7 +221,7 @@ export class CreepCarry extends CreepMove {
   taskRechargeLimit(limit: number) {
     this.dlog(`recharge ${limit}`)
 
-    if (!this.carryFree) return false
+    if (!this.store.getFreeCapacity()) return false
 
     let all: (Resource | Withdrawable)[] = []
     if (this.room.hostiles.length === 0 || limit < 10) {
@@ -263,7 +239,7 @@ export class CreepCarry extends CreepMove {
         STRUCTURE_STORAGE,
         STRUCTURE_TERMINAL
       ) as XferStruct[],
-      s => (isStore(s) && s.store.energy >= limit) || (!isStore(s) && s.energy >= limit)
+      s => isStoreStruct(s) && s.store.energy >= limit
     ))
 
     let e = this.pos.findClosestByRange(all) as any;
@@ -275,11 +251,11 @@ export class CreepCarry extends CreepMove {
   }
 
   taskRecharge() {
-    return this.taskRechargeLimit(this.carryFree / 3) || this.taskRechargeLimit(1)
+    return this.taskRechargeLimit(this.store.getFreeCapacity() / 3) || this.taskRechargeLimit(1)
   }
 
   taskWithdrawAny() {
-    if (!this.carryFree) return false
+    if (!this.store.getFreeCapacity()) return false
 
     const structs = _.shuffle(this.room.find(FIND_STRUCTURES))
     for (const struct of structs) {
@@ -295,12 +271,12 @@ export class CreepCarry extends CreepMove {
       case STRUCTURE_CONTAINER:
       case STRUCTURE_TERMINAL:
       case STRUCTURE_STORAGE:
-        if (!struct.storeTotal) return false
+        if (!struct.store.getUsedCapacity()) return false
         return this.taskWithdraw(struct, randomResource(struct.store))
       case STRUCTURE_EXTENSION:
       case STRUCTURE_TOWER:
       case STRUCTURE_LINK:
-        if (!struct.energy) return false
+        if (!struct.store.energy) return false
         return this.taskWithdraw(struct, RESOURCE_ENERGY)
       case STRUCTURE_LAB:
         return this.taskWithdrawLab(struct) ||
@@ -316,7 +292,7 @@ export class CreepCarry extends CreepMove {
     lab = this.checkId('withdraw lab', lab)
     if (!lab) return false
     if (!lab.mineralAmount) return false
-    if (!this.carryFree) return false
+    if (!this.store.getFreeCapacity()) return false
     this.dlog('withdrawing', lab, lab.mineralAmount, lab.mineralType)
 
     return this.goWithdraw(lab, lab.mineralType!)
@@ -326,7 +302,7 @@ export class CreepCarry extends CreepMove {
   taskWithdraw(struct: Withdrawable | null, resource: ResourceConstant) {
     struct = this.checkId('withdraw', struct)
     if (!struct) return false
-    if (!this.carryFree) return false
+    if (!this.store.getFreeCapacity()) return false
 
     if (!resource) {
       resource = this.memory.task!.resource!;
@@ -334,12 +310,8 @@ export class CreepCarry extends CreepMove {
       this.memory.task!.resource = resource;
     }
 
-    if (isStore(struct)) {
-      if (!struct.store[resource]) {
-        this.dlog('empty store', struct)
-        return false
-      }
-    } else if (!struct[resource as "energy"]) {
+    if (!struct.store[resource]) {
+      this.dlog('empty store', struct)
       return false
     }
 
@@ -361,7 +333,7 @@ export class CreepCarry extends CreepMove {
   }
 
   idleNomNom() {
-    if (!this.carryFree) return false
+    if (!this.store.getFreeCapacity()) return false
     if (this.intents.pickup) return false
 
     const spot = _.sample(this.room.lookForAtRange(LOOK_RESOURCES, this.pos, 1, true))
@@ -371,16 +343,24 @@ export class CreepCarry extends CreepMove {
 
     const tomb = _.find(
       this.room.lookForAtRange(LOOK_TOMBSTONES, this.pos, 1, true),
-      spot => spot[LOOK_TOMBSTONES].storeTotal > 0)
+      spot => spot[LOOK_TOMBSTONES].store.getUsedCapacity() > 0)
     if (tomb) {
       const t = tomb[LOOK_TOMBSTONES]
-      return this.taskWithdraw(t, randomResource(t.store))
+      return this.taskWithdraw(t, randomResource(t.store));
+    }
+
+    const ruin = _.find(
+      this.room.lookForAtRange(LOOK_RUINS, this.pos, 1, true),
+      spot => spot[LOOK_RUINS].store.getUsedCapacity() > 0)
+    if (ruin) {
+      const r = ruin[LOOK_RUINS]
+      return this.taskWithdraw(r, randomResource(r.store));
     }
     return false
   }
 
   idleNom() {
-    if (!this.carryFree) return false
+    if (!this.store.getFreeCapacity()) return false
     if (this.intents.pickup) return false
 
     const spot = _.find(
@@ -397,6 +377,14 @@ export class CreepCarry extends CreepMove {
     if (tomb) {
       this.dlog(tomb)
       return this.goWithdraw(tomb[LOOK_TOMBSTONES], RESOURCE_ENERGY, false)
+    }
+
+    const ruin = _.find(
+      this.room.lookForAtRange(LOOK_RUINS, this.pos, 1, true),
+      spot => spot[LOOK_RUINS].store[RESOURCE_ENERGY] > 0)
+    if (ruin) {
+      const r = ruin[LOOK_RUINS]
+      return this.goWithdraw(r, RESOURCE_ENERGY, false);
     }
     return false
   }
@@ -418,7 +406,7 @@ export class CreepCarry extends CreepMove {
   taskPickup(resource: Resource | null) {
     resource = this.checkId('pickup', resource)
     if (!resource) return false
-    if (!this.carryFree) return false
+    if (!this.store.getFreeCapacity()) return false
     if (resource.amount < 50 && !this.pos.inRangeTo(resource, resource.amount)) return false
 
     const what = this.goPickup(resource)
@@ -439,7 +427,7 @@ export class CreepCarry extends CreepMove {
   }
 
   taskDrop(flag: Flag | null) {
-    if (!this.carry.energy) return false
+    if (!this.store.energy) return false
     flag = this.checkFlag('drop', flag)
     if (!flag) return false
 

@@ -13,7 +13,7 @@ const oneHeal = (towers, creep) => one(towers, StructureTower.prototype.heal, cr
 const oneRepair = (towers, creep) => one(towers, StructureTower.prototype.repair, creep)
 
 Room.prototype.runTowers = function () {
-  let towers = _.filter(this.findStructs(STRUCTURE_TOWER), t => t.energy >= 10)
+  let towers = _.filter(this.findStructs(STRUCTURE_TOWER), t => t.store.energy >= 10)
   if (!towers.length) return
 
   const decay = _.filter(
@@ -67,12 +67,12 @@ Room.prototype.runTowers = function () {
 StructureTower.prototype.run = function () {
   const surpluss = this.room.storage && this.room.storage.store.energy > 800000
 
-  if (surpluss && this.energy > 800 &&
+  if (surpluss && this.store.energy > 800 &&
       this.room.energyAvailable === this.room.energyCapacityAvailable) {
     let needRepair = _.sample(
         this.room.find(FIND_STRUCTURES, {
           filter: s =>
-              s.hitsMax - s.hits > 800 && s.structureType !== STRUCTURE_ROAD
+              s.hurts > 800 && s.structureType !== STRUCTURE_ROAD
         }),
         3)
     if (needRepair.length) {

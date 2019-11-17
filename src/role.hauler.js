@@ -15,17 +15,17 @@ module.exports = class CreepHauler {
 
     if (this.room.energyFreeAvailable) {
       this.dlog('refill pools')
-      if (!this.carry.energy) return this.taskRecharge()
+      if (!this.store.energy) return this.taskRecharge()
       return this.taskTransferPool()
     }
 
-    if (this.carryFree) {
+    if (this.store.getFreeCapacity()) {
       what = this.taskPickupAny()
       if (what) return what
 
       // Only clear drains when we have significant space.
       // This prevents hauler thrashing.
-      if (this.carryFree > this.carryTotal) {
+      if (this.store.getFreeCapacity() > this.store.getUsedCapacity()) {
         const drains = _.filter(
             this.room.findStructs(STRUCTURE_TERMINAL, STRUCTURE_CONTAINER),
             (struct) => {
@@ -42,14 +42,14 @@ module.exports = class CreepHauler {
         this.dlog('hauler drain', drain)
         if (drain) return this.taskWithdraw(drain, RESOURCE_ENERGY)
       } else {
-        this.dlog(`skipping drain; too full: ${this.carry.energy}`)
+        this.dlog(`skipping drain; too full: ${this.store.energy}`)
       }
     }
 
-    const nonE = this.carryTotal - this.carry.energy
+    const nonE = this.store.getUsedCapacity() - this.store.energy
     if (nonE) return this.taskTransferMinerals()
 
-    if (!this.carry.energy) {
+    if (!this.store.energy) {
       if (this.room.storage && this.room.storage.store.energy > 100000) {
         return this.taskWithdraw(this.room.storage, RESOURCE_ENERGY)
       }
@@ -66,7 +66,7 @@ module.exports = class CreepHauler {
     for (let struct of structs) {
       switch (struct.structureType) {
         case STRUCTURE_CONTAINER:
-          if (struct.mode === 'sink' && struct.storeFree > 500) {
+          if (struct.mode === 'sink' && struct.store.getFreeCapacity() > 500) {
             return this.taskTransfer(struct, RESOURCE_ENERGY)
           }
           break
@@ -80,7 +80,7 @@ module.exports = class CreepHauler {
         case STRUCTURE_LAB:
         case STRUCTURE_NUKER:
         case STRUCTURE_POWER_SPAWN:
-          if (struct.energyFree) return this.taskTransfer(struct, RESOURCE_ENERGY)
+          if (struct.store.getFreeCapacity(RESOURCE_ENERGY)) return this.taskTransfer(struct, RESOURCE_ENERGY)
           break
       }
     }
@@ -89,8 +89,8 @@ module.exports = class CreepHauler {
 
   taskTransferStorage () {
     if (!this.room.storage) return false
-    const res = _.sample(_.keys(this.carry))
-    if (!this.carry[res]) return false
+    const res = _.sample(_.keys(this.store))
+    if (!this.store[res]) return false
     return this.taskTransfer(this.room.storage, res)
   }
 

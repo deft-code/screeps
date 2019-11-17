@@ -7,8 +7,8 @@ module.exports = class CreepCart {
     if (what) return what
 
     const dropRoom = this.dropRoom()
-    if (this.carryFree < this.carryTotal ||
-      (this.room.name === dropRoom.name && this.carryTotal)) {
+    if (this.store.getFreeCapacity() < this.store.getUsedCapacity() ||
+      (this.room.name === dropRoom.name && this.store.getUsedCapacity())) {
       return this.moveRoom(dropRoom.storage || dropRoom.controller) ||
           this.taskTransferResources() ||
           this.taskBuildOrdered() ||
@@ -23,7 +23,7 @@ module.exports = class CreepCart {
 
   afterCart () {
     this.idleNom()
-    if (this.carry.energy) {
+    if (this.store.energy) {
       this.idleBuild() || this.idleRepairRoad()
       if (this.atTeam) {
         this.idleRecharge()

@@ -8,7 +8,7 @@ module.exports = class CreepWorker {
 
     this.dlog('upgrade!', upgrade)
 
-    if (this.carry.energy) {
+    if (this.store.energy) {
       return this.taskBuildStructs(STRUCTURE_TOWER) ||
         this.taskTurtleMode() ||
         this.taskBuildOrdered() ||
@@ -23,7 +23,7 @@ module.exports = class CreepWorker {
   afterWorker () {
     this.idleNom()
     this.idleRecharge()
-    if (this.carryTotal > this.carryFree) {
+    if (this.store.getUsedCapacity() > this.store.getFreeCapacity()) {
       this.idleBuild() || this.idleRepair() || this.idleUpgrade()
     }
   }

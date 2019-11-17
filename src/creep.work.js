@@ -3,7 +3,7 @@ import * as lib from 'lib';
 
 module.exports = class CreepWork {
   idleEmergencyUpgrade () {
-    if (!this.carry.energy) return false
+    if (!this.store.energy) return false
     const controller = this.room.controller
     if (!controller || !controller.my) return false
     if (controller.level === 8 && controller.ticksToDowngrade > 2000) return false
@@ -24,7 +24,7 @@ module.exports = class CreepWork {
   }
 
   taskUpgrade (controller) {
-    if (!this.carry.energy) return false
+    if (!this.store.energy) return false
     controller = this.checkId('upgrade', controller)
     if (!controller || !controller.my) return false
     return this.goUpgradeController(controller)
@@ -103,7 +103,7 @@ module.exports = class CreepWork {
   }
 
   taskHarvest (src) {
-    if (!this.carryFree) return false
+    if (!this.store.getFreeCapacity()) return false
     src = this.checkId('harvest', src)
     this.dlog('harvest', src)
     if (!src || !src.energy) return false
@@ -147,7 +147,7 @@ module.exports = class CreepWork {
   }
 
   taskCampSrc (src) {
-    if (this.carry.energy) return false
+    if (this.store.energy) return false
 
     src = this.checkId('camp src', src)
     if (src.energy) return false

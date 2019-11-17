@@ -64,8 +64,7 @@ function getCache(room: Room) {
 function makeCache(room: Room) {
   const links = room.findStructs(STRUCTURE_LINK) as Link[];
 
-
-  debug.log("setting links in:", room.name);
+  room.dlog("setting links");
 
   const cache: Cache = {
     nlinks: links.length,
@@ -154,14 +153,15 @@ export class Link extends StructureLink {
   }
 
   xferHalf(target: Link) {
-    const e = Math.floor(target.energyFree / 2)
+    const e = Math.floor(target.store.getFreeCapacity(RESOURCE_ENERGY) / 2)
     return this.xferRaw(target, e)
   }
 
   xfer(target: Link, mod = 33) {
     // sad trombone
-    // let e = Math.min(this.energy, Math.ceil(target.energyFree * (1 + LINK_LOSS_RATIO)));
-    let e = Math.min(this.energy, target.energyFree)
+    let best = Math.min(this.store.energy, Math.ceil(target.store.getFreeCapacity(RESOURCE_ENERGY) * (1 + LINK_LOSS_RATIO)));
+
+    let e = Math.min(this.store.energy, target.store.getFreeCapacity(RESOURCE_ENERGY))
     e -= (e % 100) % mod
     return this.xferRaw(target, e)
   }
@@ -180,40 +180,61 @@ export function hubNeed(room: Room): number {
   return _.max(_.map(room.findStructs(STRUCTURE_LINK) as Link[],
     l => {
       if (l.mode !== Mode.sink) return 0;
-      return l.energyFree;
+      return l.store.getFreeCapacity(RESOURCE_ENERGY);
     }));
+}
+
+type HubStore = StructureStorage | StructureTerminal;
+function ratio(s: HubStore) {
+  if (s.storeCapacity === 0) return 10;
+  if (s.structureType === STRUCTURE_TERMINAL) {
+    return s.store.energy * 3 / s.storeCapacity;
+  }
+  return s.store.energy / s.storeCapacity;
+}
+
+// Returns battery, sink, active balance 
+export function storageBalance(s: StructureStorage | null, t: StructureTerminal | null): [HubStore | null, HubStore | null, boolean] {
+  if (!t) return [s, s, false];
+  if (!s) return [t, t, false];
+
+  const srat = ratio(s);
+  const trat = ratio(t);
+  if (srat < trat) return [t, s, trat - srat > 0.1 && t.store.energy > 5000];
+  return [s, t, srat - trat > 0.1 && s.store.energy > 150000];
 }
 
 export function balanceSplit(room: Room) {
   const links = room.findStructs(STRUCTURE_LINK) as Link[];
-  if (links.length < 2) return
+  if (links.length < 2) return;
 
   let cache = getCache(room);
-  const store = Game.getObjectById<Link>(cache.store)
-  const term = Game.getObjectById<Link>(cache.term)
+  const store = Game.getObjectById<Link>(cache.store);
+  const term = Game.getObjectById<Link>(cache.term);
 
-  if (!term) return
-  if (!store) return
-  if (cache.lock > Game.time) return
-  cache.lock = Game.time + 100;
+  if (!term) return;
+  if (!store) return;
+  if (cache.lock > Game.time && !room.debug) return;
+  cache.lock = Game.time + 10 + _.random(10);
 
   term.mode = Mode.hub;
   store.mode = Mode.hub;
 
-  room.dlog('term', term.mode)
-  room.dlog('store', store.mode)
+  room.dlog('term', term.mode, 'store', store.mode);
 
-  if (!room.terminal || !room.storage) return
-  const te = room.terminal.store.energy
-  const se = room.storage.store.energy
+  if (!room.terminal || !room.storage) return;
 
-  if ((te > 20000 && se < 150000) || (te > 50000 && se < 950000)) {
-    store.mode = Mode.sink;
-    return
-  }
-
-  if (te < 40000 && se > 200000) {
-    term.mode = Mode.sink;
+  const [batt, sink, activeBalance] = storageBalance(room.storage, room.terminal);
+  room.dlog("batt", batt, "sink", sink, "active", activeBalance);
+  if (activeBalance) {
+    if (sink!.structureType === STRUCTURE_STORAGE) {
+      store.mode = Mode.sink;
+      term.mode = Mode.src;
+    }
+    if (sink!.structureType === STRUCTURE_TERMINAL) {
+      term.mode = Mode.sink;
+      store.mode = Mode.src;
+    }
   }
 }
 
@@ -278,41 +299,41 @@ export function runLinks(room: Room) {
   });
 
   const hubs = _.filter(links, link => link.mode === Mode.hub);
-  const sinks = _.filter(links, link => link.mode === Mode.sink && link.energyFree > 0);
+  const sinks = _.filter(links, link => link.mode === Mode.sink && link.store.getFreeCapacity(RESOURCE_ENERGY) > 0);
   // order matters prefer sinks over hubs
-  const both = sinks.concat(hubs.filter(hub => hub.energyFree > 0))
+  const both = sinks.concat(hubs.filter(hub => hub.store.getFreeCapacity(RESOURCE_ENERGY) > 0))
   for (const link of links) {
     if (link.cooldown) continue;
     if (link.mode === Mode.sink) continue;
     if (link.mode === Mode.pause) continue;
-    if (!link.energy) continue;
+    if (!link.store.energy) continue;
 
     if (link.mode === Mode.dump) {
-      const sink = both.find(sink => sink.energyFree >= link.energy) ||
-        _.max(both, sink => sink.energyFree);
+      const sink = both.find(sink => sink.store.getFreeCapacity(RESOURCE_ENERGY) >= link.store.energy) ||
+        _.max(both, sink => sink.store.getFreeCapacity(RESOURCE_ENERGY));
       if (!sink) continue;
       // Wasteful send but dumps need to be empty more than efficient
       return link.xferAll(sink);
     }
 
     // Normal hub an src operation
-    if ((link.mode === Mode.hub || link.mode === Mode.src) && link.energy >= 33) {
-      const sink = both.find(sink => sink.mode !== link.mode && sink.energyFree >= 33);
+    if ((link.mode === Mode.hub || link.mode === Mode.src) && link.store.energy >= 33) {
+      const sink = both.find(sink => sink.mode !== link.mode && sink.store.getFreeCapacity(RESOURCE_ENERGY) >= 33);
       if (sink) {
         return link.xfer(sink);
       }
     }
 
     // all the way full!
-    if (link.mode === Mode.src && !link.energyFree) {
+    if (link.mode === Mode.src && !link.store.getFreeCapacity(RESOURCE_ENERGY)) {
       // ignore waste just send it
-      const sink = _.max(both.filter(l => l.energyFree > 2), sink => sink.energyFree);
+      const sink = _.max(both.filter(l => l.store.getFreeCapacity(RESOURCE_ENERGY) > 2), sink => sink.store.getFreeCapacity(RESOURCE_ENERGY));
       if (sink) {
         return link.xferAll(sink);
       }
 
       // just send it anywhere
-      const slop = _.max(links.filter(l => l.energyFree >= 4), l => l.energyFree);
+      const slop = _.max(links.filter(l => l.store.getFreeCapacity(RESOURCE_ENERGY) >= 4), l => l.store.getFreeCapacity(RESOURCE_ENERGY));
       if (!slop) continue;
       return link.xferHalf(slop);
     }

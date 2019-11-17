@@ -53,11 +53,11 @@ module.exports = class CreepHarvester {
       return this.taskBuild(cont) || this.taskHarvest(src)
     }
 
-    if (this.carry.energy && cont.hurts > cont.hits) {
+    if (this.store.energy && cont.hurts > cont.hits) {
       return this.taskRepair(cont)
     }
 
-    if (src.energy && cont.storeFree > this.info.harvest) {
+    if (src.energy && cont.store.getFreeCapacity() > this.info.harvest) {
       return this.goHarvest(src, false)
     }
     return this.taskRepair(cont) || this.goWithdraw(cont, RESOURCE_ENERGY, false) || 'waiting'

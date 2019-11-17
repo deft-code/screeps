@@ -1,9 +1,9 @@
 import * as lib from 'lib';
-import * as util from 'util';
 import * as matrix from 'matrix';
 import {isHostile} from 'routes';
 import { injecter } from 'roomobj';
 import { CreepRole } from 'creep.role';
+import { errStr } from 'debug';
 
 type HasPos = { pos: RoomPosition };
 type ObjPos = RoomPosition | HasPos;
@@ -64,7 +64,7 @@ export class CreepMove extends CreepRole {
     switch (err) {
       case ERR_TIRED:
       case ERR_BUSY:
-        if (this.debug) this.say(util.errString(err))
+        if (this.debug) this.say(errStr(err));
       // fallthrough
       case OK:
         this.intents.move = intent

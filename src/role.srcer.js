@@ -73,13 +73,13 @@ module.exports = class CreepSrcer {
     if (!link) {
       link = _.find(this.room.findStructs(STRUCTURE_LINK), l => this.pos.isNearTo(l))
     }
-    if (link && link.mode === 'buffer' && link.energy > 250) {
-      if (this.carryFree > this.info.harvest || !src.energy) {
+    if (link && link.mode === 'buffer' && link.store.energy > 250) {
+      if (this.store.getFreeCapacity() > this.info.harvest || !src.energy) {
         return this.goWithdraw(link, RESOURCE_ENERGY, false)
       }
     }
 
-    if (this.carryFree < this.info.harvest && !src.energy) return 'space'
+    if (this.store.getFreeCapacity() < this.info.harvest && !src.energy) return 'space'
 
     let deficit = false
 
@@ -89,8 +89,8 @@ module.exports = class CreepSrcer {
     }
     if (tower) {
       this.memory.tower = tower.id
-      if (tower.energyFree > 10) {
-        if (this.carry.energy) {
+      if (tower.store.getFreeCapacity(RESOURCE_ENERGY) > 10) {
+        if (this.store.energy) {
           return this.goTransfer(tower, RESOURCE_ENERGY, false)
         }
         deficit = true
@@ -103,8 +103,8 @@ module.exports = class CreepSrcer {
     }
     if (spawn) {
       this.memory.spawn = spawn.id
-      if (spawn.energyFree) {
-        if (this.carry.energy) {
+      if (spawn.store.getFreeCapacity(RESOURCE_ENERGY)) {
+        if (this.store.energy) {
           return this.goTransfer(spawn, RESOURCE_ENERGY, false)
         }
         deficit = true
@@ -114,19 +114,19 @@ module.exports = class CreepSrcer {
     if (link) {
       this.memory.link = link.id
       if (deficit) {
-        if (link.energy) {
+        if (link.store.energy) {
           return this.goWithdraw(link, RESOURCE_ENERGY, false)
         }
       } else if (link.mode === 'buffer') {
-        if (this.carryFree && link.energy > 250) {
+        if (this.store.getFreeCapacity() && link.store.energy > 250) {
           return this.goWithdraw(link, RESOURCE_ENERGY, false)
-        } else if (link.energy < 200) {
-          if (this.carry.energy) {
+        } else if (link.store.energy < 200) {
+          if (this.store.energy) {
             return this.goTransfer(link, RESOURCE_ENERGY, false)
           }
           deficit = true
         }
-      } else if (link.energyFree) {
+      } else if (link.store.getFreeCapacity(RESOURCE_ENERGY)) {
         return this.goTransfer(link, RESOURCE_ENERGY, false)
       }
     }
@@ -140,11 +140,11 @@ module.exports = class CreepSrcer {
     if (store) {
       this.memory.store = store.id
       if (deficit) {
-        if (this.carryFree) {
+        if (this.store.getFreeCapacity()) {
           return this.goWithdraw(store, RESOURCE_ENERGY, false)
         }
       } else {
-        if (this.carry.energy) {
+        if (this.store.energy) {
           return this.goTransfer(store, RESOURCE_ENERGY, false)
         }
       }

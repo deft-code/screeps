@@ -3,17 +3,17 @@ module.exports = class CreepZombieFarmer {
     let what = this.idleRetreat(CARRY) || this.taskTask()
     if (what) return what
 
-    if (this.carryFree) {
+    if (this.store.getFreeCapacity()) {
       what = this.taskPickupAny()
       if (what) return what
     }
 
-    if (this.atTeam && ((this.carryFree && this.ticksToLive > 200) || !this.carryTotal)) {
+    if (this.atTeam && ((this.store.getFreeCapacity() && this.ticksToLive > 200) || !this.store.getUsedCapacity())) {
       return this.taskPickupAny() || this.taskZFarm()
       // return this.taskZFarm()
     }
 
-    if (this.carryTotal) {
+    if (this.store.getUsedCapacity()) {
       if (this.pos.roomName === this.home.name) {
         return this.taskTransferResources()
       }
@@ -24,15 +24,15 @@ module.exports = class CreepZombieFarmer {
   }
 
   taskZFarm () {
-    if (this.room.storage && !this.room.storage.storeFree) {
+    if (this.room.storage && !this.room.storage.store.getFreeCapacity()) {
       return this.taskWithdrawResource(this.room.storage)
     }
-    if (this.room.terminal && !this.room.terminal.storeFree) {
+    if (this.room.terminal && !this.room.terminal.store.getFreeCapacity()) {
       return this.taskWithdrawResource(this.room.terminal)
     }
     const m = _.find(
       _.shuffle(this.room.find(FIND_HOSTILE_STRUCTURES).slice()),
-      s => s.store && ((s.storeTotal - s.store.energy) > 0 || s.store.energy > 1500))
+      s => s.store && ((s.store.getUsedCapacity() - s.store.energy) > 0 || s.store.energy > 1500))
     if (m) {
       return this.taskWithdrawResource(m)
     }

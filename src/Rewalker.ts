@@ -133,7 +133,7 @@ export function calcWeight(c: Creep | PowerCreep): [number, number] {
 
     let nmoves = 0
     let weight = 0
-    let carry = _.sum(c.carry)
+    let carry = c.store.getUsedCapacity();
     for (let i = c.body.length - 1; i >= 0; i--) {
         const part = c.body[i]
         switch (part.type) {

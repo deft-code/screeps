@@ -4,7 +4,7 @@ function mergePrototypes(klassProto: any, extraProto: any) {
     Object.defineProperties(klassProto, descs);
 }
 
-export type ScreepsClass = CreepConstructor;
+export type ScreepsClass = CreepConstructor | FlagConstructor;
 
 function merge(klass: ScreepsClass, extra: any) {
     mergePrototypes(klass.prototype, extra.prototype);
@@ -23,7 +23,7 @@ export function extender(extra: any) {
 @extender
 class RoomObjExtra extends RoomObject {
     effectTTL(pwr: PowerConstant): number {
-        const p = _.find(this.effects, e => e.power === pwr);
+        const p = _.find(this.effects, e => e.effect === pwr);
         if (!p) return 0;
         return p.ticksRemaining
     }

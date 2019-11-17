@@ -267,21 +267,6 @@ exports.srcPositions = (src) => {
 // Structure
 //
 
-exports.structMine = (struct) => struct && struct.my && struct.isActive()
-
-// Total amount of stored resources.
-exports.structStoreTotal = (struct) => _.sum(struct.store)
-
-// Available storeing capacity.
-exports.structStoreFree = (struct) =>
-    Math.max(0, struct.storeCapacity - exports.structStoreTotal(struct))
-
-// Available energy capacity.
-exports.structEnergyFree = (struct) => Math.max(0, struct.energyCapacity - struct.energy)
-
-exports.structObstacle = (struct) =>
-    _.contains(OBSTACLE_OBJECT_TYPES, struct.structureType)
-
 exports.structHurts = exports.creepHurts
 
 //

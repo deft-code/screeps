@@ -64,11 +64,11 @@ module.exports = class CreepCore {
     const what2 = this.goHarvest(src, false)
     if (store) {
       if (what2) {
-        if (store.structureType !== STRUCTURE_CONTAINER && this.carryFree < this.info.harvest) {
+        if (store.structureType !== STRUCTURE_CONTAINER && this.store.getFreeCapacity() < this.info.harvest) {
           this.goTransfer(spawn, RESOURCE_ENERGY, false) ||
             this.goTransfer(store, RESOURCE_ENERGY, false)
         }
-      } else if (this.carry.energy < 10) {
+      } else if (this.store.energy < 10) {
         this.goWithdraw(store, RESOURCE_ENERGY, false)
       }
     }

@@ -68,7 +68,10 @@ export class FlagExtra extends Flag {
       const next: string = this.name + 1
       const err = this.pos.createFlag(next, this.color, this.secondaryColor);
       if (err === ERR_NAME_EXISTS) continue;
-      this.errlog(err);
+      if (err < OK) {
+        this.errlog(err as OK);
+        return false;
+      }
       this.remove();
       return false;
     }

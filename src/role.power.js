@@ -8,24 +8,24 @@ module.exports = class CreepPower {
     const t = Game.rooms.W29N11.terminal
     
     const sdelta = s.powerCapacity - s.power
-    if (sdelta >= 50 && this.carry.power > 0) {
+    if (sdelta >= 50 && this.store.power > 0) {
         this.transfer(s, RESOURCE_POWER)
         return true
     }
     
-    const edelta = s.energyCapacity - s.energy
-    if (edelta >= 150 && this.carry.energy > 0) {
+    const edelta = s.store.getCapacity(RESOURCE_ENERGY) - s.store.energy
+    if (edelta >= 150 && this.store.energy > 0) {
         this.transfer(s, RESOURCE_ENERGY)
         return true
     }
     
     if (sdelta >= 50 && t.store.power > 0) {
-        this.withdraw(t, RESOURCE_POWER, Math.min(this.carryFree, t.store.power, 50))
+        this.withdraw(t, RESOURCE_POWER, Math.min(this.store.getFreeCapacity(), t.store.power, 50))
         return true
     }
     
     if (edelta >= 150 && t.store.energy > 100) {
-        this.withdraw(t, RESOURCE_ENERGY, this.carryFree)
+        this.withdraw(t, RESOURCE_ENERGY, this.store.getFreeCapacity())
         return true
     }
     

@@ -7,7 +7,7 @@ module.exports = class CreepFarmer {
     if (what) return what
 
     if (this.pos.roomName === this.dropRoom().name) {
-      if (this.carryTotal) {
+      if (this.store.getUsedCapacity()) {
         return this.taskTransferResources() ||
           this.taskBuildOrdered() ||
           this.taskRepairOrdered() ||
@@ -63,7 +63,7 @@ module.exports = class CreepFarmer {
   }
 
   taskFarm () {
-    if (!this.carryFree) return false
+    if (!this.store.getFreeCapacity()) return false
 
     return this.taskCollect() || this.taskHarvestSpots()
   }

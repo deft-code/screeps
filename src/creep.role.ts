@@ -254,14 +254,14 @@ export class CreepRole extends CreepExtra {
     lab.room.requestBoost(lab.planType)
 
     if (lab.mineralAmount < LAB_BOOST_MINERAL) return false
-    if (lab.energy < LAB_BOOST_ENERGY) return false
+    if (lab.store.energy < LAB_BOOST_ENERGY) return false
 
     const err = lab.boostCreep(this)
     if (err === ERR_NOT_IN_RANGE) {
       return this.moveNear(lab)
     }
     if (err !== OK) {
-      this.log(`UNEXPECTED boost error: ${err}, ${lab}`)
+      this.errlog(err, `UNEXPECTED boost err @ ${lab}`)
       return false
     }
     return 'success'

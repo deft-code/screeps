@@ -1,6 +1,6 @@
 import { Targetable, Tasker, MemoryTask } from "Tasker";
-import { merge } from "lib";
 import { FlagExtra } from "flag";
+import { injecter } from "roomobj";
 
 declare global {
     interface FlagMemory {
@@ -12,9 +12,9 @@ declare global {
     }
 }
 
-
 const missionTasker = new Tasker();
 
+@injecter(Flag)
 class MissionExtra extends FlagExtra {
     task<T extends Targetable>(target: T | string | null | undefined, ...args: (string | number)[]): T | null {
         return missionTasker.task(this, 4, target, ...args);
@@ -28,8 +28,6 @@ class MissionExtra extends FlagExtra {
         missionTasker.looper(this);
     }
 }
-
-merge(Flag, MissionExtra);
 
 class PowerMission extends MissionExtra {
     runPower() {

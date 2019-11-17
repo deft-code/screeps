@@ -1,22 +1,13 @@
 import * as lib from 'lib';
-import * as util from 'util';
+import { extender } from 'roomobj';
 
-class TombsExtra {
+@extender
+class TombsExtra extends Tombstone {
   get note () {
-    return util.structNote('tomb', this.pos)
+    return 'tomb' + this.pos.xy;
   }
 
   get xy () {
     return this.room.packPos(this.pos)
   }
-
-  get storeTotal () {
-    return _.sum(this.store)
-  }
-
-  get storeFree () {
-    return Math.max(0, this.storeCapacity - this.storeTotal)
-  }
 }
-
-lib.merge(Tombstone, TombsExtra)
