@@ -44,7 +44,10 @@ exports.addStructures = function (mat, room) {
         break
 
       case STRUCTURE_ROAD:
-        mat.set(x, y, 1)
+        if (mat.get(x, y) !== 0xff) {
+          // roads on constructedWalls are not tunnels!
+          mat.set(x, y, 1);
+        }
         break
 
       case STRUCTURE_CONTROLLER:

@@ -133,7 +133,7 @@ class TerminalExtra {
     if (!_.contains(k.CoreMinerals, mineral)) return false
     if (Game.market.credits < kMinCredits) return false
     const err = this.safeBuy(mineral)
-    this.room.errlog(err, 'AUTOBUY', mineral);
+    //this.room.errlog(err, 'AUTOBUY', mineral);
     if (err === ERR_FULL) {
       return err;
     }

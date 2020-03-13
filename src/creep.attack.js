@@ -36,6 +36,7 @@ module.exports = class CreepAttack {
 
   taskAttack (creep) {
     creep = this.checkId('attack', creep)
+    this.dlog("attacking", creep);
     if (!creep) return false
     return this.goAttack(creep)
   }
@@ -45,7 +46,7 @@ module.exports = class CreepAttack {
     if (err === OK) {
       move && this.moveBump(target)
       this.intents.melee = target
-      return this.intents.melee
+      return target.id;
     }
     if (err === ERR_NOT_IN_RANGE) {
       return move && this.moveNear(target)

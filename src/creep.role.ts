@@ -215,6 +215,7 @@ export class CreepRole extends CreepExtra {
     if (!what || what === 'success') {
       if (this.debug) {
         if (!what) {
+          this.log("what", what);
           this.say('None!')
         } else {
           this.say('Done')

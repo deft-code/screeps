@@ -391,6 +391,7 @@ class TeamExtra extends FlagExtra {
     const spawned = suppressMini(this) ||
       suppressGuard(this) ||
       suppressWolf(this) ||
+      suppressInvaderCore(this) ||
       reserve(this) ||
       harvester(this) ||
       paver(this) ||
@@ -655,10 +656,12 @@ function reserve(flag: TeamExtra) {
   const claimed = controller && controller.owner
   if (claimed) return false
 
-  if (controller.resTicks > 1000) return false
-  let n = 450
-  if (controller.resTicks < 450) {
-    n = 225
+  let n = 225; 
+  if (controller && controller.reservation && controller.reservation.username === 'deft-code') {
+    if (controller.resTicks > 1000) return false
+    if (controller.resTicks > 450) {
+      n = 450 
+    }
   }
 
   return flag.paceRole('reserver', n, {})
@@ -695,6 +698,13 @@ function suppressGuard(flag: TeamExtra) {
   return flag.paceRole('guard', rate)
 }
 
+function suppressInvaderCore(flag: TeamExtra) {
+  if(flag.room!.findStructs(STRUCTURE_INVADER_CORE).length > 0) {
+    return flag.paceRole('wolf', 1500);
+  }
+  return false;
+}
+
 function suppressMicro(flag: TeamExtra) {
   const e = flag.room!.memory.tenemies
   if (!e) return false
@@ -713,6 +723,7 @@ function suppressWolf(flag: TeamExtra) {
   const rate = Math.max(1500 - t, 350)
   return flag.paceRole('wolf', rate)
 }
+
 
 function trucker(flag: TeamExtra) {
   let n = 0

@@ -26,7 +26,7 @@ export function fromXY(xy: number, name: string): RoomPosition {
 
 export function getDirectionTo(from: RoomPosition, to: RoomPosition): DirectionConstant | 0 {
     if (from.roomName === to.roomName) {
-        if(from.isEqualTo(to)) return 0;
+        if (from.isEqualTo(to)) return 0;
         return from.getDirectionTo(to);
     }
     const exits = Game.map.describeExits(from.roomName)
@@ -450,8 +450,11 @@ export class Rewalker {
                     }
                     break
                 case STRUCTURE_ROAD:
-                    mat.set(x, y, 1)
-                    break
+                    if (mat.get(x, y) !== 0xff) {
+                        // Don't try to walk on roads under structures.
+                        mat.set(x, y, 1)
+                    }
+                    break;
                 case STRUCTURE_CONTROLLER:
                 case STRUCTURE_EXTRACTOR:
                 case STRUCTURE_CONTAINER:
@@ -825,12 +828,12 @@ class Step {
                 const [err, path] = this.planSteps(this.creep.pos,
                     [cleanGoal({ pos: this.dest, range: this.range })],
                     this.creep.ticksToLive || CREEP_LIFE_TIME);
-                if(err < OK) return err as ScreepsReturnCode;
+                if (err < OK) return err as ScreepsReturnCode;
                 this.path = path
                 return this.step()
             }
             this.path = this.path.step()
-            if(!this.path.done && this.creep.pos.isNearTo(this.path.second)) {
+            if (!this.path.done && this.creep.pos.isNearTo(this.path.second)) {
                 //console.log("DOUBLE TIME");
                 this.path = this.path.step()
             }

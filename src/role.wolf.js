@@ -18,6 +18,12 @@ module.exports = class CreepWolf {
 
   taskWolf () {
     const creep = this.pos.findClosestByRange(this.room.enemies)
-    return this.taskAttack(creep)
+    return this.taskAttack(creep) || this.taskAttackInvaderCore();
+  }
+
+  taskAttackInvaderCore() {
+    const core = _.first(this.room.findStructs(STRUCTURE_INVADER_CORE));
+    this.dlog("attacking", core);
+    return this.taskAttack(core);
   }
 }

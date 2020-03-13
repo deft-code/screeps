@@ -37,10 +37,14 @@ module.exports = class CreepWork {
   taskReserve (controller) {
     controller = this.checkId('reserve', controller)
 
-    const err = this.reserveController(controller)
-    if (err === OK) {
-      return controller.resTicks
+    let err = this.reserveController(controller)
+    if (err === ERR_INVALID_TARGET) {
+      err = this.attackController(controller);
     }
+    if (err === OK) {
+      return controller.resTicks || "attacked";
+    }
+    
     if (err === ERR_NOT_IN_RANGE) {
       return this.moveNear(controller)
     }
