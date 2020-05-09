@@ -6,47 +6,57 @@ import * as k from 'constants';
 function eggOrder(lname, rname) {
   const lpriority = _.get(Memory.creeps, `[${lname}].egg.priority`, 10)
   const rpriority = _.get(Memory.creeps, `[${rname}].egg.priority`, 10)
-  return lpriority - rpriority
+  const lage = Game.time - Memory.creeps[lname].egg.laid;
+  const rage = Game.time - Memory.creeps[rname].egg.laid;
+  return lpriority - rpriority || rage - lage;
 }
 
-exports.run = () => {
+export function run(){
   const all = _.keys(Memory.creeps)
-  const eggs = _.filter(all,
+  const eggNames = _.filter(all,
     (cname) => _.isObject(Memory.creeps[cname].egg))
 
-  eggs.sort(eggOrder)
+  eggNames.sort(eggOrder)
 
   const done = {}
-  for (let egg of eggs) {
-    const eggMem = Memory.creeps[egg].egg
+  for (let eggName of eggNames) {
+    const eggMem = Memory.creeps[eggName].egg
     const t = Game.flags[eggMem.team]
     if (!t) {
-      delete Memory.creeps[egg]
-      debug.log('Bad Egg!', egg, JSON.stringify(eggMem))
+      delete Memory.creeps[eggName]
+      debug.log('Bad Egg!', eggName, JSON.stringify(eggMem))
       continue
     }
     const tr = t.pos.roomName
     if (done[tr]) continue
     const spawns = findSpawns(eggMem)
     const [spawn, body] = buildBody(spawns, eggMem)
-    if (!spawn) continue
+    if (!spawn) {
+
+      continue
+    }
     const sr = spawn.room.name
     if (done[sr]) continue
     //debug.log(egg, spawn, JSON.stringify(_.countBy(body)))
-    const err = spawn.spawnCreep(body, egg)
+    //debug.log("spawning", egg, spawn.room.strat.spawnEnergy(spawn.room));
+    const err = spawn.spawnCreep(body, eggName, { energyStructures: spawn.room.strat.spawnEnergy(spawn.room) });
     if (err !== OK) {
-      spawn.room.log(spawn, 'FAILED to spawn', egg, err, JSON.stringify(eggMem))
+      spawn.room.log(spawn, 'FAILED to spawn', eggName, err, JSON.stringify(eggMem))
+      if(Game.time - eggMem.laid > 500) {
+        spawn.room.log("Egg Too Old!", eggName, JSON.stringify(eggMem));
+        delete Memory.creeps[eggName];
+      }
     } else {
       done[sr] = true
       done[tr] = true
-      delete Memory.creeps[egg].egg
-      Memory.creeps[egg].home = sr
-      Memory.creeps[egg].start = Game.time
+      delete Memory.creeps[eggName].egg
+      Memory.creeps[eggName].home = sr
+      Memory.creeps[eggName].start = Game.time
     }
   }
 }
 
-function closeSpawns(all, tname) {
+export function closeSpawns(all, tname) {
   const mdist = _(all)
     .map(s => routes.dist(tname, s.pos.roomName))
     .min()
@@ -54,7 +64,7 @@ function closeSpawns(all, tname) {
     routes.dist(tname, s.pos.roomName) <= mdist + 1)
 }
 
-function remoteSpawns(all, tname) {
+export function remoteSpawns(all, tname) {
   const mdist = _(all)
     .map(s => routes.dist(tname, s.pos.roomName))
     .filter(d => d > 0)
@@ -65,7 +75,7 @@ function remoteSpawns(all, tname) {
   })
 }
 
-function maxSpawns(all, tname) {
+export function maxSpawns(all, tname) {
   const close = _.filter(all, s => routes.dist(tname, s.pos.roomName) <= 10)
   const mlvl = _.max(close.map(s => s.room.controller.level))
   const lvl = _.filter(close, s => s.room.controller.level >= mlvl)
@@ -74,7 +84,7 @@ function maxSpawns(all, tname) {
   return _.filter(lvl, s => routes.dist(tname, s.pos.roomName) <= mdist)
 }
 
-function findSpawns(eggMem) {
+export function findSpawns(eggMem) {
   const allSpawns = _.shuffle(Game.spawns)
   const tname = Game.flags[eggMem.team].pos.roomName
 
@@ -113,6 +123,9 @@ function findSpawns(eggMem) {
 }
 
 function buildCtrl(spawns, eggMem) {
+  //Patch around manaual ctrl creations
+  if(!eggMem.ecap) eggMem.ecap = _.first(spawns).room.energyCapacityAvailable;
+
   // Disable tiny ctrl
   if (false && eggMem.ecap > k.RCL7Energy) {
     return [
@@ -169,10 +182,60 @@ function buildCtrl(spawns, eggMem) {
   return [spawn, body]
 }
 
-function energySpawn(spawns, min, max = 12300) {
+// Find full spawns with atleast min energy.
+// Spawns considered full with energy >= max
+// Default max of 2500 allows for full 50 part haulers
+function energySpawn(spawns, min, max = 2500) {
   return _.find(spawns,
     s => (s.room.energyAvailable >= max || s.room.energyFreeAvailable === 0) &&
       s.room.energyCapacityAvailable >= min)
+}
+
+function harvesterBody(lvl = 0) {
+  switch (lvl) {
+    case 1: // 8 Work;
+      return [WORK, WORK, MOVE, WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE, WORK, WORK, MOVE];
+    case 2: // 10 Work;
+      return [WORK, WORK, MOVE, WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE, WORK, WORK, MOVE, WORK, WORK, MOVE];
+    case 3: // 11 Work
+      return [WORK, WORK, MOVE, WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE, WORK, WORK, MOVE, WORK, WORK, MOVE, WORK, MOVE];
+    case 4: // 13 Work
+      return [WORK, WORK, MOVE, WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE, WORK, WORK, MOVE, WORK, WORK, MOVE, WORK, WORK, MOVE, WORK, MOVE];
+    case 5: // 15 Work
+      return [WORK, WORK, MOVE, WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE, WORK, WORK, MOVE, WORK, WORK, MOVE, WORK, WORK, MOVE, WORK, WORK, MOVE, WORK, MOVE];
+  }
+  // 6 Work
+  return [WORK, WORK, MOVE, WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE];
+}
+
+function trimBody(body, max) {
+  let cost = 0;
+  for (let i = 0; i < body.length; i++) {
+    const pcost = BODYPART_COST[body[i]];
+    if (cost + pcost > max) return body.slice(0, i);
+    cost += pcost;
+  }
+  return body;
+}
+
+function srcerBody(spawns, eggMem) {
+  const lvl = eggMem.lvl || 0;
+  const idealBody = harvesterBody(lvl);
+  const cost = bodyCost(idealBody);
+  // Gradual down sizing if room is low RCL or damaged.
+  const spawn = energySpawn(spawns, cost) || energySpawn(spawns, 800) || energySpawn(spawns, 550) || energySpawn(spawns, 300);
+  if (!spawn) return [null, idealBody];
+
+  // Make sure srcer capacity == extension capacity
+  const rcl = spawn.room.controller.level;
+  if (rcl === 7) {
+    idealBody.push(CARRY);
+  } else if (rcl === 8) {
+    idealBody.push(CARRY, CARRY, CARRY);
+  }
+  const max = spawn.room.energyAvailable;
+  const body = trimBody(idealBody, max);
+  return [spawn, body];
 }
 
 function buildBody(spawns, eggMem) {
@@ -305,6 +368,23 @@ function buildBody(spawns, eggMem) {
         energy: spawn.room.energyAvailable
       }))
       break
+    case 'mason':
+      body = [
+        WORK, WORK, WORK, WORK,
+        WORK, WORK, WORK, WORK,
+        CARRY, MOVE,
+      ];
+      // body = _.repeat(body, 5);
+      // body = [
+      //   WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK,
+      //   WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK,
+      //   WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK,
+      //   WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK,
+      //   CARRY, CARRY, CARRY, CARRY, CARRY,
+      //   MOVE, MOVE, MOVE, MOVE, MOVE,
+      // ];
+      spawn = energySpawn(spawns, bodyCost(body));
+      break;
     case 'micro':
       spawn = _.find(spawns, s => s.room.energyAvailable >= 300)
       body = [MOVE, ATTACK]
@@ -395,6 +475,9 @@ function buildBody(spawns, eggMem) {
         s => s.room.energyAvailable >= 250)
       body = [CARRY, CARRY, CARRY, CARRY, MOVE]
       break
+    case 'srcer':
+      [spawn, body] = srcerBody(spawns, eggMem);
+      break;
     case 'startup':
       debug.log('startup')
       spawn = energySpawn(spawns, 300)

@@ -2,7 +2,7 @@ import * as lib from 'lib';
 import * as k from 'constants';
 
 class LabExtra {
-  mineralFill () {
+  mineralFill() {
     if (!this.planType) return false
     if (this.mineralType && this.planType !== this.mineralType) return false
     if (this.boost) {
@@ -14,7 +14,7 @@ class LabExtra {
     return this.mineralAmount < 400
   }
 
-  mineralDrain () {
+  mineralDrain() {
     if (this.mineralAmount && this.planType !== this.mineralType) return true
     if (this.boost) {
       return this.mineralAmount > 2400
@@ -25,7 +25,7 @@ class LabExtra {
     return this.mineralAmount >= 900
   }
 
-  get boost () {
+  get boost() {
     if (!this.memory.boost) return null
     if (Game.time > this.memory.boostTime) {
       delete this.memory.boost
@@ -34,7 +34,7 @@ class LabExtra {
     return this.memory.boost
   }
 
-  set boost (mineral) {
+  set boost(mineral) {
     if (!_.contains(RESOURCES_ALL, mineral)) {
       delete this.memory.boost
       return null
@@ -44,11 +44,11 @@ class LabExtra {
     return this.memory.boost
   }
 
-  get planType () {
+  get planType() {
     return this.boost || this.memory.planType || null
   }
 
-  set planType (mineral) {
+  set planType(mineral) {
     if (!_.contains(RESOURCES_ALL, mineral)) {
       delete this.memory.planType
       return null
@@ -57,11 +57,11 @@ class LabExtra {
     return this.memory.planType
   }
 
-  get mineralFree () {
+  get mineralFree() {
     return this.mineralCapacity - this.mineralAmount
   }
 
-  get memory () {
+  get memory() {
     if (!this.my) return {}
     const labmem = this.room.memory.labs
     let mem = labmem[this.id]
@@ -107,7 +107,7 @@ StructureTerminal.prototype.autoReact = function (mineral) {
   return mineral
 }
 
-function mineralPlan (room) {
+export function mineralPlan() {
   if (Game.shard.name === 'swc') {
     return [
       [RESOURCE_CATALYZED_GHODIUM_ALKALIDE, 20 * 30],
@@ -122,14 +122,22 @@ function mineralPlan (room) {
   }
 
   return [
+    // First make boosts for Mason. Turtle is still best defense.
+    [RESOURCE_CATALYZED_UTRIUM_ALKALIDE, 1200],
+    [RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE, 150],
+    [RESOURCE_CATALYZED_KEANIUM_ACID, 150],
+
     [RESOURCE_CATALYZED_UTRIUM_ACID, 5000],
-    [RESOURCE_CATALYZED_GHODIUM_ACID, 5000],
+    [RESOURCE_CATALYZED_UTRIUM_ALKALIDE, 5000],
+    // Autoreact fall back to this once all other boosts are at quota.
+    //[RESOURCE_CATALYZED_GHODIUM_ACID, 5000],
     [RESOURCE_CATALYZED_GHODIUM_ALKALIDE, 5000],
     [RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE, 5000],
     [RESOURCE_CATALYZED_ZYNTHIUM_ACID, 5000],
     [RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE, 5000],
     [RESOURCE_CATALYZED_KEANIUM_ALKALIDE, 5000],
-    [RESOURCE_GHODIUM, 5000],
+    [RESOURCE_CATALYZED_KEANIUM_ACID, 5000],
+    //[RESOURCE_GHODIUM, 5000],
     [RESOURCE_CATALYZED_LEMERGIUM_ACID, 5000]
   ]
 }
@@ -138,7 +146,7 @@ StructureTerminal.prototype.autoReactAll = function (override = false) {
   if (!override && (Game.time + this.pos.xy) % 500 !== 0) return;
   if (this.room.findStructs(STRUCTURE_LAB).length < 3) return;
 
-  const plans = mineralPlan(this);
+  const plans = mineralPlan();
 
   for (const [boost, n] of plans) {
     this.room.dlog(boost, n);
@@ -167,7 +175,7 @@ Room.prototype.orderedLabs = function () {
   return _.map(this.memory.labs.order, id => Game.structures[id])
 }
 
-function shortMineral (mineral) {
+function shortMineral(mineral) {
   switch (mineral) {
     case RESOURCE_CATALYZED_GHODIUM_ACID:
     case RESOURCE_CATALYZED_KEANIUM_ACID:
@@ -197,27 +205,32 @@ function shortMineral (mineral) {
 }
 
 Room.prototype.runLabs = function () {
-  if (!this.controller || !this.controller.my) return
-  if (!this.memory.labs) {
-    this.memory.labs = {}
-    this.log('Creating memory for labs')
+  console.log("Don't runLabs this way anymore", this.name);
+  return runLabs(this);
+}
+
+export function runLabs(room) {
+  if (!room.controller || !room.controller.my) return
+  if (!room.memory.labs) {
+    room.memory.labs = {}
+    room.log('Creating memory for labs')
   }
-  if (this.terminal && this.terminal.my) {
-    this.terminal.autoReactAll()
+  if (room.terminal && room.terminal.my) {
+    room.terminal.autoReactAll()
   }
-  const labs = this.orderedLabs()
+  const labs = room.orderedLabs()
   for (let lab of labs) {
     if (lab.mineralType) {
-      this.visual.text(shortMineral(lab.mineralType),
+      room.visual.text(shortMineral(lab.mineralType),
         lab.pos.x + 0.05, lab.pos.y + 0.1,
-        {color: 'black', font: 0.4})
+        { color: 'black', font: 0.4 })
     }
     if (lab.planType) {
       let color = 'cornflowerblue'
       if (lab.boost) color = 'yellow'
-      this.visual.text(shortMineral(lab.planType),
+      room.visual.text(shortMineral(lab.planType),
         lab.pos.x, lab.pos.y + 0.1,
-        {color, font: 0.4})
+        { color, font: 0.4 })
     }
   }
 
@@ -225,15 +238,16 @@ Room.prototype.runLabs = function () {
   for (let i = 2; i < labs.length; i++) {
     const lab = labs[i]
     if (lab.cooldown) continue
-    if (this.terminal.store[lab.planType] > 10000) continue
-    if (!lab.mineralType && lab.planType !== this.memory.labs.current) continue
+    if (room.terminal?.store[lab.planType] > 10000) continue
+    if (!lab.mineralType && lab.planType !== room.memory.labs.current) continue
     if (lab.mineralType && lab.planType !== lab.mineralType) continue
     const err = lab.runReaction(labs[0], labs[1])
     if (err !== OK) {
-      this.dlog(lib.errStr(err), 'lab', i, labs[0].mineralType, '+', labs[1].mineralType, '=', lab.mineralType)
+      room.dlog(lib.errStr(err), 'lab', i, labs[0].mineralType, '+', labs[1].mineralType, '=', lab.mineralType)
     } else {
       reactions++
       if (reactions > 1) break
+      if (REACTION_TIME[lab.planType] >= 10) break;
     }
   }
 }

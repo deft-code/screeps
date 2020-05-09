@@ -1,3 +1,4 @@
+
 function mergePrototypes(klassProto: any, extraProto: any) {
     const descs = Object.getOwnPropertyDescriptors(extraProto);
     delete descs.constructor;
@@ -26,5 +27,10 @@ class RoomObjExtra extends RoomObject {
         const p = _.find(this.effects, e => e.effect === pwr);
         if (!p) return 0;
         return p.ticksRemaining
+    }
+    effectLvl(pwr: PowerConstant): number {
+        const p = _.find(this.effects, e => e.effect === pwr);
+        if (!p) return 0;
+        return _.get(p, 'level', 0);
     }
 }

@@ -1,8 +1,10 @@
 import { FlagExtra } from "flag";
-import { merge } from "lib";
+import { merge, coord2Pos } from "lib";
 import { coordsToXY, coordsFromXY, toXY, fromXY, Goal } from "Rewalker";
 import { log } from "debug";
 import { canRun } from "shed";
+import { isSType, isOwnedStruct } from "guards";
+import { Mode } from "struct.link";
 
 declare global {
     interface Flag {
@@ -14,47 +16,18 @@ declare global {
     interface RoomCache {
         meta?: MetaManager
     }
+    interface FlagMemory {
+        newer?: any
+    }
 }
 
 function calcRole(name: string): string {
     return _.words(name)[0].toLowerCase();
 }
 
-function calcSelf(name: string): string {
-    const i = name.indexOf('_');
-    if (i < 0) return name;
-    return name.substring(0, i);
-}
-
-function calcParent(name: string): string | null {
-    const i = name.indexOf('_');
-    if (i < 0) return null;
-    return name.substring(i + 1);
-}
-
 const kPathRoad = 7;
 const kPathPlain = 11;
 const kPathSwamp = 12;
-
-// function mergePrototypes(klassProto: any, extraProto: any) {
-//         const descs = Object.getOwnPropertyDescriptors(extraProto);
-//         delete descs.constructor;
-//         Object.defineProperties(klassProto, descs);
-// }
-
-// function merge(klass: any, extra: any) {
-//     mergePrototypes(klass.prototype, extra.prototype);
-// }
-
-// function injecter(klass: any) {
-//     return function (extra: any) {
-//         merge(klass, extra);
-//     }
-// }
-
-// function extender(extra: any) {
-//     mergePrototypes(Object.getPrototypeOf(extra.prototype), extra.prototype);
-// }
 
 class RoomMetaExtra extends Room {
     get meta(): MetaManager {
@@ -93,29 +66,99 @@ class MetaPlan extends FlagExtra {
 }
 merge(Flag, MetaPlan);
 
+
+// Grey, create child flags
+// White, remove child flags
+// Brown, delete brown metas
+// Yellow, acquire all child flags
+// Green, save all changed metas to room manager
+// Blue, force replanning for all metas.
 function runGenesis(f: MetaPlan) {
     //man.save();
-    const man = f.room!.meta;
-    const v = new RoomVisual(man.name);
-    _.forEach(man.metas, meta => meta.draw(v));
-    man.run();
+    const newer = f.memory.newer = f.memory.newer || {};
+    const room = f.room;
+    if (!room) return;
+    if (f.secondaryColor === COLOR_GREY) {
+        let created = false;
+        for (const meta of room.meta.metas) {
+            const child = f.getChild(meta.name);
+            if (child) continue;
+            f.makeChild(meta.name, meta.pos, meta.mem.color);
+            created = true;
+        }
+        if (!created) {
+            f.setColor(f.color, COLOR_CYAN);
+        }
+        return;
+    }
+    let changed = false;
+    let i = -1;
+    for (const child of room.find(FIND_FLAGS) as FlagExtra[]) {
+        i++;
+        if (child.parent !== f.name) continue;
+        if (f.secondaryColor === COLOR_WHITE) {
+            child.remove();
+            changed = true;
+            continue;
+        }
+        let nextm = null as MetaStructure | null;
+        const meta = room.meta.getMeta(child.self);
+        if (!meta) {
+            if (f.secondaryColor === COLOR_BROWN && child.secondaryColor === COLOR_BROWN) {
+                child.remove()
+                changed = true;
+                room.visual.line(f.pos, child.pos, { color: "brown" });
+                continue;
+            }
+            const mem = newer[child.self];
+            if (!mem) {
+                if (f.secondaryColor === COLOR_YELLOW) {
+                    nextm = planMeta(child);
+                }
+            }
+        } else {
+            if (f.secondaryColor === COLOR_BROWN && child.secondaryColor === COLOR_BROWN) {
+                room.meta.deleteMeta(meta.name);
+                room.visual.line(f.pos, child.pos, { color: "red" });
+                changed = true;
+                continue;
+            }
+            if (f.secondaryColor !== COLOR_BLUE && meta.check(child)) {
+                delete f.memory.newer[meta.name];
+            } else {
+                if (!newer[meta.name]) {
+                    child.log("first plan");
+                    nextm = planMeta(child);
+                }
+            }
+        }
+        if (!nextm) {
+            const mem = newer[child.self];
+            if (mem) {
+                nextm = newMeta(mem, room.meta);
+                if (!nextm?.check(child)) {
+                    nextm = planMeta(child);
+                }
+            }
+        }
+        if (nextm) {
+            newer[child.self] = nextm.mem;
+            nextm.draw(room.visual);
+            // Save children
+            if (f.secondaryColor === COLOR_GREEN) {
+                room.visual.line(f.pos, child.pos, { color: "yellow" });
+                room.meta.setMeta(nextm);
+                changed = true;
+            } else {
+                room.visual.line(f.pos, nextm.pos, { color: "cornflowerblue" });
+            }
+        }
+    }
+    if (changed && _.contains([COLOR_GREEN, COLOR_BROWN], f.secondaryColor)) room.meta.save();
+    if (!changed && f.secondaryColor !== COLOR_CYAN) f.setColor(f.color, COLOR_CYAN);
 }
 
-function bad_runGenesis(f: MetaPlan) {
-    const srcs = _.sortBy(f.room!.find(FIND_SOURCES), s => s.id);
-    const asrc = 'asrc_' + f.name;
-    const bsrc = 'bsrc_' + f.name;
-    if (srcs.length > 0 && !Game.flags[asrc]) {
-        const ret = srcs[0].pos.createFlag(asrc, COLOR_CYAN, COLOR_CYAN);
-        f.log("created asrc", ret);
-    }
-    if (srcs.length > 1 && !Game.flags[bsrc]) {
-        const ret = srcs[1].pos.createFlag(bsrc, COLOR_CYAN, COLOR_CYAN);
-        f.log("created bsrc", ret);
-    }
-}
-
-type PlanLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+type PlanLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
 type legend = {
     [tile: string]: [PlanLevel, BuildableStructureConstant]
 }
@@ -124,7 +167,7 @@ function rotate(x: number, y: number, color: ColorConstant): [number, number] {
     switch (color) {
         case COLOR_RED: return [-x, y];
         case COLOR_ORANGE: return [x, -y];
-        case COLOR_BROWN: return [-y, x];
+        case COLOR_BLUE: return [-y, x];
         case COLOR_YELLOW: return [y, -x];
         case COLOR_PURPLE: return [-y, -x];
     }
@@ -156,7 +199,7 @@ function makeTemplate(mem: MetaMem, l: legend, points: string[], tmpl: string) {
             }
 
             if (!l[tile]) {
-                console.log("BAD TEMPLATE", ix, iy, tile)
+                console.log(`BAD TEMPLATE ${tile}@${ix},${iy}`);
                 continue;
             }
 
@@ -174,6 +217,19 @@ function addMemStruct(mem: MetaMem, stype: BuildableStructureConstant, lvl: Plan
     } else {
         mem.structs[stype]![lvl]!.push(xy);
     }
+}
+
+function addMemSpotRampart(mem: MetaMem, name: string, lvl: PlanLevel) {
+    const xy = mem.points[name]
+    if (xy) {
+        addMemStruct(mem, STRUCTURE_RAMPART, lvl, xy);
+    }
+}
+
+function addMemRamparts(mem: MetaMem, stype: BuildableStructureConstant) {
+    _.forEach(mem.structs[stype]!,
+        (xys, lvl) => _.forEach(xys!,
+            xy => addMemStruct(mem, STRUCTURE_RAMPART, lvl! as PlanLevel, xy)));
 }
 
 declare global {
@@ -204,21 +260,41 @@ type MetaStructs = {
 
 type blocker = Structure | ConstructionSite | null;
 
+function metaOrder(l: MetaStructure, r: MetaStructure) {
+    if (r.priority === l.priority) {
+        if (l.name < r.name) {
+            return -1;
+        }
+        if (r.name < l.name) {
+            return 1;
+        }
+        return 0;
+    }
+    return r.priority - l.priority;
+}
+
 class MetaManager {
     metas: MetaStructure[]
     birth = 0
     begin = 0
+    wallHits = 20000000;
     constructor(readonly name: string) {
         const metaMem = this.memory;
         this.metas = _.compact(_.map(metaMem.metas, mem => newMeta(mem, this))) as MetaStructure[];
+        this.metas.sort(metaOrder);
+        this.save();
         this.birth = Game.time
         this.begin = 10 + _.random(50);
+    }
+
+    get room(): Room | null {
+        return Game.rooms[this.name];
     }
 
     get memory(): { metas: MetaMem[] } {
         let roomMem = Memory.rooms[this.name];
         if (!roomMem) {
-            roomMem = Memory.rooms[this.name] = {links: {}};
+            roomMem = Memory.rooms[this.name] = { links: {} };
         }
         let metaMem = roomMem.meta;
         if (!metaMem) {
@@ -240,10 +316,14 @@ class MetaManager {
 
         if (Game.time < this.birth + this.begin) {
             Game.rooms[this.name].dlog("Anti-thrashing");
+            //return 
         }
 
         const nsites = room.find(FIND_MY_CONSTRUCTION_SITES).length
-        if (nsites > 2) return;
+        if (nsites > 2) {
+            Game.rooms[this.name]?.dlog("Full on sites", nsites);
+            return;
+        }
 
         const towers = room.findStructs(STRUCTURE_TOWER);
         if (towers.length < 1) {
@@ -262,24 +342,43 @@ class MetaManager {
             this.makeSite(STRUCTURE_EXTENSION) ||
             this.makeSite(STRUCTURE_STORAGE) ||
             this.makeSite(STRUCTURE_WALL) ||
-            this.makeSite(STRUCTURE_RAMPART) ||
             this.makeSite(STRUCTURE_LINK) ||
+            this.makeSite(STRUCTURE_CONTAINER) ||
             this.makeSite(STRUCTURE_EXTRACTOR) ||
-            this.makeSite(STRUCTURE_ROAD) ||
             this.makeSite(STRUCTURE_LAB) ||
             this.makeSite(STRUCTURE_OBSERVER) ||
             this.makeSite(STRUCTURE_NUKER) ||
-            this.makeSite(STRUCTURE_POWER_SPAWN);
+            this.makeSite(STRUCTURE_POWER_SPAWN) ||
+            this.makeSite(STRUCTURE_FACTORY) ||
+            this.makeSite(STRUCTURE_RAMPART) ||
+            this.makeSite(STRUCTURE_ROAD) ||
+            false
+            ;
     }
 
     getMeta(name: string): MetaStructure | null {
         return _.find(this.metas, meta => meta.name === name) || null;
     }
 
+    deleteMeta(name: string) {
+        _.remove(this.metas, m => m.name === name);
+    }
+
     setMeta(meta: MetaStructure) {
         _.remove(this.metas, m => m.name === meta.name);
         this.metas.push(meta);
-        this.metas.sort((l, r) => l.priority - r.priority);
+        this.metas.sort((l, r) => {
+            if (r.priority === l.priority) {
+                if (l.name < r.name) {
+                    return -1;
+                }
+                if (r.name < l.name) {
+                    return 1;
+                }
+                return 0;
+            }
+            return r.priority - l.priority;
+        });
     }
 
     getSpot(name: string): RoomPosition | null {
@@ -309,9 +408,10 @@ class MetaManager {
         return sites;
     }
 
-    getMatrix() {
+    getMatrix(exclude: string[] = []) {
         const cm = new PathFinder.CostMatrix();
         for (const meta of this.metas) {
+            if (_.contains(exclude, meta.name)) continue;
             meta.fillMatrix(cm);
         }
         return cm;
@@ -350,17 +450,18 @@ class MetaManager {
             if (free) {
                 const ret = free.createConstructionSite(stype);
                 if (ret === OK) return true;
-                if (ret === ERR_RCL_NOT_ENOUGH) return this.purge();
-                room.errlog(ret, "Failed to create site", stype);
+                if (ret === ERR_RCL_NOT_ENOUGH) return this.purgeOptional(stype);
+                room.errlog(ret, "Failed  to create site", stype, free.xy, "blocker", newblocker);
             }
-            if (!blocker) {
+            if (!blocker && newblocker) {
+                room.log(`found blocker of ${stype} in ${meta.name} at ${newblocker}`);
                 blocker = newblocker;
             }
         }
 
         if (blocker) {
-            room.log("SITE BLOCKED", stype, blocker);
-            room.visual.animatedPosition(blocker.pos.x, blocker.pos.y);
+            room.log("SITE BLOCKED!", stype, blocker);
+            return this.removeDestroy(blocker);
         }
 
         blocker = null;
@@ -369,7 +470,7 @@ class MetaManager {
             if (free) {
                 const ret = free.createConstructionSite(stype);
                 if (ret === OK) return true;
-                if (ret === ERR_RCL_NOT_ENOUGH) return this.purge();
+                if (ret === ERR_RCL_NOT_ENOUGH) return this.purge(stype);
                 room.errlog(ret, "Failed to create site", stype);
             }
             if (!blocker) {
@@ -378,14 +479,129 @@ class MetaManager {
         }
         if (blocker) {
             room.log("OPTIONAL SITE BLOCKED", stype, blocker);
-            room.visual.animatedPosition(blocker.pos.x, blocker.pos.y);
+            return this.removeDestroy(blocker);
         }
 
         return false;
     }
 
-    purge(): boolean {
+    purgeOptional(stype: BuildableStructureConstant): boolean {
+        if (this.purge(stype)) {
+            return true;
+        }
+        const room = Game.rooms[this.name];
+        room.log("purging optional", stype);
+        const metas = this.metas.slice().reverse();
+        for (const meta of metas) {
+            const lvls = meta.mem.structs[stype];
+            if (!lvls) continue;
+            const xys = lvls[9];
+            if (!xys) continue;
+            for (const xy of xys) {
+                const [x, y] = coordsFromXY(xy);
+                const found = room.lookForAt(LOOK_STRUCTURES, x, y);
+                for (const struct of found) {
+                    if (struct.structureType === stype) {
+                        return this.removeDestroy(struct);
+                    }
+                }
+            }
+        }
         return false;
+    }
+
+    purge(stype: BuildableStructureConstant): boolean {
+        const room = Game.rooms[this.name];
+        const rcl = room.controller && room.controller.level || 0;
+        room.log("purging", stype);
+        const structs = room.findStructs(stype);
+        for (const struct of structs) {
+            const m = _.find(this.metas, m => m.has(stype, rcl, struct.pos.xy));
+            if (!m) {
+                return this.removeDestroy(struct);
+            }
+        }
+        return false;
+    }
+
+    removeDestroy(s: Structure | ConstructionSite) {
+        s.room?.visual.line(25, 25, s.pos.x, s.pos.y, { color: "red" });
+        if (s instanceof ConstructionSite) {
+            const err = s.remove();
+            s.room?.errlog(err, "failed to remove site:", s);
+            return err === OK;
+        }
+
+        const special = [
+            STRUCTURE_STORAGE,
+            STRUCTURE_TERMINAL,
+            STRUCTURE_FACTORY,
+        ];
+
+        if (_.contains(special, s.structureType)) {
+            const ctors = s.room.find(FIND_MY_CONSTRUCTION_SITES);
+            for (const ctor of ctors) {
+                if (_.contains(special, ctor.structureType)) {
+
+                    s.room.visual.line(s.pos.x, s.pos.y, ctor.pos.x, ctor.pos.y, { color: "yellow" });
+                    s.room.log(`Protected purge of ${s} by ${ctor}`);
+                    return false;
+                }
+            }
+        }
+        const err = s.destroy();
+        s.room?.errlog(err, "failed to destory site:", s);
+        return err === OK;
+    }
+
+    spawnEnergy(): SpawnEnergy[] {
+        const room = Game.rooms[this.name];
+        if (!room) return [];
+
+        const seFirst = [] as SpawnEnergy[];
+        for (const meta of this.metas) {
+            seFirst.push(...meta.spawnEnergyFirst());
+        }
+
+        const seLast = [] as SpawnEnergy[];
+        for (const meta of this.metas) {
+            seLast.push(...meta.spawnEnergyLast());
+        }
+
+        const rest = [] as SpawnEnergy[];
+        for (const se of room.findStructs(STRUCTURE_SPAWN, STRUCTURE_EXTENSION) as SpawnEnergy[]) {
+            if (_.any(seFirst, first => se.id === first.id)) continue;
+            if (_.any(seLast, last => se.id === last.id)) continue;
+            rest.push(se);
+        }
+        const store = room.storage || room.terminal;
+        if (store) {
+            rest.sort((l, r) => l.pos.getRangeTo(store) - r.pos.getRangeTo(store));
+        }
+
+        const seFullFirst = _.remove(seFirst, se => !se.store.getFreeCapacity(RESOURCE_ENERGY));
+
+        return seFullFirst.concat(seFirst).concat(rest).concat(seLast);
+    }
+
+    maxHits(stype: StructureConstant, xy: number): number {
+        for (const meta of this.metas) {
+            const mh = meta.maxHits(stype, xy);
+            //console.log("maxhits for", stype, xy, meta.name, mh);
+            if (mh) return mh - 1;
+        }
+        return 0;
+    }
+
+    getLinkMode(xy: number): Mode {
+        for (const meta of this.metas) {
+            const mode = meta.getLinkMode(xy);
+            if (mode !== Mode.pause) {
+                this.room?.log(meta.name, "setting mode", xy, mode);
+                return mode;
+            }
+        }
+        return Mode.pause;
     }
 }
 
@@ -396,7 +612,10 @@ function roomLevel(room: Room): PlanLevel {
 }
 
 class MetaStructure {
+    pos: RoomPosition
     constructor(public mem: MetaMem, readonly manager: MetaManager) {
+        const [x, y] = coordsFromXY(mem.xy);
+        this.pos = new RoomPosition(x, y, manager.name);
     }
 
     static makeMem(f: Flag): MetaMem {
@@ -426,6 +645,14 @@ class MetaStructure {
         return calcRole(this.name);
     }
 
+    get room(): Room | null {
+        return Game.rooms[this.manager.name] || null;
+    }
+
+    targetid<S extends AnyStructure>(): Id<S> {
+        return "" as Id<S>;
+    }
+
     getSpot(name: string): number {
         const xy = this.mem.points[name];
         if (!xy) return 0;
@@ -446,6 +673,31 @@ class MetaStructure {
 
     dests(): [number, number][] {
         return [];
+    }
+
+    // Does this meta manage a an stype at up to maxLvl
+    has(stype: BuildableStructureConstant, maxLvl: number, xy: number): boolean {
+        const lvls = this.mem.structs[stype];
+        if (!lvls) return false;
+        const optxys = lvls[9];
+        if (optxys && _.any(optxys, optxy => optxy === xy)) return true;
+        for (let lvl = 1; lvl <= maxLvl; lvl++) {
+            if (_.any(lvls[lvl as 1]!, lxy => lxy === xy)) return true;
+        }
+        return false;
+    }
+
+    // Does this meta managea an stype at one level
+    hasAt(stype: BuildableStructureConstant, lvl: number, xy: number): boolean {
+        const lvls = this.mem.structs[stype];
+        if (!lvls) return false;
+        return _.contains(lvls[lvl as 1]!, xy);
+    }
+
+    // Does this meta manage an stype at any level
+    hasAny(stype: BuildableStructureConstant, xy: number): boolean {
+        //console.log(this.name, "has any checking", stype, xy);
+        return _.any(this.mem.structs[stype]!, xys => _.contains(xys!, xy));
     }
 
     getSite(stype: BuildableStructureConstant): number | null {
@@ -534,6 +786,76 @@ class MetaStructure {
             v.animatedPosition(x, y);
         });
     }
+
+    spawnEnergyFirst(): SpawnEnergy[] {
+        return []
+    }
+
+    spawnEnergyLast(): SpawnEnergy[] {
+        return []
+    }
+
+
+    // getStructs(stype: STRUCTURE_EXTENSION): StructureExtension[];
+    // getStructs(stype: STRUCTURE_SPAWN): StructureSpawn[];
+    // getStructs(stype: BuildableStructureConstant): AnyStructure[] {
+    getStructs<STYPE extends BuildableStructureConstant>(stype: STYPE): AllStructureTypes[STYPE][];
+    getStructs(stype: BuildableStructureConstant): AnyStructure[] {
+        const room = this.room;
+        if (!room) return [];
+        const lvls = this.mem.structs[stype];
+        if (!lvls) return [];
+        const ret = [] as AnyStructure[];
+        _.forEach(lvls, xys => {
+            for (const xy of xys!) {
+                const [x, y] = coordsFromXY(xy);
+                const structs = room.lookForAt(LOOK_STRUCTURES, x, y);
+                for (const struct of structs) {
+                    if (isSType(struct, stype)) {
+                        ret.push(struct)
+                    }
+                }
+            }
+        });
+        return ret;
+    }
+
+    getSpawnEnergies(): SpawnEnergy[] {
+        const extns = this.getStructs(STRUCTURE_EXTENSION) as SpawnEnergy[];
+        return extns.concat(this.getStructs(STRUCTURE_SPAWN));
+    }
+
+    maxHits(stype: StructureConstant, xy: number): number {
+        return 0;
+    }
+
+    calcRampWallHits(stypes: BuildableStructureConstant[], xy: number): number {
+        for (const stype of stypes) {
+            if (this.hasAny(stype, xy)) return this.manager.wallHits;
+        }
+        return 0;
+    }
+
+    calcRampSpotHits(xy: number): number {
+        if (_.any(this.mem.points, pxy => pxy === xy)) return this.manager.wallHits;
+        return 0
+    }
+
+    calcRoadHits(stype: StructureConstant, xy: number): number {
+        if (stype !== STRUCTURE_ROAD) return 0;
+        if (this.hasAny(STRUCTURE_ROAD, xy)) return ROAD_HITS;
+        return 0;
+    }
+
+    calcContHits(stype: StructureConstant, xy: number): number {
+        if (stype !== STRUCTURE_CONTAINER) return 0;
+        if (this.hasAny(STRUCTURE_CONTAINER, xy)) return CONTAINER_HITS;
+        return 0;
+    }
+
+    getLinkMode(xy: number) {
+        return Mode.pause;
+    }
 }
 
 function checkSitePos(pos: RoomPosition, stype: BuildableStructureConstant): [RoomPosition | null, Structure | ConstructionSite | null] {
@@ -550,11 +872,13 @@ function checkSitePos(pos: RoomPosition, stype: BuildableStructureConstant): [Ro
 
     const structs = pos.lookFor(LOOK_STRUCTURES) as Structure[];
     for (const struct of structs) {
-        if ((<OwnedStructure>struct).my === false) {
+        if (isOwnedStruct(struct) && !struct.my) {
             return [null, struct];
         }
         // it's mine and the correct type
         if (struct.structureType === stype) return [null, null];
+
+        if (stype === STRUCTURE_RAMPART) continue;
 
         if (struct.structureType === STRUCTURE_RAMPART) continue;
 
@@ -595,28 +919,66 @@ class Meta_hub extends MetaStructure {
         const legend: legend = {
             s: [1, STRUCTURE_SPAWN],
             a: [3, STRUCTURE_TOWER],
-            b: [5, STRUCTURE_TOWER],
-            c: [7, STRUCTURE_TOWER],
-            d: [8, STRUCTURE_TOWER],
+            r: [3, STRUCTURE_ROAD],
             S: [4, STRUCTURE_STORAGE],
+            b: [5, STRUCTURE_TOWER],
             l: [5, STRUCTURE_LINK],
             T: [6, STRUCTURE_TERMINAL],
-            r: [3, STRUCTURE_ROAD],
+            c: [7, STRUCTURE_TOWER],
+            f: [7, STRUCTURE_FACTORY],
             p: [8, STRUCTURE_POWER_SPAWN],
         }
         const layout = `
-            rSsd.
-            a0l1d
-            bcTdp`;
+            albr
+            S0sr
+            r1Tr
+            fcp.`;
+        // const layout = `
+        //     rSsd.
+        //     a0l1d
+        //     bcTdp`;
         const points = ['hub', 'shovel'];
         const mem = MetaStructure.makeMem(f);
         makeTemplate(mem, legend, points, layout);
+        addMemRamparts(mem, STRUCTURE_FACTORY);
+        addMemRamparts(mem, STRUCTURE_POWER_SPAWN);
+        addMemRamparts(mem, STRUCTURE_SPAWN);
+        addMemRamparts(mem, STRUCTURE_STORAGE);
+        addMemRamparts(mem, STRUCTURE_TERMINAL);
+        addMemRamparts(mem, STRUCTURE_TOWER);
+        addMemSpotRampart(mem, 'hub', 3);
+        addMemSpotRampart(mem, 'shovel', 6);
         return new this(mem, man);
     }
+
     dests(): [number, number][] {
         const s = this.getSite(STRUCTURE_STORAGE)!;
         const t = this.getSite(STRUCTURE_TERMINAL)!;
         return [[s, 1], [t, 1]];
+    }
+
+    spawnEnergyFirst() {
+        return this.getSpawnEnergies();
+    }
+
+    maxHits(stype: StructureConstant, xy: number): number {
+        const ramped = [
+            STRUCTURE_FACTORY,
+            STRUCTURE_POWER_SPAWN,
+            STRUCTURE_SPAWN,
+            STRUCTURE_STORAGE,
+            STRUCTURE_TERMINAL,
+            STRUCTURE_TOWER,
+        ];
+        return this.calcRoadHits(stype, xy) ||
+            this.calcContHits(stype, xy) ||
+            this.calcRampWallHits(ramped, xy) ||
+            this.calcRampSpotHits(xy);
+    }
+
+    getLinkMode(xy: number) {
+        if (this.hasAny(STRUCTURE_LINK, xy)) return Mode.hub;
+        return Mode.pause;
     }
 }
 
@@ -637,11 +999,25 @@ class Meta_cap extends MetaStructure {
             ccraa
             .ccc.`;
         const mem = MetaStructure.makeMem(f);
+        // after asrc, before extns
+        mem.priority = 101;
         makeTemplate(mem, legend, ['cap'], layout);
         return new this(mem, man);
     }
     dests(): [number, number][] {
         return this.pointDests();
+    }
+    spawnEnergyFirst() {
+        // TODO custom ordering to maximize path.
+        // Default ordering is correct in chunks of 5
+        return this.getSpawnEnergies();
+    }
+    maxHits(stype: StructureConstant, xy: number): number {
+        return this.calcContHits(stype, xy);
+    }
+    getLinkMode(xy: number) {
+        if (this.hasAny(STRUCTURE_LINK, xy)) return Mode.sink;
+        return Mode.pause;
     }
 }
 
@@ -656,19 +1032,28 @@ class Meta_lab extends MetaStructure {
             r: [6, STRUCTURE_ROAD],
             s: [9, STRUCTURE_SPAWN],
             o: [8, STRUCTURE_OBSERVER],
+            n: [8, STRUCTURE_NUKER],
         }
         const layout = `
             bcrbr
             crars
             rarcr
-            brca.
-            rsr.o`;
+            brcan
+            rsro.`;
         const mem = MetaStructure.makeMem(f);
         makeTemplate(mem, legend, [], layout);
+        addMemRamparts(mem, STRUCTURE_SPAWN);
         return new this(mem, man);
     }
     dests(): [number, number][] {
         return [[this.mem.xy, 1]];
+    }
+    spawnEnergyLast() {
+        return this.getSpawnEnergies();
+    }
+    maxHits(stype: StructureConstant, xy: number): number {
+        return this.calcRoadHits(stype, xy) ||
+            this.calcRampWallHits([STRUCTURE_SPAWN], xy);
     }
 }
 
@@ -682,6 +1067,9 @@ class Meta_extn extends MetaStructure {
         const mem = MetaStructure.makeMem(f);
         makeTemplate(mem, legend, [], this.layout);
         return new this(mem, man);
+    }
+    maxHits(stype: StructureConstant, xy: number): number {
+        return this.calcRoadHits(stype, xy);
     }
 }
 
@@ -724,25 +1112,118 @@ class Meta_extnc extends Meta_extn {
     }
 }
 
+// Prefers tiles with open neighbors
+// Returns weights of 10-20 so prefer scaled by number of open neighbors.
+function calcWeight(x: number, y: number, t: RoomTerrain): number {
+    // TODO add weight to avoid paths near Exits but allow edges to be still safe.
+    let count = 0;
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            if (t.get(x + dx, y + dy) & TERRAIN_MASK_WALL) continue;
+            count += 1;
+        }
+    }
+    return 20 - count;
+}
+
 @registerMeta
 class Meta_asrc extends MetaStructure {
-    static plan(f: Flag, man: MetaManager) {
-        const p = man.getSite(STRUCTURE_STORAGE);
-        if (!p) return null;
-        const cm = man.getMatrix();
-        const ret = man.path(cm, f.pos, [{ pos: p, range: 1 }]);
+    static plan(f: FlagExtra, man: MetaManager) {
+        const storep = man.getSite(STRUCTURE_STORAGE);
+        if (!storep) return null;
+        const t = Game.map.getRoomTerrain(f.pos.roomName);
+        //const cm = man.getMatrix([f.self]);
+        const cm = new PathFinder.CostMatrix();
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                const x = f.pos.x + dx;
+                const y = f.pos.y + dy;
+                if (t.get(x, y) & TERRAIN_MASK_WALL) continue;
+                cm.set(x, y, cm.get(x, y) + calcWeight(x, y, t));
+            }
+        }
+
+        let ret = man.path(cm, f.pos, [{ pos: storep, range: 1 }]);
+        const mem = MetaStructure.makeMem(f);
+        // Before extensions
+        mem.priority = 102;
+
+        const self = ret.path[0];
+        addMemStruct(mem, STRUCTURE_CONTAINER, 3, self.xy);
+
+        // easy travel near source, but hard were extns will be.
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                const x = self.x + dx;
+                const y = self.y + dy;
+                if (f.pos.getRangeTo(x, y) <= 1) continue;
+                if (t.get(x, y) & TERRAIN_MASK_WALL) continue;
+                cm.set(x, y, cm.get(x, y) + 50);
+            }
+        }
+
+        ret = man.path(cm, self, [{ pos: storep, range: 1 }]);
         const v = new RoomVisual(man.name);
         for (const pos of ret.path) {
             v.circle(pos.x, pos.y);
         }
-        const mem = MetaStructure.makeMem(f);
-        addMemStruct(mem, STRUCTURE_LINK, 9, ret.path[1].xy);
+
+        const roadp = ret.path[0];
+        addMemStruct(mem, STRUCTURE_ROAD, 9, roadp.xy);
+
+        let linkp = roadp; // this will change if there are at least 2 nearby spots (very likely).
+        let linkDist = 100;
+
+        let adj = [] as RoomPosition[];
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                if (dx === 0 && dy === 0) continue;
+                const ep = new RoomPosition(self.x + dx, self.y + dy, self.roomName);
+                if (t.get(ep.x, ep.y) & TERRAIN_MASK_WALL) continue;
+                if (ep.isEqualTo(roadp)) continue;
+                adj.push(ep);
+                const dist = ep.getRangeTo(storep);
+                f.log("possible link", ep.xy, "at", dist);
+                if (dist < linkDist) {
+                    linkDist = dist;
+                    linkp = ep;
+                }
+            }
+        }
+        f.log("link", linkp);
+        addMemStruct(mem, STRUCTURE_LINK, 5, linkp.xy);
+        for (const ep of adj) {
+            if (ep.isEqualTo(linkp)) continue;
+            addMemStruct(mem, STRUCTURE_EXTENSION, 3, ep.xy);
+        }
+
         const meta = new this(mem, man);
-        meta.myspot = ret.path[0].xy;
+        meta.myspot = self.xy;
+
         return meta;
     }
     dests(): [number, number][] {
         return this.pointDests();
+    }
+    targetid<S extends AnyStructure>(): Id<S> {
+        const room = Game.rooms[this.manager.name];
+        if (!room) return super.targetid<S>();
+
+        const [x, y] = coordsFromXY(this.mem.xy);
+        const src = _.first(room.lookForAt(LOOK_SOURCES, x, y));
+
+        if (!src) return super.targetid<S>();
+        return src.id as unknown as Id<S>;
+    }
+    spawnEnergyFirst() {
+        return this.getSpawnEnergies();
+    }
+    maxHits(stype: StructureConstant, xy: number): number {
+        return this.calcRoadHits(stype, xy) || this.calcContHits(stype, xy)
+    }
+    getLinkMode(xy: number) {
+        if (this.hasAny(STRUCTURE_LINK, xy)) return Mode.src;
+        return Mode.pause;
     }
 }
 
@@ -762,6 +1243,9 @@ class Meta_min extends MetaStructure {
         const [x, y] = coordsFromXY(this.mem.xy);
         v.structure(x, y, STRUCTURE_CONTAINER, { opacity: 0.5 });
     }
+    maxHits(stype: StructureConstant, xy: number): number {
+        return this.calcContHits(stype, xy)
+    }
 }
 
 @registerMeta
@@ -769,7 +1253,7 @@ class Meta_ctrl extends MetaStructure {
     static plan(f: Flag, man: MetaManager) {
         const p = man.getSite(STRUCTURE_STORAGE);
         if (!p) return null;
-        const cm = man.getMatrix();
+        const cm = man.getMatrix([f.role]);
         const ret = man.path(cm, f.pos, [{ pos: p, range: 1 }]);
         if (ret.path.length < 4) return null;
         const v = new RoomVisual(man.name);
@@ -783,6 +1267,44 @@ class Meta_ctrl extends MetaStructure {
     }
     dests(): [number, number][] {
         return this.pointDests();
+    }
+    maxHits(stype: StructureConstant, xy: number): number {
+        return this.calcContHits(stype, xy)
+    }
+    getLinkMode(xy: number) {
+        if (this.hasAny(STRUCTURE_LINK, xy)) return Mode.sink;
+        return Mode.pause;
+    }
+}
+
+@registerMeta
+class Meta_tripod extends MetaStructure {
+    static plan(f: Flag, man: MetaManager) {
+        const legend: legend = {
+            l: [8, STRUCTURE_LINK],
+            r: [8, STRUCTURE_ROAD],
+            t: [8, STRUCTURE_TOWER],
+        };
+        const parkedLayout = `
+            ..t
+            .0.
+            t.t`;
+        const deployedLayout = `
+            lrt
+            r0r
+            trt`;
+        const mem = MetaStructure.makeMem(f);
+        makeTemplate(mem, legend, ['tripod'], parkedLayout);
+        addMemSpotRampart(mem, 'tripod', 8);
+        addMemRamparts(mem, STRUCTURE_TOWER);
+        return new this(mem, man);
+    }
+    maxHits(stype: StructureConstant, xy: number): number {
+        return this.calcRampWallHits([STRUCTURE_TOWER], xy) || this.calcRampSpotHits(xy);
+    }
+    getLinkMode(xy: number) {
+        if (this.hasAny(STRUCTURE_LINK, xy)) return Mode.sink;
+        return Mode.pause;
     }
 }
 
@@ -803,7 +1325,7 @@ class Meta_traffic extends MetaStructure {
         const tdests = _.clone(dests);
 
         const mem = MetaStructure.makeMem(f);
-        const cm = man.getMatrix();
+        const cm = man.getMatrix([f.role]);
         this.wrapPosition(mem, cm, s);
         this.wrapPosition(mem, cm, t);
         sps.forEach(sp => this.wrapPosition(mem, cm, sp));
@@ -821,7 +1343,7 @@ class Meta_traffic extends MetaStructure {
                 if (!dx && !dy) continue;
                 const y = p.y + dy;
                 if (t.get(x, y) === TERRAIN_MASK_WALL) continue;
-                if (cm.get(x, y) !== 0xFF) {
+                if (cm.get(x, y) < 0xFE) {
                     cm.set(x, y, kPathRoad);
                     addMemStruct(mem, STRUCTURE_ROAD, 3, coordsToXY(x, y));
                 }
@@ -839,5 +1361,8 @@ class Meta_traffic extends MetaStructure {
                 cm.set(pos.x, pos.y, kPathRoad);
             });
         }
+    }
+    maxHits(stype: StructureConstant, xy: number): number {
+        return this.calcRoadHits(stype, xy);
     }
 }

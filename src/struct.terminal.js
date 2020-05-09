@@ -1,6 +1,7 @@
 import * as lib from 'lib';
 import * as debug from 'debug';
 import * as k from 'constants';
+import { mineralPlan } from 'struct.lab';
 
 const kEnergyLow = 50000
 const kEnergyHi = 60000
@@ -143,7 +144,7 @@ class TerminalExtra {
 
 lib.merge(StructureTerminal, TerminalExtra)
 
-StructureTerminal.prototype.requestMineral = function (mineral, max = 1000) {
+StructureTerminal.prototype.requestMineral = function (mineral, max = 1200) {
   const terminals = _.filter(Game.terminals,
     t => !t.cooldown && t.id !== this.id && t.store[mineral] > 200)
   if (terminals.length === 0) return false
@@ -158,9 +159,11 @@ StructureTerminal.prototype.requestMineral = function (mineral, max = 1000) {
 function mineralBalance() {
   let autobuy = true;
   const terminals = _.shuffle(Game.terminals)
+  const baseBoosts = _.map(mineralPlan(), e => e[0]);
   for (const t of terminals) {
     if (t.store.getUsedCapacity() > 250000) continue
-    const rs = _.shuffle(_.uniq(_.map(t.room.findStructs(STRUCTURE_LAB), l => l.planType))).concat(k.ReactOrder)
+    const rs = _.shuffle(_.uniq(_.map(t.room.findStructs(STRUCTURE_LAB), l => l.planType))).concat(baseBoosts);
+
     for (const r of rs) {
       if (!r) continue
       if (t.store[r] > 100) continue
@@ -168,7 +171,8 @@ function mineralBalance() {
       //t.room.log("request ret", ret, r, rs);
       if (ret) return ret
       if (autobuy) {
-        const err = t.room.errlog(t.autoBuy(r), "autobuy", r);
+        const err = t.autoBuy(r);
+        if(err !== false) t.room.errlog(err, "autobuying", r);
         autobuy = err != ERR_FULL;
       }
     }
@@ -224,7 +228,7 @@ function energyBalance() {
 
 function cleanup() {
   const n = _.size(Game.market.orders)
-  if (n < 49) return false
+  if (n < MARKET_MAX_ORDERS - 1) return false
   const done = _.filter(Game.market.orders, o => o.remainingAmount <= 0)
   if (done.length) {
     debug.log(`Cleaning up ${done.length} orders`)
@@ -238,9 +242,21 @@ function cleanup() {
   return true
 }
 
+function energySell() {
+  const send = _.find(Game.terminals, t => t.store.energy > 70000 && !t.cooldown && t.room.storage && t.room.storage.store.energy > 500000);
+  if (!send) return false;
+  send.sellOrder(RESOURCE_ENERGY);
+  if (send.sell(RESOURCE_ENERGY, 5000) === OK) {
+    send.room.log('auto energy sale!')
+    return 'sell: energy';
+  }
+  return true;
+}
+
 exports.run = function (x) {
   cleanup() ||
     mineralBalance() ||
-    energyBalance() |
+    energyBalance() ||
+    energySell() ||
     sellOff()
 }

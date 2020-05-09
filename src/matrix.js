@@ -26,11 +26,11 @@ export function drawMat(mat, roomName) {
   }
 }
 
-exports.draw = (roomName) => {
-  exports.drawMat(exports.get(roomName), roomName)
+export function draw(roomName) {
+  drawMat(get(roomName), roomName)
 }
 
-exports.addStructures = function (mat, room) {
+export function addStructures(mat, room) {
   for (const struct of room.find(FIND_STRUCTURES)) {
     const [x, y] = [struct.pos.x, struct.pos.y]
     switch (struct.structureType) {
@@ -109,15 +109,17 @@ export function getMat(roomName) {
   return { _bits: mat._bits }
 }
 
-exports.repath = (me) => (roomName) => {
-  const mat = exports.get(roomName)
-  if (roomName !== me.pos.roomName) return mat
-  for (const creep of me.room.find(FIND_CREEPS)) {
-    if (creep.pos.inRangeTo(creep, kStuckRange)) {
-      mat.set(creep.pos.x, creep.pos.y, kStuckCreep)
+export function repath(me) {
+  return (roomName) => {
+    const mat = get(roomName)
+    if (roomName !== me.pos.roomName) return mat
+    for (const creep of me.room.find(FIND_CREEPS)) {
+      if (creep.pos.inRangeTo(creep, kStuckRange)) {
+        mat.set(creep.pos.x, creep.pos.y, kStuckCreep)
+      }
     }
+    return mat
   }
-  return mat
 }
 
 const calcStall = (room) => {
@@ -139,7 +141,7 @@ const calcStall = (room) => {
   room.memory.stalls = newMem
 }
 
-exports.getStallTicks = (creep) => {
+export function getStallTicks(creep) {
   const mem = creep.room.memory.stalls
   if (!mem) return 0
 
@@ -149,7 +151,7 @@ exports.getStallTicks = (creep) => {
   return Game.time - cmem.t
 }
 
-exports.setArea = function (mat, pos, range, cost) {
+export function setArea(mat, pos, range, cost) {
   const t = Game.map.getRoomTerrain(pos.roomName)
   for (let dx = -range; dx <= range; dx++) {
     for (let dy = -range; dy <= range; dy++) {

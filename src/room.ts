@@ -1,7 +1,6 @@
 import * as lib from 'lib'
 import { run } from 'shed'
 import { balanceSplit } from 'struct.link';
-import { humanize } from 'pace';
 
 declare global {
   interface RoomMemory {
@@ -10,15 +9,15 @@ declare global {
     spots?: {
       [name: string]: number
     }
-    nstructs?: number
-  }
-  interface Memory {
-    stats: any
   }
 }
 class RoomExtras extends Room {
   get energyFreeAvailable() {
     return Math.max(0, this.energyCapacityAvailable - this.energyAvailable)
+  }
+
+  maxHits(struct: Structure): number{
+    return this.strat.maxHits(this, struct.structureType, struct.pos.xy);
   }
 
   get wallMax() {
@@ -50,18 +49,6 @@ class RoomExtras extends Room {
 }
 
 lib.merge(Room, RoomExtras)
-
-function stats(room: Room) {
-  if (!Memory.stats.rooms) {
-    Memory.stats.rooms = {}
-  }
-  if (!room.controller) return
-  Memory.stats.rooms[room.name] = {
-    rcl: room.controller.level,
-    controllerProgress: room.controller.progress,
-    controllerProgressTotal: room.controller.progressTotal
-  }
-}
 
 Room.prototype.findStructs = function (...types: StructureConstant[]) {
   if (!this.structsByType) {
@@ -105,96 +92,4 @@ Room.prototype.drawSpots = function () {
     this.visual.line(x, y + i, p.x, p.y, { lineStyle: 'dashed' })
     i++
   })
-}
-
-const kAllies = ['no one']
-
-function ratchet(room: Room, what: string, up: boolean) {
-  const twhat = `t${what}` as "tassaulters";
-  const whattime = `${what}time` as "assaulterstime"
-
-  if (!room.memory[whattime]) room.memory[whattime] = Game.time
-
-  if (up) {
-    if (!room.memory[twhat]) room.memory[twhat] = 0
-    room.memory[twhat]!++
-    room.memory[whattime] = Game.time
-  } else {
-    const delta = Game.time - room.memory[whattime]!
-    if (delta > 10) {
-      room.memory[twhat as "tassaulters"] = 0
-    }
-  }
-}
-
-Room.prototype.init = function () {
-  const nstructs = this.find(FIND_STRUCTURES).length
-  //this.deltaStructs = nstructs !== this.memory.nstructs
-  this.memory.nstructs = nstructs
-
-  this.allies = []
-  this.enemies = []
-  this.hostiles = []
-  this.assaulters = []
-  this.melees = []
-
-  for (let c of this.find(FIND_CREEPS)) {
-    if (!c.my) {
-      if (_.contains(kAllies, c.owner.username)) {
-        this.allies.push(c)
-      } else {
-        this.enemies.push(c)
-        if (c.hostile) this.hostiles.push(c)
-        if (c.assault) this.assaulters.push(c)
-        if (c.melee) this.melees.push(c)
-      }
-    }
-  }
-
-  ratchet(this, 'hostiles', !!this.hostiles.length)
-  ratchet(this, 'assaulters', !!this.assaulters.length)
-  ratchet(this, 'enemies', !!this.enemies.length)
-}
-
-Room.prototype.run = function () {
-  this.runTowers();
-  run(this.find(FIND_MY_CREEPS), 1000, c => c.run());
-  this.runDefense();
-}
-
-Room.prototype.after = function () {
-  run(this.find(FIND_MY_CREEPS), 1000, c => c.after());
-  stats(this);
-}
-
-Room.prototype.optional = function () {
-  run(this.find(FIND_FLAGS), 4000, f => f.run());
-  this.runKeeper();
-  this.runLabs();
-  this.runLinks();
-  this.spawningRun();
-  drawMinerals(this);
-}
-
-Room.prototype.runDefense = function () {
-  if (this.controller && this.controller.my) {
-    if (this.assaulters.length) {
-      const structs = this.findStructs(
-        STRUCTURE_TOWER, STRUCTURE_SPAWN)
-      if (_.find(structs, s => s.hits < s.hitsMax)) {
-        const ret = this.controller.activateSafeMode()
-        this.log('SAFE MODE!', ret)
-        Game.notify(`SAFE MODE:${ret}! ${this}`, 30)
-      }
-    }
-  }
-}
-
-function drawMinerals(room: Room) {
-  const mins = room.find(FIND_MINERALS);
-  for (const min of mins) {
-    if (min.ticksToRegeneration > 0) {
-      room.visual.text(humanize(min.ticksToRegeneration), min.pos.x, min.pos.y + 1)
-    }
-  }
 }

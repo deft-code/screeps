@@ -22,6 +22,19 @@ export class FlagExtra extends Flag {
     return this.name.substring(i + 1);
   }
 
+  childName(prefix: string): string {
+    return prefix + '_' + this.name;
+  }
+
+  getChild(prefix: string): this | null {
+    const name = this.childName(prefix);
+    return Game.flags[name] as this;
+  }
+
+  makeChild(prefix: string, pos: RoomPosition, color: ColorConstant) {
+    return pos.createFlag(this.childName(prefix), COLOR_GREY, color);
+  }
+
   get self() {
     const i = this.name.indexOf('_');
     if (i < 0) return this.name;

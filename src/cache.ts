@@ -19,6 +19,7 @@ export class TickCache {
     getCache(obj: CacheRoot): any {
         if (Game.time !== this.lastTick) {
             this.clear();
+            this.lastTick = Game.time;
         }
         const key = this.getKey(obj);
         if (!key) return {}

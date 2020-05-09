@@ -4,7 +4,7 @@ import { CreepCarry } from "creep.carry";
 
 declare global {
   interface CreepMemory {
-    spawn?: string
+    spawn?: Id<StructureSpawn>
     spot?: string
   }
   interface SpawnTick {
@@ -86,8 +86,8 @@ class CreepShunt extends CreepCarry {
   }
 
   nearSpawn(): StructureSpawn | null {
-    let s = Game.getObjectById<StructureSpawn>(this.memory.spawn)
-    if (s && this.pos.isNearTo(s)) return s
+    let s = Game.getObjectById(this.memory.spawn!);
+    if (s && this.pos.isNearTo(s)) return s;
 
     s = _.find(this.room.findStructs(STRUCTURE_SPAWN) as StructureSpawn[],
       ss => this.pos.isNearTo(ss)) || null;
@@ -97,17 +97,4 @@ class CreepShunt extends CreepCarry {
     return s
   }
 
-  idleImmortal() {
-    if (this.room.energyFreeAvailable === 0 || this.ticksToLive! < 200) {
-      const s = this.nearSpawn()
-      if (!s) return
-      if (s.tick.renew) {
-        this.log('Double Renew', s, s.tick.renew)
-        return
-      }
-      if (s.renewCreep(this) === OK) {
-        s.tick.renew = this.name
-      }
-    }
-  }
 }

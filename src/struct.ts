@@ -8,28 +8,27 @@ declare global {
   }
 }
 
+export function stype6(stype: StructureConstant) {
+  switch (stype) {
+    case STRUCTURE_WALL:
+      return 'wall'
+    case STRUCTURE_EXTENSION:
+      return 'extn'
+    case STRUCTURE_STORAGE:
+      return 'store'
+    case STRUCTURE_TERMINAL:
+      return 'term'
+    case STRUCTURE_CONTAINER:
+      return 'contnr'
+  }
+  return stype.slice(0, 6)
+}
+
 @extender
 class StructureExtra extends Structure {
-  get note() {
-    let t: string = this.structureType
-    switch (t) {
-      case STRUCTURE_WALL:
-        t = 'wall'
-        break
-      case STRUCTURE_EXTENSION:
-        t = 'extn'
-        break
-      case STRUCTURE_STORAGE:
-        t = 'store'
-        break
-      case STRUCTURE_TERMINAL:
-        t = 'term'
-        break
-      case STRUCTURE_CONTAINER:
-        t = 'contnr'
-        break
-    }
-    return t.slice(0, 6) + this.pos.xy;
+  get note() { return stype6(this.structureType) + this.pos.xy; }
+  toString() {
+    return `<a href="/a/#!/room/${Game.shard.name}/${this.pos.roomName}">${this.note}</a>`;
   }
 
   get xy() {
@@ -61,7 +60,4 @@ class StructureExtra extends Structure {
     return 1 - (this.hits / myMax)
   }
 
-  toString() {
-    return `<a href="/a/#!/room/${Game.shard.name}/${this.pos.roomName}">${this.note}</a>`
-  }
 }

@@ -2,7 +2,7 @@ let _whoami = ""
 export function whoami(): string {
     if (_whoami.length === 0) {
         const owned = _.find(Game.structures, s => (s as OwnedStructure).my)! as OwnedStructure
-        _whoami = owned.owner.username
+        _whoami = owned.owner!.username
     }
     return _whoami
 }
@@ -394,6 +394,7 @@ export class Rewalker {
     // * OK (0) when already in range of destination
     // * error code (,0) when move fails
     walkTo(c: Creep | PowerCreep, dest: RoomPosition, range = 1): WalkReturnCode {
+        //console.log(Game.time, "Rewalker.walkTo", c.pos, range);
         if (c.pos.inRangeTo(dest, range)) {
             delete c.memory._walk
             return OK
@@ -537,7 +538,7 @@ export class Rewalker {
                 }
             }
             if (ctrl.owner) {
-                if (this.isAllied(ctrl)) {
+                if (this.isAllied(ctrl as IsOwned)) {
                     cost = ROUTE_ALLY_CLAIMED
                 } else {
                     cost = ROUTE_HOSTILE_CLAIMED
@@ -723,7 +724,12 @@ class Step {
                 this.bump(_.first(this.path.first.lookFor(LOOK_CREEPS)));
             }
         }
-        const dir = getDirectionTo(this.creep.pos, this.path.first)
+        console.log("rewalker stepping", this.creep.pos, this.path.first);
+        let dir = getDirectionTo(this.creep.pos, this.path.first)
+        if(dir === 0){
+            dir = getDirectionTo(this.creep.pos, this.path.second);
+            console.log("Found zero dir!", dir);
+        }
         const err = this.creep.move(dir as DirectionConstant)
         // console.log("moved", this.creep.pos, dir, this.path.first, err);
         if (err === OK) {
@@ -793,6 +799,7 @@ class Step {
     }
 
     walkTo(): WalkReturnCode {
+        //console.log(Game.time, "start walkTo", this.creep.pos, this.path.first, this.path.second);
         // Target has moved or there is a new target
         if (!this.dest.isEqualTo(this.prev)) {
             //console.log('new walk', this.dest, this.prev, JSON.stringify(this.creep.memory._walk))
@@ -818,12 +825,12 @@ class Step {
             // Fallthrough to allow other move conditions to check position
         }
 
-        //console.log("move again", this.creep.pos, this.path.first, this.path.second)
+        // console.log(Game.time, "move again", this.creep.pos, this.path.first, this.path.second);
         // Either moved successfully or got bumped closer
         if (this.creep.pos.isEqualTo(this.path.first) || this.creep.pos.isNearTo(this.path.second)) {
             //console.log("STEP THE PATH", JSON.stringify(this.path), JSON.stringify(this.creep.memory._walk))
             if (this.path.done) {
-                console.log("path is empty", JSON.stringify(this.path), JSON.stringify(this.creep.memory._walk))
+                // console.log("path is empty", JSON.stringify(this.path), JSON.stringify(this.creep.memory._walk))
                 // path ran out build a new one.
                 const [err, path] = this.planSteps(this.creep.pos,
                     [cleanGoal({ pos: this.dest, range: this.range })],
@@ -834,7 +841,7 @@ class Step {
             }
             this.path = this.path.step()
             if (!this.path.done && this.creep.pos.isNearTo(this.path.second)) {
-                //console.log("DOUBLE TIME");
+                // console.log("DOUBLE TIME");
                 this.path = this.path.step()
             }
             return this.waryStep()

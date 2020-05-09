@@ -26,7 +26,8 @@ Flag.prototype.makeEgg = function (role, mem) {
     team: this.name,
     egg: {
       team: this.name,
-      body: role
+      body: role,
+      laid: Game.time,
     }
   })
   this.memory.creeps.push(name)
@@ -69,6 +70,10 @@ Flag.prototype.maxEgg = function (name, mem = {}) {
   }))
 }
 
+Flag.prototype.asrcEgg = function(mem) {
+  return this.localEgg('asrc', _.defaultsDeep({}, mem, {egg: {body: 'srcer'}}));
+}
+
 Flag.prototype.auxEgg = function () {
   return this.localEgg('aux', {egg: {body: 'shunt'}})
 }
@@ -79,6 +84,10 @@ Flag.prototype.auxsrcEgg = function () {
 
 Flag.prototype.bootstrapEgg = function () {
   return this.remoteEgg('bootstrap')
+}
+
+Flag.prototype.bsrcEgg = function(mem) {
+  return this.localEgg('bsrc', _.defaultsDeep({}, mem, {egg: {body: 'srcer'}}));
 }
 
 Flag.prototype.bulldozerEgg = function () {
@@ -143,15 +152,25 @@ Flag.prototype.harvesterEgg = function () {
     egg: {body: 'miner'}})
 }
 
-Flag.prototype.haulerEgg = function () {
-  return this.localEgg('hauler', {
+Flag.prototype.haulerEgg = function (mem) {
+  return this.localEgg('hauler', _.defaultsDeep(
+    {}, mem, {
     egg: {energy: Math.min(2500, this.room.energyCapacityAvailable / 2)}
-  })
+  }));
 }
 
 Flag.prototype.hubEgg = function () {
   return this.localEgg('hub', {
     egg: {body: 'hub'}});
+}
+
+Flag.prototype.masonEgg = function() {
+  this.localEgg('mason', {
+    boosts: [
+      RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
+      RESOURCE_CATALYZED_UTRIUM_ALKALIDE,
+      RESOURCE_CATALYZED_KEANIUM_ACID]
+  });
 }
 
 Flag.prototype.microEgg = function (mem) {

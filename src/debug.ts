@@ -104,8 +104,8 @@ export function errStr(err: ScreepsReturnCode) {
     case ERR_FULL: return 'ERR_FULL';
     case ERR_INVALID_ARGS: return 'ERR_INVALID_ARGS';
     case ERR_INVALID_TARGET: return 'ERR_INVALID_TARGET';
-    case ERR_NOT_ENOUGH_ENERGY: return 'ERR_NEED_ENERGY';
-    case ERR_NOT_ENOUGH_EXTENSIONS: return 'ERR_NEED_EXTENSIONS';
+    case ERR_NOT_ENOUGH_ENERGY: return 'ERR_NOT_ENOUGH_ENERGY';
+    case ERR_NOT_ENOUGH_EXTENSIONS: return 'ERR_NOT_ENOUGH_EXTENSIONS';
     case ERR_NOT_ENOUGH_RESOURCES: return 'ERR_NOT_ENOUGH_RESOURCES';
     case ERR_NOT_IN_RANGE: return 'ERR_NOT_IN_RANGE';
     case ERR_TIRED: return 'ERR_TIRED'
@@ -123,8 +123,8 @@ export function dirStr(dir: DirectionConstant) {
     case BOTTOM_RIGHT: return 'SE'
     case BOTTOM: return 'S'
     case BOTTOM_LEFT: return 'SW'
+    default: return 'none';
   }
-  return 'none'
 }
 
 interface DebugMemory {

@@ -9,7 +9,7 @@ module.exports = class CreepHarvester {
 
   afterHarvester() {
     this.idleNom()
-    this.idleBuild() || this.idleRepair()
+    this.idleBuild() || this.idleRepairAny()
   }
 
   roleHarvester(card = 0) {

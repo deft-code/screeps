@@ -7,8 +7,12 @@ const xx = Game.time;
 console.log(Game.time, ":", Game.time - xx, "injecting, tick and cache");
 cache.injectAll();
 
+import 'strat';
+
 import 'roomobj';
 import 'role.hub';
+import 'role.mason';
+import 'role.src';
 
 import 'Visual';
 
@@ -24,6 +28,7 @@ import 'path';
 import 'room';
 import 'room.keeper';
 import 'source';
+import 'constructionsite';
 
 import 'tombs';
 import 'struct';
@@ -50,10 +55,9 @@ import * as spawn from 'spawn';
 import 'role.shunt';
 const mods = [
   'creep.attack',
-  'creep.build',
   'creep.dismantle',
   'creep.heal',
-  'creep.repair',
+  'creep.oldrepair',
   'creep.work',
 
   'role.archer',
@@ -145,10 +149,10 @@ function powerHack() {
   const r = Game.rooms.W29N11
   const t = r.terminal
   const s = Game.getObjectById("5c574d80b8cfe8383392fb37")
-  if (true || t.cooldown > 0) {
+  if (t.cooldown > 0) {
     debug.log("Terminal busy", t.cooldown)
   } else {
-    if (Game.market.credits < 10000000) {
+    if (Game.market.credits < 20000000) {
       debug.log("Too few credits", Game.market.credits)
     } else {
       if (t.store.getFreeCapacity() < 10000) {
@@ -171,10 +175,49 @@ function powerHack() {
   }
 }
 
+let cm = null;
+let exits = [];
+function doCrazy() {
+  const f = Game.flags.WestL;
+  if (!f) return;
+
+  if (!cm) {
+    if (!cm) cm = new PathFinder.CostMatrix();
+  }
+  if (!exits.length) {
+    exits = f.room.find(FIND_EXIT).map(pos => { return { pos, range: 2 } });
+  }
+  const ret = PathFinder.search(f.pos, exits, { roomCallback(room) { return cm; } });
+  console.log("crazy ops", ret.ops, "cost", ret.cost);
+  f.room.visual.poly(ret.path);
+
+  for (let i = 0; i < 2; i++) {
+    const p = _.sample(ret.path.slice(5));
+    f.room.visual.circle(p, { stroke: 'blue', radius: 1, fill: "" });
+
+    cm.set(p.x, p.y, 0xFE);
+
+  }
+
+  for (let x = 2; x < 48; x++) {
+    for (let y = 2; y < 48; y++) {
+      if (cm.get(x, y) !== 0) {
+        f.room.visual.circle(x, y, { fill: 'red', size: 2 });
+      }
+    }
+  }
+  Memory.theMatrix = cm.serialize();
+
+  const ret2 = PathFinder.search(_.sample(exits).pos, { pos: f.pos, range: 5 },{ roomCallback(room) { return cm; } });
+  f.room.visual.poly(ret2.path, { stroke: 'red' });
+  console.log("incoming load ops", ret2.ops, "cost", ret2.cost);
+}
+
 let lastClient = 0;
 module.exports.loop = main
 function main() {
-  if(Memory.client.time !== lastClient) {
+  // doCrazy();
+  if (Memory.client.time !== lastClient) {
     debug.log(Game.time, "client", JSON.stringify(Memory.client));
     lastClient = Memory.client.time;
   }
@@ -186,25 +229,31 @@ function main() {
   if (crooms.length === 0) {
     init()
   }
-''
+
   drain(null, 'W22N19')
 
-  run(Game.rooms, 500, r => r.init());
+  const rooms = _.values(Game.rooms);
+  run(rooms, 500, r => r.strat.init(r));
 
-  const remote = _.values(Game.rooms);
-  const combat = _.remove(remote, r => r.enemies > 0);
-  const claimed = _.remove(remote, r => r.controller && r.controller.my);
+  // descending order
+  rooms.sort((a, b) => b.strat.order(b) - a.strat.order(a));
+  const third = Math.floor(rooms.length / 3);
+  const hi = rooms.slice(0, third);
+  const me = rooms.slice(third, rooms.length - third);
+  const lo = rooms.slice(rooms.length - third, rooms.length);
 
-  run(combat, 1000, combat => combat.run());
+  run(hi, 1000, hi => hi.strat.run(hi));
+  run(hi, 2000, hi => hi.strat.after(hi));
+  run(me, 2000, me => me.strat.run(me));
+  run(me, 2500, me => me.strat.after(me));
+  run(lo, 3000, lo => lo.strat.run(lo));
+  run(lo, 4000, lo => lo.strat.after(lo));
+  run(hi, 5000, hi => hi.strat.optional(hi));
+  run(me, 5500, me => me.strat.optional(me));
+  run(lo, 6000, lo => lo.strat.optional(lo));
+
   run(Game.powerCreeps, 2000, pc => pc.run());
-  run(combat, 2000, combat => combat.after());
-  run(claimed, 2000, claim => claim.run());
-  run(claimed, 2500, claim => claim.after());
-  run(remote, 3000, remote => remote.run());
-  run(remote, 4000, remote => remote.after());
-  run(combat, 5000, combat => combat.optional());
-  run(claimed, 5500, claim => claim.optional());
-  run(remote, 6000, remote => remote.optional());
+  run(Game.powerCreeps, 3000, pc => pc.after());
 
   if (canRun(Game.cpu.getUsed(), 4000)) {
     spawn.run();
@@ -217,6 +266,7 @@ function main() {
   run(Game.flags, 9000, f => f.darkRun());
 
   if (canRun(Game.cpu.getUsed(), 9000)) {
+    powerHack();
     market.run()
   }
 

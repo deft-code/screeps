@@ -9,7 +9,7 @@ class CreepHub extends CreepCarry {
     roleHub(): TaskRet {
         if (this.moveSpot()) return 'moved';
         const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true);
-        const structs = _.shuffle(_.map(spots, s => s[LOOK_STRUCTURES])) as (EnergyStruct | GenericStoreStructure)[];
+        const structs = _.shuffle(_.map(spots, s => s[LOOK_STRUCTURES])) as (EnergyStruct | GeneralStoreStruct)[];
         let store: StructureStorage | null = null;
         let term: StructureTerminal | null = null;
         let link: Link | null = null;
@@ -44,9 +44,11 @@ class CreepHub extends CreepCarry {
             }
         }
 
+        const hubTarget = hubNeed(this.room);
+
         if (!xfer && link && (
             (link.mode === Mode.src && link.store.getFreeCapacity(RESOURCE_ENERGY)) ||
-            (link.mode == Mode.hub && link.cooldown < 2 && hubNeed(this.room) > 100))) {
+            (link.mode == Mode.hub && link.cooldown < 2 && hubTarget > 200))) {
             if (this.store.energy) {
                 xfer = xfer || this.goTransfer(link, RESOURCE_ENERGY, false);
             } else {
@@ -66,7 +68,12 @@ class CreepHub extends CreepCarry {
 
         let wd: TaskRet = false;
         if (this.store.getFreeCapacity()) {
-            if (link && ((link.mode === Mode.sink && link.store.energy) || link.cooldown > 10)) {
+            if (link && (
+                (link.mode === Mode.sink && link.store.energy) ||
+                link.cooldown > 10 ||
+                hubTarget < 200 ||
+                link.store.energy - this.store.getFreeCapacity() > hubTarget)) {
+
                 wd = wd || this.goWithdraw(link, RESOURCE_ENERGY, false);
             }
 
@@ -76,5 +83,15 @@ class CreepHub extends CreepCarry {
         }
 
         return false;
+    }
+
+    afterHub() {
+        const p = this.teamRoom.getSpot(this.role);
+        if (p?.isEqualTo(this.pos)) {
+            this.idleImmortal();
+            this.idleNom();
+        } else {
+            if (this.ticksToLive < 1400) this.log("not in position");
+        }
     }
 }

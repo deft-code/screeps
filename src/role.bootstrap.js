@@ -49,7 +49,7 @@ module.exports = class CreepBootstrap {
       this.idleRecharge()
       this.idleTransferExtra()
       // This drains all energy on Storage and prevents extension filling
-      // this.idleBuild() || this.idleRepair()
+      // this.idleBuild() || this.idleRepairAny()
     } else if (this.store.getUsedCapacity()) {
       if (routes.dist(this.team.pos.roomName, this.room.name) > 1) {
         this.drop(RESOURCE_ENERGY)
@@ -64,7 +64,7 @@ module.exports = class CreepBootstrap {
     }
 
     if (this.store.getUsedCapacity() > this.store.getFreeCapacity()) {
-      this.idleBuild() || this.idleRepair() || this.idleUpgrade()
+      this.idleBuild() || this.idleRepairAny() || this.idleUpgrade()
     }
     this.idleHarvest()
   }

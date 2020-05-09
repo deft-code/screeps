@@ -25,7 +25,7 @@ module.exports = class CreepFarmer {
 
   afterFarmer () {
     this.idleNom()
-    this.idleBuild() || this.idleRepair() || this.idleUpgrade()
+    this.idleBuild() || this.idleRepairAny() || this.idleUpgrade()
   }
 
   findDropRoom () {

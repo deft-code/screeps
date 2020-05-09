@@ -7,11 +7,11 @@ Room.prototype.keeper = function () {
   return this._keeper
 }
 
-Room.prototype.runKeeper = function () {
-  if (!this.controller) return
-  if (!this.controller.my) return
+export function runKeeper(room) {
+  if (!room.controller) return
+  if (!room.controller.my) return
 
-  const k = this.keeper()
+  const k = room.keeper()
   k.run()
 }
 

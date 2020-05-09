@@ -1,6 +1,8 @@
+
 interface Game {
     storages: StructureStorage[]
     terminals: StructureTerminal[]
+    GetObjectById<S extends AnyStructure>(id: Id<S> | null): S | null
 }
 
 interface RoomVisual {
@@ -8,20 +10,17 @@ interface RoomVisual {
     animatedPosition(x: number, y: number): ScreepsReturnCode
 }
 
-interface StructureController {
-    isPowerEnabled: boolean
-    resTicks: number
-    reservable: boolean
-}
 
 interface RoomObject {
     id: string
     effectTTL(pwr: PowerConstant): number
+    effectLvl(pwr: PowerConstant): number
 }
-
 
 interface PowerCreepTick {
     power?: PowerConstant
+    drop?: ResourceConstant
+    withdraw?: ResourceConstant
 }
 
 interface PowerCreep extends RoomObject {
@@ -131,16 +130,9 @@ interface Room {
         [key: string]: AnyStructure[]
     }
 
-    runTowers(): void
-    runDefense(): void
-    runKeeper(): void
-    runLabs(): void
-    runLinks(): void
-    spawningRun(): void
-
     drawSpots(): void
 
-    wallMax: number
+    maxHits(s:Structure): number
 }
 
 interface Flag {
@@ -156,6 +148,7 @@ type AllStructureTypes = {
     [STRUCTURE_CONTROLLER]: StructureController
     [STRUCTURE_EXTENSION]: StructureExtension
     [STRUCTURE_EXTRACTOR]: StructureExtractor
+    [STRUCTURE_FACTORY]: StructureFactory
     [STRUCTURE_INVADER_CORE]: StructureInvaderCore
     [STRUCTURE_KEEPER_LAIR]: StructureKeeperLair
     [STRUCTURE_LAB]: StructureLab
@@ -172,7 +165,9 @@ type AllStructureTypes = {
     [STRUCTURE_TERMINAL]: StructureTerminal
     [STRUCTURE_TOWER]: StructureTower
     [STRUCTURE_WALL]: StructureWall
-    [STRUCTURE_FACTORY]: StructureFactory
+}
+
+interface Ruins {
 }
 
 interface Structure {
@@ -183,16 +178,10 @@ interface StructureContainer {
     mode: "src" | "sink"
 }
 
-interface StructureStorage {
-}
-
-interface StructureTerminal {
-}
-
-interface Tombstone {
-}
-
-interface StructureSpawn {
+interface StructureController {
+    isPowerEnabled: boolean
+    resTicks: number
+    reservable: boolean
 }
 
 interface StructureExtension {
@@ -211,21 +200,32 @@ interface StructureNuker {
 interface StructurePowerSpawn {
 }
 
+interface StructureSpawn {
+}
+
+interface StructureStorage {
+}
+
+interface StructureTerminal {
+}
+
 interface StructureTower {
 }
 
-type GenericStoreStructure = StructureContainer |
-    StructureTerminal |
-    StructureStorage;
+interface Tombstone {
+}
 
-type StoreObject = GenericStoreStructure | Tombstone | Ruin
+type GeneralStoreStruct = StructureContainer |
+    StructureTerminal |
+    StructureStorage |
+    StructureFactory;
+
+type StoreObject = GeneralStoreStruct | Tombstone | Ruin
 
 type EnergyStruct = StructureSpawn | StructureExtension | StructureLab | StructureLink | StructureNuker | StructurePowerSpawn | StructureTower
 
 type Withdrawable = StoreObject | EnergyStruct
 
-type XferStruct = GenericStoreStructure | EnergyStruct;
+type XferStruct = GeneralStoreStruct | EnergyStruct;
 
-interface Tombstone {
-
-}
+type SpawnEnergy = StructureSpawn | StructureExtension;

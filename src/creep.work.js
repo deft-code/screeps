@@ -93,18 +93,6 @@ module.exports = class CreepWork {
     }
   }
 
-  goHarvest (src, move = true) {
-    const err = this.harvest(src)
-    this.dlog(`goharvest ${err}`)
-    if (err === OK) {
-      this.intents.melee = this.intents.range = src
-      return src.energy
-    }
-    if (move && err === ERR_NOT_IN_RANGE) {
-      return this.moveNear(src)
-    }
-    return false
-  }
 
   taskHarvest (src) {
     if (!this.store.getFreeCapacity()) return false

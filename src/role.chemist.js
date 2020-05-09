@@ -58,7 +58,7 @@ module.exports = class CreepChemist {
   }
 
   taskNukerFill () {
-    if (!this.room.terminal.store[RESOURCE_GHODIUM]) return false
+    if (!this.room.terminal?.store[RESOURCE_GHODIUM]) return false
     const nuker = _.first(this.room.findStructs(STRUCTURE_NUKER))
     if (!nuker) return false
     if (nuker.ghodium >= nuker.ghodiumCapacity) return false
@@ -69,7 +69,7 @@ module.exports = class CreepChemist {
   taskLabFill () {
     for (const lab of this.room.findStructs(STRUCTURE_LAB)) {
       this.dlog('lab fill type:', lab.planType, 'fill:', lab.mineralFill())
-      if (!this.room.terminal.store[lab.planType]) continue
+      if (!this.room.terminal?.store[lab.planType]) continue
       if (!lab.mineralFill()) continue
       this.dlog('taskLabFill', lab.planType)
       return this.taskWithdraw(this.room.terminal, lab.planType)

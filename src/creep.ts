@@ -6,6 +6,7 @@ declare global {
     activeByType?: Map<BodyPartConstant, number>
     activeHits?: number
     fullInfo?: PowerInfo
+    nboosted?: number
     info?: PowerInfo
     infoHits?: number
   }
@@ -42,17 +43,19 @@ export class CreepExtra extends Creep {
 
   get info() {
     if (!this.hurts) {
-      return this.fullInfo
+      return this.fullInfo;
     }
     if (!this.cache.info || this.cache.infoHits !== this.hits) {
       this.cache.infoHits = this.hits;
       this.cache.info = this.bodyInfo();
     }
-    return this.cache.info
+    return this.cache.info;
   }
 
   get fullInfo() {
-    if (!this.cache.fullInfo) {
+    const nboosted = _.sum(this.body, b => b.boost ? 1 : 0);
+    if (!this.cache.fullInfo || nboosted !== this.cache.nboosted) {
+      this.cache.nboosted = nboosted; 
       this.cache.fullInfo = this.bodyInfo(true);
     }
     return this.cache.fullInfo;
@@ -126,7 +129,8 @@ export class CreepExtra extends Creep {
       claim = claim || part.type === CLAIM
       energy += BODYPART_COST[part.type]
       if (part.boost) {
-        cost.set(part.boost, 30 + (cost.get(part.boost) || 0));
+        const b = part.boost as ResourceConstant;
+        cost.set(b, 30 + (cost.get(b) || 0));
       }
     }
     if (current) {
@@ -151,7 +155,7 @@ export class CreepExtra extends Creep {
     for (let part of this.body) {
       if (!all && !part.hits) continue;
       const pinfo = getPartInfo(part);
-      _.forEach(pinfo, (pow: number, action:any) => {
+      _.forEach(pinfo, (pow: number, action: any) => {
         info[action as keyof PowerInfo] += pow;
       });
     }

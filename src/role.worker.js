@@ -24,7 +24,7 @@ module.exports = class CreepWorker {
     this.idleNom()
     this.idleRecharge()
     if (this.store.getUsedCapacity() > this.store.getFreeCapacity()) {
-      this.idleBuild() || this.idleRepair() || this.idleUpgrade()
+      this.idleBuild() || this.idleRepairAny() || this.idleUpgrade()
     }
   }
 }

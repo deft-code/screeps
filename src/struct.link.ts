@@ -12,6 +12,12 @@ declare global {
   }
 }
 
+export function nullmax<T>(a: T[], f: (i: T) => number): T | null {
+  const ret = _.max(a, f);
+  if(ret as unknown === -Infinity) return null;
+  return ret;
+}
+
 //type Mode = "src" | "sink" | "hub" | "pause";
 
 export const enum Mode {
@@ -62,15 +68,24 @@ function getCache(room: Room) {
 }
 
 function makeCache(room: Room) {
-  const links = room.findStructs(STRUCTURE_LINK) as Link[];
-
   room.dlog("setting links");
 
+  const allLinks = room.findStructs(STRUCTURE_LINK);
   const cache: Cache = {
-    nlinks: links.length,
+    nlinks: allLinks.length,
     modes: new Map<number, Mode>(),
     lock: Game.time
   };
+
+  const links = [];
+  for(const link of allLinks){
+    const mode = room.meta.getLinkMode(link.pos.xy);
+    if(mode !== Mode.pause) {
+      cache.modes.set(link.pos.xy, mode);
+    } else {
+      links.push(link);
+    }
+  }
 
   for (const src of room.find(FIND_SOURCES)) {
     const l = _.find(links, l => src.pos.inRangeTo(l, 2));
@@ -209,8 +224,8 @@ export function balanceSplit(room: Room) {
   if (links.length < 2) return;
 
   let cache = getCache(room);
-  const store = Game.getObjectById<Link>(cache.store);
-  const term = Game.getObjectById<Link>(cache.term);
+  const store = Game.getObjectById(cache.store as Id<Link>);
+  const term = Game.getObjectById(cache.term as Id<Link>);
 
   if (!term) return;
   if (!store) return;
@@ -291,10 +306,10 @@ function drawCooldown(p: RoomPosition, cd: number) {
 
 export function runLinks(room: Room) {
   const links = _.shuffle(room.findStructs(STRUCTURE_LINK) as Link[]);
-  //room.log("here", links.length);
+  // room.log("here", links.length, links.map(l => l.store));
 
   links.forEach(link => {
-    room.visual.text(link.mode, link.pos.x, link.pos.y + 0.23)
+    room.visual.text(link.mode, link.pos.x, link.pos.y + 0.23, {color: "black"})
     drawCooldown(link.pos, link.cooldown);
   });
 
@@ -310,9 +325,9 @@ export function runLinks(room: Room) {
 
     if (link.mode === Mode.dump) {
       const sink = both.find(sink => sink.store.getFreeCapacity(RESOURCE_ENERGY) >= link.store.energy) ||
-        _.max(both, sink => sink.store.getFreeCapacity(RESOURCE_ENERGY));
+        nullmax(both, sink => sink.store.getFreeCapacity(RESOURCE_ENERGY));
       if (!sink) continue;
-      // Wasteful send but dumps need to be empty more than efficient
+      // A wasteful send but dump liks need to be empty more than efficient.
       return link.xferAll(sink);
     }
 
@@ -327,21 +342,16 @@ export function runLinks(room: Room) {
     // all the way full!
     if (link.mode === Mode.src && !link.store.getFreeCapacity(RESOURCE_ENERGY)) {
       // ignore waste just send it
-      const sink = _.max(both.filter(l => l.store.getFreeCapacity(RESOURCE_ENERGY) > 2), sink => sink.store.getFreeCapacity(RESOURCE_ENERGY));
+      const sink = nullmax(both.filter(l => l.store.getFreeCapacity(RESOURCE_ENERGY) > 2), sink => sink.store.getFreeCapacity(RESOURCE_ENERGY));
       if (sink) {
         return link.xferAll(sink);
       }
 
       // just send it anywhere
-      const slop = _.max(links.filter(l => l.store.getFreeCapacity(RESOURCE_ENERGY) >= 4), l => l.store.getFreeCapacity(RESOURCE_ENERGY));
+      const slop = nullmax(links.filter(l => l.store.getFreeCapacity(RESOURCE_ENERGY) >= 4), l => l.store.getFreeCapacity(RESOURCE_ENERGY));
       if (!slop) continue;
       return link.xferHalf(slop);
     }
   }
   return false;
-}
-
-Room.prototype.runLinks = function () {
-  runLinks(this);
-  balanceSplit(this);
 }

@@ -43,7 +43,7 @@ export class Tasker {
     tick = 0;
     name = '';
     repeats = 0;
-    maxRepeats = 4;
+    maxRepeats = 2;
     cpu = 0;
     maxCpu = 5;
 
@@ -129,6 +129,7 @@ export class Tasker {
             }
 
             let what = this.repeat(c);
+            // console.log("tasker ret", c, what);
             if (what === 'loop') {
                 this.clean(c);
                 what = this.loop(c)
@@ -136,7 +137,7 @@ export class Tasker {
             if (!what || what === 'done') {
                 this.clean(c);
             }
-            if (what === 'done' || what === 'again') {
+            if (!what || what === 'done' || what === 'again') {
                 continue;
             }
             break;

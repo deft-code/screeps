@@ -154,6 +154,6 @@ module.exports = class CreepSrcer {
   }
 
   afterSrcer () {
-    this.idleBuild() || this.idleRepair()
+    this.idleBuild() || this.idleRepairAny()
   }
 }

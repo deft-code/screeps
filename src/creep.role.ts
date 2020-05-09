@@ -16,7 +16,8 @@ declare global {
     team: string
     cpu: number
     task?: CreepTaskMem
-    boosts?: ResourceConstant[]
+    boosts?: MineralBoostConstant[]
+    spawnid?: Id<StructureSpawn>
   }
   interface Creep {
     moveNear(dest: RoomObject): TaskRet
@@ -184,14 +185,14 @@ export class CreepRole extends CreepExtra {
 
     const mem = this.checkMem(name)
     if (mem) {
-      obj = Game.getObjectById<T>(this.memory.task!.id);
-      if (!obj) return null;
+      const target = Game.getObjectById<T>(this.memory.task!.id!);
+      if (!target) return null;
 
-      if (this.debug && this.pos.roomName === obj.pos.roomName) {
-        this.room.visual.line(this.pos, obj.pos, { lineStyle: 'dotted' })
+      if (this.debug && this.pos.roomName === target.pos.roomName) {
+        this.room.visual.line(this.pos, target.pos, { lineStyle: 'dotted' })
       }
-      this.dlog(`again ${name} ${obj}`)
-      return obj
+      this.dlog(`again ${name} ${target}`)
+      return target
     }
 
     return null;
@@ -227,15 +228,41 @@ export class CreepRole extends CreepExtra {
   }
 
   doBoosts() {
-    if (this.spawning || this.ticksToLive < 100) {
+    if (this.spawning || this.ticksToLive > CREEP_LIFE_TIME - 100) {
       if (this.memory.boosts) {
-        this.room.requestBoosts(this.memory.boosts)
+        this.log("boosting", this.memory.boosts);
+        this.room.requestBoosts(this.memory.boosts);
       }
     }
   }
 
+  isBoosted(boost: MineralBoostConstant) {
+    return _.any(this.body, b => b.boost === boost);
+  }
+
+  taskNeedBoost(): TaskRet {
+    if (this.ticksToLive < CREEP_LIFE_TIME - 100) {
+      return this.taskBoostOne();
+    }
+    const first = [
+      RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
+      RESOURCE_ZYNTHIUM_ALKALIDE,
+      RESOURCE_ZYNTHIUM_OXIDE,
+    ];
+
+    const boost = _.find(this.memory.boosts!, b => _.contains(first, b)) ||
+      _.sample(this.memory.boosts!);
+    if (!boost) return false;
+    if (this.isBoosted(boost)) {
+      this.log("done boosting", boost);
+      _.remove(this.memory.boosts!, boost);
+      return this.taskNeedBoost();
+    }
+    return this.taskBoostMineral(boost);
+  }
+
   taskBoostOne() {
-    if (!_.size(this.memory.boosts!)) return false
+    if (!_.size(this.memory.boosts!)) return false;
     const mineral = this.memory.boosts!.pop()
     const what = this.taskBoostMineral(mineral)
     if (!what) {
@@ -244,42 +271,72 @@ export class CreepRole extends CreepExtra {
     return what
   }
 
-  taskBoostMineral(mineral?: ResourceConstant) {
-    return this.taskBoost(this.room.requestBoost(mineral))
+  taskBoostMineral(mineral?: MineralBoostConstant) {
+    return this.taskBoost(this.room.requestBoost(mineral));
   }
 
   taskBoost(lab: StructureLab | null) {
-    this.doBoosts()
+    this.doBoosts();
     lab = this.checkId('boost', lab);
-    if (!lab) return false
-    lab.room.requestBoost(lab.planType)
+    if (!lab) return false;
+    lab.room.requestBoost(lab.planType);
 
-    if (lab.mineralAmount < LAB_BOOST_MINERAL) return false
-    if (lab.store.energy < LAB_BOOST_ENERGY) return false
+    if (lab.mineralAmount < LAB_BOOST_MINERAL) return false;
+    if (lab.store.energy < LAB_BOOST_ENERGY) return false;
 
-    const err = lab.boostCreep(this)
+    const err = lab.boostCreep(this);
     if (err === ERR_NOT_IN_RANGE) {
-      return this.moveNear(lab)
+      return this.moveNear(lab);
     }
     if (err !== OK) {
-      this.errlog(err, `UNEXPECTED boost err @ ${lab}`)
-      return false
+      this.errlog(err, `UNEXPECTED boost err @ ${lab}`);
+      return false;
     }
-    return 'success'
+    return 'success';
+  }
+
+  nearSpawn(): StructureSpawn | null {
+    let s = Game.getObjectById(this.memory.spawnid);
+    if (s && this.pos.isNearTo(s)) return s;
+
+    s = _.find(this.room.findStructs(STRUCTURE_SPAWN) as StructureSpawn[],
+      ss => this.pos.isNearTo(ss)) || null;
+    if (s) {
+      this.memory.spawnid = s.id
+    }
+    return s
+  }
+
+  idleImmortal() {
+    if (this.room.energyFreeAvailable !== 0) return;
+    if (this.ticksToLive >= (CREEP_LIFE_TIME - (600 / this.body.length))) {
+      this.dlog("too young to renew", this.ticksToLive);
+      return
+    }
+    const s = this.nearSpawn();
+    if (!s) return;
+    if (s.tick.renew) {
+      this.log('Double Renew', s, s.tick.renew);
+      const other = Game.creeps[s.tick.renew];
+      if ((other?.ticksToLive || 0) < this.ticksToLive) return;
+    }
+    if (s.renewCreep(this) === OK) {
+      s.tick.renew = this.name;
+    }
   }
 }
 
-Room.prototype.spawningRun = function () {
-  if (!this.controller) return
-  if (!this.controller.my) return
-  const spawns = _.shuffle(this.findStructs(STRUCTURE_SPAWN)) as StructureSpawn[];
+export function spawningRun(room: Room) {
+  if (!room.controller) return
+  if (!room.controller.my) return
+  const spawns = _.shuffle(room.findStructs(STRUCTURE_SPAWN)) as StructureSpawn[];
   for (const spawn of spawns) {
     if (!spawn.spawning) break
     const c = Game.creeps[spawn.spawning.name]
     if (c) {
       (c as CreepRole).spawningRun()
     } else {
-      this.log(`Missing creep '${spawn.spawning.name}' from '${spawn.name}', left ${spawn.spawning.remainingTime}`)
+      room.log(`Missing creep '${spawn.spawning.name}' from '${spawn.name}', left ${spawn.spawning.remainingTime}`)
     }
   }
 }

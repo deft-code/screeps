@@ -17,6 +17,6 @@ module.exports = class Paver {
   afterPaver () {
     this.idleRecharge()
     // this.idleRepairRoad()
-    this.idleBuild() || this.idleRepair()
+    this.idleBuild() || this.idleRepairAny()
   }
 }

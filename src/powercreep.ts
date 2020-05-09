@@ -1,6 +1,6 @@
-import { merge } from "lib";
+import { merge, isHighway } from "lib";
 import * as debug from "debug";
-import { Tasker, Targetable, TaskMemory, TaskRet, MemoryTask } from 'Tasker';
+import { Tasker, Targetable, TaskMemory, TaskRet, MemoryTask, dynamicRole } from 'Tasker';
 import { defaultRewalker, Goal, WalkReturnCode, cleanGoal } from "Rewalker";
 
 const rewalker = defaultRewalker();
@@ -36,7 +36,7 @@ function shouldIgnore(ctrlr: StructureController): boolean {
 }
 
 declare global {
-    interface PowerCreepMemory{
+    interface PowerCreepMemory {
         enableFailed?: string[]
         task?: MemoryTask
     }
@@ -44,7 +44,7 @@ declare global {
 
 class PowerCreepExtra extends PowerCreep {
     toString() {
-        if(this.pos) {
+        if (this.pos) {
             return `<a href="/a/#!/room/${Game.shard.name}/${this.pos.roomName}">${this.name}</a>`
         }
         return `[PowerCreep ${this.name}]`
@@ -52,6 +52,10 @@ class PowerCreepExtra extends PowerCreep {
 
     get role() { return this.name }
     get hurts() { return this.hitsMax - this.hits }
+
+    idleMoveOn(pos: RoomPosition): TaskRet {
+        return this.idleMoveGoal({ pos, range: 0 });
+    }
 
     moveNear(pos: RoomPosition): ScreepsReturnCode {
         const ret = rewalker.walkTo(this, pos, 1);
@@ -72,6 +76,54 @@ class PowerCreepExtra extends PowerCreep {
     moveRoom(roomName: string): WalkReturnCode {
         const goal = cleanGoal({ pos: new RoomPosition(25, 25, roomName), range: 24 });
         return this.moveGoal(goal);
+    }
+
+    idleMoveGoal(goal: Goal): TaskRet {
+        const ret = rewalker.walkTo(this, goal.pos, goal.range);
+        if (ret > 0) return "walking"
+        if (ret === 0) return false;
+        this.errlog(ret as -1, "maybe error?");
+        return false;
+    }
+
+    idleMoveRoom(roomName: string): TaskRet {
+        return this.idleMoveGoal({ pos: new RoomPosition(25, 25, roomName), range: 24 });
+    }
+
+    idleMoveWaypoints(flagName: string): TaskRet {
+        for (let i = 1; i < 10; i++) {
+            const ret = this.idleMoveWaypoint(flagName + i);
+            if (ret) {
+                this.say("waypoint" + i);
+                return ret;
+            }
+
+        }
+        return false;
+    }
+
+    idleMoveWaypoint(flagName: string): TaskRet {
+        const f = Game.flags[flagName];
+        if (!f) return false;
+
+        const ret = this.idleMoveFlag(f.name);
+        if (!ret) f.remove();
+        return ret;
+    }
+
+    idleMoveFlag(flagName: string): TaskRet {
+        const f = Game.flags[flagName];
+        if (!f) return false;
+        switch (f.secondaryColor) {
+            case COLOR_RED: return this.idleMoveOn(f.pos);
+        }
+        return this.idleMoveRoom(f.pos.roomName);
+    }
+
+    moveRoomFlag(flagName: string): WalkReturnCode {
+        const f = Game.flags[flagName];
+        if (!f) return ERR_INVALID_TARGET;
+        return this.moveRoom(f.pos.roomName);
     }
 
     taskMoveRoom(name: string): TaskRet {
@@ -95,26 +147,89 @@ class PowerCreepExtra extends PowerCreep {
     }
 
     run() {
+        if (!this.room) return;
         powerTasker.looper(this);
     }
 
-    spawnRoom(roomName: string ) {
+    after() {
+        dynamicRole(this, 'after');
+    }
+
+    spawnRoom(roomName: string) {
         const room = Game.rooms[roomName];
         if (!room) return ERR_INVALID_ARGS;
         return this.spawn(_.first(room.findStructs(STRUCTURE_POWER_SPAWN)) as StructurePowerSpawn);
     }
 
-    preMagellan(): boolean {
-        // Not spawned stop tasks.
-        return !!this.room
+    roleHarleyQuinn(): TaskRet {
+        if (!this.ticksToLive || !this.room) return false;
+        const ret = this.taskMaybeRenew() ||
+            this.taskEnableCtrlr(this.room.controller) ||
+            this.idleMoveWaypoints('waypoint_' + this.name) ||
+            this.idleMoveFlag(this.name);
+        if (ret) return ret;
+
+        if (!this.room.controller || !this.room.controller.owner || this.room.controller.owner.username !== 'Disconnect') {
+            this.say("I'm Bored!");
+            return false;
+        }
+
+        //if(Game.time) return this.taskDrainStructs(this.room.findStructs(STRUCTURE_EXTENSION));
+        return this.taskDrainStructs(this.room.findStructs(STRUCTURE_TOWER) as unknown as StructureExtension[]) ||
+            this.taskDrainStructs(
+                _.filter(this.room.findStructs(STRUCTURE_EXTENSION),
+                    e => e.store.energy === e.store.getCapacity(RESOURCE_ENERGY))) ||
+            this.taskDrainStructs(this.room.findStructs(STRUCTURE_EXTENSION, STRUCTURE_TOWER) as StructureExtension[]);
+    }
+
+    afterHarleyQuinn() {
+        // const ob = _.first(Game.rooms.W29N11.findStructs(STRUCTURE_OBSERVER));
+        // ob.observeRoom("W48N6");
+        //this.idleGenerateOps();
+        this.setupScrounge();
+        this.idleDrip();
+        this.idleDrain();
+    }
+
+    setupScrounge() {
+        if (this.ticksToLive! > 1500) return false;
+        if (Game.flags['waypoint_HarleyQuinn8']) return false;
+        const ob = _.first(Game.rooms.W29N11.findStructs(STRUCTURE_OBSERVER));
+        if (!Game.flags['waypoint_HarleyQuinn7']) {
+            const room = Game.rooms['W49N10'];
+            if (!room) {
+                ob.observeRoom("W49N10");
+                return;
+            }
+            room.createFlag(25, 25, 'waypoint_HarleyQuinn7');
+            return;
+        }
+        const room = Game.rooms['W41N10'];
+        if (!room) {
+            ob.observeRoom("W41N10");
+            return;
+        }
+        room.createFlag(25, 25, 'waypoint_HarleyQuinn8');
+        return;
     }
 
     roleHeimdall(): TaskRet {
+        if (Game.shard.name !== 'shard1') return false;
+        if (!this.ticksToLive && !this.spawnCooldownTime) {
+            this.spawnRoom("W29N11");
+        }
         if (this.shard !== Game.shard.name) return false;
-        this.log("restart", JSON.stringify(this.memory));
 
-        return this.taskPingPong(Game.flags.Ping, Game.flags.Pong);
+        const ob = _.first(Game.rooms.W29N11.findStructs(STRUCTURE_OBSERVER));
+        if (!ob) return false;
+
+        return this.taskHomeRenew() || this.taskOperateObserver(ob) || this.taskMoveNear(ob);
     }
+
+    afterHeimdall() {
+        this.idleGenerateOps();
+    }
+
 
     roleGenesis(): TaskRet {
         if (!this.ticksToLive || !this.room) {
@@ -127,7 +242,7 @@ class PowerCreepExtra extends PowerCreep {
         }
 
         let ret = this.taskHomeRenew();
-        if(ret ) return ret;
+        if (ret) return ret;
 
         ret = this.taskMoveRoom('W21N15');
         if (ret && ret !== 'done') {
@@ -139,6 +254,11 @@ class PowerCreepExtra extends PowerCreep {
         if (!room) return false;
 
         return this.taskRegenSources(room);
+    }
+
+    preMagellan(): boolean {
+        // Not spawned stop tasks.
+        return !!this.room
     }
 
     roleMagellan(): TaskRet {
@@ -169,6 +289,90 @@ class PowerCreepExtra extends PowerCreep {
         this.log("next rooms", others, "next room", next);
         return this.taskMoveRoom(next);
     }
+
+    idleGenerateOps() {
+        if (this.tick.power) return false;
+
+        const p = this.powers[PWR_GENERATE_OPS];
+        if (!p) return false;
+
+        const cd = p.cooldown || 0;
+        if (cd) return false;
+
+        if (!this.store.getFreeCapacity()) return false;
+
+        const ret = this.usePower(PWR_GENERATE_OPS);
+        this.errlog(ret, "gen ops failed!");
+
+        this.say("moar ops", true);
+        this.log("generated OPS!");
+        return true;
+    }
+
+    idleDrip(): TaskRet {
+        if (!this.store.energy || this.tick.drop) return false;
+        const ret = this.drop(RESOURCE_ENERGY, Math.ceil(this.store.energy / 2));
+        if (ret === OK) return "done";
+        this.errlog(ret, "failed to drip");
+        return false;
+    }
+
+    idleDrain(): TaskRet {
+        if (!this.room) return false;
+        if (this.tick.withdraw) return false;
+        if (!this.store.getFreeCapacity()) return false;
+        const looks = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true);
+        for (const look of looks) {
+            const s = look[LOOK_STRUCTURES] as StructureExtension;
+            if (s.store && s.store.energy) {
+                const ret = this.withdraw(s, RESOURCE_ENERGY);
+                if (ret === OK) return "done";
+                this.errlog(ret, "unexpected error");
+            }
+        }
+        return false;
+    }
+
+    taskDrainStructs(structs: StructureExtension[]) {
+        const full = _.filter(structs, e => e.store.energy === e.store.getCapacity(RESOURCE_ENERGY));
+        if (full.length) {
+            const i = rewalker.planWalk(this, _.map(full, e => { return { pos: e.pos, range: 1 } }));
+            if (i >= 0) {
+                return this.taskDrainStruct(full[i]);
+            }
+        }
+        const partial = _.filter(structs, e => e.store.energy);
+        if (partial.length) {
+            const i = rewalker.planWalk(this, _.map(partial, e => { return { pos: e.pos, range: 1 } }));
+            if (i >= 0) {
+                return this.taskDrainStruct(partial[i]);
+            }
+        }
+        return false;
+    }
+
+    taskDrainStruct(extn: StructureExtension | null): TaskRet {
+        extn = this.task(extn);
+        if (!extn) return false;
+        if (this.store.getFreeCapacity() < extn.store.energy) {
+            this.log("emergency drop");
+            this.drop(RESOURCE_ENERGY, this.store.energy);
+            this.tick.drop = RESOURCE_ENERGY;
+        }
+        const ret = this.withdraw(extn, RESOURCE_ENERGY);
+        switch (ret) {
+            case OK:
+                this.tick.withdraw = RESOURCE_ENERGY;
+                return "done";
+            case ERR_NOT_IN_RANGE:
+                const ret = this.moveNear(extn.pos);
+                if (ret === OK) return "moving";
+                return false;
+        }
+        this.errlog(ret, "unknown error");
+        return false;
+    }
+
 
     taskRegenSources(room: Room): TaskRet {
         const p = this.powers[PWR_REGEN_SOURCE];
@@ -220,6 +424,38 @@ class PowerCreepExtra extends PowerCreep {
         return false;
     }
 
+    taskOperateObserver(ob: StructureObserver | null): TaskRet {
+        ob = this.task(ob);
+        if (!ob) return false;
+
+        const p = this.powers[PWR_OPERATE_OBSERVER];
+        if (!p) return false;
+        const cd = p.cooldown || 0;
+
+        const dist = this.pos.getRangeTo(ob.pos);
+        if (cd - dist > 3) return false;
+
+        const ttl = ob.effectTTL(PWR_OPERATE_OBSERVER);
+        if (ttl > dist) return false;
+
+        if (this.tick.power) return "wait";
+        const ret = this.usePower(PWR_OPERATE_OBSERVER, ob);
+        switch (ret) {
+            case OK:
+                this.tick.power = PWR_OPERATE_OBSERVER;
+                return "done";
+            case ERR_NOT_ENOUGH_ENERGY:
+                this.log("too poor :(");
+                return false;
+            case ERR_NOT_IN_RANGE:
+                const ret = this.moveRange(ob.pos);
+                if (ret === OK) return "moving";
+                return false;
+        }
+        this.errlog(ret, "unknown error");
+        return false;
+    }
+
     taskHomeRenew(): TaskRet {
         if (this.ticksToLive! > 1500) return false;
 
@@ -242,10 +478,10 @@ class PowerCreepExtra extends PowerCreep {
         return this.taskRenew(pss[i]);
     }
 
-    taskMaybeRenew(name?: string): TaskRet {
-        if (this.ticksToLive! > 4500) return false;
+    taskMaybeRenew(roomName?: string): TaskRet {
+        if (this.ticksToLive! > 4900) return false;
         let room = this.room!;
-        if (name) room = Game.rooms[name];
+        if (roomName) room = Game.rooms[roomName];
         const ps = _.first(room.findStructs(STRUCTURE_POWER_SPAWN) as StructurePowerSpawn[]);
         if (ps && ps.my) {
             return this.taskRenew(ps);
@@ -254,7 +490,7 @@ class PowerCreepExtra extends PowerCreep {
     }
 
     taskRenew(ps: StructurePowerSpawn | StructurePowerBank | null): TaskRet {
-        if (this.ticksToLive! > 4500) return false;
+        if (this.ticksToLive! > 4900) return false;
         ps = this.task(ps);
         if (!ps) return false;
         const ret = this.renew(ps);
@@ -298,7 +534,7 @@ class PowerCreepExtra extends PowerCreep {
     }
 
     taskEnableCtrlr(ctrlr?: StructureController | null, until?: number): TaskRet {
-        this.log("until", until, until! - Game.time);
+        //this.log("until", until, until! - Game.time);
         if (!until) {
             until = Game.time + 100;
         }
@@ -357,3 +593,42 @@ class PowerCreepExtra extends PowerCreep {
 
 merge(PowerCreep, PowerCreepExtra);
 merge(PowerCreep, debug.Debuggable);
+
+function* radar(banks: string[], origin: string) {
+    let ob = _.first(Game.rooms.W29N11.findStructs(STRUCTURE_OBSERVER));
+    if (!ob) return;
+    const obid = ob.id;
+    const rooms = roomFill(origin);
+    let room = rooms.next().value;
+    while (Game.map.getRoomLinearDistance(origin, room) < 20) {
+        if (isHighway(room)) {
+            ob = Game.getObjectById<StructureObserver>(obid)!;
+            if (!ob) return;
+            let ret = ob.observeRoom(room);
+            if (!ret) debug.errlog(ret, "failed to observe");
+            yield;
+
+
+
+        }
+
+    }
+
+
+
+}
+
+export function* roomFill(origin: string) {
+    const open = [origin];
+    const close = new Set<string>();
+    while (open.length) {
+        const roomName = open.shift()!;
+        yield roomName;
+        const exits = _.values(Game.map.describeExits(roomName)) as string[]
+        for (const exit of exits) {
+            if (_.contains(open, exit) || close.has(exit)) continue;
+            open.push(exit);
+        }
+    }
+    return "";
+}

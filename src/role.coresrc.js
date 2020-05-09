@@ -9,7 +9,7 @@ module.exports = class CreepCore {
     if (this.pos.isEqualTo(p)) {
       this.idleImmortal()
       this.idleNom()
-      this.idleRepair() || this.idleBuild()
+      this.idleRepairAny() || this.idleBuild()
     }
   }
 

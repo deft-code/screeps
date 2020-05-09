@@ -2,13 +2,16 @@ import { FlagExtra } from "flag";
 import { Path, PathMem } from "path";
 import { injecter } from "roomobj";
 
-const k = require('constants')
-const lib = require('lib')
-const matrix = require('matrix')
+import * as k from 'constants';
+import * as lib from 'lib';
+import * as matrix from 'matrix';
 
 declare global {
   interface Memory {
     logo: number[]
+  }
+  interface FlagMemory {
+    creeps?: string[];
   }
 }
 
@@ -23,10 +26,7 @@ class TeamExtra extends FlagExtra {
   }
   get creeps() {
     if (!this._creeps) {
-      this._creeps = _(this.memory.creeps! as string[])
-        .map(c => Game.creeps[c])
-        .filter(c => c && !c.spawning)
-        .value()
+      this._creeps = _.filter(_.map(this.memory.creeps!, c => Game.creeps[c]), c => c && !c.spawning);
     }
     return this._creeps
   }
@@ -277,6 +277,7 @@ class TeamExtra extends FlagExtra {
     return false;
   }
 
+  // This spawns creeps no faster than a fixed rate.
   paceRole(role: string, rate: number, mem?: any) {
     if (rate < 150) return false
 
@@ -291,35 +292,23 @@ class TeamExtra extends FlagExtra {
     return false
   }
 
-  replaceRole(role: string, want: number, mem?: any) {
+  // An overlap of 1500 creates 2 creeps
+  // An overlap of 0 starts spawning the replacement after the first dies.
+  replaceRole(role: string, overlapTicks: number, mem?: any) {
+    if(overlapTicks <= 0) return false;
     const total = this.countRole(role)
     const n = this.roleCreeps(role).length
     this.dlog(role, total, ':', n)
     if (total > n) return false
 
-    const ttl = _.sum(this.roleCreeps(role), 'ticksToLive') + _.random(10)
-    this.dlog(role, ttl, want)
-    if (ttl >= want) return false
-    this.log(role, ttl, want, this.roleCreeps(role))
+    const spawnLag = _.sum(this.roleCreeps(role), c => c.spawnTime);
+    const ttl = _.sum(this.roleCreeps(role), c => c.ticksToLive || CREEP_LIFE_TIME) + _.random(10)
+    this.dlog(role, ttl, spawnLag, overlapTicks);
+    if (ttl >= overlapTicks + spawnLag) return false;
+    this.log(role, ttl, overlapTicks, this.roleCreeps(role))
 
     const fname = `${role}Egg` as "exampleEgg";
     return this[fname](mem)
-  }
-
-  ensureRole(role: string, want: number, mem: any) {
-    const have = this.countRole(role)
-    if (have > want) return false
-    const fname = `${role}Egg` as "exampleEgg";
-    if (have < want) return this[fname](mem)
-    return false;
-
-    // let ttl = 1500
-    // let stime = 150
-    // const creeps = this.roleCreeps(role)
-    // for (const c of creeps) {
-    //   ttl = Math.min(c.ticksToLive!, ttl)
-    //   stime = Math.max(c.spawnTime, stime)
-    // }
   }
 
   teamHub() {
@@ -332,7 +321,9 @@ class TeamExtra extends FlagExtra {
         tower(this) ||
         hauler(this) ||
         bootstrap(this) ||
-        harvester(this) ||
+        metasrc(this, 'asrc') ||
+        metasrc(this, 'bsrc') ||
+        //harvester(this) ||
         false
     }
     return reboot(this) ||
@@ -341,10 +332,11 @@ class TeamExtra extends FlagExtra {
       defender(this) ||
       micro(this) ||
       //bootstrap(this) ||
-      harvester(this) ||
-      // worker(this) ||
+      //harvester(this) ||
+      metasrc(this, 'asrc') ||
+      metasrc(this, 'bsrc') ||
+      worker(this) ||
       controller(this) ||
-      // upgrader(this) ||
       // mineral(this) ||
       chemist(this) ||
       false
@@ -412,7 +404,7 @@ class TeamExtra extends FlagExtra {
       if (!this.memory[src.note as "examplePath"]) {
         const cb = (roomName: string) => {
           const r = Game.rooms[roomName]
-          if (!r) return matrix.get(roomName)
+          if (!r) return matrix.getMat(roomName) as unknown as CostMatrix;
           const mat = new PathFinder.CostMatrix()
           matrix.addStructures(mat, r)
           for (const s of r.find(FIND_SOURCES)) {
@@ -493,7 +485,6 @@ function logoDraw(flag: TeamExtra) {
     v.circle(dx + x, dy + y)
   }
 }
-
 
 function gc(flag: TeamExtra) {
   flag.memory.creeps = flag.memory.creeps || []
@@ -589,6 +580,22 @@ function tower(flag: TeamExtra) {
   return flag.replaceRole('tower', 1)
 }
 
+
+function metasrc(flag: TeamExtra, asrc: string) {
+  const meta = flag.room!.meta.getMeta(asrc);
+  if (meta) {
+    const src = Game.getObjectById<Source>(meta.targetid());
+    const lvl = src?.effectLvl(PWR_REGEN_SOURCE) || 0;
+
+    // overlap 50 to walk across room.
+    // 50 is too much overlap.
+    // Sampled 14 or so: b
+    return flag.replaceRole(asrc, 50, { egg: { lvl } });
+  }
+  return false;
+}
+
+
 function micro(flag: TeamExtra) {
   if (flag.room!.memory.tassaulters! > 0) return false
   if (flag.room!.memory.tenemies! <= 0) return false
@@ -656,11 +663,11 @@ function reserve(flag: TeamExtra) {
   const claimed = controller && controller.owner
   if (claimed) return false
 
-  let n = 225; 
+  let n = 225;
   if (controller && controller.reservation && controller.reservation.username === 'deft-code') {
     if (controller.resTicks > 1000) return false
     if (controller.resTicks > 450) {
-      n = 450 
+      n = 450
     }
   }
 
@@ -699,7 +706,7 @@ function suppressGuard(flag: TeamExtra) {
 }
 
 function suppressInvaderCore(flag: TeamExtra) {
-  if(flag.room!.findStructs(STRUCTURE_INVADER_CORE).length > 0) {
+  if (flag.room!.findStructs(STRUCTURE_INVADER_CORE).length > 0) {
     return flag.paceRole('wolf', 1500);
   }
   return false;
@@ -745,19 +752,44 @@ function upgrader(flag: TeamExtra) {
   return flag.replaceRole('upgrader', n)
 }
 
-function nworker(room: Room) {
-  if (room.find(FIND_MY_CONSTRUCTION_SITES).length) return 1
+
+const kWorkerLifeBuild = 40000;
+function ctorWorker(room: Room) {
+  const ctors = room.find(FIND_MY_CONSTRUCTION_SITES);
+  if(!ctors.length) return 0;
+  if(!room.storage && !room.terminal) return 1;
+  // TODO let this go higher after after I can test it works well.
+  // Ideally during a complete rebuild.
+  let max = CREEP_LIFE_TIME * 4; 
+  if(!room.terminal) {
+    const newmax = room.storage!.store.energy / kWorkerLifeBuild * CREEP_LIFE_TIME;
+    room.log("newmax", newmax);
+    max = Math.max(Math.min(newmax, max), 1);
+  }
+
+  const need = _.sum(ctors, ctor => ctor.progressTotal - ctor.progress);
+  if(need < kWorkerLifeBuild) return 1;
+  return Math.min(max, Math.ceil(((need-kWorkerLifeBuild)/kWorkerLifeBuild) * CREEP_LIFE_TIME));
+}
+
+function workerOverlap(room: Room) {
+  let overlap = ctorWorker(room);
+  if(overlap > 0) {
+    room.log("Builders needed", overlap);
+     return overlap;
+  }
+
   if (room.storage && room.storage.my && room.storage.store.energy > 500000) return 1
   if (_.any(room.findStructs(STRUCTURE_CONTAINER), s => s.hits < 10000)) return 1
 
   if (room.storage && room.storage.my && room.storage.store.energy < 160000) return 0
 
   const wr = _.sample(room.findStructs(STRUCTURE_WALL, STRUCTURE_RAMPART))
-  if (wr && wr.hits < room.wallMax) return 1
+  if (wr && wr.hits < room.maxHits(wr)) return 1
 
   return 0
 }
 
 function worker(flag: TeamExtra) {
-  return flag.replaceRole('worker', nworker(flag.room!))
+  return flag.replaceRole('worker', workerOverlap(flag.room!))
 }

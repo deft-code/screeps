@@ -1,7 +1,7 @@
 import { CreepMove } from "creep.move";
 import * as k from 'constants';
 import { TaskRet } from "Tasker";
-import { isGenericStore, isStoreStruct } from "guards";
+import { isGenericStore, isStoreStruct, isGeneralStoreStruct } from "guards";
 import { Link, Mode } from "struct.link";
 import { injecter } from "roomobj";
 import { errStr } from "debug";
@@ -35,7 +35,7 @@ export class CreepCarry extends CreepMove {
     const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
 
     const spot = _.find(
-      spots, spot => isStoreStruct(spot.structure) && spot.structure.store.getFreeCapacity(RESOURCE_ENERGY))
+      spots, spot => isStoreStruct(spot.structure) && !isGeneralStoreStruct(spot.structure) &&  spot.structure.store.getFreeCapacity(RESOURCE_ENERGY));
 
     if (!spot) return false
 
@@ -80,7 +80,7 @@ export class CreepCarry extends CreepMove {
     if (!this.room.energyFreeAvailable) return false
 
     const extns = _.filter(
-      this.room.findStructs(STRUCTURE_EXTENSION) as StructureExtension[],
+      this.room.findStructs(STRUCTURE_EXTENSION),// as StructureExtension[],
       p => p.store.getFreeCapacity(RESOURCE_ENERGY) && !p.tick.taken)
     const extn = this.pos.findClosestByRange(extns)
 
@@ -111,8 +111,8 @@ export class CreepCarry extends CreepMove {
   taskTransferEnergy() {
     this.dlog('taskTransferEnergy')
     const batteries = _.filter(
-      this.room.find(FIND_STRUCTURES),
-      b => isStoreStruct(b) && b.store.getFreeCapacity(RESOURCE_ENERGY) * 2 > this.store.energy) as EnergyStruct[];
+      this.room.find(FIND_STRUCTURES) as (StructureTower|StructureStorage)[],
+      b => isStoreStruct(b) && (<GenericStore>b.store).getFreeCapacity(RESOURCE_ENERGY)! * 2 > this.store.energy)// as EnergyStruct[];
 
     const battery = this.pos.findClosestByRange(batteries)
     return this.taskTransfer(battery, RESOURCE_ENERGY)
@@ -228,11 +228,16 @@ export class CreepCarry extends CreepMove {
       all = _.filter(
         this.room.find(FIND_DROPPED_RESOURCES),
         r => r.resourceType === RESOURCE_ENERGY && this.pos.inRangeTo(r, r.amount) && r.amount >= limit)
+      all = all.concat(_.filter(this.room.find(FIND_TOMBSTONES), t => t.store.energy >= limit));
+      all = all.concat(_.filter(this.room.find(FIND_RUINS), r => r.store.energy >= limit));
     }
+
+
 
     all = all.concat(_.filter(
       this.room.findStructs(
         STRUCTURE_CONTAINER,
+        STRUCTURE_FACTORY,
         STRUCTURE_LAB,
         STRUCTURE_LINK,
         STRUCTURE_POWER_SPAWN,
