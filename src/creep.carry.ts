@@ -1,7 +1,7 @@
 import { CreepMove } from "creep.move";
 import * as k from 'constants';
 import { TaskRet } from "Tasker";
-import { isGenericStore, isStoreStruct, isGeneralStoreStruct } from "guards";
+import { isGenericStore, isStoreStruct, isGeneralStoreStruct, isSType } from "guards";
 import { Link, Mode } from "struct.link";
 import { injecter } from "roomobj";
 import { errStr } from "debug";
@@ -35,11 +35,25 @@ export class CreepCarry extends CreepMove {
     const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
 
     const spot = _.find(
-      spots, spot => isStoreStruct(spot.structure) && !isGeneralStoreStruct(spot.structure) &&  spot.structure.store.getFreeCapacity(RESOURCE_ENERGY));
+      spots, spot => isStoreStruct(spot.structure) && !isGeneralStoreStruct(spot.structure) && spot.structure.store.getFreeCapacity(RESOURCE_ENERGY));
 
     if (!spot) return false
 
     return this.goTransfer(spot[LOOK_STRUCTURES] as XferStruct, RESOURCE_ENERGY, false)
+  }
+
+  idleTransferExtn(): TaskRet {
+    if (this.intents.transfer) return false;
+    if (!this.store.energy) return false;
+    const looks = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true);
+    for (const look of looks) {
+      const struct = look[LOOK_STRUCTURES];
+
+      if (isSType(struct, STRUCTURE_EXTENSION) && struct.store.getFreeCapacity(RESOURCE_ENERGY) && !struct.tick.transfer) {
+        return this.idleTransfer(struct, RESOURCE_ENERGY);
+      }
+    }
+    return false;
   }
 
   idleTransferExtra() {
@@ -77,16 +91,16 @@ export class CreepCarry extends CreepMove {
 
   taskTransferPool() {
     this.dlog('taskTransferPool')
-    if (!this.room.energyFreeAvailable) return false
+    if (!this.room.energyFreeAvailable) return false;
 
     const extns = _.filter(
       this.room.findStructs(STRUCTURE_EXTENSION),// as StructureExtension[],
-      p => p.store.getFreeCapacity(RESOURCE_ENERGY) && !p.tick.taken)
-    const extn = this.pos.findClosestByRange(extns)
+      p => p.store.getFreeCapacity(RESOURCE_ENERGY) && !p.tick.taken && !p.tick.transfer);
+    const extn = this.pos.findClosestByRange(extns);
 
     if (extn) {
-      extn.tick.taken = this.name
-      return this.taskTransfer(extn, RESOURCE_ENERGY)
+      extn.tick.taken = this.name;
+      return this.taskExtnFill(extn);
     }
 
     // fill spawns last to give srcers a chance to fill them.
@@ -96,6 +110,23 @@ export class CreepCarry extends CreepMove {
     const spawn = this.pos.findClosestByRange(spawns)
 
     return this.taskTransfer(spawn, RESOURCE_ENERGY)
+  }
+
+  taskExtnFill(e: StructureExtension | null): TaskRet {
+    e = this.checkId('extn fill', e);
+    if (!e) return false;
+
+    if (e.tick.transfer) {
+      this.log("Possible double fill:", e, "by", e.tick.transfer);
+    }
+    if (e.store.getFreeCapacity(RESOURCE_ENERGY) <= 0) return false;
+    if (this.store.energy === 0) return false;
+
+    const what = this.goTransfer(e, RESOURCE_ENERGY);
+
+    // Force a retask to keep moving after a successful fill.
+    if (what === 'success') return false;
+    return what;
   }
 
   taskTransferMinerals() {
@@ -111,7 +142,7 @@ export class CreepCarry extends CreepMove {
   taskTransferEnergy() {
     this.dlog('taskTransferEnergy')
     const batteries = _.filter(
-      this.room.find(FIND_STRUCTURES) as (StructureTower|StructureStorage)[],
+      this.room.find(FIND_STRUCTURES) as (StructureTower | StructureStorage)[],
       b => isStoreStruct(b) && (<GenericStore>b.store).getFreeCapacity(RESOURCE_ENERGY)! * 2 > this.store.energy)// as EnergyStruct[];
 
     const battery = this.pos.findClosestByRange(batteries)
@@ -153,12 +184,26 @@ export class CreepCarry extends CreepMove {
     return this.goTransfer(struct, resource);
   }
 
+  idleTransfer(target: XferStruct, resource: ResourceConstant) {
+    return this.goTransfer(target, resource, false);
+  }
+
+  doTransfer(target: XferStruct, resource: ResourceConstant) {
+    return this.goTransfer(target, resource, false);
+  }
+
   goTransfer(target: XferStruct, resource: ResourceConstant, move = true) {
-    this.dlog('goTransfer', target, resource)
-    const err = this.transfer(target, resource)
+    this.dlog('goTransfer', target, resource);
+
+    if (this.intents.transfer) {
+      return (move && this.moveNear(target)) || 'waitTransfer';
+    }
+
+    const err = this.transfer(target, resource);
     if (err === OK) {
-      this.intents.transfer = target
-      return 'success'
+      this.intents.transfer = target;
+      target.tick.transfer = this.name;
+      return 'success';
     }
     if (move && err === ERR_NOT_IN_RANGE) {
       return this.moveNear(target)
@@ -168,8 +213,8 @@ export class CreepCarry extends CreepMove {
   }
 
   idleWithdrawExtra() {
-    if (!this.store.getFreeCapacity()) return false
-    if (this.intents.withdraw) return false
+    if (this.intents.withdraw) return false;
+    if (!this.store.getFreeCapacity()) return false;
 
     const spots =
       _.shuffle(this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true))
@@ -201,18 +246,33 @@ export class CreepCarry extends CreepMove {
   }
 
   idleRecharge() {
-    if (this.store.getFreeCapacity() < this.store.energy) return false
-    if (this.intents.withdraw) return false
+    if (this.intents.withdraw) return false;
+    if (!this.intents.move && this.store.getFreeCapacity() < this.store.energy) return false;
+
+    const lruins = _.shuffle(this.room.lookForAtRange(LOOK_RUINS, this.pos, 1, true));
+    for (const lruin of lruins) {
+      const ruin = lruin[LOOK_RUINS];
+      if (ruin.store.energy) return this.idleWithdraw(ruin, RESOURCE_ENERGY);
+    }
+
+    const ltombs = _.shuffle(this.room.lookForAtRange(LOOK_TOMBSTONES, this.pos, 1, true));
+    for (const ltomb of ltombs) {
+      const tomb = ltomb[LOOK_TOMBSTONES];
+      if (tomb.store.energy) return this.idleWithdraw(tomb, RESOURCE_ENERGY);
+    }
 
     const spots = _.shuffle(this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true))
-
     for (let spot of spots) {
       const s = spot.structure as XferStruct;
-      if (s.structureType === STRUCTURE_SPAWN) continue
-      if (s.structureType === STRUCTURE_EXTENSION) continue
-      if (s.structureType === STRUCTURE_TOWER) continue
-      if (isGenericStore(s) && s.store.energy) {
-        return this.goWithdraw(s, RESOURCE_ENERGY, false)
+      switch (s.structureType) {
+        case STRUCTURE_SPAWN:
+        case STRUCTURE_EXTENSION:
+        case STRUCTURE_TOWER:
+        case STRUCTURE_NUKER:
+          break;
+        default:
+          if (isStoreStruct(s) && s.store.energy) return this.idleWithdraw(s, RESOURCE_ENERGY);
+          break;
       }
     }
     return false
@@ -270,6 +330,16 @@ export class CreepCarry extends CreepMove {
     return false
   }
 
+  taskWithdrawTombstone() {
+    const tombs = this.room.find(FIND_TOMBSTONES);
+    for (const tomb of tombs) {
+      if (!tomb.store.getUsedCapacity()) continue;
+      const rec = _.sample(_.keys(tomb.store) as ResourceConstant[]);
+      return this.taskWithdraw(tomb, rec);
+    }
+    return false;
+  }
+
   taskWithdrawResource(struct: XferStruct) {
     if (!struct) return false
     switch (struct.structureType) {
@@ -321,6 +391,15 @@ export class CreepCarry extends CreepMove {
     }
 
     return this.goWithdraw(struct, resource)
+  }
+
+
+  idleWithdraw(target: Withdrawable, resource: ResourceConstant) {
+    return this.goWithdraw(target, resource, false);
+  }
+
+  doWithdraw(target: Withdrawable, resource: ResourceConstant) {
+    return this.goWithdraw(target, resource, false);
   }
 
   goWithdraw(target: Withdrawable, resource: ResourceConstant, move = true) {
@@ -394,11 +473,12 @@ export class CreepCarry extends CreepMove {
     return false
   }
 
-  taskPickupAny() {
+  taskPickupAny(exclude = []) {
     const resource = _.find(
       this.room.find(FIND_DROPPED_RESOURCES),
       r => {
         if (r.amount < 20) return false
+        if (_.contains(exclude, r.resourceType)) return false;
         if (!this.pos.inRangeTo(r, r.amount)) return false
         if (this.room.controller && this.room.controller.my) {
           if (!this.room.terminal && r.resourceType !== RESOURCE_ENERGY) return false
@@ -407,6 +487,7 @@ export class CreepCarry extends CreepMove {
       }) || null;
     return this.taskPickup(resource);
   }
+
 
   taskPickup(resource: Resource | null) {
     resource = this.checkId('pickup', resource)

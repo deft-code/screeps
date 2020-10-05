@@ -16,7 +16,7 @@ class RoomExtras extends Room {
     return Math.max(0, this.energyCapacityAvailable - this.energyAvailable)
   }
 
-  maxHits(struct: Structure): number{
+  maxHits(struct: Structure<BuildableStructureConstant>): number{
     return this.strat.maxHits(this, struct.structureType, struct.pos.xy);
   }
 
@@ -45,6 +45,10 @@ class RoomExtras extends Room {
       return 'claimed';
     }
     return 'remote';
+  }
+  
+  toString() {
+    return `<a href="/a/#!/room/${Game.shard.name}/${this.name}">${this.name}</a>`
   }
 }
 

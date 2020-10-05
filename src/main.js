@@ -1,6 +1,6 @@
 import 'memhack';
-import { canRun, run } from "shed";
 import * as debug from "debug";
+import { canRun, run } from "shed";
 
 import * as cache from "cache";
 const xx = Game.time;
@@ -10,9 +10,15 @@ cache.injectAll();
 import 'strat';
 
 import 'roomobj';
+import 'role.cap';
+import 'role.depositfarmer';
 import 'role.hub';
 import 'role.mason';
+import 'role.mineral';
+import 'role.shovel';
 import 'role.src';
+
+import 'deposit';
 
 import 'Visual';
 
@@ -33,11 +39,12 @@ import 'constructionsite';
 import 'tombs';
 import 'struct';
 import * as terminals from 'struct.terminal';
-import 'struct.tower';
-import 'struct.link';
-import 'struct.controller';
 import 'struct.container';
+import 'struct.controller';
+import 'struct.factory';
 import 'struct.lab';
+import 'struct.link';
+import 'struct.tower';
 
 import * as market from 'market';
 
@@ -53,6 +60,11 @@ import * as lib from 'lib';
 import * as spawn from 'spawn';
 
 import 'role.shunt';
+import { getRawMarket } from 'markethack';
+import { theRadar } from 'radar';
+import { RoomIntel, roomToCoord, roomFromCoord, roomKind, Kind } from 'intel';
+import { depositRun } from 'deposit';
+import { draw } from 'matrix';
 const mods = [
   'creep.attack',
   'creep.dismantle',
@@ -81,10 +93,8 @@ const mods = [
   'role.hauler',
   'role.manual',
   'role.medic',
-  'role.mhauler',
   'role.minecart',
   'role.miner',
-  'role.mineral',
   'role.paver',
   'role.power',
   'role.ram',
@@ -145,33 +155,42 @@ function init() {
   }
 }
 
-function powerHack() {
-  const r = Game.rooms.W29N11
-  const t = r.terminal
-  const s = Game.getObjectById("5c574d80b8cfe8383392fb37")
+function powerHackRoom(r) {
+  const t = r.terminal;
+  const s = _.first(r.findStructs(STRUCTURE_POWER_SPAWN));
   if (t.cooldown > 0) {
-    debug.log("Terminal busy", t.cooldown)
+    r.log("Terminal busy", t.cooldown)
   } else {
-    if (Game.market.credits < 20000000) {
-      debug.log("Too few credits", Game.market.credits)
+    if (t.store.energy < 10000) {
+      r.log("low power", t.store.energy);
     } else {
+      const maxPrice = (Game.market.credits / 1000000) - 10;
       if (t.store.getFreeCapacity() < 10000) {
-        debug.log("Too little space")
+        r.log("Too little space", t.store.getFreeCapacity());
       } else {
         if ((t.store.power || 0) > 10000) {
           // debug.log("POWER OVERWHELMING")
         } else {
-          debug.log("Buy power", t.buy(RESOURCE_POWER))
+          r.log("Buy power@", maxPrice, t.buy(RESOURCE_POWER, 1000, maxPrice))
         }
       }
+
     }
   }
 
   if (r.storage.store.energy > 10000) {
     s.processPower();
   }
+
+  return [s, t];
+}
+
+function powerHack() {
+  powerHackRoom(Game.rooms.W21N15);
+  const [s, t] = powerHackRoom(Game.rooms.W29N11);
+
   if (s.power > 0 || t.store.power > 0) {
-    Game.spawns.Aycaga.spawnCreep([MOVE, CARRY, CARRY, CARRY], "power")
+    Game.spawns.Aycaga.spawnCreep([MOVE, CARRY, CARRY, CARRY], "power");
   }
 }
 
@@ -208,18 +227,119 @@ function doCrazy() {
   }
   Memory.theMatrix = cm.serialize();
 
-  const ret2 = PathFinder.search(_.sample(exits).pos, { pos: f.pos, range: 5 },{ roomCallback(room) { return cm; } });
+  const ret2 = PathFinder.search(_.sample(exits).pos, { pos: f.pos, range: 5 }, { roomCallback(room) { return cm; } });
   f.room.visual.poly(ret2.path, { stroke: 'red' });
   console.log("incoming load ops", ret2.ops, "cost", ret2.cost);
 }
 
+
+function doMarket() {
+  Game.market.orders;
+  const start = Game.cpu.getUsed();
+  //market.HistoryMean();
+
+  const lookup = getRawMarket();
+
+  const mid = Game.cpu.getUsed();
+  const orders = Game.market.getAllOrders({ resourceType: RESOURCE_ENERGY });
+  const end = Game.cpu.getUsed();
+  debug.log("getMarket", _.size(lookup), "in", mid - start);
+  debug.log("getAllOrders", _.size(orders), "in", end - mid);
+  //const orders = Game.market.getAllOrders();//RESOURCE_ENERGY);
+}
+
+
+// evil sell order
+//const theOrder = "5ec4cd496d8859917f234cd9";
+const theOrder = "5ec4de716d8859ff7f27e29c";
+function evil() {
+  // Disable Evil Market manipulation
+  if (Game.time) return false;
+  const o = Game.market.orders[theOrder];
+  if (!o) return false;
+  if (o.remainingAmount > 0) {
+    Game.rooms.W29N11.terminal.deal(o.id, Infinity);
+    return true;
+  }
+
+  if (Game.time < Memory.evil.next) return false;
+  const today = _.last(_.sortBy(Game.market.getHistory(RESOURCE_POWER), h => h.date));
+  debug.log("today", JSON.stringify(today));
+  if (today.avgPrice < 3.5) return false;
+  Memory.evil.next = Game.time + _.random(300, 325);
+  //Memory.evil.next = Game.time + 15;
+  debug.log("extending", Game.market.extendOrder(o.id, Math.min(Game.rooms.W29N11.terminal.store[RESOURCE_POWER], _.random(9000, 9999))));
+  return true;
+}
+
+function drawStaleness(roomname, range) {
+  console.log(roomname, "staleness", RoomIntel.get(roomname).staleness);
+  const [ox, oy] = roomToCoord(roomname);
+  const v = new RoomVisual(roomname);
+  for (let dx = -range; dx <= range; dx++) {
+    for (let dy = -range; dy <= range; dy++) {
+      const newname = roomFromCoord(ox + dx, oy + dy);
+      const intel = RoomIntel.get(newname);
+      let stale = 'x';
+      if (intel) stale = intel.staleness;
+      if (intel && intel.visibility) stale = 'v'
+      const k = roomKind(newname);
+      let c = "green";
+      switch (k) {
+        case Kind.SourceKeeper: c = "red"; break;
+        case Kind.Hwy: c = "blue"; break;
+      }
+      const r = Game.rooms[newname];
+      if (r && r.controller?.owner?.username === 'deft-code') c = 'yellow';
+
+      const x = 25 + dx * 2;
+      const y = 25 + dy * 2;
+
+      if (_.contains(theRadar.tick.targets, newname)) {
+        v.circle(x, y, { radius: 1 });
+      }
+
+      v.text(stale, x, y, { stroke: c });
+    }
+  }
+}
+
+function hackAlloy() {
+  const t = Game.rooms.W21N15.terminal;
+  if (!t || t.store.metal > 1000) return;
+  t.room.log("requested metal", t.requestMineral(RESOURCE_METAL, 1000));
+}
+
+function genPixels() {
+  if(Game.cpu.bucket > 10000-Game.cpu.limit) {
+    debug.log("Generating Pixel from", Game.cpu.bucket, Game.cpu.generatePixel());
+  }
+}
+
+let servert = Game.time;
 let lastClient = 0;
 module.exports.loop = main
 function main() {
+  if (Game.shard.name !== 'shard1') {
+    console.log("WRONG SHARD", Game.shard);
+    return;
+  }
+
+  genPixels();
+
+  // const history = require('history').history;
+  // history.run();
+  // debug.log('\n', JSON.stringify(history.memory.players.npc, null, ' '));
+
+  //drawStaleness('W34N20', 10);
+
+  // console.log("server", servert);
+
+  //doMarket();
   // doCrazy();
-  if (Memory.client.time !== lastClient) {
+  if (Memory.client?.time !== lastClient) {
     debug.log(Game.time, "client", JSON.stringify(Memory.client));
-    lastClient = Memory.client.time;
+    lastClient = Memory.client?.time;
   }
   const crooms = _.filter(Game.rooms, r => r.controller && r.controller.level > 3 && r.controller.my)
   Game.terminals = _.shuffle(_.compact(_.map(crooms, r => r.terminal)))
@@ -242,33 +362,41 @@ function main() {
   const me = rooms.slice(third, rooms.length - third);
   const lo = rooms.slice(rooms.length - third, rooms.length);
 
-  run(hi, 1000, hi => hi.strat.run(hi));
-  run(hi, 2000, hi => hi.strat.after(hi));
-  run(me, 2000, me => me.strat.run(me));
-  run(me, 2500, me => me.strat.after(me));
-  run(lo, 3000, lo => lo.strat.run(lo));
-  run(lo, 4000, lo => lo.strat.after(lo));
-  run(hi, 5000, hi => hi.strat.optional(hi));
-  run(me, 5500, me => me.strat.optional(me));
-  run(lo, 6000, lo => lo.strat.optional(lo));
 
-  run(Game.powerCreeps, 2000, pc => pc.run());
-  run(Game.powerCreeps, 3000, pc => pc.after());
+  run(hi, 750, hi => hi.strat.run(hi));
+  run(hi, 1000, hi => hi.strat.after(hi));
+  run(me, 1000, me => me.strat.run(me));
+  run(me, 1500, me => me.strat.after(me));
+  run(lo, 1500, lo => lo.strat.run(lo));
+  run(lo, 2000, lo => lo.strat.after(lo));
+  run(hi, 2500, hi => hi.strat.optional(hi));
+  run(me, 2750, me => me.strat.optional(me));
+  run(lo, 3000, lo => lo.strat.optional(lo));
 
-  if (canRun(Game.cpu.getUsed(), 4000)) {
+  run(Game.powerCreeps, 1000, pc => pc.run());
+  run(Game.powerCreeps, 1500, pc => pc.after());
+
+  if (canRun(Game.cpu.getUsed(), 2000)) {
     spawn.run();
   }
 
-  if (canRun(Game.cpu.getUsed(), 9000)) {
+  if (canRun(Game.cpu.getUsed(), 4500)) {
     terminals.run()
   }
 
-  run(Game.flags, 9000, f => f.darkRun());
+  run(Game.flags, 4500, f => f.darkRun());
 
-  if (canRun(Game.cpu.getUsed(), 9000)) {
+  if (canRun(Game.cpu.getUsed(), 4500)) {
     powerHack();
-    market.run()
+    market.run();
+    theRadar.run();
+    depositRun();
+    hackAlloy();
+    market.theMarket.run();
   }
+
+  // theRadar.scan("W24N14");
+  //drawStaleness('W24N13', 12);
 
   const nflags = _.size(Game.flags)
   const mflags = _.size(Memory.flags)

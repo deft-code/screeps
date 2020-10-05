@@ -62,6 +62,64 @@ gulp.task('plus', function () {
   gulp.src('src/*.js').pipe(screeps(credentials))
 })
 
+gulp.task('market', () => {
+  const options = {
+    hostname: 'screeps.com',
+    port: '443',
+    path: '/api/game/market/stats?resourceType=power&shard=shard1',
+    method: 'GET',
+    headers: {
+      'X-Token': credentials.market_token,
+    },
+  }
+
+  console.log("before request")
+
+  const req = https.request(options, (res) => {
+    res.on('data', (chunk) => {
+      console.log("data:", chunk);
+      console.log("data str:", new String(chunk));
+      console.log("data json:", JSON.parse(chunk));
+    })
+    res.on('end', () => {
+      console.log('end');
+    })
+  })
+  req.on('error', function (e) {
+    console.error('request error:', e)
+  })
+  req.end()
+})
+
+gulp.task('money', () => {
+  const options = {
+    hostname: 'screeps.com',
+    port: '443',
+    path: '/api/user/money-history?page=1',
+    method: 'GET',
+    headers: {
+      'X-Token': credentials.money_token,
+    },
+  }
+
+  console.log("before request")
+
+  const req = https.request(options, (res) => {
+    res.on('data', (chunk) => {
+      console.log("data:", chunk);
+      console.log("data str:", new String(chunk));
+      console.log("data json:", JSON.stringify(JSON.parse(chunk), null, ' '));
+    })
+    res.on('end', () => {
+      console.log('end');
+    })
+  })
+  req.on('error', function (e) {
+    console.error('request error:', e)
+  })
+  req.end()
+})
+
 gulp.task('fetch', () => {
   const options = {
     hostname: 'screeps.com',

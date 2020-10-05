@@ -1,5 +1,6 @@
 import { Targetable, Tasker, MemoryTask } from "Tasker";
 import { merge } from "lib";
+import { extender } from "roomobj";
 
 declare global {
   interface FlagMemory {
@@ -11,15 +12,22 @@ declare global {
 
 const missionTasker = new Tasker();
 
+@extender
 export class FlagExtra extends Flag {
   get id(): string {
     return 'flag_' + this.name;
   }
 
-  get parent() {
+  get parentName() {
     const i = this.name.indexOf('_');
     if (i < 0) return null;
     return this.name.substring(i + 1);
+  }
+
+  get parent(): FlagExtra | null {
+    const name = this.parentName;
+    if (!name) return null;
+    return Game.flags[name] as FlagExtra || null;
   }
 
   childName(prefix: string): string {
@@ -65,6 +73,8 @@ export class FlagExtra extends Flag {
         return require('planner')(this)
       case COLOR_CYAN:
         return this.runMeta();
+      case COLOR_GREY:
+        return runChildFlag(this);
     }
   }
 
@@ -104,4 +114,9 @@ export class FlagExtra extends Flag {
   }
 }
 
-merge(Flag, FlagExtra)
+function runChildFlag(f: FlagExtra) {
+  const p = f.parent;
+  if (!p) {
+    f.log("missing parent", f.remove());
+  }
+}

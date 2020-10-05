@@ -264,12 +264,6 @@ exports.srcPositions = (src) => {
 }
 
 //
-// Structure
-//
-
-exports.structHurts = exports.creepHurts
-
-//
 // StructureTower
 //
 
@@ -320,9 +314,6 @@ exports.enhanceProto = (klass, re) => {
   }
 }
 
-exports.enhanceCreep = () =>
-    exports.enhanceProto(Creep, /^creep(.*)$/, exports)
-
 exports.enhancePosition = () => {
   exports.enhanceProto(RoomPosition, /^roompos(.*)$/, exports)
   RoomPosition.FromMem = exports.roomposFromMem
@@ -338,7 +329,6 @@ exports.enhanceTower = () =>
     exports.enhanceProto(StructureTower, /^tower(.*)/, exports)
 
 exports.enhanceAll = () => {
-  exports.enhanceCreep()
   exports.enhancePosition()
   exports.enhanceRoom()
   exports.enhanceStructure()

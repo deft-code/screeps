@@ -152,6 +152,7 @@ class PowerCreepExtra extends PowerCreep {
     }
 
     after() {
+        if (!this.room) return;
         dynamicRole(this, 'after');
     }
 

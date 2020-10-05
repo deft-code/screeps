@@ -2,7 +2,7 @@ import * as debug from 'debug';
 
 export interface MemoryTask {
     task: string
-     args: (number | string)[]
+    args: (number | string)[]
 }
 
 export interface TaskMemory {
@@ -25,7 +25,11 @@ interface TaskRun {
     [taskName: string]: (target: string) => TaskRet
 }
 
-export type TaskRet = false | 'done' | 'loop' | 'again' | string;
+export type TaskRet = false | // task failed, (run Role)
+    'done' | // task completed, stop
+    'role' | // task abandonned, run role
+    'again' | // task proceeding, run task again
+    string; // task proceeding, stop
 
 export function dynamicRole(c: any, prefix: string): unknown {
     const role = c.role;
@@ -51,7 +55,7 @@ export class Tasker {
         return debug.where(n).func;
     }
 
-    taskNull(c: Taskable, n=4, ...args: (string | number) []): string {
+    taskNull(c: Taskable, n = 4, ...args: (string | number)[]): string {
         const task = this.location(n)
         c.memory.task = {
             task,
@@ -104,20 +108,20 @@ export class Tasker {
             (Game.cpu.getUsed() - this.cpu) < this.maxCpu;
     }
 
-    repeat(c: Taskable): TaskRet {
+    doTask(c: Taskable): TaskRet {
         const info = c.memory.task;
-        if (!info || !_.isObject(info)) return 'loop';
+        if (!info || !_.isObject(info)) return 'role';
         const args = info.args;
         let ret;
-        try { 
+        try {
             ret = dynamicRun(c, info.task, args);
-        } catch(err) {
+        } catch (err) {
             this.clean(c);
             throw err;
         }
         if (ret === 'nothing') {
             c.log("Bad task!", JSON.stringify(info));
-            return 'loop';
+            return 'role';
         }
         return ret as TaskRet;
     }
@@ -127,17 +131,15 @@ export class Tasker {
             if (!this.preloop(c)) {
                 this.clean(c);
             }
-
-            let what = this.repeat(c);
+            let what = this.doTask(c);
             // console.log("tasker ret", c, what);
-            if (what === 'loop') {
-                this.clean(c);
-                what = this.loop(c)
-            }
-            if (!what || what === 'done') {
+            if (!what || what === 'role' || what === 'done') {
                 this.clean(c);
             }
-            if (!what || what === 'done' || what === 'again') {
+            if (!what || what === 'role') {
+                what = this.loop(c);
+            }
+            if (what === 'again') {
                 continue;
             }
             break;

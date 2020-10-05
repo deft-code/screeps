@@ -13,7 +13,12 @@ export class TickCache {
     cache = new Map<string, any>();
 
     getKey(obj: CacheRoot): string {
-        return (obj as OwnedStructure).id || (obj as Flag).name
+        const key = (obj as OwnedStructure).id || (obj as Flag).name;
+        if (!key) {
+            console.log("Bad cache object", obj, _.keys(obj));
+            return "bad key"
+        }
+        return key;
     }
 
     getCache(obj: CacheRoot): any {
@@ -128,6 +133,14 @@ declare global {
         cache: FlagCache
     }
 
+    interface StructureTick {
+        transfer?: string
+        withdraw?: string
+    }
+    interface Structure {
+        tick: StructureTick
+    }
+
     interface CreepTick {
 
     }
@@ -139,17 +152,17 @@ declare global {
         cache: CreepCache
     }
 
-    interface ExtensionTick {
+    interface ExtensionTick extends StructureTick {
     }
     interface ExtensionCache extends RoomObjectCache {
 
     }
-    interface StructureExtension {
+    interface StructureExtension extends StructureTick {
         tick: ExtensionTick
         cache: ExtensionCache
     }
 
-    interface SpawnTick {
+    interface SpawnTick extends StructureTick {
     }
     interface SpawnCache extends RoomObjectCache {
     }

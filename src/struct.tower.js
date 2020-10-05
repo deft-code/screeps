@@ -89,8 +89,7 @@ export function runTowers(room) {
     if (!towers.length) return;
     let overRepair = Infinity;
     let repairs = [];
-    for (const struct of room.find(FIND_STRUCTURES)) {
-      if (struct.structureType === STRUCTURE_ROAD) continue;
+    for (const struct of room.findStructs(STRUCTURE_WALL, STRUCTURE_RAMPART)) {
       const max = dynMaxHits(struct);
       if (struct.hits > max && max > 0) {
         const over = struct.hits / max;

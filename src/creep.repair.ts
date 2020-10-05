@@ -55,20 +55,31 @@ export class CreepRepair extends CreepBuild {
     }
 
     taskRepairOrdered() {
-        const decay = this.room.findStructs(
-            STRUCTURE_ROAD, STRUCTURE_CONTAINER, STRUCTURE_RAMPART);
+        // const decay = this.room.findStructs(
+        //     STRUCTURE_ROAD, STRUCTURE_CONTAINER, STRUCTURE_RAMPART);
 
-        return this.taskRepairStructs(decay) ||
-            this.taskRepairStructs(this.room.find(FIND_STRUCTURES));
+        // return this.taskRepairStructs(decay) ||
+        //     this.taskRepairStructs(this.room.find(FIND_STRUCTURES));
+        return this.taskRepairStructs(this.room.find(FIND_STRUCTURES));
     }
 
     taskRepairStructs(structs: Structure[]) {
         const shuffled = _.shuffle(structs);
+
+        let minScale = Infinity;
+        for (const struct of shuffled) {
+            if (struct.structureType !== STRUCTURE_RAMPART && struct.structureType !== STRUCTURE_WALL) continue;
+            const max = dynMaxHits(struct);
+            if (max > 0) {
+                const scale = struct.hits / max;
+                if (scale < minScale) minScale = scale;
+            }
+        }
         for (let struct of shuffled) {
             switch (struct.structureType) {
                 case STRUCTURE_RAMPART:
                 case STRUCTURE_WALL:
-                    if (struct.hits < (0.9 * this.room.maxHits(struct))) {
+                    if (struct.hurts > 0 && struct.hits < (minScale + 0.1) * this.room.maxHits(struct)) {
                         return this.taskRepair(struct);
                     }
                     break;
@@ -99,7 +110,7 @@ export class CreepRepair extends CreepBuild {
         if (!max) {
             max = this.memory.task!.max;
             if (!max) {
-                max = this.memory.task!.max = struct.hits + 10000;
+                max = this.memory.task!.max = struct.hits + 100000;
             }
         }
         if (struct.hits > max) return false;

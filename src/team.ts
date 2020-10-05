@@ -5,6 +5,9 @@ import { injecter } from "roomobj";
 import * as k from 'constants';
 import * as lib from 'lib';
 import * as matrix from 'matrix';
+import { RoomIntel } from "intel";
+import { getSpots } from "spots";
+import { depositMaxCooldown, depositDist, depositMaxCooldownByDist } from "deposit";
 
 declare global {
   interface Memory {
@@ -12,6 +15,7 @@ declare global {
   }
   interface FlagMemory {
     creeps?: string[];
+    depositDist?: number
   }
 }
 
@@ -111,6 +115,7 @@ class TeamExtra extends FlagExtra {
       case 'startup': return this.teamStartup()
       case 'kraken': return this.teamKraken();
       case 'zombie': return this.teamZombie()
+      case 'deposit': return this.teamDeposit();
       default:
         this.log('Bad Mission', w)
     }
@@ -157,6 +162,28 @@ class TeamExtra extends FlagExtra {
     if (r > 300000) n = 300
 
     return this.paceRole('zombiefarmer', n)
+  }
+
+  teamDeposit() {
+    const intel = RoomIntel.get(this.pos.roomName);
+    if (!intel) {
+      this.log("missing intel!");
+      this.setColor(COLOR_BLUE, COLOR_BROWN);
+      return false;
+    }
+    const dist = this.memory.depositDist = this.memory.depositDist || depositDist(this.pos.roomName);
+    const max = depositMaxCooldownByDist(dist);
+    const cooldown = intel.depositCooldown;
+    if (!intel.depositTTL || cooldown > max) {
+      this.setColor(COLOR_BLUE, COLOR_BROWN);
+      return false;
+    }
+    let nspots = getSpots(this.pos).length;
+
+    // Farmers on younger deposit will make multiple trips, essentially doubling the number or workers.
+    // This usually more than compensates for extra travel time.
+
+    return this.paceRole('depositfarmer', Math.max(150, (CREEP_LIFE_TIME - (50 * dist)) / nspots));
   }
 
   teamKraken() {
@@ -279,7 +306,12 @@ class TeamExtra extends FlagExtra {
 
   // This spawns creeps no faster than a fixed rate.
   paceRole(role: string, rate: number, mem?: any) {
-    if (rate < 150) return false
+    if (rate < 150) {
+      if (rate > 0) {
+        this.log("BAD pace rate", role, rate);
+      }
+      return false;
+    }
 
     const when = this.memory.when = this.memory.when || {}
     const wrole = when[role]
@@ -295,7 +327,7 @@ class TeamExtra extends FlagExtra {
   // An overlap of 1500 creates 2 creeps
   // An overlap of 0 starts spawning the replacement after the first dies.
   replaceRole(role: string, overlapTicks: number, mem?: any) {
-    if(overlapTicks <= 0) return false;
+    if (overlapTicks <= 0) return false;
     const total = this.countRole(role)
     const n = this.roleCreeps(role).length
     this.dlog(role, total, ':', n)
@@ -331,13 +363,12 @@ class TeamExtra extends FlagExtra {
       hub(this) ||
       defender(this) ||
       micro(this) ||
-      //bootstrap(this) ||
-      //harvester(this) ||
       metasrc(this, 'asrc') ||
       metasrc(this, 'bsrc') ||
       worker(this) ||
+      shovel(this) ||
       controller(this) ||
-      // mineral(this) ||
+      mineral(this) ||
       chemist(this) ||
       false
   }
@@ -526,6 +557,11 @@ function controller(flag: TeamExtra) {
       cap = k.RCL2Energy
     }
   }
+
+  if (flag.room!.controller!.level > 7) {
+    cap = k.RCL2Energy;
+  }
+
   return flag.replaceRole('ctrl', 28, {
     boosts: [RESOURCE_CATALYZED_GHODIUM_ACID],
     egg: { ecap: cap }
@@ -674,6 +710,11 @@ function reserve(flag: TeamExtra) {
   return flag.paceRole('reserver', n, {})
 }
 
+function shovel(flag: TeamExtra) {
+  if (!(flag.room?.controller?.level! >= 7)) return false;
+  return flag.replaceRole('shovel', 1);
+}
+
 function shunts(flag: TeamExtra) {
   let ncore = 0
   let naux = 0
@@ -753,39 +794,64 @@ function upgrader(flag: TeamExtra) {
 }
 
 
+const kMaxWorkerTTL = 4 * CREEP_LIFE_TIME;
 const kWorkerLifeBuild = 40000;
 function ctorWorker(room: Room) {
   const ctors = room.find(FIND_MY_CONSTRUCTION_SITES);
-  if(!ctors.length) return 0;
-  if(!room.storage && !room.terminal) return 1;
+  if (!ctors.length) return 0;
+  if (!room.storage && !room.terminal) return 1;
   // TODO let this go higher after after I can test it works well.
   // Ideally during a complete rebuild.
-  let max = CREEP_LIFE_TIME * 4; 
-  if(!room.terminal) {
+  let max = kMaxWorkerTTL;
+  if (!room.terminal) {
     const newmax = room.storage!.store.energy / kWorkerLifeBuild * CREEP_LIFE_TIME;
     room.log("newmax", newmax);
     max = Math.max(Math.min(newmax, max), 1);
   }
 
   const need = _.sum(ctors, ctor => ctor.progressTotal - ctor.progress);
-  if(need < kWorkerLifeBuild) return 1;
-  return Math.min(max, Math.ceil(((need-kWorkerLifeBuild)/kWorkerLifeBuild) * CREEP_LIFE_TIME));
+  if (need < kWorkerLifeBuild) return 1;
+  return Math.min(max, Math.ceil(((need - kWorkerLifeBuild) / kWorkerLifeBuild) * CREEP_LIFE_TIME));
+}
+
+
+const kWorkerLifeRepair = 2000000;
+function repairWorker(room: Room) {
+  const wrs = _.sample(room.findStructs(STRUCTURE_WALL, STRUCTURE_RAMPART), 4);
+  const amount = _.sum(wrs, wr => {
+    const need = room.maxHits(wr) - wr.hits;
+    if (need > 0) return need;
+    return 0;
+  });
+  const repairTTL = Math.ceil((amount / kWorkerLifeRepair) * CREEP_LIFE_TIME);
+  // if(repairTTL > 3000) {
+  //   room.log("walls in need of repair", amount, wrs, wrs.map(wr => [wr.hits, room.maxHits(wr)]));
+  // }
+  let energyTTL = kMaxWorkerTTL;
+  if (!room.terminal) {
+    if (room.storage) {
+      energyTTL = Math.ceil(room.storage.store.energy / (kWorkerLifeRepair / 100)) * CREEP_LIFE_TIME;
+    } else {
+      energyTTL = 1;
+    }
+  }
+  return Math.min(kMaxWorkerTTL, repairTTL, energyTTL);
+
 }
 
 function workerOverlap(room: Room) {
-  let overlap = ctorWorker(room);
-  if(overlap > 0) {
-    room.log("Builders needed", overlap);
-     return overlap;
+  const siteTTL = ctorWorker(room);
+  const repairTTL = repairWorker(room);
+  const ttl = siteTTL + repairTTL;
+  if (ttl > 0) {
+    room.log(`nbuilders ${siteTTL}, nrepairers: ${repairTTL}`);
+    return Math.min(kMaxWorkerTTL, ttl);
   }
 
   if (room.storage && room.storage.my && room.storage.store.energy > 500000) return 1
   if (_.any(room.findStructs(STRUCTURE_CONTAINER), s => s.hits < 10000)) return 1
 
   if (room.storage && room.storage.my && room.storage.store.energy < 160000) return 0
-
-  const wr = _.sample(room.findStructs(STRUCTURE_WALL, STRUCTURE_RAMPART))
-  if (wr && wr.hits < room.maxHits(wr)) return 1
 
   return 0
 }

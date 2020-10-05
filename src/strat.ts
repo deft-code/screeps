@@ -6,6 +6,10 @@ import { run } from "shed";
 import { runLinks, balanceSplit } from "struct.link";
 import { runKeeper } from "room.keeper";
 import { spawningRun } from "creep.role";
+import { theRadar } from "radar";
+import { updateIntel } from "intel";
+import { runFactory } from "struct.factory";
+import { theMarket } from "market";
 
 declare global {
     interface Memory {
@@ -28,7 +32,7 @@ interface IStrat {
     optional(room: Room): void;
     evolve(roomName: string): IStrat | null;
     spawnEnergy(room: Room): SpawnEnergy[] | null;
-    maxHits(room: Room, stype: StructureConstant, xy: number): number;
+    maxHits(room: Room, stype: BuildableStructureConstant, xy: number): number;
 }
 
 @extender
@@ -94,6 +98,7 @@ export class NullStrat implements IStrat {
     }
     init(room: Room) {
         legacyInit(room);
+        updateIntel(room);
     }
     run(room: Room) {
         run(room.find(FIND_MY_CREEPS), 1000, c => c.run());
@@ -107,7 +112,7 @@ export class NullStrat implements IStrat {
     }
     evolve(roomName: string): null { return null }
     spawnEnergy(room: Room): SpawnEnergy[] | null { return null; }
-    maxHits(room: Room, stype: StructureConstant, xy: number): number {
+    maxHits(room: Room, stype: BuildableStructureConstant, xy: number): number {
         switch (stype) {
             case STRUCTURE_ROAD: return ROAD_HITS;
             case STRUCTURE_CONTAINER: return CONTAINER_HITS;
@@ -181,6 +186,14 @@ function getMyStrat(flag: Flag): IStrat {
 
 class ClaimedStrat extends NullStrat implements IStrat {
     name = "claimedstrat"
+    init(room: Room) {
+        super.init(room);
+        if (room.controller?.level === 8) {
+            const ob = _.first(room.findStructs(STRUCTURE_OBSERVER));
+            if (ob) theRadar.register(ob);
+        }
+        theMarket.registerRoom(room);
+    }
     order(room: Room): number {
         const nullOrder = super.order(room);
         if (room.controller && room.controller.my) return nullOrder + 2;
@@ -198,9 +211,11 @@ class ClaimedStrat extends NullStrat implements IStrat {
         this.doUpkeep(room);
         spawningRun(room);
         drawMinerals(room);
+        runFactory(room);
     }
 
     doUpkeep(room: Room) {
+        if (room.name === 'W21N15') room.log("oops");
         runKeeper(room);
     }
 
@@ -209,7 +224,7 @@ class ClaimedStrat extends NullStrat implements IStrat {
         balanceSplit(room);
     }
 
-    maxHits(room: Room, stype: StructureConstant, xy: number): number {
+    maxHits(room: Room, stype: BuildableStructureConstant, xy: number): number {
         switch (stype) {
             case STRUCTURE_ROAD: return ROAD_HITS;
             case STRUCTURE_CONTAINER: return CONTAINER_HITS;
@@ -231,17 +246,28 @@ class ClaimedStrat extends NullStrat implements IStrat {
     }
 }
 
+let cpu = 0;
+let nhits = 0;
+
 class NovaStrat extends ClaimedStrat {
     name = "novastrat"
     doUpkeep(room: Room) {
+        const start = Game.cpu.getUsed()
         room.meta.run();
+        room.log("metastruct use", Game.cpu.getUsed() - start, "hits", cpu, 'count', nhits);
+        cpu = 0;
+        nhits = 0;
     }
     doLinks(room: Room) {
         runLinks(room);
     }
     spawnEnergy(room: Room) { return room.meta.spawnEnergy(); }
-    maxHits(room: Room, stype: StructureConstant, xy: number): number {
-        return room.meta.maxHits(stype, xy);
+    maxHits(room: Room, stype: BuildableStructureConstant, xy: number): number {
+        const start = Game.cpu.getUsed()
+        const max = room.meta.maxHits(stype, xy);
+        cpu += Game.cpu.getUsed() - start;
+        nhits++;
+        return max;
     }
 }
 

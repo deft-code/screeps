@@ -3,6 +3,7 @@ import { CreepRepair } from "creep.repair";
 import { isStoreStruct, isSType } from "guards";
 import { TaskRet } from "Tasker";
 import { injecter } from "roomobj";
+import { Mode } from "struct.link";
 
 declare global {
     interface CreepMemory {
@@ -45,8 +46,22 @@ class SrcerExtra extends CreepRepair {
         if (rcl === 7) reserve = 500;
         if (rcl === 8) reserve = 1000;
 
-        const filled = this.idleFillExtns(!!cont && cont.store.energy < reserve);
+        const contLow = !!cont && cont.store.energy < reserve;
+        const filled = this.idleFillExtns(contLow);
         const recharging = filled === STRUCTURE_EXTENSION || filled === STRUCTURE_SPAWN;
+
+        // Switch to dump mode if there is wasted energy on the ground.
+        const link = this.mylink();
+        if (link) {
+            if (recharging || contLow) {
+                link.mode = Mode.pause
+            } else {
+                link.mode = Mode.src;
+                if (_.any(this.pos.lookFor(LOOK_RESOURCES), r => r.resourceType === RESOURCE_ENERGY)) {
+                    link.mode = Mode.dump;
+                }
+            }
+        }
 
         if (this.store.getFreeCapacity()) {
             this.idleNom() ||

@@ -20,10 +20,13 @@ class TerminalExtra {
     return this.store.energy > kEnergyHi
   }
 
-  sell(resource, amount = 1000) {
+  sell(resource, amount = 1000, safe = -Infinity) {
     const orders = _.filter(
       Game.market.getAllOrders({ resourceType: resource }),
-      o => !Game.market.orders[o.id] && o.type === ORDER_BUY && o.amount > 0)
+      o => !Game.market.orders[o.id] &&
+        o.type === ORDER_BUY &&
+        o.amount > 0 &&
+        o.price > safe);
 
     const order = _.max(orders, o =>
       100000 * o.price + Game.market.calcTransactionCost(1000, this.room.name, o.roomName))
@@ -66,7 +69,8 @@ class TerminalExtra {
       }
       order = o
     }
-    const n = Math.min(order.amount, amount)
+    const most = order.type === ORDER_SELL ? this.store.getFreeCapacity() : this.store[order.resourceType];
+    const n = Math.min(order.amount, amount, most);
     return debug.log('delt', Game.market.deal(order.id, n, this.room.name), n, JSON.stringify(order));
   }
 
@@ -78,6 +82,14 @@ class TerminalExtra {
 
   sellOrder(resource, amount = 10000) {
     const m = Memory.market[resource]
+    // 2020-05-20
+    // TODO temporary hack to manipulate energy price.
+    if (resource === RESOURCE_ENERGY) {
+      const mbuy = Math.min(m.buy99, m.buy95);
+      const eprice = mbuy / 1.7; // assume ~30 dist will cost .7 energy to actually sell my energy.
+      const eso = eprice * 1.1; // cover the market tax + some fudge
+      return this.order(ORDER_SELL, resource, eso, amount)
+    }
     if (!m || !m.sell) {
       this.room.dlog('Bad market', resource, amount)
       return
@@ -172,11 +184,37 @@ function mineralBalance() {
       if (ret) return ret
       if (autobuy) {
         const err = t.autoBuy(r);
-        if(err !== false) t.room.errlog(err, "autobuying", r);
+        if (err !== false) t.room.errlog(err, "autobuying", r);
         autobuy = err != ERR_FULL;
       }
     }
   }
+}
+
+function sellAlloy() {
+  const ts = _.shuffle(Game.terminals);
+  for (const t of ts) {
+    if (t.cooldown) continue;
+    if (t.store[RESOURCE_ALLOY] < 200) continue;
+    const ret = t.sell(RESOURCE_ALLOY, 500, 2.5);
+    if (ret === OK) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function sellMetal() {
+  const ts = _.shuffle(Game.terminals);
+  for (const t of ts) {
+    if (t.cooldown) continue;
+    if (t.store[RESOURCE_METAL] < 2000) continue;
+    const ret = t.sell(RESOURCE_METAL, 500, 2.5);
+    if (ret === OK) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function sellOff() {
@@ -258,5 +296,7 @@ exports.run = function (x) {
     mineralBalance() ||
     energyBalance() ||
     energySell() ||
+    sellAlloy() ||
+    sellMetal() ||
     sellOff()
 }

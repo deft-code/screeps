@@ -167,9 +167,10 @@ class RoomKeeper {
     const plans = this.getPlans(stype)
     if (total === plans.length) return false
     if (total > plans.length) {
-      debug.log('found new', stype)
-      const xys = _.map(structs.concat(sites), s => this.room.packPos(s.pos))
-      this.plan(stype, ...xys)
+      // WARNING No more slurping
+      this.room.log('found new', stype)
+      // const xys = _.map(structs.concat(sites), s => this.room.packPos(s.pos))
+      // this.plan(stype, ...xys)
       return false
     }
 

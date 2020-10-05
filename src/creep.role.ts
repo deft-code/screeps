@@ -40,13 +40,20 @@ export class CreepRole extends CreepExtra {
     return Game.rooms[this.memory.home] || this.teamRoom || this.room
   }
 
-  get team() {
+  get team(): Flag {
+
     const t = Game.flags[this.memory.team]
-    if (!t) {
-      const team = _.last(this.name.split('_', 2));
-      return Game.flags[team];
-    }
-    return t
+    if (t) return t;
+
+    const teamName = _.last(this.name.split('_', 2));
+    const team = Game.flags[teamName];
+    if (team) return team;
+
+    const local = _.find(this.room.find(FIND_FLAGS), f => f.color === COLOR_BLUE);
+    if(local) return local;
+
+    this.log("lost creep!");
+    return Game.flags.Home;
   }
 
   get atTeam() {
@@ -169,6 +176,12 @@ export class CreepRole extends CreepExtra {
   checkId<T extends RoomObject>(name: string, obj: T | string | undefined | null): T | null {
     if (_.isString(obj)) obj = Game.getObjectById(obj)
 
+    const where = debug.where(2).func;
+    if(_.camelCase('task ' + name) !== where) {
+      this.log("mismatched tasks", name, 'vs', where);
+    }
+
+
     if (obj) {
       obj = <T>obj;
       this.memory.task = {
@@ -272,6 +285,10 @@ export class CreepRole extends CreepExtra {
   }
 
   taskBoostMineral(mineral?: MineralBoostConstant) {
+    if(!mineral) {
+      mineral = _.sample(this.memory.boosts!);
+    }
+    if(!mineral) return false;
     return this.taskBoost(this.room.requestBoost(mineral));
   }
 
@@ -279,6 +296,7 @@ export class CreepRole extends CreepExtra {
     this.doBoosts();
     lab = this.checkId('boost', lab);
     if (!lab) return false;
+    const planType = lab.planType;
     lab.room.requestBoost(lab.planType);
 
     if (lab.mineralAmount < LAB_BOOST_MINERAL) return false;
@@ -290,6 +308,7 @@ export class CreepRole extends CreepExtra {
     }
     if (err !== OK) {
       this.errlog(err, `UNEXPECTED boost err @ ${lab}`);
+      _.remove(this.memory.boosts!, b => b === planType);
       return false;
     }
     return 'success';

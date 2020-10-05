@@ -1,18 +1,13 @@
 import * as lib from 'lib';
 import * as debug from 'debug';
+import { RoomIntel } from 'intel';
 
 export function isHostile(roomOrName: string | Room) {
   const name = lib.getRoomName(roomOrName)
-  switch (name) {
-    case 'W22N15':
-    case 'W23N15':
-    case 'W23N16':
-    case 'W25N13':
-    case 'W27N14':
-    case 'W27N16':
-      return true
-  }
-  return false
+  const intel = RoomIntel.get(name);
+  if (!intel) return false;
+  // if rcl is null, comparison will be false which is correct.
+  return (intel.owner !== 'deft-code' && intel.rcl! > 2) || intel.coreLvl > 0;
 }
 
 const dists = new Map<string, number>();
@@ -27,14 +22,14 @@ declare global {
 
 let totalCPU = 0;
 
-export function dist(from: string, dest: string) {
+export function dist(from: string, dest: string): number {
   if (from === dest) return 0
   let key = `${from}_${dest}`;
   if (dest < from) {
     key = `${dest}_${from}`;
   }
   if (dists.has(key)) {
-    return dists.get(key);
+    return dists.get(key)!;
   }
   const cache = Memory.dists = Memory.dists || {};
   if (key in cache) {

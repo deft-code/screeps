@@ -1,7 +1,6 @@
 import { FlagExtra } from "flag";
-import { merge, coord2Pos } from "lib";
+import { merge } from "lib";
 import { coordsToXY, coordsFromXY, toXY, fromXY, Goal } from "Rewalker";
-import { log } from "debug";
 import { canRun } from "shed";
 import { isSType, isOwnedStruct } from "guards";
 import { Mode } from "struct.link";
@@ -39,10 +38,55 @@ class RoomMetaExtra extends Room {
 }
 merge(Room, RoomMetaExtra);
 
+enum MAXHITS {
+    Unknown = 0,
+    Skip = 1,
+    Full = 2,
+    Mega = 100,
+}
+
+const FullHits = {
+    [STRUCTURE_CONTAINER]: CONTAINER_HITS,
+    [STRUCTURE_EXTENSION]: EXTENSION_HITS,
+    [STRUCTURE_EXTRACTOR]: EXTRACTOR_HITS,
+    [STRUCTURE_FACTORY]: FACTORY_HITS,
+    [STRUCTURE_LINK]: LINK_HITS,
+    [STRUCTURE_NUKER]: NUKER_HITS,
+    [STRUCTURE_OBSERVER]: OBSERVER_HITS,
+    [STRUCTURE_POWER_SPAWN]: POWER_SPAWN_HITS,
+    [STRUCTURE_RAMPART]: RAMPART_HITS,
+    [STRUCTURE_ROAD]: ROAD_HITS,
+    [STRUCTURE_SPAWN]: SPAWN_HITS,
+    [STRUCTURE_STORAGE]: STORAGE_HITS,
+    [STRUCTURE_TERMINAL]: TERMINAL_HITS,
+    [STRUCTURE_TOWER]: TOWER_HITS,
+    [STRUCTURE_WALL]: WALL_HITS,
+    [STRUCTURE_LAB]: LAB_HITS,
+}
+
+function calcFullHits(stype: BuildableStructureConstant): number {
+    return FullHits[stype] || 1000;
+}
+
+function translateMaxHits(stype: BuildableStructureConstant, hits: MAXHITS): number {
+    switch (hits) {
+        case MAXHITS.Unknown:
+        case MAXHITS.Skip:
+            return 0;
+        case MAXHITS.Full:
+            return calcFullHits(stype);
+    }
+    if (hits < MAXHITS.Mega) {
+        return 100 * hits;
+    }
+
+    return (hits - MAXHITS.Mega) * 1000000;
+}
+
 
 class MetaPlan extends FlagExtra {
     runMeta() {
-        if (!this.parent) {
+        if (!this.parentName) {
             if (!this.dupe()) return;
         }
 
@@ -95,7 +139,7 @@ function runGenesis(f: MetaPlan) {
     let i = -1;
     for (const child of room.find(FIND_FLAGS) as FlagExtra[]) {
         i++;
-        if (child.parent !== f.name) continue;
+        if (child.parentName !== f.name) continue;
         if (f.secondaryColor === COLOR_WHITE) {
             child.remove();
             changed = true;
@@ -232,11 +276,23 @@ function addMemRamparts(mem: MetaMem, stype: BuildableStructureConstant) {
             xy => addMemStruct(mem, STRUCTURE_RAMPART, lvl! as PlanLevel, xy)));
 }
 
+function cleanMem(mem: MetaMem) {
+    _.forEach(mem.structs, lvls => _.forEach(lvls!, (xys, lvl) => lvls![lvl as PlanLevel] = _.uniq(xys!)));
+}
+
+interface ManagerMem {
+    metas: MetaMem[]
+    keep?: number[]
+    drop?: number[]
+    roadkeep?: number[]
+    roaddrop?: number[]
+    [STRUCTURE_RAMPART]?: Record<number, MAXHITS>
+    [STRUCTURE_WALL]?: Record<number, MAXHITS>
+}
+
 declare global {
     interface RoomMemory {
-        meta?: {
-            metas: MetaMem[]
-        }
+        meta?: ManagerMem
     }
 }
 
@@ -247,6 +303,7 @@ interface MetaMem {
     xy: number
     points: MetaPoints
     structs: MetaStructs
+    onramps?: number[]
 }
 type MetaPoints = {
     [name: string]: number
@@ -277,7 +334,7 @@ class MetaManager {
     metas: MetaStructure[]
     birth = 0
     begin = 0
-    wallHits = 20000000;
+    wallHits = 20;
     constructor(readonly name: string) {
         const metaMem = this.memory;
         this.metas = _.compact(_.map(metaMem.metas, mem => newMeta(mem, this))) as MetaStructure[];
@@ -291,22 +348,28 @@ class MetaManager {
         return Game.rooms[this.name];
     }
 
-    get memory(): { metas: MetaMem[] } {
+    get memory(): ManagerMem {
         let roomMem = Memory.rooms[this.name];
         if (!roomMem) {
-            roomMem = Memory.rooms[this.name] = { links: {} };
+            roomMem = Memory.rooms[this.name] = { links: {} } as RoomMemory;
         }
         let metaMem = roomMem.meta;
         if (!metaMem) {
             return roomMem.meta = {
-                metas: []
-            }
+                metas: [],
+            };
         }
         return metaMem;
     }
 
     save() {
         const metaMem = this.memory;
+        delete metaMem.drop;
+        delete metaMem.keep;
+        delete metaMem.roaddrop;
+        delete metaMem.roadkeep;
+        delete metaMem[STRUCTURE_RAMPART];
+        delete metaMem[STRUCTURE_WALL];
         metaMem.metas = _.map(this.metas, meta => meta.mem);
     }
 
@@ -344,7 +407,7 @@ class MetaManager {
             this.makeSite(STRUCTURE_WALL) ||
             this.makeSite(STRUCTURE_LINK) ||
             this.makeSite(STRUCTURE_CONTAINER) ||
-            this.makeSite(STRUCTURE_EXTRACTOR) ||
+            this.makeExtractor() ||
             this.makeSite(STRUCTURE_LAB) ||
             this.makeSite(STRUCTURE_OBSERVER) ||
             this.makeSite(STRUCTURE_NUKER) ||
@@ -439,6 +502,24 @@ class MetaManager {
             }
         }
         return dests;
+    }
+
+    makeExtractor(): boolean {
+        const room = Game.rooms[this.name];
+        if (!room) return false;
+
+        const min = _.first(room.find(FIND_MINERALS));
+
+        const [free, blocker] = checkSitePos(min.pos, STRUCTURE_EXTRACTOR);
+        if (free) {
+            const ret = free.createConstructionSite(STRUCTURE_EXTRACTOR);
+            if (ret === OK) return true;
+            room.errlog(ret, "Failed  to create extractor", free.xy, "blocker", blocker);
+        }
+        if (blocker) {
+            return this.removeDestroy(blocker);
+        }
+        return false;
     }
 
     makeSite(stype: BuildableStructureConstant): boolean {
@@ -558,17 +639,26 @@ class MetaManager {
         const room = Game.rooms[this.name];
         if (!room) return [];
 
-        const seFirst = [] as SpawnEnergy[];
+        // Shuffle hi priority extns to balance energy drain among peers.
+        const seFirst = [];
+        let priority = Infinity;
+        let toShuffle = [];
         for (const meta of this.metas) {
-            seFirst.push(...meta.spawnEnergyFirst());
+            if (meta.priority !== priority) {
+                seFirst.push(..._.shuffle(toShuffle));
+                priority = meta.priority;
+                toShuffle = [];
+            }
+            toShuffle.push(...meta.spawnEnergyFirst());
         }
+        seFirst.push(..._.shuffle(toShuffle));
 
-        const seLast = [] as SpawnEnergy[];
+        const seLast = [];
         for (const meta of this.metas) {
             seLast.push(...meta.spawnEnergyLast());
         }
 
-        const rest = [] as SpawnEnergy[];
+        const rest = [];// as SpawnEnergy[];
         for (const se of room.findStructs(STRUCTURE_SPAWN, STRUCTURE_EXTENSION) as SpawnEnergy[]) {
             if (_.any(seFirst, first => se.id === first.id)) continue;
             if (_.any(seLast, last => se.id === last.id)) continue;
@@ -584,13 +674,82 @@ class MetaManager {
         return seFullFirst.concat(seFirst).concat(rest).concat(seLast);
     }
 
-    maxHits(stype: StructureConstant, xy: number): number {
+    maxHits(stype: BuildableStructureConstant, xy: number): number {
+        const mh = this.cachedMaxHits(stype, xy);
+        if(mh !== MAXHITS.Unknown) return translateMaxHits(stype, mh);
+
+        const newmh = this.maxHitsInner(stype, xy);
+        this.addMaxHits(stype, xy, newmh);
+
+        return translateMaxHits(stype, mh);
+    }
+
+    cachedMaxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+        if (stype === STRUCTURE_ROAD) {
+            if (_.contains(this.memory.roadkeep!, xy)) return MAXHITS.Full;
+            if (_.contains(this.memory.roaddrop!, xy)) return MAXHITS.Skip;
+            return MAXHITS.Unknown;
+        }
+        if (stype === STRUCTURE_WALL || stype === STRUCTURE_RAMPART) {
+            const cache = this.memory[stype];
+            if (cache) {
+                return cache[xy] || MAXHITS.Unknown
+            }
+            return MAXHITS.Unknown
+        }
+        if (_.contains(this.memory.keep!, xy)) return MAXHITS.Full;
+        if (_.contains(this.memory.drop!, xy)) return MAXHITS.Skip;
+        return MAXHITS.Unknown;
+    }
+
+    addMaxHits(stype: BuildableStructureConstant, xy: number, hits: MAXHITS) {
+        if (stype === STRUCTURE_ROAD) {
+            if (hits === MAXHITS.Skip || hits === MAXHITS.Unknown) {
+                if (!this.memory.roaddrop) {
+                    this.memory.roaddrop = [xy];
+                } else {
+                    this.memory.roaddrop.push(xy);
+                }
+            } else {
+                if (!this.memory.roadkeep) {
+                    this.memory.roadkeep = [xy];
+                } else {
+                    this.memory.roadkeep.push(xy);
+                }
+            }
+            return;
+        }
+
+        if (stype === STRUCTURE_WALL || stype === STRUCTURE_RAMPART) {
+            let cache = this.memory[stype];
+            if (!cache) {
+                cache = this.memory[stype] = Object.create(null);
+            }
+            cache![xy] = hits || MAXHITS.Skip;
+            return;
+        }
+
+        if (hits === MAXHITS.Skip || hits === MAXHITS.Unknown) {
+            if (!this.memory.drop) {
+                this.memory.drop = [xy];
+            } else {
+                this.memory.drop.push(xy);
+            }
+        } else {
+            if (!this.memory.keep) {
+                this.memory.keep = [xy];
+            } else {
+                this.memory.keep.push(xy);
+            }
+        }
+    }
+
+    maxHitsInner(stype: BuildableStructureConstant, xy: number): MAXHITS {
         for (const meta of this.metas) {
             const mh = meta.maxHits(stype, xy);
-            //console.log("maxhits for", stype, xy, meta.name, mh);
-            if (mh) return mh - 1;
+            if (mh > MAXHITS.Unknown) return mh;
         }
-        return 0;
+        return MAXHITS.Unknown;
     }
 
     getLinkMode(xy: number): Mode {
@@ -825,32 +984,32 @@ class MetaStructure {
         return extns.concat(this.getStructs(STRUCTURE_SPAWN));
     }
 
-    maxHits(stype: StructureConstant, xy: number): number {
-        return 0;
+    maxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+        return this.calcStructHits(stype, xy);
     }
 
-    calcRampWallHits(stypes: BuildableStructureConstant[], xy: number): number {
+    calcRampWallHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+        if (stype === STRUCTURE_RAMPART && this.hasAny(STRUCTURE_RAMPART, xy)) return this.manager.wallHits + MAXHITS.Mega;
+        if (stype === STRUCTURE_WALL && this.hasAny(STRUCTURE_WALL, xy)) return this.manager.wallHits + MAXHITS.Mega;
+        return MAXHITS.Unknown;
+    }
+
+    calcRampBldgHits(stypes: BuildableStructureConstant[], xy: number): MAXHITS {
         for (const stype of stypes) {
-            if (this.hasAny(stype, xy)) return this.manager.wallHits;
+            if (this.hasAny(stype, xy)) return this.manager.wallHits + MAXHITS.Mega;
         }
-        return 0;
+        return MAXHITS.Unknown;
     }
 
-    calcRampSpotHits(xy: number): number {
-        if (_.any(this.mem.points, pxy => pxy === xy)) return this.manager.wallHits;
-        return 0
+    calcStructHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+        if (stype === STRUCTURE_RAMPART || stype === STRUCTURE_WALL) return MAXHITS.Unknown;
+        if (this.hasAny(stype, xy)) return MAXHITS.Full;
+        return MAXHITS.Unknown;
     }
 
-    calcRoadHits(stype: StructureConstant, xy: number): number {
-        if (stype !== STRUCTURE_ROAD) return 0;
-        if (this.hasAny(STRUCTURE_ROAD, xy)) return ROAD_HITS;
-        return 0;
-    }
-
-    calcContHits(stype: StructureConstant, xy: number): number {
-        if (stype !== STRUCTURE_CONTAINER) return 0;
-        if (this.hasAny(STRUCTURE_CONTAINER, xy)) return CONTAINER_HITS;
-        return 0;
+    calcRampSpotHits(xy: number): MAXHITS {
+        if (_.any(this.mem.points, pxy => pxy === xy)) return this.manager.wallHits + MAXHITS.Mega;
+        return MAXHITS.Unknown;
     }
 
     getLinkMode(xy: number) {
@@ -864,7 +1023,7 @@ function checkSitePos(pos: RoomPosition, stype: BuildableStructureConstant): [Ro
         if (!site.my) {
             return [null, site];
         }
-        if (site.structureType === stype || site.structureType === STRUCTURE_RAMPART) {
+        if (site.structureType === stype || site.structureType === STRUCTURE_RAMPART || stype === STRUCTURE_RAMPART) {
             return [null, null];
         }
         return [null, site];
@@ -939,6 +1098,8 @@ class Meta_hub extends MetaStructure {
         //     bcTdp`;
         const points = ['hub', 'shovel'];
         const mem = MetaStructure.makeMem(f);
+        // after asrc before cap
+        mem.priority = 102;
         makeTemplate(mem, legend, points, layout);
         addMemRamparts(mem, STRUCTURE_FACTORY);
         addMemRamparts(mem, STRUCTURE_POWER_SPAWN);
@@ -961,7 +1122,7 @@ class Meta_hub extends MetaStructure {
         return this.getSpawnEnergies();
     }
 
-    maxHits(stype: StructureConstant, xy: number): number {
+    maxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
         const ramped = [
             STRUCTURE_FACTORY,
             STRUCTURE_POWER_SPAWN,
@@ -970,9 +1131,8 @@ class Meta_hub extends MetaStructure {
             STRUCTURE_TERMINAL,
             STRUCTURE_TOWER,
         ];
-        return this.calcRoadHits(stype, xy) ||
-            this.calcContHits(stype, xy) ||
-            this.calcRampWallHits(ramped, xy) ||
+        return this.calcStructHits(stype, xy) ||
+            this.calcRampBldgHits(ramped, xy) ||
             this.calcRampSpotHits(xy);
     }
 
@@ -989,31 +1149,28 @@ class Meta_cap extends MetaStructure {
             a: [2, STRUCTURE_EXTENSION],
             b: [3, STRUCTURE_EXTENSION],
             c: [4, STRUCTURE_EXTENSION],
-            l: [9, STRUCTURE_LINK],
+            C: [3, STRUCTURE_CONTAINER],
             r: [3, STRUCTURE_ROAD],
         }
         const layout = `
             .bba.
             bbrar
-            brl0a
+            brCra
             ccraa
             .ccc.`;
         const mem = MetaStructure.makeMem(f);
-        // after asrc, before extns
+        // after asrc and hub, before extns
         mem.priority = 101;
-        makeTemplate(mem, legend, ['cap'], layout);
+        makeTemplate(mem, legend, [], layout);
         return new this(mem, man);
     }
     dests(): [number, number][] {
-        return this.pointDests();
+        return [[this.mem.xy, 2]]
     }
     spawnEnergyFirst() {
         // TODO custom ordering to maximize path.
         // Default ordering is correct in chunks of 5
         return this.getSpawnEnergies();
-    }
-    maxHits(stype: StructureConstant, xy: number): number {
-        return this.calcContHits(stype, xy);
     }
     getLinkMode(xy: number) {
         if (this.hasAny(STRUCTURE_LINK, xy)) return Mode.sink;
@@ -1051,9 +1208,9 @@ class Meta_lab extends MetaStructure {
     spawnEnergyLast() {
         return this.getSpawnEnergies();
     }
-    maxHits(stype: StructureConstant, xy: number): number {
-        return this.calcRoadHits(stype, xy) ||
-            this.calcRampWallHits([STRUCTURE_SPAWN], xy);
+    maxHits(stype: BuildableStructureConstant, xy: number): number {
+        return this.calcStructHits(stype, xy) ||
+            this.calcRampBldgHits([STRUCTURE_SPAWN], xy);
     }
 }
 
@@ -1067,9 +1224,6 @@ class Meta_extn extends MetaStructure {
         const mem = MetaStructure.makeMem(f);
         makeTemplate(mem, legend, [], this.layout);
         return new this(mem, man);
-    }
-    maxHits(stype: StructureConstant, xy: number): number {
-        return this.calcRoadHits(stype, xy);
     }
 }
 
@@ -1146,7 +1300,7 @@ class Meta_asrc extends MetaStructure {
         let ret = man.path(cm, f.pos, [{ pos: storep, range: 1 }]);
         const mem = MetaStructure.makeMem(f);
         // Before extensions
-        mem.priority = 102;
+        mem.priority = 103;
 
         const self = ret.path[0];
         addMemStruct(mem, STRUCTURE_CONTAINER, 3, self.xy);
@@ -1218,9 +1372,6 @@ class Meta_asrc extends MetaStructure {
     spawnEnergyFirst() {
         return this.getSpawnEnergies();
     }
-    maxHits(stype: StructureConstant, xy: number): number {
-        return this.calcRoadHits(stype, xy) || this.calcContHits(stype, xy)
-    }
     getLinkMode(xy: number) {
         if (this.hasAny(STRUCTURE_LINK, xy)) return Mode.src;
         return Mode.pause;
@@ -1234,18 +1385,17 @@ class Meta_bsrc extends Meta_asrc { }
 class Meta_min extends MetaStructure {
     static plan(f: Flag, man: MetaManager) {
         const mem = MetaStructure.makeMem(f);
+        addMemStruct(mem, STRUCTURE_CONTAINER, 6, f.pos.xy);
+        mem.points['mineral'] = f.pos.xy;
         return new this(mem, man);
     }
     dests(): [number, number][] {
         return [[this.mem.xy, 1]];
     }
-    draw(v: RoomVisual) {
-        const [x, y] = coordsFromXY(this.mem.xy);
-        v.structure(x, y, STRUCTURE_CONTAINER, { opacity: 0.5 });
-    }
-    maxHits(stype: StructureConstant, xy: number): number {
-        return this.calcContHits(stype, xy)
-    }
+    // draw(v: RoomVisual) {
+    //     const [x, y] = coordsFromXY(this.mem.xy);
+    //     v.structure(x, y, STRUCTURE_CONTAINER, { opacity: 0.5 });
+    // }
 }
 
 @registerMeta
@@ -1267,9 +1417,6 @@ class Meta_ctrl extends MetaStructure {
     }
     dests(): [number, number][] {
         return this.pointDests();
-    }
-    maxHits(stype: StructureConstant, xy: number): number {
-        return this.calcContHits(stype, xy)
     }
     getLinkMode(xy: number) {
         if (this.hasAny(STRUCTURE_LINK, xy)) return Mode.sink;
@@ -1299,8 +1446,10 @@ class Meta_tripod extends MetaStructure {
         addMemRamparts(mem, STRUCTURE_TOWER);
         return new this(mem, man);
     }
-    maxHits(stype: StructureConstant, xy: number): number {
-        return this.calcRampWallHits([STRUCTURE_TOWER], xy) || this.calcRampSpotHits(xy);
+    maxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+        return this.calcStructHits(stype, xy) ||
+            this.calcRampBldgHits([STRUCTURE_TOWER], xy) ||
+            this.calcRampSpotHits(xy);
     }
     getLinkMode(xy: number) {
         if (this.hasAny(STRUCTURE_LINK, xy)) return Mode.sink;
@@ -1362,7 +1511,208 @@ class Meta_traffic extends MetaStructure {
             });
         }
     }
-    maxHits(stype: StructureConstant, xy: number): number {
-        return this.calcRoadHits(stype, xy);
+}
+
+function nearWall(t: RoomTerrain, x: number, y: number): boolean {
+    if (t.get(x + 1, y) & TERRAIN_MASK_WALL) return true;
+    if (t.get(x - 1, y) & TERRAIN_MASK_WALL) return true;
+    if (t.get(x, y + 1) & TERRAIN_MASK_WALL) return true;
+    if (t.get(x, y - 1) & TERRAIN_MASK_WALL) return true;
+    return false;
+}
+
+
+@registerMeta
+class Meta_wall extends MetaStructure {
+    static plan(f: Flag, man: MetaManager) {
+        const spos = man.getSite(STRUCTURE_STORAGE);
+        if (!spos) return null;
+
+        const mem = MetaStructure.makeMem(f);
+
+        const t = new Room.Terrain(f.pos.roomName);
+
+        const cm = man.getMatrix([f.self]);
+
+        addMemStruct(mem, STRUCTURE_RAMPART, 3, f.pos.xy);
+        const ramps = [f.pos];
+
+        for (let dx = 1; dx < 50; dx++) {
+            const [x, y] = [f.pos.x + dx, f.pos.y];
+            if (t.get(x, y) & TERRAIN_MASK_WALL) break;
+            if (x < 1 || x > 48) break;
+            cm.set(x, y, 100);
+            if (nearWall(t, x, y) || ((f.pos.x % 2) === (x % 2) && (f.pos.y % 2 === y % 2))) {
+                addMemStruct(mem, STRUCTURE_RAMPART, 3, coordsToXY(x, y));
+                ramps.push(new RoomPosition(x, y, f.pos.roomName));
+            } else {
+                addMemStruct(mem, STRUCTURE_WALL, 3, coordsToXY(x, y));
+            }
+        }
+
+        const roadWeight = Math.floor(kPathRoad / 2);
+
+        const roads = [];
+        const ret = man.path(cm, f.pos, [{ pos: spos, range: 1 }]);
+        const dpos = _.find(ret.path, p => p.getRangeTo(f) > 2)!;
+        for (let dx = 1; dx < 50; dx++) {
+            const [x, y] = [dpos.x + dx, dpos.y];
+            if (t.get(x, y) & TERRAIN_MASK_WALL) break;
+            if (x < 1 || x > 48) break;
+            addMemStruct(mem, STRUCTURE_ROAD, 3, coordsToXY(x, y));
+            roads.push(new RoomPosition(x, y, f.pos.roomName));
+            cm.set(x, y, roadWeight);
+        }
+        mem.onramps = [];
+        for (const rpos of ramps) {
+            const ret = man.path(cm, rpos, roads.map(p => { return { pos: p, range: 1 }; }));
+            for (const p of ret.path) {
+                mem.onramps.push(p.xy);
+                cm.set(p.x, p.y, roadWeight);
+                addMemStruct(mem, STRUCTURE_ROAD, 3, p.xy);
+                addMemStruct(mem, STRUCTURE_RAMPART, 3, p.xy);
+            }
+        }
+
+        cleanMem(mem);
+
+        return new this(mem, man);
+    }
+
+    maxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+        if (stype === STRUCTURE_RAMPART && _.contains(this.mem.onramps!, xy)) {
+            return this.calcRampWallHits(stype, xy) / 10 + (9 * MAXHITS.Mega / 10);
+        }
+
+        return this.calcRampWallHits(stype, xy) || this.calcStructHits(stype, xy);
+    }
+
+    dests(): [number, number][] {
+        return [[this.mem.xy, 0]];
+    }
+}
+
+export function checkNukes(room: Room) {
+    const nukes = room.find(FIND_NUKES);
+    if (!nukes.length) return;
+
+    const antinuke = 'nuke_' + room.name;
+    const f = Game.flags[antinuke];
+    if (!f) {
+        const x = 20 + _.random(0, 10);
+        const y = 20 + _.random(0, 10);
+        room.createFlag(x, y, antinuke, COLOR_CYAN, COLOR_CYAN);
+        return;
+    }
+}
+
+function antinuke(f: Flag) {
+    const room = f.room;
+    if (!room) return;
+    const nukes = room.find(FIND_NUKES);
+    const meta = room.meta.getMeta('nuke') as Meta_nuke;
+    if (!meta) {
+        if (nukes.length === 0) {
+            f.remove();
+            return;
+        }
+        const newmeta = Meta_nuke.plan(f, room.meta);
+        if (newmeta) room.meta.setMeta(newmeta);
+        return;
+    }
+    if (nukes.length === 0) {
+        f.room?.meta.deleteMeta(meta.name);
+        return;
+    }
+}
+
+
+interface NukeMem extends MetaMem {
+    blast: Record<number, number>
+}
+
+
+@registerMeta
+class Meta_nuke extends MetaStructure {
+    mem: NukeMem;
+    skip: boolean;
+    static plan(f: Flag, man: MetaManager) {
+        const room = f.room;
+        if (!room) return null;
+        const mem = this.makeMem(f) as NukeMem;
+        // Higher than all others.
+        mem.priority = 200;
+        mem.blast = {};
+
+        const nukes = room.find(FIND_NUKES);
+        //const nukes = [{ pos: f.pos }];
+
+        for (const nuke of nukes) {
+            for (let dx = -2; dx <= 2; dx++) {
+                const x = nuke.pos.x + dx;
+                for (let dy = -2; dy <= 2; dy++) {
+                    const y = nuke.pos.y + dy;
+                    const xy = coordsToXY(x, y);
+                    let base = mem.blast[xy] || 0;
+                    if (dx === 0 && dy === 0) {
+                        mem.blast[xy] = base + (NUKE_DAMAGE[0] / 1000000);
+                    } else {
+                        mem.blast[xy] = base + (NUKE_DAMAGE[2] / 1000000);
+                    }
+                }
+            }
+        }
+
+        for (const meta of man.metas) {
+            for (const stypekey in meta.mem.structs) {
+                const stype = stypekey as BuildableStructureConstant;
+                if (stype === STRUCTURE_ROAD) continue;
+                if (stype === STRUCTURE_EXTRACTOR) continue;
+                if (stype === STRUCTURE_OBSERVER) continue;
+                if (stype === STRUCTURE_CONTAINER) continue;
+                const lvls = meta.mem.structs[stype]!;
+                for (const lvlkey in lvls) {
+                    const lvl = lvlkey as PlanLevel;
+                    for (const xy of lvls[lvl]!) {
+                        if (stype === STRUCTURE_WALL) {
+                            addMemStruct(mem, STRUCTURE_WALL, 6, xy);
+                        } else if (stype === STRUCTURE_RAMPART) {
+                            addMemStruct(mem, STRUCTURE_RAMPART, 6, xy);
+                        } else if (mem.blast[xy]) {
+                            addMemStruct(mem, STRUCTURE_RAMPART, 6, xy);
+                        }
+                    }
+                }
+            }
+        }
+        cleanMem(mem);
+        return new this(mem, man);
+    }
+
+    maxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+        if (this.skip) return MAXHITS.Unknown;
+        if (this.calcRampWallHits(stype, xy)) {
+            const blast = this.mem.blast[xy] || 0;
+            if (blast) {
+                return blast + 1 + MAXHITS.Mega;
+            }
+            this.skip = true;
+            const baseHits = this.manager.maxHitsInner(stype, xy);
+            this.skip = false;
+
+            if (baseHits > MAXHITS.Mega) {
+                return Math.floor(baseHits - MAXHITS.Mega / 2) + MAXHITS.Mega;
+            }
+            return baseHits;
+        }
+        return this.calcStructHits(stype, xy);
+    }
+
+    draw(v: RoomVisual) {
+        for (let xy in this.mem.blast) {
+            const [x, y] = coordsFromXY(parseInt(xy));
+            //v.circle(x, y, {fill: 'red'});
+            v.text("" + (this.mem.blast[xy] / 1000000), x, y);
+        }
     }
 }

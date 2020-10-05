@@ -10,6 +10,9 @@ declare global {
       }
     }
   }
+  interface StructureLink {
+    mode: Mode
+  }
 }
 
 export function nullmax<T>(a: T[], f: (i: T) => number): T | null {
@@ -331,7 +334,7 @@ export function runLinks(room: Room) {
       return link.xferAll(sink);
     }
 
-    // Normal hub an src operation
+    // Normal hub and src operation
     if ((link.mode === Mode.hub || link.mode === Mode.src) && link.store.energy >= 33) {
       const sink = both.find(sink => sink.mode !== link.mode && sink.store.getFreeCapacity(RESOURCE_ENERGY) >= 33);
       if (sink) {

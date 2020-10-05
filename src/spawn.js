@@ -1,6 +1,7 @@
 import * as debug from 'debug';
 import * as routes from 'routes';
 import * as k from 'constants';
+import { RoomIntel } from 'intel';
 
 
 function eggOrder(lname, rname) {
@@ -11,7 +12,7 @@ function eggOrder(lname, rname) {
   return lpriority - rpriority || rage - lage;
 }
 
-export function run(){
+export function run() {
   const all = _.keys(Memory.creeps)
   const eggNames = _.filter(all,
     (cname) => _.isObject(Memory.creeps[cname].egg))
@@ -30,7 +31,8 @@ export function run(){
     const tr = t.pos.roomName
     if (done[tr]) continue
     const spawns = findSpawns(eggMem)
-    const [spawn, body] = buildBody(spawns, eggMem)
+    const maxRCL = Math.max(...spawns.map(s => s.room.controller.level));
+    const [spawn, body] = buildBody(spawns, eggMem, { maxRCL });
     if (!spawn) {
 
       continue
@@ -42,7 +44,10 @@ export function run(){
     const err = spawn.spawnCreep(body, eggName, { energyStructures: spawn.room.strat.spawnEnergy(spawn.room) });
     if (err !== OK) {
       spawn.room.log(spawn, 'FAILED to spawn', eggName, err, JSON.stringify(eggMem))
-      if(Game.time - eggMem.laid > 500) {
+      if (Game.creeps[eggName]) {
+        Game.creeps[eggName].log("Found Egg for existing creep!", JSON.stringify(eggMem));
+        delete Memory.creeps[eggName].egg;
+      } else if (Game.time - eggMem.laid > 500) {
         spawn.room.log("Egg Too Old!", eggName, JSON.stringify(eggMem));
         delete Memory.creeps[eggName];
       }
@@ -124,7 +129,7 @@ export function findSpawns(eggMem) {
 
 function buildCtrl(spawns, eggMem) {
   //Patch around manaual ctrl creations
-  if(!eggMem.ecap) eggMem.ecap = _.first(spawns).room.energyCapacityAvailable;
+  if (!eggMem.ecap) eggMem.ecap = _.first(spawns).room.energyCapacityAvailable;
 
   // Disable tiny ctrl
   if (false && eggMem.ecap > k.RCL7Energy) {
@@ -238,7 +243,31 @@ function srcerBody(spawns, eggMem) {
   return [spawn, body];
 }
 
-function buildBody(spawns, eggMem) {
+function depositBody(spawn, eggMem) {
+  const team = Game.flags[eggMem.team];
+  let works = 11;
+  if (team) {
+    const intel = RoomIntel.get(team.pos.roomName);
+    if (intel) {
+      const d = routes.dist(spawn.pos.roomName, team.pos.roomName);
+      const cooldown = intel.depositCooldown;
+      const workTicks = CREEP_LIFE_TIME - 100 * d;
+      for (; works <= 21; works++) {
+        const fillIntents = ((25 - works) * CARRY_CAPACITY) / works;
+        if (cooldown < workTicks / fillIntents) break;
+      }
+    }
+  }
+  const carries = 25 - works;
+  const body = Array(works).fill(WORK);
+  for (let i = 0; i < carries; i++) {
+    body.push(CARRY, MOVE);
+  }
+  body.push(...Array(works).fill(MOVE));
+  return body;
+}
+
+function buildBody(spawns, eggMem, { maxRCL }) {
   let spawn
   let body = []
   let e
@@ -284,6 +313,12 @@ function buildBody(spawns, eggMem) {
       body = [MOVE, CLAIM]
       spawn = energySpawn(spawns, bodyCost(body))
       break
+    case 'cap':
+      body = [MOVE, CARRY, CARRY];
+      if (maxRCL >= 7) body.push(...body);
+      if (maxRCL === 8) body.push(...body);
+      spawn = _.find(spawns, s => s.room.energyAvailable > bodyCost(body));
+      break;
     case 'cleaner':
       spawn = energySpawn(spawns, 650)
       body = energyDef(_.defaults({}, eggMem, {
@@ -328,6 +363,17 @@ function buildBody(spawns, eggMem) {
         per: [ATTACK],
         energy: spawn.room.energyAvailable
       }))
+      break
+    case 'depositfarmer':
+      spawn = energySpawn(spawns, 600, 3350)
+      if (!spawn) break
+      body = depositBody(spawn, eggMem);
+      // body = energyDef({
+      //   move: 1,
+      //   base: [WORK, MOVE],
+      //   per: [WORK, WORK, CARRY],
+      //   energy: spawn.room.energyAvailable
+      // });
       break
     case 'hauler':
       spawn = _.find(spawns,

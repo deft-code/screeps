@@ -4,7 +4,7 @@ import { TaskRet } from "Tasker";
 
 @injecter(Creep)
 export class CreepHarvest extends CreepCarry {
-    goHarvest(src: Source, move = true): TaskRet {
+    goHarvest(src: Source | Deposit, move = true): TaskRet {
         const err = this.harvest(src);
         this.dlog(`goharvest ${err}`);
         if (err === OK) {

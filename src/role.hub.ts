@@ -5,7 +5,7 @@ import { CreepCarry } from "creep.carry";
 
 
 @injecter(Creep)
-class CreepHub extends CreepCarry {
+export class CreepHub extends CreepCarry {
     roleHub(): TaskRet {
         if (this.moveSpot()) return 'moved';
         const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true);

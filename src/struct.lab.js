@@ -123,12 +123,12 @@ export function mineralPlan() {
 
   return [
     // First make boosts for Mason. Turtle is still best defense.
-    [RESOURCE_CATALYZED_UTRIUM_ALKALIDE, 1200],
+    [RESOURCE_CATALYZED_LEMERGIUM_ACID, 1200],
     [RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE, 150],
     [RESOURCE_CATALYZED_KEANIUM_ACID, 150],
 
     [RESOURCE_CATALYZED_UTRIUM_ACID, 5000],
-    [RESOURCE_CATALYZED_UTRIUM_ALKALIDE, 5000],
+    [RESOURCE_CATALYZED_LEMERGIUM_ACID, 5000],
     // Autoreact fall back to this once all other boosts are at quota.
     //[RESOURCE_CATALYZED_GHODIUM_ACID, 5000],
     [RESOURCE_CATALYZED_GHODIUM_ALKALIDE, 5000],
@@ -154,7 +154,7 @@ StructureTerminal.prototype.autoReactAll = function (override = false) {
     this.setLabs(this.autoReact(boost));
     return;
   }
-  this.setLabs(RESOURCE_CATALYZED_GHODIUM_ACID);
+  this.setLabs(this.autoReact(RESOURCE_CATALYZED_GHODIUM_ACID));
 }
 
 Room.prototype.orderedLabs = function () {

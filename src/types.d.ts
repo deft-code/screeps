@@ -1,4 +1,3 @@
-
 interface Game {
     storages: StructureStorage[]
     terminals: StructureTerminal[]
@@ -10,12 +9,6 @@ interface RoomVisual {
     animatedPosition(x: number, y: number): ScreepsReturnCode
 }
 
-
-interface RoomObject {
-    id: string
-    effectTTL(pwr: PowerConstant): number
-    effectLvl(pwr: PowerConstant): number
-}
 
 interface PowerCreepTick {
     power?: PowerConstant
@@ -187,6 +180,10 @@ interface StructureController {
 interface StructureExtension {
 }
 
+interface StructureFactory {
+    unloads: ResourceConstant[]
+}
+
 interface StructureLab {
     planType: ResourceConstant
 }
@@ -207,6 +204,8 @@ interface StructureStorage {
 }
 
 interface StructureTerminal {
+    requestMineral(r: ResourceConstant, amt?: number): string
+    autoBuy(r: ResourceConstant): string
 }
 
 interface StructureTower {
