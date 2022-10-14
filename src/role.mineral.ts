@@ -4,7 +4,7 @@ import { injecter } from "roomobj";
 
 declare global {
   interface CreepMemory {
-    cont: Id<StructureContainer>
+    cont?: Id<StructureContainer>
   }
 }
 

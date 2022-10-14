@@ -65,8 +65,9 @@ export class FlagExtra extends Flag {
 
   run() {
     switch (this.color) {
-      case COLOR_GREEN:
-        return this.runMission();
+      // TODO remove
+      // case COLOR_GREEN:
+      //   return this.runMission();
       case COLOR_BLUE:
         return this.runTeam()
       case COLOR_ORANGE:

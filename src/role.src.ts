@@ -25,7 +25,7 @@ class SrcerExtra extends CreepRepair {
         let what = this.moveSpot() as TaskRet;
         if (what) return what;
 
-        let src = Game.getObjectById<Source>(this.memory.srcid);
+        let src = Game.getObjectById(this.memory.srcid);
         if (!src) {
             const meta = this.teamRoom.meta.getMeta(this.role);
             if (!meta) return false;
@@ -104,7 +104,7 @@ class SrcerExtra extends CreepRepair {
             // Skip the drop container
             if (struct.pos.isEqualTo(this.pos)) continue;
 
-            const free = struct.store.getFreeCapacity(RESOURCE_ENERGY) || 0;
+            const free = (<GenericStore>struct.store).getFreeCapacity(RESOURCE_ENERGY) || 0;
             if (free <= 0) continue;
             // Minimize transfers to fill a struct
             // Only fill when we need to or if the we'll top off the target

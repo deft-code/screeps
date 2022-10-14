@@ -2,6 +2,7 @@ interface Game {
     storages: StructureStorage[]
     terminals: StructureTerminal[]
     GetObjectById<S extends AnyStructure>(id: Id<S> | null): S | null
+    GetObjectById<Creep>(id: Id<Creep> | null): Creep | null
 }
 
 interface RoomVisual {
@@ -56,7 +57,8 @@ interface FlagMemory {
 }
 
 interface CreepMemory {
-    egg?: any
+    egg?: number
+    laid: number
 }
 
 interface Creep {

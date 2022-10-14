@@ -7,7 +7,7 @@ module.exports = class CreepBootstrap {
     let what = this.idleEmergencyUpgrade() || this.taskTask()
     if (what) return what
 
-    if (!this.atTeam) {
+    if (false && !this.atTeam) {
       return this.taskMoveFlag(this.team)
     }
 
@@ -44,7 +44,7 @@ module.exports = class CreepBootstrap {
   }
 
   afterBootstrap() {
-    if (this.atTeam) {
+    if (true || this.atTeam) {
       this.idleNom()
       this.idleRecharge()
       this.idleTransferExtra()

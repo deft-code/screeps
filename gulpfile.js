@@ -48,6 +48,13 @@ gulp.task('watchPtr', ['ptr'], function() {
   return gulp.watch('src/*', ['ptr']);
 })
 
+gulp.task('season', ['compile'], function () {
+  credentials.branch = 'default'
+  credentials.ptr = true
+  gulp.src('distjs/*.js').pipe(screeps(credentials))
+})
+
+
 gulp.task('swc', function () {
   credentials.branch = 'default'
   credentials.host = 'swc.screepspl.us'

@@ -13,11 +13,12 @@ declare global {
   }
   interface CreepMemory {
     home?: string
-    team: string
+    team?: string
     cpu: number
     task?: CreepTaskMem
     boosts?: MineralBoostConstant[]
     spawnid?: Id<StructureSpawn>
+    start?: number
   }
   interface Creep {
     moveNear(dest: RoomObject): TaskRet
@@ -42,7 +43,7 @@ export class CreepRole extends CreepExtra {
 
   get team(): Flag {
 
-    const t = Game.flags[this.memory.team]
+    const t = Game.flags[this.memory.mission]
     if (t) return t;
 
     const teamName = _.last(this.name.split('_', 2));

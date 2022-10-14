@@ -10,7 +10,8 @@ let tickRateEMA = 0;
 let rates: number[] = [];
 
 declare const module: { __initGlobals(): void };
-module.__initGlobals = tick;
+// TODO Figure what this broke.
+// module.__initGlobals = tick;
 
 function tick() {
     const next = (new Date()).getTime();

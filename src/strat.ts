@@ -31,7 +31,7 @@ interface IStrat {
     after(room: Room): void;
     optional(room: Room): void;
     evolve(roomName: string): IStrat | null;
-    spawnEnergy(room: Room): SpawnEnergy[] | null;
+    spawnEnergy(room: Room): SpawnEnergy[] | undefined;
     maxHits(room: Room, stype: BuildableStructureConstant, xy: number): number;
 }
 
@@ -111,7 +111,7 @@ export class NullStrat implements IStrat {
         run(room.find(FIND_FLAGS), 4000, f => f.run());
     }
     evolve(roomName: string): null { return null }
-    spawnEnergy(room: Room): SpawnEnergy[] | null { return null; }
+    spawnEnergy(room: Room): SpawnEnergy[] | undefined { return undefined; }
     maxHits(room: Room, stype: BuildableStructureConstant, xy: number): number {
         switch (stype) {
             case STRUCTURE_ROAD: return ROAD_HITS;

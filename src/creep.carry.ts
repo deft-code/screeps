@@ -35,7 +35,7 @@ export class CreepCarry extends CreepMove {
     const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
 
     const spot = _.find(
-      spots, spot => isStoreStruct(spot.structure) && !isGeneralStoreStruct(spot.structure) && spot.structure.store.getFreeCapacity(RESOURCE_ENERGY));
+      spots, spot => isStoreStruct(spot.structure) && !isGeneralStoreStruct(spot.structure) && (<GenericStore>spot.structure.store).getFreeCapacity(RESOURCE_ENERGY));
 
     if (!spot) return false
 
@@ -179,7 +179,7 @@ export class CreepCarry extends CreepMove {
     if (!this.store[resource]) return false;
     this.dlog("carrying");
 
-    if (!struct.store.getFreeCapacity(resource)) return false;
+    if (!(<GenericStore>struct.store).getFreeCapacity(resource)) return false;
 
     return this.goTransfer(struct, resource);
   }

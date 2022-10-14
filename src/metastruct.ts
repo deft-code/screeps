@@ -1400,7 +1400,7 @@ class Meta_min extends MetaStructure {
 
 @registerMeta
 class Meta_ctrl extends MetaStructure {
-    static plan(f: Flag, man: MetaManager) {
+    static plan(f: FlagExtra, man: MetaManager) {
         const p = man.getSite(STRUCTURE_STORAGE);
         if (!p) return null;
         const cm = man.getMatrix([f.role]);
@@ -1459,7 +1459,7 @@ class Meta_tripod extends MetaStructure {
 
 @registerMeta
 class Meta_traffic extends MetaStructure {
-    static plan(f: Flag, man: MetaManager) {
+    static plan(f: FlagExtra, man: MetaManager) {
         const s = man.getSite(STRUCTURE_STORAGE);
         if (!s) return null;
         const t = man.getSite(STRUCTURE_TERMINAL);

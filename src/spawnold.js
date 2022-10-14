@@ -629,6 +629,7 @@ const defBody = (def) => {
   }
 
   parts.sort(orderParts)
+  //parts = _.map(parts, part => part === 'premove'? MOVE: part);
   parts = _.map(parts, part => {
     if (part === 'premove') return MOVE
     return part

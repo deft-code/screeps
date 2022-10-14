@@ -10,7 +10,5 @@
     "tslint": "^5.20.1",
     "typescript": "^3.8.3"
   },
-  "dependencies": {
-    "gulp": "^3.9.1"
-  }
+  "dependencies": {}
 }

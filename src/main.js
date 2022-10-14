@@ -1,4 +1,4 @@
-import 'memhack';
+//import 'memhack';
 import * as debug from "debug";
 import { canRun, run } from "shed";
 
@@ -6,6 +6,9 @@ import * as cache from "cache";
 const xx = Game.time;
 console.log(Game.time, ":", Game.time - xx, "injecting, tick and cache");
 cache.injectAll();
+
+import * as process from "process";
+global.spawn = process.spawn;
 
 import 'strat';
 
@@ -17,6 +20,7 @@ import 'role.mason';
 import 'role.mineral';
 import 'role.shovel';
 import 'role.src';
+import 'role.startup';
 
 import 'deposit';
 
@@ -27,7 +31,7 @@ import 'mission';
 import 'matrix';
 import 'Traveler';
 import 'flag';
-import 'globals';
+//import 'globals';
 import 'console';
 import 'constants';
 import 'path';
@@ -57,7 +61,8 @@ import 'powercreep';
 import 'creep';
 
 import * as lib from 'lib';
-import * as spawn from 'spawn';
+import * as spawn from 'spawnold';
+import {runSpawns} from "spawn";
 
 import 'role.shunt';
 import { getRawMarket } from 'markethack';
@@ -311,7 +316,7 @@ function hackAlloy() {
 }
 
 function genPixels() {
-  if(Game.cpu.bucket > 10000-Game.cpu.limit) {
+  if(Game.cpu.bucket === 10000) {
     debug.log("Generating Pixel from", Game.cpu.bucket, Game.cpu.generatePixel());
   }
 }
@@ -320,12 +325,17 @@ let servert = Game.time;
 let lastClient = 0;
 module.exports.loop = main
 function main() {
-  if (Game.shard.name !== 'shard1') {
+  if (Game.shard.name !== 'shard2') {
     console.log("WRONG SHARD", Game.shard);
     return;
   }
 
   genPixels();
+
+  process.runAll();
+  runSpawns();
+
+  return;
 
   // const history = require('history').history;
   // history.run();
