@@ -5,8 +5,9 @@ import { energyDef } from "spawn";
 @register
 export class Startup extends MyCreep {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        const spawn = Game.spawns.Spawn1;
-        const energy = spawn.room.energyAvailable;
+        const spawn = _.sample(Game.spawns);
+        if(!spawn) return [null, []];
+        const energy = spawn.room.energyCapacityAvailable;
         let body;
         switch (energy) {
             case 300: {
@@ -30,19 +31,10 @@ export class Startup extends MyCreep {
                     move: 2,
                     base: [MOVE, CARRY],
                     per: [WORK, CARRY],
-                    energy: spawn.room.energyAvailable
+                    energy: Math.max(550, spawn.room.energyAvailable)
                 });
                 break;
         }
         return [spawn, body];
-    }
-
-    run(): boolean {
-        if (!this.c) {
-            return false;
-        }
-        this.c.run();
-        this.c.after();
-        return true;
     }
 }

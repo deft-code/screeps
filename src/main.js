@@ -12,6 +12,11 @@ global.spawn = process.spawn;
 
 import 'strat';
 
+import 'ms.globalrespawn';
+import "service.flag";
+
+//import "job.srcer";
+
 import 'roomobj';
 import 'role.cap';
 import 'role.depositfarmer';
@@ -62,7 +67,6 @@ import 'creep';
 
 import * as lib from 'lib';
 import * as spawn from 'spawnold';
-import {runSpawns} from "spawn";
 
 import 'role.shunt';
 import { getRawMarket } from 'markethack';
@@ -315,11 +319,17 @@ function hackAlloy() {
   t.room.log("requested metal", t.requestMineral(RESOURCE_METAL, 1000));
 }
 
+const reloadT = Game.time;
 function genPixels() {
+  if(Game.time < reloadT + CREEP_LIFE_TIME) return;
   if(Game.cpu.bucket === 10000) {
     debug.log("Generating Pixel from", Game.cpu.bucket, Game.cpu.generatePixel());
   }
 }
+
+process.Service.boot();
+global.schedule = process.Service.shedule;
+
 
 let servert = Game.time;
 let lastClient = 0;
@@ -332,8 +342,10 @@ function main() {
 
   genPixels();
 
+  const rooms = _.values(Game.rooms);
+  run(rooms, 500, r => r.strat.init());
+
   process.runAll();
-  runSpawns();
 
   return;
 
@@ -351,19 +363,6 @@ function main() {
     debug.log(Game.time, "client", JSON.stringify(Memory.client));
     lastClient = Memory.client?.time;
   }
-  const crooms = _.filter(Game.rooms, r => r.controller && r.controller.level > 3 && r.controller.my)
-  Game.terminals = _.shuffle(_.compact(_.map(crooms, r => r.terminal)))
-  Game.storages = _.shuffle(_.compact(_.map(crooms, r => r.storage)))
-  Game.observers = _.shuffle(_.compact(_.map(crooms, r => _.first(r.findStructs(STRUCTURE_OBSERVER)))))
-
-  if (crooms.length === 0) {
-    init()
-  }
-
-  drain(null, 'W22N19')
-
-  const rooms = _.values(Game.rooms);
-  run(rooms, 500, r => r.strat.init(r));
 
   // descending order
   rooms.sort((a, b) => b.strat.order(b) - a.strat.order(a));

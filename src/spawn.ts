@@ -1,10 +1,20 @@
 import { getMyCreep } from "mycreep";
 import * as debug from "debug";
+import {daemon, Priority, Process} from "process";
 
 declare global {
   interface CreepMemory {
     hibernate?: number
     nest: string
+  }
+}
+
+@daemon
+class SpawnDaemon extends Process {
+  bucket = 2000;
+  run(): Priority {
+    runSpawns();
+    return "late";
   }
 }
 
@@ -105,8 +115,8 @@ export function energyDef(def: EnergyBodyDef): BodyPartConstant[] {
 
 export function runSpawns() {
   const all = _.keys(Memory.creeps);
-  const eggNames = _.filter(all,
-    cname => Memory.creeps[cname].nest === 'egg');
+  const eggNames = _.shuffle(all.filter(
+    cname => Memory.creeps[cname].nest === 'egg'));
 
   eggNames.sort(eggOrder);
 
@@ -116,9 +126,12 @@ export function runSpawns() {
   const start = Game.time;
   for (let eggName of eggNames) {
     const mycreep = getMyCreep(eggName);
+    debug.log("trying to spawn", eggName, mycreep);
     if ((mycreep.memory.hibernate || 0) > Game.time) continue;
 
     let [spawn, body] = mycreep.spawn(spawns);
+
+    debug.log(`spawn:${spawn}, body:${body}, type:${(mycreep as any).__proto__.constructor.name}`);
 
     if (!spawn) continue;
 
@@ -130,7 +143,7 @@ export function runSpawns() {
 
     const energyAvailable = spawn.room.energyAvailable - used;
     if (cost <= energyAvailable) {
-      const err = spawn.spawnCreep(body, eggName, { energyStructures: spawn.room.strat.spawnEnergy(spawn.room) });
+      const err = spawn.spawnCreep(body, eggName, { energyStructures: spawn.room.strat.spawnEnergy() });
       if (err !== OK) {
         spawn.room.log(spawn, 'FAILED to spawn', eggName, err, JSON.stringify(Memory.creeps[eggName]))
         if (Game.creeps[eggName]) {
@@ -147,7 +160,7 @@ export function runSpawns() {
 
       }
     } else {
-      spawn.room.log(`Not enough to spawn Egg[${eggName}]: ${cost} > ${energyAvailable}`);
+      //spawn.room.log(`Not enough to spawn Egg[${eggName}]: ${cost} > ${energyAvailable}`);
     }
   }
   debug.log(`Ran ${eggNames.length} in `, Game.time - start);

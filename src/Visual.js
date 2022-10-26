@@ -113,11 +113,11 @@ RoomVisual.prototype.structure = function (x, y, type, opts = {}) {
         stroke: '#140a0a',
         opacity: opts.opacity
       });
-      this.poly(factoryLevelGaps.map(p => [p[0] + x, p[1] + y]), {
-        fill: '#140a0a',
-        stroke: null,
-        opacity: opts.opacity
-      });
+      // this.poly(factoryLevelGaps.map(p => [p[0] + x, p[1] + y]), {
+      //   fill: '#140a0a',
+      //   stroke: null,
+      //   opacity: opts.opacity
+      // });
       // inner black circle
       this.circle(x, y, {
         radius: 0.42,

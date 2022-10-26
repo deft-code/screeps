@@ -11,19 +11,8 @@ declare global {
     }
 }
 
-export function dynMaxHits(struct: Structure): number {
-    switch (struct.structureType) {
-        case STRUCTURE_WALL:
-        case STRUCTURE_RAMPART:
-        case STRUCTURE_ROAD:
-        case STRUCTURE_CONTAINER:
-            return struct.room.maxHits(struct);
-    }
-    return struct.hitsMax;
-}
-
 export function repairable(struct: Structure): boolean {
-    return struct.hits < dynMaxHits(struct);
+    return struct.hits < struct.room.maxHits(struct);
 }
 
 function shouldRepair(struct: Structure, repairPower: number): boolean {
@@ -54,32 +43,33 @@ export class CreepRepair extends CreepBuild {
         return what;
     }
 
-    taskRepairOrdered() {
-        // const decay = this.room.findStructs(
-        //     STRUCTURE_ROAD, STRUCTURE_CONTAINER, STRUCTURE_RAMPART);
-
-        // return this.taskRepairStructs(decay) ||
-        //     this.taskRepairStructs(this.room.find(FIND_STRUCTURES));
+    taskRepairHurt() {
         return this.taskRepairStructs(this.room.find(FIND_STRUCTURES));
     }
 
-    taskRepairStructs(structs: Structure[]) {
-        const shuffled = _.shuffle(structs);
+    taskRepairOrdered() {
+        const structs = _.shuffle(this.room.find(FIND_STRUCTURES));
 
         let minScale = Infinity;
-        for (const struct of shuffled) {
+        for (const struct of structs) {
             if (struct.structureType !== STRUCTURE_RAMPART && struct.structureType !== STRUCTURE_WALL) continue;
-            const max = dynMaxHits(struct);
+            const max = struct.room.maxHits(struct);
             if (max > 0) {
                 const scale = struct.hits / max;
                 if (scale < minScale) minScale = scale;
             }
         }
+        return this.taskRepairStructs(structs, minScale);
+    }
+
+    taskRepairStructs(structs: Structure[], scale = 1) {
+        const shuffled = _.shuffle(structs);
+
         for (let struct of shuffled) {
             switch (struct.structureType) {
                 case STRUCTURE_RAMPART:
                 case STRUCTURE_WALL:
-                    if (struct.hurts > 0 && struct.hits < (minScale + 0.1) * this.room.maxHits(struct)) {
+                    if (struct.hurts > 0 && struct.hits < (scale + 0.1) * this.room.maxHits(struct)) {
                         return this.taskRepair(struct);
                     }
                     break;

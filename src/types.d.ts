@@ -61,6 +61,12 @@ interface CreepMemory {
     laid: number
 }
 
+interface IMyCreep {
+    role: string
+    ticksToLive: number
+    run(): boolean
+}
+
 interface Creep {
     run(): void
     after(): void

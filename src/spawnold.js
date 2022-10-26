@@ -89,9 +89,10 @@ export function maxSpawns(all, tname) {
   return _.filter(lvl, s => routes.dist(tname, s.pos.roomName) <= mdist)
 }
 
-export function findSpawns(eggMem) {
-  const allSpawns = _.shuffle(Game.spawns)
-  const tname = Game.flags[eggMem.team].pos.roomName
+export function findSpawns(allSpawns, roomName, eggMem) {
+  //const allSpawns = _.shuffle(Game.spawns)
+  const tname = roomName;
+  //const tname = Game.flags[eggMem.team].pos.roomName
 
   let spawns = []
   switch (eggMem.spawn) {
@@ -267,7 +268,7 @@ function depositBody(spawn, eggMem) {
   return body;
 }
 
-function buildBody(spawns, eggMem, { maxRCL }) {
+export function buildBody(spawns, eggMem, { maxRCL }) {
   let spawn
   let body = []
   let e

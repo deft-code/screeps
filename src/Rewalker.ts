@@ -724,7 +724,7 @@ class Step {
                 this.bump(_.first(this.path.first.lookFor(LOOK_CREEPS)));
             }
         }
-        console.log("rewalker stepping", this.creep.pos, this.path.first);
+        //console.log("rewalker stepping", this.creep.pos, this.path.first);
         let dir = getDirectionTo(this.creep.pos, this.path.first)
         if(dir === 0){
             dir = getDirectionTo(this.creep.pos, this.path.second);

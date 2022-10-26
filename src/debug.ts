@@ -39,6 +39,26 @@ interface Pos {
   func: string;
 }
 
+export function colorString(color: ColorConstant): string {
+  return intColor(color);
+}
+
+function intColor(color: number) {
+  switch(color){
+    case COLOR_BLUE: return "blue";
+    case COLOR_BROWN: return "brown";
+    case COLOR_CYAN: return "cyan";
+    case COLOR_GREEN: return "green";
+    case COLOR_GREY: return "grey";
+    case COLOR_ORANGE: return "orange";
+    case COLOR_PURPLE: return "purple";
+    case COLOR_RED: return "red";
+    case COLOR_WHITE: return "white";
+    case COLOR_YELLOW: return "yellow";
+  }
+  return "rainbow";
+}
+
 export function errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode {
   if (err !== OK) {
     console.log(location(2), errStr(err), ...str);

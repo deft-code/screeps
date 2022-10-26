@@ -4,6 +4,7 @@ import { coordsToXY, coordsFromXY, toXY, fromXY, Goal } from "Rewalker";
 import { canRun } from "shed";
 import { isSType, isOwnedStruct } from "guards";
 import { Mode } from "struct.link";
+import { max } from "lodash";
 
 declare global {
     interface Flag {
@@ -42,7 +43,9 @@ enum MAXHITS {
     Unknown = 0,
     Skip = 1,
     Full = 2,
-    Mega = 100,
+    Low = 3,
+    Mid = 4,
+    Scale = 1000,
 }
 
 const FullHits = {
@@ -75,12 +78,12 @@ function translateMaxHits(stype: BuildableStructureConstant, hits: MAXHITS): num
             return 0;
         case MAXHITS.Full:
             return calcFullHits(stype);
+        case MAXHITS.Low:
+            return 100;
+        case MAXHITS.Mid:
+            return MAXHITS.Scale;
     }
-    if (hits < MAXHITS.Mega) {
-        return 100 * hits;
-    }
-
-    return (hits - MAXHITS.Mega) * 1000000;
+    return hits*MAXHITS.Scale;
 }
 
 
@@ -108,7 +111,7 @@ class MetaPlan extends FlagExtra {
         // //meta.draw(room.visual);
     }
 }
-merge(Flag, MetaPlan);
+merge(Flag, MetaPlan)
 
 
 // Grey, create child flags
@@ -117,7 +120,7 @@ merge(Flag, MetaPlan);
 // Yellow, acquire all child flags
 // Green, save all changed metas to room manager
 // Blue, force replanning for all metas.
-function runGenesis(f: MetaPlan) {
+export function runGenesis(f: FlagExtra) {
     //man.save();
     const newer = f.memory.newer = f.memory.newer || {};
     const room = f.room;
@@ -147,6 +150,7 @@ function runGenesis(f: MetaPlan) {
         }
         let nextm = null as MetaStructure | null;
         const meta = room.meta.getMeta(child.self);
+        f.log("actual child", child, meta);
         if (!meta) {
             if (f.secondaryColor === COLOR_BROWN && child.secondaryColor === COLOR_BROWN) {
                 child.remove()
@@ -155,9 +159,11 @@ function runGenesis(f: MetaPlan) {
                 continue;
             }
             const mem = newer[child.self];
+            f.log(child, "mem:", JSON.stringify(mem));
             if (!mem) {
                 if (f.secondaryColor === COLOR_YELLOW) {
                     nextm = planMeta(child);
+                    f.log("Planned child", child, nextm);
                 }
             }
         } else {
@@ -176,6 +182,7 @@ function runGenesis(f: MetaPlan) {
                 }
             }
         }
+        child.log("Does nextm exist yet", nextm);
         if (!nextm) {
             const mem = newer[child.self];
             if (mem) {
@@ -196,6 +203,8 @@ function runGenesis(f: MetaPlan) {
             } else {
                 room.visual.line(f.pos, nextm.pos, { color: "cornflowerblue" });
             }
+        } else if(meta) {
+            meta.draw(room.visual);
         }
     }
     if (changed && _.contains([COLOR_GREEN, COLOR_BROWN], f.secondaryColor)) room.meta.save();
@@ -273,7 +282,7 @@ function addMemSpotRampart(mem: MetaMem, name: string, lvl: PlanLevel) {
 function addMemRamparts(mem: MetaMem, stype: BuildableStructureConstant) {
     _.forEach(mem.structs[stype]!,
         (xys, lvl) => _.forEach(xys!,
-            xy => addMemStruct(mem, STRUCTURE_RAMPART, lvl! as PlanLevel, xy)));
+            xy => addMemStruct(mem, STRUCTURE_RAMPART, Math.max(3,+lvl!) as PlanLevel, xy)));
 }
 
 function cleanMem(mem: MetaMem) {
@@ -507,6 +516,7 @@ class MetaManager {
     makeExtractor(): boolean {
         const room = Game.rooms[this.name];
         if (!room) return false;
+        if(!(room.controller?.level! > 5)) return false;
 
         const min = _.first(room.find(FIND_MINERALS));
 
@@ -674,11 +684,11 @@ class MetaManager {
         return seFullFirst.concat(seFirst).concat(rest).concat(seLast);
     }
 
-    maxHits(stype: BuildableStructureConstant, xy: number): number {
+    maxHits(stype: BuildableStructureConstant, xy: number, rcl: number): number {
         const mh = this.cachedMaxHits(stype, xy);
         if(mh !== MAXHITS.Unknown) return translateMaxHits(stype, mh);
 
-        const newmh = this.maxHitsInner(stype, xy);
+        const newmh = this.maxHitsInner(stype, xy, rcl);
         this.addMaxHits(stype, xy, newmh);
 
         return translateMaxHits(stype, mh);
@@ -744,9 +754,9 @@ class MetaManager {
         }
     }
 
-    maxHitsInner(stype: BuildableStructureConstant, xy: number): MAXHITS {
+    maxHitsInner(stype: BuildableStructureConstant, xy: number, rcl: number): MAXHITS {
         for (const meta of this.metas) {
-            const mh = meta.maxHits(stype, xy);
+            const mh = meta.maxHits(stype, xy, rcl);
             if (mh > MAXHITS.Unknown) return mh;
         }
         return MAXHITS.Unknown;
@@ -984,19 +994,33 @@ class MetaStructure {
         return extns.concat(this.getStructs(STRUCTURE_SPAWN));
     }
 
-    maxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+    maxHits(stype: BuildableStructureConstant, xy: number, rcl: number): MAXHITS {
         return this.calcStructHits(stype, xy);
     }
 
-    calcRampWallHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
-        if (stype === STRUCTURE_RAMPART && this.hasAny(STRUCTURE_RAMPART, xy)) return this.manager.wallHits + MAXHITS.Mega;
-        if (stype === STRUCTURE_WALL && this.hasAny(STRUCTURE_WALL, xy)) return this.manager.wallHits + MAXHITS.Mega;
+    calcRclHits(rcl:number): MAXHITS {
+        switch(rcl) {
+            case 1: return MAXHITS.Skip;
+            case 2: return MAXHITS.Low;
+            case 3: return MAXHITS.Mid;
+            case 4: return 5;
+            case 5: return 1000;
+            case 6: return 5000;
+            case 7: return 10000;
+            case 8: return 20000;
+        }
+        return MAXHITS.Skip;
+    }
+
+    calcRampWallHits(stype: BuildableStructureConstant, xy: number, rcl: number): MAXHITS {
+        if (stype === STRUCTURE_RAMPART && this.hasAny(STRUCTURE_RAMPART, xy)) return this.calcRclHits(rcl);
+        if (stype === STRUCTURE_WALL && this.hasAny(STRUCTURE_WALL, xy)) return this.calcRclHits(rcl);
         return MAXHITS.Unknown;
     }
 
-    calcRampBldgHits(stypes: BuildableStructureConstant[], xy: number): MAXHITS {
+    calcRampBldgHits(stypes: BuildableStructureConstant[], xy: number, rcl: number): MAXHITS {
         for (const stype of stypes) {
-            if (this.hasAny(stype, xy)) return this.manager.wallHits + MAXHITS.Mega;
+            if (this.hasAny(stype, xy)) return this.calcRclHits(rcl);
         }
         return MAXHITS.Unknown;
     }
@@ -1007,8 +1031,8 @@ class MetaStructure {
         return MAXHITS.Unknown;
     }
 
-    calcRampSpotHits(xy: number): MAXHITS {
-        if (_.any(this.mem.points, pxy => pxy === xy)) return this.manager.wallHits + MAXHITS.Mega;
+    calcRampSpotHits(xy: number, rcl: number): MAXHITS {
+        if (_.any(this.mem.points, pxy => pxy === xy)) return this.calcRclHits(rcl);
         return MAXHITS.Unknown;
     }
 
@@ -1056,9 +1080,9 @@ function registerMeta(klass: MetaCtor) {
 
 function planMeta(f: Flag) {
     const role = calcRole(f.name);
-    f.log("Planning Meta", role);
     const klassName = 'Meta_' + role;
     const klass = allMetas.get(klassName);
+    f.log("Planning Meta", klassName, role, klass?.name);
     if (!klass) return null;
     const man = f.room!.meta;
     return klass.plan(f, man);
@@ -1122,7 +1146,7 @@ class Meta_hub extends MetaStructure {
         return this.getSpawnEnergies();
     }
 
-    maxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+    maxHits(stype: BuildableStructureConstant, xy: number, rcl:number): MAXHITS {
         const ramped = [
             STRUCTURE_FACTORY,
             STRUCTURE_POWER_SPAWN,
@@ -1132,8 +1156,8 @@ class Meta_hub extends MetaStructure {
             STRUCTURE_TOWER,
         ];
         return this.calcStructHits(stype, xy) ||
-            this.calcRampBldgHits(ramped, xy) ||
-            this.calcRampSpotHits(xy);
+            this.calcRampBldgHits(ramped, xy, rcl) ||
+            this.calcRampSpotHits(xy, rcl);
     }
 
     getLinkMode(xy: number) {
@@ -1187,13 +1211,14 @@ class Meta_lab extends MetaStructure {
             b: [7, STRUCTURE_LAB],
             c: [8, STRUCTURE_LAB],
             r: [6, STRUCTURE_ROAD],
-            s: [9, STRUCTURE_SPAWN],
+            S: [7, STRUCTURE_SPAWN],
+            s: [8, STRUCTURE_SPAWN],
             o: [8, STRUCTURE_OBSERVER],
             n: [8, STRUCTURE_NUKER],
         }
         const layout = `
             bcrbr
-            crars
+            crarS
             rarcr
             brcan
             rsro.`;
@@ -1208,9 +1233,9 @@ class Meta_lab extends MetaStructure {
     spawnEnergyLast() {
         return this.getSpawnEnergies();
     }
-    maxHits(stype: BuildableStructureConstant, xy: number): number {
+    maxHits(stype: BuildableStructureConstant, xy: number, rcl:number): number {
         return this.calcStructHits(stype, xy) ||
-            this.calcRampBldgHits([STRUCTURE_SPAWN], xy);
+            this.calcRampBldgHits([STRUCTURE_SPAWN], xy, rcl);
     }
 }
 
@@ -1446,10 +1471,10 @@ class Meta_tripod extends MetaStructure {
         addMemRamparts(mem, STRUCTURE_TOWER);
         return new this(mem, man);
     }
-    maxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+    maxHits(stype: BuildableStructureConstant, xy: number, rcl: number): MAXHITS {
         return this.calcStructHits(stype, xy) ||
-            this.calcRampBldgHits([STRUCTURE_TOWER], xy) ||
-            this.calcRampSpotHits(xy);
+            this.calcRampBldgHits([STRUCTURE_TOWER], xy, rcl) ||
+            this.calcRampSpotHits(xy, rcl);
     }
     getLinkMode(xy: number) {
         if (this.hasAny(STRUCTURE_LINK, xy)) return Mode.sink;
@@ -1579,12 +1604,12 @@ class Meta_wall extends MetaStructure {
         return new this(mem, man);
     }
 
-    maxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+    maxHits(stype: BuildableStructureConstant, xy: number, rcl: number): MAXHITS {
         if (stype === STRUCTURE_RAMPART && _.contains(this.mem.onramps!, xy)) {
-            return this.calcRampWallHits(stype, xy) / 10 + (9 * MAXHITS.Mega / 10);
+            return this.calcRampWallHits(stype, xy, rcl-3);
         }
 
-        return this.calcRampWallHits(stype, xy) || this.calcStructHits(stype, xy);
+        return this.calcRampWallHits(stype, xy, rcl) || this.calcStructHits(stype, xy);
     }
 
     dests(): [number, number][] {
@@ -1689,21 +1714,18 @@ class Meta_nuke extends MetaStructure {
         return new this(mem, man);
     }
 
-    maxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+    maxHits(stype: BuildableStructureConstant, xy: number, rcl:number): MAXHITS {
         if (this.skip) return MAXHITS.Unknown;
-        if (this.calcRampWallHits(stype, xy)) {
+        if (this.calcRampWallHits(stype, xy, rcl)) {
             const blast = this.mem.blast[xy] || 0;
             if (blast) {
-                return blast + 1 + MAXHITS.Mega;
+                return (blast + 1) * MAXHITS.Scale;
             }
             this.skip = true;
-            const baseHits = this.manager.maxHitsInner(stype, xy);
+            const baseHits = this.manager.maxHitsInner(stype, xy, rcl);
             this.skip = false;
 
-            if (baseHits > MAXHITS.Mega) {
-                return Math.floor(baseHits - MAXHITS.Mega / 2) + MAXHITS.Mega;
-            }
-            return baseHits;
+            return Math.max(Math.floor(baseHits/2), MAXHITS.Low);
         }
         return this.calcStructHits(stype, xy);
     }

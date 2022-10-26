@@ -40,8 +40,8 @@ export function run<T>(objs: T[], bucket: number, func: (t: T) => void) {
         try {
             func(obj);
         } catch (err) {
-            debug.log(obj, func, err, err.stack);
-            Game.notify(err.stack, 30);
+            debug.log(obj, func, err, (err as {stack:string}).stack);
+            Game.notify((err as {stack:string}).stack, 30);
         }
         n++;
         const prior = now;

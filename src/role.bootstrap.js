@@ -7,8 +7,8 @@ module.exports = class CreepBootstrap {
     let what = this.idleEmergencyUpgrade() || this.taskTask()
     if (what) return what
 
-    if (false && !this.atTeam) {
-      return this.taskMoveFlag(this.team)
+    if (!this.atHome) {
+      return this.taskMoveRoom(this.home.controller);
     }
 
     if (!this.store.energy) {
@@ -16,7 +16,7 @@ module.exports = class CreepBootstrap {
       if (what) return what
     }
 
-    if (this.room.controller.level < 2) {
+    if (this.home.controller.level < 2) {
       this.dlog('controller override')
       return this.taskUpgradeRoom()
     }
@@ -27,8 +27,9 @@ module.exports = class CreepBootstrap {
       this.taskBuildStructs(STRUCTURE_TOWER) ||
       this.taskTurtleMode() ||
       this.taskBuildOrdered() ||
-      this.taskRepairOrdered() ||
+      this.taskRepairHurt() ||
       this.taskUpgradeRoom() ||
+      this.taskRepairOrdered() ||
       this.taskCampSrcs()
   }
 

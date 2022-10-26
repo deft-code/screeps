@@ -1,6 +1,7 @@
 import { Targetable, Tasker, MemoryTask } from "Tasker";
 import { merge } from "lib";
 import { extender } from "roomobj";
+import { colorString } from "debug";
 
 declare global {
   interface FlagMemory {
@@ -16,6 +17,13 @@ const missionTasker = new Tasker();
 export class FlagExtra extends Flag {
   get id(): string {
     return 'flag_' + this.name;
+  }
+
+
+  toString() {
+    const color1 = colorString(this.color)
+    const color2 = colorString(this.secondaryColor)
+    return `<span style=color:${color1}>&#127988;&#xFE0E;</span><a href="/a/#!/room/${Game.shard.name}/${this.pos.roomName}">${this.name}</a><span style=color:${color2}>&#127988;&#xFE0E;</span>`
   }
 
   get parentName() {
@@ -70,10 +78,10 @@ export class FlagExtra extends Flag {
       //   return this.runMission();
       case COLOR_BLUE:
         return this.runTeam()
-      case COLOR_ORANGE:
-        return require('planner')(this)
-      case COLOR_CYAN:
-        return this.runMeta();
+      // case COLOR_ORANGE:
+      //   return require('planner')(this)
+      // case COLOR_CYAN:
+      //   return this.runMeta();
       case COLOR_GREY:
         return runChildFlag(this);
     }

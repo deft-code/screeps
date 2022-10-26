@@ -17,10 +17,10 @@ class RoomExtras extends Room {
   }
 
   maxHits(struct: Structure<BuildableStructureConstant>): number{
-    return this.strat.maxHits(this, struct.structureType, struct.pos.xy);
+    return this.strat.maxHits(struct.structureType, struct.pos.xy);
   }
 
-  get wallMax() {
+  get wallMaxREMOVE() {
     if (!this.controller) return 0
     if (!this.controller.my) return 0
 

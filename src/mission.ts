@@ -1,4 +1,4 @@
-import { Process, Priority, register, spawn } from "process";
+import { Service, Priority} from "process";
 import * as debug from "debug";
 import { getMyCreep, unget } from "mycreep";
 
@@ -17,7 +17,9 @@ interface MissionMemory {
     eggs: string[]
 }
 
-export abstract class Mission extends Process {
+
+
+export abstract class Mission extends Service {
     constructor(name: string) {
         super(name);
         Memory.missions[name] = Memory.missions[name] || {
@@ -26,6 +28,8 @@ export abstract class Mission extends Process {
             eggs: [],
         };
     }
+
+    abstract get roomName(): string;
 
     get eggs() {
         return _.map(this.memory.eggs, c => getMyCreep(c));
@@ -75,7 +79,7 @@ export abstract class Mission extends Process {
                 done.push(name);
                 debug.log("Lost Hatch!", name);
             }
-            if (!Game.creeps[name].spawning) {
+            if (!Game.creeps[name]?.spawning) {
                 debug.log("Creep Spawned!", name);
                 done.push(name);
                 this.memory.creeps.push(name);
@@ -181,35 +185,5 @@ declare global {
     interface CreepMemory {
         mission: string
         birth: number
-    }
-}
-
-@register
-export class GlobalRespawn extends Mission {
-    run(): Priority {
-        const spawn = Game.spawns.Spawn1;
-        const room = spawn.room;
-
-        this.nCreeps('startup', 10);
-
-        // if(spawn.store.energy >= 300 && !spawn.spawning && this.memory.creeps.length < 10) {
-        //     const name = findName("reboot");
-        //     const ret =  spawn.spawnCreep([WORK, MOVE, CARRY], name);
-        //     debug.log("Spawning new creep", name, ret);
-        //     if(ret === OK) {
-        //         this.memory.eggs.push(name);
-        //         Memory.creeps[name] = {
-        //             "mission": this.name,
-        //             "team": "junk",
-        //             "cpu": 0,
-
-        //         }
-        //     }
-        // }
-
-        room.strat.init(room);
-
-        super.run();
-        return "critical";
     }
 }
