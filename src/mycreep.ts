@@ -90,6 +90,8 @@ export class MyCreep extends debug.Debuggable {
         return [null, []];
     }
 
+    priority = 0;
+
     get pos(): RoomPosition {
         return this.c.pos;
     }

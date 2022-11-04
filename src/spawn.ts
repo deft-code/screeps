@@ -1,4 +1,4 @@
-import { getMyCreep } from "mycreep";
+import { getMyCreep, MyCreep } from "mycreep";
 import * as debug from "debug";
 import {daemon, Priority, Process} from "process";
 
@@ -18,12 +18,18 @@ class SpawnDaemon extends Process {
   }
 }
 
-function eggOrder(lname: string, rname: string): number {
+function eggOrder(l: MyCreep, r: MyCreep): number {
+  const lage = Math.floor((Game.time - Memory.creeps[l.name].laid)/500);
+  const rage = Math.floor((Game.time - Memory.creeps[r.name].laid)/500);
+  return r.priority - l.priority || rage - lage;
+}
+
+function eggOrderOld(lname: string, rname: string): number {
   const lpriority = Memory.creeps[lname].egg || 0;
   const rpriority = Memory.creeps[rname].egg || 0;
-  const lage = Game.time - Memory.creeps[lname].laid;
-  const rage = Game.time - Memory.creeps[rname].laid;
-  return lpriority - rpriority || rage - lage;
+  const lage = Math.floor((Game.time - Memory.creeps[lname].laid)/500);
+  const rage = Math.floor((Game.time - Memory.creeps[rname].laid)/500);
+  return rpriority - lpriority || rage - lage;
 }
 
 function bodyCost(body: BodyPartConstant[]): number {
@@ -118,14 +124,15 @@ export function runSpawns() {
   const eggNames = _.shuffle(all.filter(
     cname => Memory.creeps[cname].nest === 'egg'));
 
-  eggNames.sort(eggOrder);
+  const eggs = eggNames.map(getMyCreep);
+  eggs.sort(eggOrder);
+
 
   const usedEnergy = new Map<string, number>();
   const spawns = _.shuffle(Game.spawns);
 
   const start = Game.time;
-  for (let eggName of eggNames) {
-    const mycreep = getMyCreep(eggName);
+  for (let mycreep of eggs) {
     if ((mycreep.memory.hibernate || 0) > Game.time) continue;
 
     let [spawn, body] = mycreep.spawn(spawns);
@@ -142,12 +149,12 @@ export function runSpawns() {
 
     const energyAvailable = spawn.room.energyAvailable - used;
     if (cost <= energyAvailable) {
-      const err = spawn.spawnCreep(body, eggName, { energyStructures: spawn.room.strat.spawnEnergy() });
+      const err = spawn.spawnCreep(body, mycreep.name, { energyStructures: spawn.room.strat.spawnEnergy() });
       if (err !== OK) {
-        spawn.room.log(spawn, 'FAILED to spawn', eggName, err, JSON.stringify(Memory.creeps[eggName]))
-        if (Game.creeps[eggName]) {
-          Game.creeps[eggName].log(`Egg[${eggName}] collides with existing creep!`);
-          delete Memory.creeps[eggName].egg;
+        spawn.room.log(spawn, 'FAILED to spawn', mycreep, err, JSON.stringify(mycreep.memory));
+        if (Game.creeps[mycreep.name]) {
+          Game.creeps[mycreep.name].log(`Egg[${mycreep.name}] collides with existing creep!`);
+          mycreep.memory.nest = "not egg!!!";
         } else if (Game.time - mycreep.memory.laid > 3000) {
           spawn.room.log(`${mycreep} Too Old!`);
           //TODO mycreep.abort();

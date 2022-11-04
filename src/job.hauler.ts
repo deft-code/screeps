@@ -4,6 +4,7 @@ import { register } from "mycreep";
 
 @register
 class Hauler extends JobRole {
+    priority = 9;
     spawn(spawns: StructureSpawn[]): [StructureSpawn|null, BodyPartConstant[]] {
         const room = this.mission.room;
         if (!room) return [null, []];

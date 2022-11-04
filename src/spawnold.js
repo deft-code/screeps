@@ -272,6 +272,7 @@ export function buildBody(spawns, eggMem, { maxRCL }) {
   let spawn
   let body = []
   let e
+  debug.log("building body:", JSON.stringify(eggMem));
   switch (eggMem.body) {
     case 'bootstrap':
       spawn = energySpawn(spawns, 1300)
@@ -394,6 +395,7 @@ export function buildBody(spawns, eggMem, { maxRCL }) {
         CARRY, CARRY,
         CARRY, CARRY,
         CARRY, MOVE];
+      debug.log("hub spawns:", spawns);
       spawn = _.find(spawns, s => s.room.energyAvailable >= 500);
       break;
     case 'farmer':

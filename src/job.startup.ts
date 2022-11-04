@@ -7,15 +7,15 @@ import { energyDef } from "spawn";
 export class Startup extends JobCreep {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         const spawn = _.sample(Game.spawns);
-        if(!spawn) return [null, []];
+        if (!spawn) return [null, []];
         const energy = spawn.room.energyCapacityAvailable;
         let body;
         switch (energy) {
             case 300: {
                 const mod = Game.time % 3;
-                if(mod === 0) {
+                if (mod === 0) {
                     body = [WORK, WORK, CARRY, MOVE];
-                } else if(mod === 1) {
+                } else if (mod === 1) {
                     body = [WORK, CARRY, MOVE, MOVE];
                 } else {
                     body = [WORK, CARRY, CARRY, MOVE, MOVE];
