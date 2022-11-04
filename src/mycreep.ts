@@ -15,7 +15,7 @@ declare global {
     }
 }
 
-export type Task2Ret = "again" | "start" | "wait";
+export type Task2Ret = "again" | "start" | "wait" | false;
 
 export function task(prototype: any, name: string, desc: PropertyDescriptor) {
     const _name = "_task_" + name;

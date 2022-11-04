@@ -13,6 +13,7 @@ global.spawn = process.spawn;
 import 'strat';
 
 import 'ms.globalrespawn';
+import 'ms.swipe';
 import "service.flag";
 
 import "job.hauler";
@@ -330,7 +331,7 @@ function genPixels() {
 }
 
 process.Service.boot();
-global.schedule = process.Service.shedule;
+console.schedule = process.Service.shedule;
 
 
 let servert = Game.time;

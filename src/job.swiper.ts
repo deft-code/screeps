@@ -1,7 +1,6 @@
 import { JobCreep } from "job.creep";
 import { register, task, Task2Ret } from "mycreep";
 import { defaultRewalker, fromXY } from "Rewalker";
-import { TaskRet } from "Tasker";
 
 const rewalker = defaultRewalker();
 
@@ -15,30 +14,29 @@ export class Swiper extends JobCreep {
         return [_.sample(spawns), [MOVE, CARRY]];
     }
 
+    get home() {
+        return this.mission.getRoom("home");
+    }
+
+    see(roomAlias:string): Task2Ret | false {
+        const room = this.mission.getRoom(roomAlias);
+        if(!room) {
+            return this.moveRoom(this.mission.getRoomName(roomAlias)!);
+        }
+        return false;
+    }
+
+    at(roomAlias: string) {
+        this.pos.roomName === this.mission.getRoomName(roomAlias);
+    }
+    
+
     start(): Task2Ret {
         if (this.c.store.getFreeCapacity() < this.c.store.getUsedCapacity()) {
-            if(!this.mission.home) {
-                return this.moveRoom(this.mission.homeName);
-            }
-            return this.dropRange(this.mission.home.controller!);
+            return this.see(this.mission.getRoomName("home")!) || this.dropRange(this.home!.controller!);
         }
 
-        if(!this.mission.atRoom()){
-            if(!this.mission.getRoom()) {
-                return this.moveRoom();
-            }
-        }
-
-
-        
-
-
-
-
-        if(!this.mission.room) {
-            return this.moveRoom();
-        }
-        return this.moveRoom(this.mission.roomName);
+        return this.see(this.mission.getRoomName()!) || this.moveRoom(this.mission.getRoomName()!);
     }
 
     @task
@@ -51,61 +49,6 @@ export class Swiper extends JobCreep {
             this.c.drop("energy");
             return "wait";
         }
-    }
-
-
-
-    moveRoom(roomName: string = "", xy = 2525, range = 20): Task2Ret {
-        return this.movePos(fromXY(xy, roomName || this.mission.roomName), range);
-    }
-
-    moveTargetRoom(target: HasPos | null): Task2Ret {
-        if (!target) return "start";
-        const x = this.pos.x;
-        const y = this.pos.y;
-        if (target.pos.roomName === this.pos.roomName) {
-            if (x === 0) {
-                this.moveDir(RIGHT);
-            } else if (x === 49) {
-                this.moveDir(LEFT);
-            } else if (y === 0) {
-                this.moveDir(BOTTOM);
-            } else if (y === 49) {
-                this.moveDir(TOP);
-            }
-            this.dlog('moveRoom done');
-            return "start";
-        }
-
-        const ox = target.pos.x;
-        const oy = target.pos.y;
-        const range = Math.max(1, Math.min(ox, oy, 49 - ox, 49 - oy) - 1);
-        return this.moveTarget(target, range);
-    }
-
-    moveDir(dir: DirectionConstant): Task2Ret {
-        const ret = this.c.move(dir);
-        if (ret === ERR_BUSY || ret === ERR_TIRED) {
-            return "wait";
-        }
-        if (ret === OK) {
-            return "wait";
-        }
-        return "start";
-    }
-
-
-    moveTarget(obj: HasPos, range: number): Task2Ret {
-        return this.movePos(obj.pos, range);
-    }
-
-    movePos(pos: RoomPosition, range: number): Task2Ret {
-        const ret = rewalker.walkTo(this.c, pos, range);
-        if (ret === OK) return "start";
         return "wait";
-    }
-
-    walkRange(target: HasPos) {
-        return rewalker.walkTo(this.c, target.pos, 3);
     }
 }

@@ -6,29 +6,26 @@ import { Scout } from "job.scout";
 import { Swiper } from "job.swiper";
 
 @register
-export class GlobalRespawn extends Mission {
-    get roomName(): string {
-        return Game.spawns.Spawn1.room.name;
+export class Swipe extends Mission {
+    get roomName() {
+        return this.args[1];
     }
 
-    get room() {
-        return Game.rooms[this.roomName];
-    }
-
-    get homeName() {
-        return this.args[1] || this.roomName;
-    }
-
-    get home() {
-        return Game.rooms[this.homeName];
+    getRoomName(alias = ""){
+        if(alias === "home") return this.args[2];
+        return super.getRoomName(alias);
     }
 
     run(): Priority {
+
+        debug.log("swipe mission! from", this.getRoomName(), "to", this.getRoomName("home"), this.room);
+
         if(!this.room) {
             this.nJobs(Scout, 1);
         } else {
             this.nJobs(Swiper, 1);
         }
+        super.run();
         return "normal";
     }
 }

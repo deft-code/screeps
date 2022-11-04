@@ -3,11 +3,11 @@ import * as debug from "debug";
 export type Priority = "critical" | "normal" | "low" | "late" | "extra" | "kill";
 
 function typeName(cmd: string): string {
-    return cmd.split(" ")[0];
+    return cmdArgs(cmd)[0];
 }
 
 function cmdArgs(cmd: string): string[] {
-    return cmd.split(" ").slice(1);
+    return cmd.split(" ");
 }
 
 export interface IProcess {
@@ -58,14 +58,16 @@ export class Service extends Process {
 
     static schedule(cmd: string): Service | null {
         const proc = this.spawn(cmd);
-        Memory.scheduler.services.push(cmd);
+        if (proc) {
+            Memory.scheduler.services.push(cmd);
+        }
         return proc;
     }
     static spawn(cmd: string): Service | null {
         const klassName = typeName(cmd);
-        const klass = registry.get(klassName);
+        const klass = getOrImport(klassName);
         if (!klass) {
-            debug.log("Invalid process Type", klassName, "from", cmd);
+            debug.log("Invalid process Type", klassName, "from", cmd, "procs: ", registry.keys());
             return null;
         }
 
@@ -84,6 +86,16 @@ export class Service extends Process {
 }
 
 const registry = new Map<string, typeof Service>();
+
+function getOrImport(klassName: string): typeof Service | undefined {
+    const klass = registry.get(klassName);
+    if (klass) return klass;
+
+    const importName = `ms.${klassName}`;
+    debug.log(`Process klass'${klassName}' not registered, attempting import@'${importName}'`);
+    require(importName);
+    return registry.get(klassName);
+}
 
 export function register(klass: typeof Service) {
     register_inner(klass);
@@ -131,8 +143,8 @@ function runRow(priority: Priority, minBucket: number) {
                 const next = proc.run();
                 table[next].push(proc);
             } catch (err) {
-                debug.log(proc, err, (err as {stack:string}).stack);
-                Game.notify((err as {stack:string}).stack, 30);
+                debug.log(proc, err, (err as { stack: string }).stack);
+                Game.notify((err as { stack: string }).stack, 30);
                 deferred.push(proc);
             }
         } else {

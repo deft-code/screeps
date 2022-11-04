@@ -500,6 +500,16 @@ export class Rewalker {
                 matrixAvoid(mat, creep.pos, 2)
             }
         }
+
+        // Use recent tombstones to identify hostile rooms and increase the travel cost accordingly.
+        for (const tomb of room.find(FIND_TOMBSTONES)) {
+            if (tomb.creep.owner.username === whoami() && (tomb.creep.ticksToLive || 0) > 50) {
+                matrixAvoid(mat, tomb.pos, 50);
+                // Just one avoid for the whole room is enough.
+                break;
+            }
+        }
+
         return mat
     }
 
@@ -726,7 +736,7 @@ class Step {
         }
         //console.log("rewalker stepping", this.creep.pos, this.path.first);
         let dir = getDirectionTo(this.creep.pos, this.path.first)
-        if(dir === 0){
+        if (dir === 0) {
             dir = getDirectionTo(this.creep.pos, this.path.second);
             console.log("Found zero dir!", dir);
         }

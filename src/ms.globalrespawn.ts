@@ -20,13 +20,13 @@ export class GlobalRespawn extends Mission {
         const rcl = this.room.controller?.level || 0;
         const ecap = this.room.energyCapacityAvailable;
 
-        if(true || !this.creeps.length) {
+        if (!this.creeps.length) {
             this.nJobs(Reboot, 1);
         }
 
         this.nCreeps('startup', Math.max(1, 6 - rcl)) ||
             ecap >= 550 && (this.nCreeps('bsrc', 1) || this.nCreeps('asrc', 1)) ||
-            this.nCreeps('hauler', 1) ;
+            this.nCreeps('hauler', 1);
 
         this.nJobs(Worker, 1);
         this.nJobs(Ctrl, 1);

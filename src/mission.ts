@@ -32,11 +32,17 @@ export abstract class Mission extends Service {
     abstract get roomName(): string;
 
     get room(): Room | null {
-        return Game.rooms[this.roomName];
+        return this.getRoom(this.roomName);
     }
 
-    get home(): Room | null {
-        return this.room;
+    getRoom(alias = ""): Room | null {
+        return Game.rooms[this.getRoomName(alias)!] || null;
+    }
+
+    getRoomName(alias = ""): string | null {
+        if(/^[WE]\d?\d[NS]\d?\d$/.test(alias)) return alias;
+        if(alias === "") return this.roomName;
+        return null;
     }
 
     get eggs() {

@@ -11,8 +11,7 @@ export class Scout extends JobCreep {
     }
 
     start(): Task2Ret {
-        const dest = new RoomPosition(25,25, "W5N5");
-        rewalker.walkTo(this.c, dest, 20);
-       return "wait";
+        this.log("heading to", this.mission.roomName);
+        return this.moveRoom(this.mission.roomName);
     }
 }
