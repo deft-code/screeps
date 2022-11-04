@@ -121,7 +121,7 @@ export function findSpawns(allSpawns, roomName, eggMem) {
     default:
       spawns = _.filter(allSpawns, s => s.room.name === eggMem.spawn)
       if (!spawns.length) {
-        debug.log('Missing spawn algo', eggMem.spawn)
+        debug.log('Missing spawn algo', JSON.stringify(eggMem));
       }
       break
   }
@@ -129,6 +129,7 @@ export function findSpawns(allSpawns, roomName, eggMem) {
 }
 
 function buildCtrl(spawns, eggMem) {
+  debug.log("ctrl eggmem:", JSON.stringify(eggMem));
   //Patch around manaual ctrl creations
   if (!eggMem.ecap) eggMem.ecap = _.first(spawns).room.energyCapacityAvailable;
 
@@ -192,9 +193,7 @@ function buildCtrl(spawns, eggMem) {
 // Spawns considered full with energy >= max
 // Default max of 2500 allows for full 50 part haulers
 function energySpawn(spawns, min, max = 2500) {
-  return _.find(spawns,
-    s => (s.room.energyAvailable >= max || s.room.energyFreeAvailable === 0) &&
-      s.room.energyCapacityAvailable >= min)
+  return _.find(spawns, s => s.room.energyCapacityAvailable >= min);
 }
 
 function harvesterBody(lvl = 0) {
@@ -230,6 +229,7 @@ function srcerBody(spawns, eggMem) {
   const cost = bodyCost(idealBody);
   // Gradual down sizing if room is low RCL or damaged.
   const spawn = energySpawn(spawns, cost) || energySpawn(spawns, 800) || energySpawn(spawns, 550) || energySpawn(spawns, 300);
+  debug.log("found spawn:", spawn, "from spawns", spawns, "@cost", cost);
   if (!spawn) return [null, idealBody];
 
   // Make sure srcer capacity == extension capacity

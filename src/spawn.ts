@@ -126,7 +126,6 @@ export function runSpawns() {
   const start = Game.time;
   for (let eggName of eggNames) {
     const mycreep = getMyCreep(eggName);
-    debug.log("trying to spawn", eggName, mycreep);
     if ((mycreep.memory.hibernate || 0) > Game.time) continue;
 
     let [spawn, body] = mycreep.spawn(spawns);
@@ -150,7 +149,7 @@ export function runSpawns() {
           Game.creeps[eggName].log(`Egg[${eggName}] collides with existing creep!`);
           delete Memory.creeps[eggName].egg;
         } else if (Game.time - mycreep.memory.laid > 3000) {
-          spawn.room.log(`Egg[${eggName}] Too Old!`);
+          spawn.room.log(`${mycreep} Too Old!`);
           //TODO mycreep.abort();
           //delete Memory.creeps[eggName];
         }
@@ -163,5 +162,5 @@ export function runSpawns() {
       //spawn.room.log(`Not enough to spawn Egg[${eggName}]: ${cost} > ${energyAvailable}`);
     }
   }
-  debug.log(`Ran ${eggNames.length} in `, Game.time - start);
+  debug.log(`Ran ${eggNames} in `, Game.time - start);
 }

@@ -70,6 +70,7 @@ export class Service extends Process {
         }
 
         const proc = new klass(cmd);
+        services.set(cmd, proc);
         const priority = Game.cpu.bucket > 1000 ? "normal" : "low";
         table[priority].push(proc);
         return proc

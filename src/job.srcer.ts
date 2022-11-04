@@ -5,7 +5,6 @@ import { registerAs } from "mycreep";
 @registerAs("bsrc")
 class Srcer extends JobRole {
     spawn(spawns: StructureSpawn[]) {
-        this.log("spawning attempt");
         return this.localSpawn(spawns, {body: "srcer"});
     }
 }

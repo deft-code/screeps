@@ -122,6 +122,12 @@ export class MyCreep extends debug.Debuggable {
         return this.c?.spawnTime || 0;
     }
 
+    eggRun() {
+        this.log("Spoiled Egg!");
+    }
+
+    spawningRun() {}
+
     init(): boolean { return true }
     start(): Task2Ret {
         this.c.run();

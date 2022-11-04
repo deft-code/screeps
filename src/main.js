@@ -15,7 +15,9 @@ import 'strat';
 import 'ms.globalrespawn';
 import "service.flag";
 
-//import "job.srcer";
+import "job.hauler";
+import "job.scout";
+import "job.srcer";
 
 import 'roomobj';
 import 'role.cap';
@@ -25,7 +27,7 @@ import 'role.mason';
 import 'role.mineral';
 import 'role.shovel';
 import 'role.src';
-import 'role.startup';
+import 'job.startup';
 
 import 'deposit';
 

@@ -1,9 +1,10 @@
 
-import { register, MyCreep } from "mycreep";
+import { JobCreep } from "job.creep";
+import { register } from "mycreep";
 import { energyDef } from "spawn";
 
 @register
-export class Startup extends MyCreep {
+export class Startup extends JobCreep {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         const spawn = _.sample(Game.spawns);
         if(!spawn) return [null, []];
@@ -31,7 +32,7 @@ export class Startup extends MyCreep {
                     move: 2,
                     base: [MOVE, CARRY],
                     per: [WORK, CARRY],
-                    energy: Math.max(550, spawn.room.energyAvailable)
+                    energy,
                 });
                 break;
         }

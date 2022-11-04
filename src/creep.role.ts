@@ -3,6 +3,8 @@ import { CreepExtra } from 'creep';
 
 import { TaskRet } from 'Tasker';
 import { injecter } from 'roomobj';
+import { getMyCreep, MyCreep } from 'mycreep';
+import { JobCreep } from 'job.creep';
 
 declare global {
   interface CreepTaskMem {
@@ -42,23 +44,30 @@ export class CreepRole extends CreepExtra {
   }
 
   get team(): Flag {
+    return new Flag(this.memory.mission, COLOR_WHITE, COLOR_WHITE, this.mycreep.mission.roomName, 25, 25);
+  }
 
-    const t = Game.flags[this.memory.mission]
-    if (t) return t;
+  // get teamOld(): Flag {}
+  //   const t = Game.flags[this.memory.mission]
+  //   if (t) return t;
 
-    const teamName = _.last(this.name.split('_', 2));
-    const team = Game.flags[teamName];
-    if (team) return team;
+  //   const teamName = _.last(this.name.split('_', 2));
+  //   const team = Game.flags[teamName];
+  //   if (team) return team;
 
-    const local = _.find(this.room.find(FIND_FLAGS), f => f.color === COLOR_BLUE);
-    if(local) return local;
+  //   const local = _.find(this.room.find(FIND_FLAGS), f => f.color === COLOR_BLUE);
+  //   if(local) return local;
 
-    this.log("lost creep!");
-    return Game.flags.Home;
+  //   this.log("lost creep!");
+  //   return Game.flags.Home;
+  // }
+
+  get mycreep(): JobCreep {
+    return getMyCreep(this.name) as JobCreep;
   }
 
   get atTeam() {
-    return this.room.name === this.team.pos.roomName
+    return this.room.name === this.mycreep.mission.roomName
   }
 
   get atHome() {

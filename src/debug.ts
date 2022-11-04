@@ -152,8 +152,8 @@ export interface DebugMemory {
   debug?: number
 }
 
-export class Debuggable {
-  memory: DebugMemory
+export abstract class Debuggable {
+  abstract get memory(): DebugMemory;
   name: string
 
   get debug() {

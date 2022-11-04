@@ -1,6 +1,6 @@
 import { Service, Priority} from "process";
 import * as debug from "debug";
-import { getMyCreep, unget } from "mycreep";
+import { getMyCreep, MyCreep, unget } from "mycreep";
 
 
 declare global {
@@ -31,8 +31,20 @@ export abstract class Mission extends Service {
 
     abstract get roomName(): string;
 
+    get room(): Room | null {
+        return Game.rooms[this.roomName];
+    }
+
+    get home(): Room | null {
+        return this.room;
+    }
+
     get eggs() {
         return _.map(this.memory.eggs, c => getMyCreep(c));
+    }
+
+    get hatches() {
+        return _.map(this.memory.hatch, c => getMyCreep(c));
     }
 
     get creeps() {
@@ -45,6 +57,10 @@ export abstract class Mission extends Service {
 
     roleCreeps(role: string) {
         return this.creeps.filter(c => c.role === role);
+    }
+
+    roleHatches(role: string) {
+        return this.hatches.filter(c => c.role === role);
     }
 
     roleEggs(role: string) {
@@ -65,7 +81,15 @@ export abstract class Mission extends Service {
                 debug.log("hatching", name);
                 done.push(name);
                 this.memory.hatch.push(name);
+                continue;
             }
+            if(Memory.creeps[name].nest !== "egg") {
+                const mem = Memory.creeps[name];
+                debug.log("Stuck egg", name, Game.time - mem.laid,  JSON.stringify(mem));
+                mem.nest = "egg";
+            }
+            const mycreep = getMyCreep(name);
+            mycreep.eggRun();
         }
         if (done.length) {
             _.remove(this.memory.eggs, egg => _.contains(done, egg));
@@ -133,19 +157,25 @@ export abstract class Mission extends Service {
         return null;
     }
 
+    nJobs(ctor: typeof MyCreep, n: number, life = CREEP_LIFE_TIME ){
+        return this.nCreeps(ctor.name.toLowerCase(), n, life);
+    }
+
     nCreeps(role: string, n: number, life = CREEP_LIFE_TIME) {
         const neededttl = (n - 1) * life;
         // a neededttl of 1500 creates 2 creeps
         // a neededttl of 0 spawns replacement as the first dies.
-        if (neededttl <= 0) return this.nCreepsPace(role, n);
+        if (neededttl < 0) return this.nCreepsPace(role, n);
 
         const creeps = this.roleCreeps(role);
-        const spawnlag = _.max(creeps, c => c.spawnTime)?.spawnTime || 0;
+        const hatches = this.roleHatches(role);
+        const spawnlag = _.max(Array.of(...creeps, ...hatches), c => c.spawnTime)?.spawnTime || 0;
         const total = _.sum(creeps, c => c.ticksToLive)
-            + this.roleEggs(role).length * life
-            + _.random(10) - spawnlag;
-        debug.log(`total:${total} vs needed:${neededttl}`);
-        if (total >= neededttl + spawnlag) return null;
+            + hatches.length * life
+            + this.roleEggs(role).length * life;
+        const buffer = _.random(10) + spawnlag;
+        debug.log(`role:${role} total:${total} vs needed:${neededttl + buffer}`);
+        if (total > neededttl + buffer) return null;
         return this.layEgg(role);
     }
 
