@@ -66,7 +66,9 @@ export class Tasker {
 
     task<T extends Targetable>(c: Taskable, n: number, target: T | string | null | undefined, ...args: (string | number)[]): (T | null) {
         if (_.isString(target)) {
-            target = Game.getObjectById<T>(target);
+            // T isn't required to be a real fetchable game object (e.g. Flag),
+            // but a string target always is one, so fetch generically and cast.
+            target = Game.getObjectById<_HasId>(target) as unknown as T | null;
         }
         if (!target) return null;
         const task = this.location(n);

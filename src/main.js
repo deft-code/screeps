@@ -338,12 +338,14 @@ let servert = Game.time;
 let lastClient = 0;
 module.exports.loop = main
 function main() {
-  if (Game.shard.name !== 'shard2') {
+  if (Game.shard.name !== 'shard2' && Game.shard.name !== 'shardSeason') {
     console.log("WRONG SHARD", Game.shard);
     return;
   }
 
-  genPixels();
+  if (Game.shard.name === 'shard2') {
+    genPixels();
+  }
 
   const rooms = _.values(Game.rooms);
   run(rooms, 500, r => r.strat.init());

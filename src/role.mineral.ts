@@ -11,7 +11,7 @@ declare global {
 @injecter(Creep)
 export class RoleMineral extends CreepHarvest {
   roleMineral(): TaskRet {
-    let cont = Game.getObjectById(this.memory.cont)
+    let cont = this.memory.cont ? Game.getObjectById<StructureContainer>(this.memory.cont) : null
     if (!cont) {
       this.log('Missing cont')
       return false;

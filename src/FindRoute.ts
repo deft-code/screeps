@@ -45,7 +45,7 @@ type Options = {
 
 function defaultExits(roomName: string): Dirs[] {
     const exits = Game.map.describeExits(roomName);
-    return [TOP, RIGHT, BOTTOM, LEFT].filter(d => !!exits[d]);
+    return [TOP, RIGHT, BOTTOM, LEFT].filter(d => !!exits?.[d]);
 }
 
 function adjustLatLon(ll: LatLon, dir: Dirs): LatLon {

@@ -74,7 +74,7 @@ export class CreepExtra extends Creep {
   }
 
   get assault() {
-    return this.hostile || (this.activeByType.get(WORK) || 0) > 1;
+    return this.hostile || (this.activeByType.get(WORK) || 0) > 1 || (this.activeByType.get(HEAL) || 0) > 1;
   }
 
   get where() {

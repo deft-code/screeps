@@ -24,7 +24,7 @@ export class CreepRepair extends CreepBuild {
     idleRepairAny() {
         this.dlog('start idle repair, melee/range intents:', this.intents.melee, this.intents.range);
         if (this.intents.melee || this.intents.range) return false;
-        let repair = Game.getObjectById(this.memory.repairid);
+        let repair = this.memory.repairid ? Game.getObjectById<Structure>(this.memory.repairid) : null;
         this.dlog('idle repair', repair);
         if (!repair || !repair.hurts) {
             this.dlog('New idle repair target');

@@ -202,7 +202,7 @@ export class CreepMove extends CreepRole {
     return this.moveTarget(obj, opts)
   }
 
-  taskMoveRoom(obj: RoomObject | null) {
+  taskMoveRoom(obj: (RoomObject & _HasId) | null) {
     obj = this.checkId('move room', obj)
     return this.moveRoom(obj)
   }

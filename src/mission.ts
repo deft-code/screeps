@@ -17,7 +17,11 @@ interface MissionMemory {
     eggs: string[]
 }
 
+// Ensure missions is here on a clean memory first boot.
+Memory.missions = Memory.missions || {};
 
+// Ensure creeps is here on a clean memory first boot.
+Memory.creeps = Memory.creeps || {};
 
 export abstract class Mission extends Service {
     constructor(name: string) {

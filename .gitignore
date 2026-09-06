@@ -2,3 +2,5 @@ credentials.js
 .*.swp
 node_modules/
 distjs/
+sourcemaps/
+logs/

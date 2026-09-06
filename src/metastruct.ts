@@ -619,7 +619,7 @@ class MetaManager {
         s.room?.visual.line(25, 25, s.pos.x, s.pos.y, { color: "red" });
         if (s instanceof ConstructionSite) {
             const err = s.remove();
-            s.room?.errlog(err, "failed to remove site:", s);
+            s.room?.errlog(err as ScreepsReturnCode, "failed to remove site:", s);
             return err === OK;
         }
 

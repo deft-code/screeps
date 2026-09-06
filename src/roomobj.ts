@@ -34,12 +34,12 @@ export function extender(extra: extendable) {
 @extender
 class RoomObjExtra extends RoomObject {
     effectTTL(effect: PowerConstant | EffectConstant): number {
-        const active = _.find(this.effects, pe => pe.effect === effect);
+        const active = _.find(this.effects || [], pe => pe.effect === effect);
         if (!active) return 0;
         return active.ticksRemaining
     }
     effectLvl(pwr: PowerConstant): number {
-        const p = _.find(this.effects, e => e.effect === pwr);
+        const p = _.find(this.effects || [], e => e.effect === pwr);
         if (!p) return 0;
         return _.get(p, 'level', 0);
     }

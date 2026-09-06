@@ -32,6 +32,8 @@ declare global {
 }
 
 
+Memory.scheduler = Memory.scheduler || { services: [], next: 0 };
+
 const services = new Map<string, Service>();
 
 export class Service extends Process {

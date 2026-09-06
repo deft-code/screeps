@@ -9,7 +9,7 @@ import { Reboot } from "job.reboot";
 @register
 export class GlobalRespawn extends Mission {
     get roomName(): string {
-        return Game.spawns.Spawn1.room.name;
+        return Game.spawns.Home.room.name;
     }
 
     get room() {

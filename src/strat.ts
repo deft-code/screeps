@@ -201,7 +201,7 @@ function makeStrat(room: Room): IStrat {
 function drawMinerals(room: Room) {
     const mins = room.find(FIND_MINERALS);
     for (const min of mins) {
-        if (min.ticksToRegeneration > 0) {
+        if (min.ticksToRegeneration && min.ticksToRegeneration > 0) {
             room.visual.text(humanize(min.ticksToRegeneration), min.pos.x, min.pos.y + 1);
         }
     }

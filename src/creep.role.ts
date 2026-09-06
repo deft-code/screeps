@@ -183,8 +183,8 @@ export class CreepRole extends CreepExtra {
     return null;
   }
 
-  checkId<T extends RoomObject>(name: string, obj: T | string | undefined | null): T | null {
-    if (_.isString(obj)) obj = Game.getObjectById(obj)
+  checkId<T extends RoomObject & _HasId>(name: string, obj: T | string | undefined | null): T | null {
+    if (_.isString(obj)) obj = Game.getObjectById<T>(obj)
 
     const where = debug.where(2).func;
     if(_.camelCase('task ' + name) !== where) {
@@ -325,7 +325,7 @@ export class CreepRole extends CreepExtra {
   }
 
   nearSpawn(): StructureSpawn | null {
-    let s = Game.getObjectById(this.memory.spawnid);
+    let s = this.memory.spawnid ? Game.getObjectById<StructureSpawn>(this.memory.spawnid) : null;
     if (s && this.pos.isNearTo(s)) return s;
 
     s = _.find(this.room.findStructs(STRUCTURE_SPAWN) as StructureSpawn[],

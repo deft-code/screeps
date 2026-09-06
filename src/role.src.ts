@@ -25,7 +25,7 @@ class SrcerExtra extends CreepRepair {
         let what = this.moveSpot() as TaskRet;
         if (what) return what;
 
-        let src = Game.getObjectById(this.memory.srcid);
+        let src = this.memory.srcid ? Game.getObjectById<Source>(this.memory.srcid) : null;
         if (!src) {
             const meta = this.teamRoom.meta.getMeta(this.role);
             if (!meta) return false;
@@ -117,7 +117,7 @@ class SrcerExtra extends CreepRepair {
     }
 
     mylink(): StructureLink | null {
-        let link = Game.getObjectById(this.memory.linkid);
+        let link = this.memory.linkid ? Game.getObjectById<StructureLink>(this.memory.linkid) : null;
         if (link && link.pos.inRangeTo(this.pos, 1)) return link;
         const looks = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true);
         for (const look of looks) {
@@ -131,7 +131,7 @@ class SrcerExtra extends CreepRepair {
     }
 
     mycont(): StructureContainer | null {
-        let cont = Game.getObjectById<StructureContainer>(this.memory.contid);
+        let cont = this.memory.contid ? Game.getObjectById<StructureContainer>(this.memory.contid) : null;
         if (cont) return cont;
         for (const struct of this.pos.lookFor(LOOK_STRUCTURES)) {
             if (isSType(struct, STRUCTURE_CONTAINER)) {
