@@ -5,8 +5,7 @@ Three generations of movement code exist. Only **Rewalker** is live.
 | Module | Status | Used by |
 |---|---|---|
 | `src/Rewalker.ts` (2019) | **live** | `creep.move.ts` (`moveTarget`), `job.creep.ts`, `job.scout.ts`, `job.swiper.ts`, `powercreep.ts`, `metastruct.ts` (xy helpers), `intel.ts` |
-| `src/Traveler.js` (vendored bonzaiferroni Traveler, 2017) | loaded, dead | defines `Creep.prototype.travelTo`; nothing calls it (the old `moveTarget` that used it is commented out) |
-| `src/matrix.js` (2017) | loaded, dead | cost-matrix helpers for Traveler/team pathways; `getMat` cache, stall tracking in `Memory.rooms[x].stalls` |
+| `src/matrix.js` (2017) | loaded, dead | cost-matrix helpers for team pathways; `getMat` cache, stall tracking in `Memory.rooms[x].stalls` |
 | `src/routes.ts` | **live** (`dist` only) | `spawnold.findSpawns`, `role.depositfarmer.ts`, `deposit.ts` |
 | `src/path.ts` | **live** (xy packing) | `pos.xy`, `room.packPos/unpackPos`; its `Path` class (multi-room road paths) is dead with `team.ts` |
 | `src/FindRoute.ts`, `src/PriorityQueue.js` (2022) | orphan | a custom `Game.map.findRoute` replacement, never imported |

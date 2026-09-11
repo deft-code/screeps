@@ -9,9 +9,8 @@ Config lives in `gulpfile.js`, `tsconfig.json`, `package.json`.
 - Copy `blank_credentials.js` to `credentials.js` (gitignored). Fill `token`
   (preferred) or `email`/`password`. `branch` defaults to `default`. One-off
   tasks also read `market_token` and `money_token`.
-- `.gitmodules` declares `Traveler/` and `murmurhash-js/`, but neither is used by
-  the build: `src/Traveler.js` is a vendored copy and murmurhash is never
-  referenced. `git submodule update --init` is optional.
+- `.gitmodules` declares `murmurhash-js/`, but the build never references it.
+  `git submodule update --init` is optional.
 
 ## Tasks
 

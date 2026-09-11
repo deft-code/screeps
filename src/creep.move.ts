@@ -1,6 +1,4 @@
 import * as lib from 'lib';
-import * as matrix from 'matrix';
-import { isHostile } from 'routes';
 import { injecter } from 'roomobj';
 import { CreepRole } from 'creep.role';
 import { errStr, dirStr } from 'debug';
@@ -8,13 +6,6 @@ import { defaultRewalker } from 'Rewalker';
 
 type HasPos = { pos: RoomPosition };
 type ObjPos = RoomPosition | HasPos;
-
-
-declare global {
-  interface Creep {
-    travelTo(target: ObjPos, opt: any): ScreepsReturnCode;
-  }
-}
 
 const rewalker = defaultRewalker();
 
@@ -66,27 +57,6 @@ export class CreepMove extends CreepRole {
     this.errlog(ret as ScreepsReturnCode, `Move Error!@${pos}`);
     return false;
   }
-
-  // moveTarget(target: ObjPos, opts: { range: number }) {
-  //   if (!target || this.pos.inRangeTo(target, opts.range)) return false
-
-  //   const weight = this.weight
-  //   const fatigue = this.info.fatigue!;
-  //   this.dlog('moveTarget', weight, fatigue, target)
-
-  //   const routeCB = (roomName: string) => {
-  //     if (isHostile(roomName)) return 10
-  //     return undefined
-  //   }
-
-  //   opts = _.defaults(opts, {
-  //     ignoreRoads: fatigue > weight,
-  //     // allowHostile: true,
-  //     routeCallback: routeCB,
-  //     roomCallback: matrix.getMat
-  //   })
-  //   return this.moveHelper(this.travelTo(target, opts), lib.getPos(target))
-  // }
 
   moveHelper(err: ScreepsReturnCode, intent: any) {
     switch (err) {

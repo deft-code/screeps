@@ -67,7 +67,7 @@ are to bite on the current build.
 
 ## Hardcoded MMO / personal state
 
-- Shard guard accepts only `shard2` and `shardSeason` (`src/main.js:341`).
+- Shard guard accepts only `shard2` and `shardSeason` (`src/main.js:339`).
 - Username `deft-code` in `routes.ts`, `struct.controller.js`, `team.ts`,
   `creep.dismantle.js`, `history.ts`.
 - Room names `W21N15`, `W29N11`, `W23N15`, `W49N10`, `W41N10`, spawn `Aycaga`,
@@ -79,8 +79,7 @@ are to bite on the current build.
 
 ## Housekeeping
 
-- `.gitmodules` points at submodules the build does not use; `Traveler/` is an
-  empty directory in a fresh clone.
+- `.gitmodules` points at a `murmurhash-js` submodule the build does not use.
 - The previous `CLAUDE.md` referenced planning notes in `~/screeps`; that
   directory does not exist on this machine.
 - `gulp fetch` overwrites `src/*.js` from the server.

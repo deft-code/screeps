@@ -52,7 +52,7 @@ main.js
  ├─ strat.ts        NullStrat/ClaimedStrat per room (also processes)
  ├─ metastruct.ts   base templates + flag-driven planning + construction upkeep + maxHits + spot lookup
  ├─ struct.link/tower/lab/factory/terminal/container/controller  structure logic and prototype helpers
- ├─ Rewalker.ts     movement engine (Traveler.js and matrix.js are dead)
+ ├─ Rewalker.ts     movement engine (matrix.js is dead)
  ├─ cache.ts / debug.ts / roomobj.ts / lib.js / shed.ts   infrastructure
  └─ intel.ts / radar.ts / market.ts / deposit.ts          intel is live; the rest only registers
 ```
@@ -141,8 +141,8 @@ links, labs, spots, containers}`, `Memory.intel`, `Memory.flags[genesis].newer`,
 ## Legacy and orphans
 
 `team.ts`/`team.egg.js` (flag teams), `spawnold.run`, `room.keeper.js`,
-`planner.js`, `powercreep.ts`, `struct.terminal.run`, `Traveler.js`,
-`matrix.js`, and 30-odd `role.*.js` files are loaded but not driven.
+`planner.js`, `powercreep.ts`, `struct.terminal.run`, `matrix.js`,
+and 30-odd `role.*.js` files are loaded but not driven.
 `FindRoute.ts`, `PriorityQueue.js`, `history.ts`, `memprof.ts`, `memhack.js`,
 `profiler.ts`, `role.js`, `role.legacy.js`, `role.recycle.ts`, `server.js`,
 `stack.js`, and the root `hacking.js`/`markethack.js` are not imported at all.

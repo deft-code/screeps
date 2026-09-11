@@ -1,7 +1,7 @@
 # File Inventory
 
 Every file under `src/` plus the repo root, with its reachability on the current
-build (traced from `main.js`; the `return` at `src/main.js:355` is treated as
+build (traced from `main.js`; the `return` at `src/main.js:353` is treated as
 the end of the live loop). Dates are first commit of the file.
 
 Status legend:
@@ -94,8 +94,7 @@ Status legend:
 |---|---|---|---|
 | `src/Rewalker.ts` | LIVE | 2019 | Pathing/walking engine. |
 | `src/routes.ts` | LIVE (`dist`) | 2019 | Room distance cache; `isHostile`. |
-| `src/matrix.js` | DEAD | 2017 | Cost matrices for Traveler/teams. |
-| `src/Traveler.js` | DEAD | 2017 | Vendored Traveler; `travelTo` unused. |
+| `src/matrix.js` | DEAD | 2017 | Cost matrices for teams. |
 | `src/spots.ts` | DEAD | 2020 | Neighbour scoring used by `team.ts`. |
 | `src/FindRoute.ts`, `src/PriorityQueue.js` | ORPHAN | 2022 | Custom findRoute. |
 
@@ -116,7 +115,7 @@ Status legend:
 |---|---|---|
 | `gulpfile.js`, `tsconfig.json`, `package.json`, `package-lock.json` | TOOLING | Build and deploy ([build-and-deploy.md](build-and-deploy.md)). |
 | `blank_credentials.js` | TOOLING | Template for gitignored `credentials.js`. |
-| `.gitmodules` | TOOLING | Declares unused `Traveler` and `murmurhash-js` submodules. |
+| `.gitmodules` | TOOLING | Declares the unused `murmurhash-js` submodule. |
 | `hacking.js`, `markethack.js` | ORPHAN | Runtime-snooping experiments; not in `src/`, never deployed. |
 | `watch.sh`, `.tern-project` | TOOLING (stale) | Linux inotify watcher; Tern autocomplete config. |
 | `LICENSE` | | MIT-style licence. |

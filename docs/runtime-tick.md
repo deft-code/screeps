@@ -2,7 +2,7 @@
 
 Entry point: `src/main.js` (`module.exports.loop = main`). This file is mostly
 history. The live path is short, and everything after the `return` on
-`src/main.js:355` is dead code. Read this doc before trusting anything you find
+`src/main.js:353` is dead code. Read this doc before trusting anything you find
 by grepping for a function name.
 
 ## Module load (global reset)
@@ -17,13 +17,13 @@ server recycling the VM). Order in `main.js`:
    [known-issues.md](known-issues.md)).
 3. `strat`, `ms.globalrespawn`, `ms.swipe`, `service.flag`, the `job.*` modules,
    the `role.*.ts` modules, `deposit`, `Visual`, `metastruct`, `mission`,
-   `matrix`, `Traveler`, `flag`, `console`, `constants`, `path`, `room`,
+   `matrix`, `flag`, `console`, `constants`, `path`, `room`,
    `room.keeper`, `source`, `constructionsite`, `tombs`, `struct.*`, `market`,
    `team`, `team.egg`, `powercreep`, `creep`, `lib`, `spawnold`, `role.shunt`,
    `markethack`, `radar`, `intel` are imported. Each one's side effects run:
    prototype extensions, decorator registrations, `@daemon` instantiation,
    `Memory.*` defaulting, and `markethack.enable()` patching `Object.prototype`.
-4. The `mods` array (`src/main.js:80-124`) lists 39 legacy JS mixins (5
+4. The `mods` array (`src/main.js:79-123`) lists 39 legacy JS mixins (5
    `creep.*.js`, 34 `role.*.js`). Each is `lib.merge`d onto `Creep.prototype`.
    Because this runs *after* the TS `role.*.ts` imports, a JS method wins any
    name collision (`afterWorker` is the one real collision).
@@ -32,7 +32,7 @@ server recycling the VM). Order in `main.js`:
    reset: it is never constructed anywhere in code.
 6. `console.schedule = process.Service.shedule` (typo) assigns `undefined`.
 
-## The loop (`main()`, `src/main.js:340`)
+## The loop (`main()`, `src/main.js:338`)
 
 ```
 if shard not in {shard2, shardSeason}: log "WRONG SHARD", return
