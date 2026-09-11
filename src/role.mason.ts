@@ -16,7 +16,7 @@ class RoleMason extends CreepRepair {
         //return this.taskRechargeHarvest()
     }
 
-    afterWorker() {
+    afterMason() {
         this.idleNom()
         this.idleRecharge()
         if (this.store.getUsedCapacity() > this.store.getFreeCapacity()) {
