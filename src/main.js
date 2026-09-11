@@ -8,7 +8,12 @@ console.log(Game.time, ":", Game.time - xx, "injecting, tick and cache");
 cache.injectAll();
 
 import * as process from "process";
-global.spawn = process.spawn;
+
+// Spawn a service to run until the next global reset
+global.spawnService = cmd => process.Service.spawn(cmd);
+
+// Schedule a service to run that persists across global resets.
+global.scheduleService = cmd => process.Service.schedule(cmd);
 
 import 'strat';
 
@@ -330,8 +335,6 @@ function genPixels() {
 }
 
 process.Service.boot();
-console.schedule = process.Service.shedule;
-
 
 let servert = Game.time;
 let lastClient = 0;

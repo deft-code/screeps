@@ -105,8 +105,9 @@ run the TS code. Details: [docs/build-and-deploy.md](docs/build-and-deploy.md).
 ## Console essentials
 
 ```js
-require('process').Service.schedule('GlobalRespawn')   // global.spawn / console.schedule are broken
-require('process').Service.getType('GlobalRespawn').kill()   // stops persisting; runs until next reset
+scheduleService('GlobalRespawn')      // persists in Memory; replayed by Service.boot()
+spawnService('Swipe W5N8 W6N8')       // runs only until the next global reset
+require('process').Service.getType('GlobalRespawn').kill()   // stops it now
 Game.creeps.asrc0.debug = 500; Memory.debug = true           // per-creep / global dlog
 Game.flags.genesis.setColor(COLOR_ORANGE, COLOR_YELLOW)      // plan metas; GREEN commits
 ```
@@ -123,8 +124,6 @@ links, labs, spots, containers}`, `Memory.intel`, `Memory.flags[genesis].newer`,
 
 ## Known traps (full list in docs/known-issues.md)
 
-- `global.spawn` and `console.schedule` are `undefined` (typo/missing export).
-- `Service.kill()` does not dequeue a running process; a global reset does.
 - A room claimed after first sight keeps `NullStrat` until reset (`evolve()`
   always returns `null`).
 - `GlobalRespawn` throws every tick unless a spawn is literally named `Home`.

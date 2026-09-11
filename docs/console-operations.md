@@ -11,18 +11,24 @@ const P = require('process');
 P.Service.schedule('GlobalRespawn')          // start and persist across resets
 P.Service.schedule('Swipe W5N8 W6N8')        // target room, home room
 P.Service.getType('GlobalRespawn')           // live instance (or null)
-P.Service.getType('GlobalRespawn').kill()    // stop persisting; still runs until next global reset
+P.Service.getType('GlobalRespawn').kill()    // stops now: dropped from the priority table and from Memory
+
+spawnService('Swipe W5N8 W6N8')              // global helper for P.Service.spawn
+scheduleService('GlobalRespawn')             // global helper for P.Service.schedule
 Memory.scheduler.services                    // what boot() will replay
 Memory.missions.GlobalRespawn                // { eggs, hatch, creeps }
 ```
 
-`global.spawn(...)` and `console.schedule(...)` look like they should work and
-do not (see [known-issues.md](known-issues.md)).
+`kill()` takes effect on the next `runAll()`: it sets `proc.dead`, which
+`runRow` checks before running a process and again before re-filing it, so the
+instance is dropped from the priority table as well as from
+`Memory.scheduler.services`. A process may also retire itself by returning
+`"kill"` from `run()`, which parks it in the `kill` row that `runAll()` never
+runs.
 
-Forcing a global reset (to make `kill()` take effect or reload stuck module
-state): push code (`npx gulp season`), or from the console assign a new value
-to any top-level module and re-`require`, which is unreliable; the code push is
-the dependable way.
+Forcing a global reset (to reload stuck module state) is still done by pushing
+code (`npx gulp season`); assigning to a top-level module from the console and
+re-`require`ing is unreliable.
 
 ## Inspecting creeps
 

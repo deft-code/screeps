@@ -12,9 +12,12 @@ server recycling the VM). Order in `main.js`:
 
 1. `debug`, `shed`, `cache` are imported; `cache.injectAll()` adds the `tick` and
    `cache` properties to `Room` and `RoomObject` prototypes.
-2. `process` is imported. `global.spawn = process.spawn` is assigned, but the
-   module has no `spawn` export, so `global.spawn` is `undefined` (see
-   [known-issues.md](known-issues.md)).
+2. `process` is imported and the two console helpers are defined:
+   `global.spawnService(cmd)` -> `Service.spawn` (runs until the next global
+   reset) and `global.scheduleService(cmd)` -> `Service.schedule` (also recorded
+   in `Memory.scheduler.services`, so `boot()` replays it after a reset). Both
+   are arrow wrappers, so they resolve `process` lazily and keep `this` bound to
+   `Service`.
 3. `strat`, `ms.globalrespawn`, `ms.swipe`, `service.flag`, the `job.*` modules,
    the `role.*.ts` modules, `deposit`, `Visual`, `metastruct`, `mission`,
    `matrix`, `flag`, `console`, `constants`, `path`, `room`,
@@ -30,8 +33,6 @@ server recycling the VM). Order in `main.js`:
 5. `process.Service.boot()` re-instantiates every service named in
    `Memory.scheduler.services`. This is how `GlobalRespawn` comes back after a
    reset: it is never constructed anywhere in code.
-6. `console.schedule = process.Service.shedule` (typo) assigns `undefined`.
-
 ## The loop (`main()`, `src/main.js:338`)
 
 ```

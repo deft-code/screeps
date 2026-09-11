@@ -12,14 +12,17 @@ function cmdArgs(cmd: string): string[] {
 
 export interface IProcess {
     bucket: number
+    // Set by kill(); runRow drops the process instead of rescheduling it.
+    dead: boolean
     run(): Priority
     kill(): void
 }
 
 export class Process {
+    dead = false;
     constructor(readonly bucket: number = 9000) { }
     run(): Priority { return "low" }
-    kill() { }
+    kill() { this.dead = true; }
 }
 
 declare global {
@@ -50,6 +53,7 @@ export class Service extends Process {
     }
 
     kill() {
+        super.kill();
         services.delete(this.name);
         _.remove(Memory.scheduler.services, s => s === this.name);
     }
@@ -139,15 +143,18 @@ function runRow(priority: Priority, minBucket: number) {
     const deferred = [];
     let first = true;
     for (const proc of row) {
+        // Killed since the last tick; drop it instead of running it again.
+        if (proc.dead) continue;
         if (first || canRun(Math.max(minBucket, proc.bucket))) {
             first = false;
             try {
                 const next = proc.run();
-                table[next].push(proc);
+                // run() may have killed the proc, including killing itself.
+                if (!proc.dead) table[next].push(proc);
             } catch (err) {
                 debug.log(proc, err, (err as { stack: string }).stack);
                 Game.notify((err as { stack: string }).stack, 30);
-                deferred.push(proc);
+                if (!proc.dead) deferred.push(proc);
             }
         } else {
             deferred.push(proc);
