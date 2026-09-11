@@ -68,6 +68,11 @@ interface IMyCreep {
 interface Creep {
     run(): void
     after(): void
+    // creep.work.js mixin (plain JS, so declared here); returns legacy TaskRet
+    idleEmergencyUpgrade(): false | string
+    idleUpgrade(): false | string
+    goUpgradeController(controller: StructureController | undefined, move?: boolean): false | string
+    taskHarvestSpots(): false | string
     assault: boolean
     hostile: boolean
     melee: boolean

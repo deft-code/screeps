@@ -14,6 +14,7 @@ import 'strat';
 
 import 'ms.globalrespawn';
 import 'ms.swipe';
+import 'ms.farm';
 import "service.flag";
 
 import "job.hauler";

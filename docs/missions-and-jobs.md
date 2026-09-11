@@ -13,7 +13,8 @@ Process                      run(): Priority; kill()           (process.ts)
  └─ Service                  named by a command string, e.g. "Swipe W5N8 W6N8"
      └─ Mission (abstract)   owns eggs/hatch/creeps lists in Memory.missions[name]
          ├─ GlobalRespawn    @register  (ms.globalrespawn.ts)  ACTIVE
-         └─ Swipe            @register  (ms.swipe.ts)          registered, not scheduled
+         ├─ Swipe            @register  (ms.swipe.ts)          registered, not scheduled
+         └─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [n]"; nJobs(Farmer, n)
 
 MyCreep                      wrapper object per creep *name* (mycreep.ts); not a prototype extension
  └─ JobCreep                 knows its Mission; Rewalker movement helpers (job.creep.ts)
@@ -26,6 +27,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Ctrl    @register              (job.ctrl.ts)   boosts XGH2O, ecap rules
          ├─ Hub     @register              (job.hub.ts)    needs storage + meta 'hub' spot
          ├─ Hauler  @register  priority 9  (job.hauler.ts) energy = min(2500, ecap/2)
+         ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
          └─ Srcer   @registerAs("asrc"), @registerAs("bsrc")  priority 8, body 'srcer' (job.srcer.ts)
 ```
 
@@ -48,6 +50,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
 // From the game console. The convenience globals in main.js are broken; use:
 require('process').Service.schedule('GlobalRespawn')
 require('process').Service.schedule('Swipe W5N8 W6N8')   // args[1]=target, args[2]=home
+require('process').Service.schedule('Farm W5N8 W6N8 2')  // args[1]=farm room, args[2]=home, args[3]=farmers (default 1)
 ```
 
 `schedule` = `spawn` + push the command onto `Memory.scheduler.services`, which
