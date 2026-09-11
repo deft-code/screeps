@@ -9,6 +9,7 @@
     "module": "commonjs",
     "target": "es2019",
     "moduleResolution": "Node",
+    "types": ["screeps", "lodash"],
     "outDir": "distjs",
     "baseUrl": "src/",
     "inlineSources": true,
