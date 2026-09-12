@@ -1,0 +1,193 @@
+import * as lib from 'lib';
+import { CreepRole } from 't.creep.role';
+import { errStr, dirStr } from 'debug';
+import { defaultRewalker } from 'Rewalker';
+
+type HasPos = { pos: RoomPosition };
+type ObjPos = RoomPosition | HasPos;
+
+const rewalker = defaultRewalker();
+
+export class CreepMove extends CreepRole {
+  moveDir(dir: DirectionConstant) {
+    return this.moveHelper(this.move(dir), dir)
+  }
+
+  movePos(target: ObjPos, opts: any = {}) {
+    opts = _.defaults(opts, { range: 0 })
+    return this.moveTarget(target, opts)
+  }
+
+  moveNear(target: ObjPos, opts: any = {}) {
+    opts = _.defaults(opts, { range: 1 })
+    return this.moveTarget(target, opts)
+  }
+
+  moveRange(target: ObjPos, opts: any = {}) {
+    opts = _.defaults(opts, { range: 3 })
+    const what = this.moveTarget(target, opts)
+    this.dlog(`moveRange ${what}`)
+    return what
+  }
+
+  moveTarget(target: ObjPos, opts: { range: number }) {
+    const pos = lib.getPos(target);
+    const ret = rewalker.walkTo(this.c, pos, opts.range);
+    switch (ret) {
+      case ERR_TIRED:
+      case ERR_BUSY:
+        this.say(errStr(ret));
+      // fallthrough
+
+      case TOP:
+      case TOP_LEFT:
+      case LEFT:
+      case BOTTOM_LEFT:
+      case BOTTOM:
+      case BOTTOM_RIGHT:
+      case RIGHT:
+      case TOP_RIGHT:
+        this.intents.move = pos;
+        return `move ${dirStr(ret as DirectionConstant)}@${pos}`;
+      case OK:
+        return false;
+    }
+    this.errlog(ret as ScreepsReturnCode, `Move Error!@${pos}`);
+    return false;
+  }
+
+  moveHelper(err: ScreepsReturnCode, intent: any) {
+    switch (err) {
+      case ERR_TIRED:
+      case ERR_BUSY:
+        if (this.debug) this.say(errStr(err));
+      // fallthrough
+      case OK:
+        this.intents.move = intent
+        return `move ${intent}`
+    }
+    this.dlog('Move Error!', err, intent)
+    return false
+  }
+
+  movePeace(target: HasPos) {
+    if (this.room.memory.tenemies) return false
+    return this.moveRange(target)
+  }
+
+  moveBump(target: (HasPos & { id: string }) | null) {
+    if (!target || !this.pos.isNearTo(target) || this.id === target.id) return false
+    return this.moveDir(this.pos.getDirectionTo(target))
+  }
+
+  fleeHostiles() {
+    if (!this.room.hostiles.length) return false
+
+    if (this.hurts) return this.idleFlee(this.room.hostiles, 5)
+
+    return this.idleFlee(this.room.hostiles, 3)
+  }
+
+  idleFlee(creeps: Creep[], range: number) {
+    const room = this.room
+    const callback = (roomName: string) => {
+      if (roomName !== room.name) {
+        console.log('Unexpected room', roomName)
+        return false
+      }
+      const mat = new PathFinder.CostMatrix()
+      for (let struct of room.find(FIND_STRUCTURES)) {
+        const p = struct.pos
+        if (struct.structureType === STRUCTURE_ROAD) {
+          mat.set(p.x, p.y, 1)
+        } else if (struct.obstacle) {
+          mat.set(p.x, p.y, 255)
+        }
+      }
+      for (let pos of room.find(FIND_EXIT)) {
+        mat.set(pos.x, pos.y, 6)
+      }
+      for (let creep of room.find(FIND_CREEPS)) {
+        if (creep.name === this.name) continue
+        mat.set(creep.pos.x, creep.pos.y, 20)
+      }
+      return mat
+    }
+    const ret = PathFinder.search(
+      this.pos, _.map(creeps, creep => ({ pos: creep.pos, range: range })), {
+      flee: true,
+      roomCallback: callback
+    })
+
+    const next = _.first(ret.path)
+    if (!next) return false
+
+    return this.moveDir(this.pos.getDirectionTo(next))
+  }
+
+  idleRetreat(...parts: BodyPartConstant[]) {
+    if (this.hurts < 100) return false
+    if (this.hits > this.hurts) {
+      for (const part of parts) {
+        if (!this.partsByType.get(part)) continue;
+        if (this.activeByType.get(part)) return false;
+      }
+    }
+    this.dlog('retreating', this.hits, this.hurts, parts)
+    return this.moveRange(this.home.controller!)
+  }
+
+  actionHospital() {
+    if (this.hurts > 100 || (this.hurts > 0 && this.hits < 100)) {
+      return this.moveRange(this.home.controller!)
+    }
+    return false
+  }
+
+  moveRoom(obj: HasPos | null, opts = { range: 1 }) {
+    if (!obj) return false
+    const x = this.pos.x
+    const y = this.pos.y
+    if (obj.pos.roomName === this.room.name) {
+      if (x === 0) {
+        this.moveDir(RIGHT)
+      } else if (x === 49) {
+        this.moveDir(LEFT)
+      } else if (y === 0) {
+        this.moveDir(BOTTOM)
+      } else if (y === 49) {
+        this.moveDir(TOP)
+      }
+      this.dlog('moveRoom done')
+      return false
+    }
+
+    const ox = obj.pos.x
+    const oy = obj.pos.y
+    const range = Math.max(1, Math.min(ox, oy, 49 - ox, 49 - oy) - 1)
+    this.dlog('moveRoom', range, obj.pos.roomName, this.room)
+    opts = _.defaults(opts, { range: range })
+    return this.moveTarget(obj, opts)
+  }
+
+  taskMoveRoom(obj: (RoomObject & _HasId) | null) {
+    obj = this.checkId('move room', obj)
+    return this.moveRoom(obj)
+  }
+
+  taskMoveFlag(flag: Flag | null, opts = { range: 1 }) {
+    flag = this.checkFlag('move flag', flag)
+    return this.moveRoom(flag, opts)
+  }
+
+  moveSpot() {
+    const where = this.memory.spot || this.role
+    const p = this.teamRoom.getSpot(where)
+    if (!p) return false;
+    if (!this.pos.isEqualTo(p)) {
+      this.dlog("moving to", p);
+      return this.movePos(p)
+    }
+    return false
+  }
+}

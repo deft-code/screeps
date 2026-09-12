@@ -157,6 +157,10 @@ legacy systems did: [docs/legacy-systems.md](docs/legacy-systems.md).
 - Keep `main.js` import order: TS roles before the `mods` loop, and
   `process.Service.boot()` after every `@register`.
 - Compile errors do not stop `gulp season`; check the gulp output.
+- `spike/` plus `tsconfig.spike.json` is a compile-only prototype of
+  [docs/tcreep-design.md](docs/tcreep-design.md). Nothing imports it and
+  `gulp` never sees it; check it with `npx tsc -p tsconfig.spike.json` and
+  re-run `node spike/surface.js` after moving creep code.
 - The previous `CLAUDE.md` pointed at planning notes in `~/screeps`; that
   directory is not present on this machine.
 
@@ -178,3 +182,4 @@ legacy systems did: [docs/legacy-systems.md](docs/legacy-systems.md).
 | [docs/known-issues.md](docs/known-issues.md) | latent bugs and hardcoded state |
 | [docs/console-operations.md](docs/console-operations.md) | in-game console commands |
 | [docs/build-and-deploy.md](docs/build-and-deploy.md) | gulp tasks, sourcemaps, credentials |
+| [docs/tcreep-design.md](docs/tcreep-design.md) | the wrapper-class migration: `TCreep`/`TStruct` design, retirement, coexistence path, per-file plan |
