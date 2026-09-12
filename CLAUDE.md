@@ -97,10 +97,64 @@ loaded but no job spawns it. Table and task conventions in
 `npm install`; copy `blank_credentials.js` to `credentials.js` (gitignored).
 `npx gulp season` compiles and pushes to the seasonal server (current target);
 `deploy` = MMO, `ptr` = PTR, `watchSeason` = on change. `npx gulp decodeStack
---stack "process:60:50"` maps stack tokens to `.ts` lines; `npx gulp consoleLog`
-records console output to `logs/`. Never run `gulp fetch` casually (overwrites
+--stack "process:60:50"` maps stack tokens to `.ts` lines; `npx gulp console` and
+`consoleTail` reach the live console from the shell (next section). Never run `gulp fetch` casually (overwrites
 `src/*.js` from the server). `gulp sim`/`swc`/`plus` push raw JS and cannot
 run the TS code. Details: [docs/build-and-deploy.md](docs/build-and-deploy.md).
+
+## Console from the shell (for Claude)
+
+Two gulp tasks reach the live game console without the web client, so game
+state can be inspected, and changed, from this terminal. Implementation:
+`console-tools.js` (auth is `credentials.token`). Both default to the season
+world and its `shardSeason` shard.
+
+```
+npx gulp console --cmd "Game.time"                  # send one expression, print that tick's console output, exit
+echo 'JSON.stringify(Memory.missions)' | npx gulp console    # expression on stdin (no quoting fights)
+npx gulp consoleTail                                # stream to stdout + logs/console-season.log until Ctrl+C
+SCREEPS_CONSOLE_SECONDS=30 npx gulp consoleTail     # ...or stop after 30 s
+```
+
+How to read the output:
+
+- Locations are translated back to `src/` with `sourcemaps/`: `process:60:50`
+  in a stack trace prints as `src/process.ts:90:18`, and the `file:line#func`
+  prefix that `debug.ts` `log`/`dlog`/`warn` put on every line prints as
+  `src/mission.ts:316#nCreeps`. The maps are from the last `gulp compile`, so
+  push (`npx gulp season`) after editing `src/` before trusting line numbers.
+- Command results are the lines starting with `< `. The game stringifies
+  results, so wrap objects in `JSON.stringify(...)` or `[object Object]` comes
+  back. The log lines above the result are the same tick's `console.log`
+  output, so a quiet expression still shows what the loop printed that tick.
+- HTML the console emits (room links, colours) is stripped.
+  `SCREEPS_CONSOLE_RAW=1` prints the server text untouched.
+- `consoleTail` lines carry `HH:MM:SS [shard]`. The file is appended to and
+  rotates to `console-season.1.log` ... `.5.log` at 5 MiB
+  (`SCREEPS_LOG_MAX_BYTES`, `SCREEPS_LOG_KEEP`). `logs/` is gitignored.
+
+Recipe for iterating on game state:
+
+1. Ask with `npx gulp console --cmd "..."`. The expression runs inside the
+   game VM at the start of the next tick with full access: `Memory.creeps.hauler0`,
+   `require('process').Service.getType('GlobalRespawn').status()`, `lsProcess()`,
+   or anything in [docs/console-operations.md](docs/console-operations.md).
+   Assignments and calls take effect in the live game, so treat anything that
+   is not a read as a change and check with the user before the destructive
+   helpers.
+2. To watch behaviour over several ticks, run `consoleTail` in the background
+   and read `logs/console-season.log`, or run it in the foreground with
+   `SCREEPS_CONSOLE_SECONDS`.
+3. After changing code, `npx gulp season` pushes and forces a global reset. A
+   running tail survives the reset and reconnects if the websocket drops.
+
+Quoting: PowerShell wants double quotes and no `$`; bash wants single quotes;
+anything needing both kinds of quote goes through stdin. The `VAR=value npx
+gulp ...` prefix above is bash syntax; in PowerShell set `$env:VAR = value` on
+the line before. Other knobs:
+`SCREEPS_WORLD=season|ptr|mmo`, `SCREEPS_SHARD` (also filters the tail),
+`SCREEPS_CONSOLE_TIMEOUT` (seconds to wait for a result, default 30; the task
+exits 1 on timeout, which usually means the script is not running on that shard).
 
 ## Console essentials
 

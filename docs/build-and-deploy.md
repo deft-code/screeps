@@ -1,7 +1,8 @@
 # Build & Deploy
 
 Toolchain: gulp 5 + gulp-typescript 3 + TypeScript 3.8, pushed with gulp-screeps.
-Config lives in `gulpfile.js`, `tsconfig.json`, `package.json`.
+Config lives in `gulpfile.js`, `tsconfig.json`, `package.json`; the console
+tasks are implemented in `console-tools.js`.
 
 ## Setup
 
@@ -21,8 +22,15 @@ Config lives in `gulpfile.js`, `tsconfig.json`, `package.json`.
 | `npx gulp deploy` | compile, then push to `credentials.branch` on MMO (`shard2` is the only MMO shard the code accepts). |
 | `npx gulp ptr` | compile, then push to PTR. |
 | `npx gulp watch` / `watchSeason` / `watchPtr` / `watchCompile` | Re-run the matching task on any change under `src/`. |
-| `npx gulp consoleLog` | Record live console output for `SCREEPS_CONSOLE_SECONDS` (default 60) from `SCREEPS_WORLD` (`season`/`ptr`/`mmo`, default `season`) into `logs/`. Screeps has no console history API, so this is the only way to capture output. |
-| `npx gulp decodeStack --stack "process:60:50 job.hub:12:3"` | Map Screeps stack tokens (`module:line:col`) back to `.ts` locations using `sourcemaps/`. |
+| `npx gulp console --cmd "<expr>"` | Send one expression to the game console (or pipe it on stdin) and print the console output of the tick that answers it: that tick's `console.log` lines, then the result as `< ...`. Exits 1 after `SCREEPS_CONSOLE_TIMEOUT` seconds (default 30) without a result. |
+| `npx gulp consoleTail` | Stream live console output to stdout and append it to `logs/console-<world>.log` until Ctrl+C (or `SCREEPS_CONSOLE_SECONDS`). Rotates to `.1.log` ... `.<keep>.log` past `SCREEPS_LOG_MAX_BYTES` (default 5 MiB), keeping `SCREEPS_LOG_KEEP` (default 5) old files. Screeps has no console history API, so this is the only way to capture output. |
+| `npx gulp consoleLog` | Legacy name for `consoleTail` with a 60 s default duration. |
+| `npx gulp decodeStack --stack "process:60:50 job.hub:12:3"` | Map Screeps stack tokens (`module:line:col`) back to `.ts` locations using `sourcemaps/`. The console tasks do this on every line automatically, including the `module:line#func` prefix from `debug.ts`; `SCREEPS_CONSOLE_RAW=1` turns it (and HTML stripping) off. |
+
+All console tasks read `SCREEPS_WORLD` (`season`/`ptr`/`mmo`, default `season`)
+and `SCREEPS_SHARD` (default `shardSeason`/`shard0`/`shard2` per world) and
+authenticate with `credentials.token`. Usage recipe for inspecting game state:
+CLAUDE.md, "Console from the shell".
 | `npx gulp sim` | Pushes raw `src/*.js` (no compile) to branch `sim`. Legacy: TS files are skipped, so it cannot run the current code. |
 | `npx gulp swc` / `plus` | Push raw `src/*.js` to private servers with a hardcoded password. Legacy. |
 | `npx gulp market` / `money` | One-off HTTP API dumps (market stats, money history). |

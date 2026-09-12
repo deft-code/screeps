@@ -6,7 +6,7 @@ const https = require('https')
 const screeps = require('gulp-screeps')
 const fs = require('fs')
 const path = require('path')
-const { ScreepsHttpClient } = require('screeps-api')
+const consoleTools = require('./console-tools')
 const del = require('del')
 
 const ts = require('gulp-typescript');
@@ -182,51 +182,37 @@ gulp.task('fetch', (done) => {
   req.end()
 })
 
-// Screeps only streams console output live over a websocket (no history API),
-// so this connects, records for a fixed window, then saves what it captured.
-// Usage: npx gulp consoleLog
-// Options (env vars): SCREEPS_CONSOLE_SECONDS=60 SCREEPS_WORLD=season|ptr|mmo
+// Console access from the shell. Implementation in console-tools.js; usage in
+// CLAUDE.md ("Console from the shell") and docs/build-and-deploy.md.
+// Env for all three: SCREEPS_WORLD=season|ptr|mmo (default season),
+// SCREEPS_SHARD (default per world), SCREEPS_CONSOLE_RAW=1 (no sourcemap/HTML rewrite).
+
+// Stream the console to stdout and logs/console-<world>.log until Ctrl+C.
+// SCREEPS_CONSOLE_SECONDS=N stops after N seconds. Rotation: SCREEPS_LOG_MAX_BYTES
+// (default 5 MiB), SCREEPS_LOG_KEEP rotated files (default 5).
+gulp.task('consoleTail', function () {
+  return consoleTools.tail(credentials, { seconds: consoleTools.envInt('SCREEPS_CONSOLE_SECONDS', 0) })
+})
+
+// Legacy name: same as consoleTail but stops after 60s unless SCREEPS_CONSOLE_SECONDS is set.
 gulp.task('consoleLog', function () {
-  const seconds = parseInt(process.env.SCREEPS_CONSOLE_SECONDS || '60', 10)
-  const world = process.env.SCREEPS_WORLD || 'season'
+  return consoleTools.tail(credentials, { seconds: consoleTools.envInt('SCREEPS_CONSOLE_SECONDS', 60) })
+})
 
-  const serverConfig = {
-    hostname: 'screeps.com',
-    secure: true,
-    token: credentials.token,
+// Send one expression and print the console output of the tick that answers it.
+// Usage: npx gulp console --cmd "Game.time"      or      echo "Game.time" | npx gulp console
+// SCREEPS_CONSOLE_TIMEOUT seconds to wait for the result (default 30).
+gulp.task('console', function () {
+  const expression = consoleTools.expressionFromArgs()
+  if (!expression) {
+    console.error('Usage: npx gulp console --cmd "<expression>"   (or pipe the expression on stdin)')
+    process.exitCode = 1
+    return Promise.resolve()
   }
-  if (world === 'season') serverConfig.season = true
-  if (world === 'ptr') serverConfig.ptr = true
-
-  const api = new ScreepsHttpClient(serverConfig)
-
-  const lines = []
-  function record(line) {
-    console.log(line)
-    lines.push(line)
-  }
-
-  api.socket.subscribeUserConsole(({ data: { shard, error, messages } }) => {
-    const tag = shard ? `[${shard}] ` : ''
-    if (error) record(`${tag}ERROR: ${error}`)
-    if (!messages) return
-    messages.log.forEach(l => record(tag + l))
-    messages.results.forEach(r => record(`${tag}< ${r}`))
+  return consoleTools.runCommand(credentials, expression, {
+    timeoutMs: consoleTools.envInt('SCREEPS_CONSOLE_TIMEOUT', 30) * 1000,
+    graceMs: consoleTools.envInt('SCREEPS_CONSOLE_GRACE_MS', 500),
   })
-
-  return api.socket.connect()
-    .then(() => {
-      console.log(`Capturing console output from the ${world} world for ${seconds}s...`)
-      return new Promise((resolve) => setTimeout(resolve, seconds * 1000))
-    })
-    .then(() => {
-      api.socket.disconnect()
-      const dir = path.join(__dirname, 'logs')
-      fs.mkdirSync(dir, { recursive: true })
-      const file = path.join(dir, `console-${world}-${new Date().toISOString().replace(/[:.]/g, '-')}.log`)
-      fs.writeFileSync(file, lines.join('\n') + '\n')
-      console.log(`Saved ${lines.length} lines to ${file}`)
-    })
 })
 
 // Decodes Screeps stack trace tokens (module:line:col) back to original TS source

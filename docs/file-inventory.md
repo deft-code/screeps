@@ -116,6 +116,7 @@ Status legend:
 | file | status | purpose |
 |---|---|---|
 | `gulpfile.js`, `tsconfig.json`, `package.json`, `package-lock.json` | TOOLING | Build and deploy ([build-and-deploy.md](build-and-deploy.md)). |
+| `console-tools.js` | TOOLING | Shell access to the game console for the `console`/`consoleTail` gulp tasks: websocket client, sourcemap translation of log locations, rotating `logs/`. |
 | `blank_credentials.js` | TOOLING | Template for gitignored `credentials.js`. |
 | `.gitmodules` | TOOLING | Declares the unused `murmurhash-js` submodule. |
 | `hacking.js`, `markethack.js` | ORPHAN | Runtime-snooping experiments; not in `src/`, never deployed. |

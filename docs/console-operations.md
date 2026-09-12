@@ -1,7 +1,10 @@
 # Console Operations
 
-Everything here is typed into the Screeps in-game console. Console output is
-HTML; most `toString()` overrides print clickable room links.
+Everything here is typed into the Screeps in-game console, or sent from the
+shell with `npx gulp console --cmd "..."` (see
+[build-and-deploy.md](build-and-deploy.md) and CLAUDE.md, "Console from the
+shell"). Console output is HTML; most `toString()` overrides print clickable
+room links, which the gulp tasks strip.
 
 ## Missions
 
@@ -112,7 +115,9 @@ Game.rooms.X.drawSpots()
 
 ## Reading errors
 
-Screeps stack traces name compiled modules (`process:60:50`). Translate with:
+Screeps stack traces name compiled modules (`process:60:50`). `npx gulp
+console` and `consoleTail` translate them (and the `module:line#func` prefix
+from `debug.ts`) as they print; for a trace copied from the web client:
 
 ```
 npx gulp decodeStack --stack "process:60:50 job.hub:12:3"
