@@ -46,7 +46,9 @@ return                                      # <-- everything below is dead
 ### `strat.init()` per visible room (`src/strat.ts`)
 
 `room.strat` is a cached `IStrat` per room name, created on first access:
-`ClaimedStrat` if `controller.my`, else `NullStrat`. The constructor calls
+`ClaimedStrat` if `controller.my`, `ActiveStrat` if the unclaimed room has
+metas in memory, else `NullStrat`; `evolve()` swaps between them
+([room-and-structures.md](room-and-structures.md)). The constructor calls
 `exec(this, "low")`, which enqueues the strat into the process table, so
 **strats are processes too** and their `run()` executes inside `runAll()`.
 
@@ -93,6 +95,7 @@ used exceeds `min(bucket + limit/2, 450)`, accepts when `bucket + (limit - used)
 |---|---|---|---|---|
 | `GlobalRespawn` | `Memory.scheduler.services` | `critical` | 9000 | The only mission. Lays eggs, runs its creeps. |
 | `ClaimedStrat` x owned rooms | `room.strat` | `normal` | 9000 | Towers, safe mode, labs, links, metastruct upkeep, mineral timers, factory. |
+| `ActiveStrat` x unclaimed rooms with metas | `room.strat` | `low` | 9000 | Every 10 ticks `room.meta.runUnowned()` places container/road sites for mission-planned metas. |
 | `NullStrat` x other visible rooms | `room.strat` | `low` | 9000 | No-op run. |
 | `FlagService` | `@daemon` in `service.flag.ts` | `low` | 8000 | Orange flags drive metastruct planning (`runGenesis`); orphan grey child flags are removed. |
 | `SpawnDaemon` | `@daemon` in `spawn.ts` | `late` | 2000 | Turns eggs into `spawnCreep` calls. |

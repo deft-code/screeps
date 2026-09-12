@@ -32,7 +32,11 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               Scout while invisible; Wolf against an invader core; reserve() is team.ts reserve():
                                                               paceJobs(Reserver, 225), 450 once our reservation > 450 ticks, none above 1000,
                                                               none while hostiles are present or the controller is owned (the Reserver job attacks
-                                                              a foreign reservation itself); no farmers. Phase 2: harvester/paver/trucker + makePathway roads
+                                                              a foreign reservation itself); no farmers.
+                                                              Phase 2: planMetas() once the remote is visible (or planMetas(true) from the console):
+                                                              RemotePlanner (metaremote.ts) saves rsrc/rroad metas into each room's meta memory and
+                                                              memory.metas tracks room -> names; drawMetas() every tick; windDown() removes them.
+                                                              Phase 3 (todo): harvester/paver/trucker
 
 MyCreep                      wrapper object per creep *name* (mycreep.ts); not a prototype extension
  └─ JobCreep                 knows its Mission; Rewalker movement helpers (job.creep.ts)
@@ -47,7 +51,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Hauler  @register  priority 9  (job.hauler.ts) energy = min(2500, ecap/2)
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
          ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' from "home"
-         ├─ Reserver @register             (job.reserver.ts) port of role.reserver.js; @task reserve, swamp road pooper, body 'reserver' from "home"
+         ├─ Reserver @register             (job.reserver.ts) port of role.reserver.js; @task reserve, body 'reserver' from "home"
          ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'reserver' from "home", walks to the sector core,
          │                                                  @task reserve calls creep.claimReactor(reactor) at range 1 (needs a CLAIM part) and logs each new return code
          ├─ Warboy   @register             (job.warboy.ts) Season 11 thorium runner; WORK/CARRY/MOVE x levels from "home" ecap (max 16, 800 carry);

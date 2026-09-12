@@ -11,7 +11,7 @@ declare global {
     }
 }
 
-interface MissionMemory {
+export interface MissionMemory {
     creeps: string[]
     hatch: string[]
     eggs: string[]

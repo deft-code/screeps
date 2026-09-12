@@ -13,9 +13,6 @@ declare global {
     interface Room {
         meta: MetaManager
     }
-    interface RoomCache {
-        meta?: MetaManager
-    }
     interface FlagMemory {
         newer?: any
     }
@@ -25,16 +22,33 @@ function calcRole(name: string): string {
     return _.words(name)[0].toLowerCase();
 }
 
-const kPathRoad = 7;
-const kPathPlain = 11;
-const kPathSwamp = 12;
+export const kPathRoad = 7;
+export const kPathPlain = 11;
+export const kPathSwamp = 12;
+
+// One MetaManager per room for the life of the global, whether or not the
+// room is visible. Missions plan metas into rooms they cannot see, and two
+// managers for one room would overwrite each other's lists on save().
+const managers = new Map<string, MetaManager>();
+export function getMetaManager(roomName: string): MetaManager {
+    let man = managers.get(roomName);
+    if (!man) {
+        man = new MetaManager(roomName);
+        managers.set(roomName, man);
+    }
+    return man;
+}
+
+// Cheap test for the strat layer: does this room have metas in memory?
+// Reads raw Memory so it never allocates a manager or a memory stub.
+export function hasMetas(roomName: string): boolean {
+    const mem = Memory.rooms[roomName]?.meta;
+    return !!(mem && mem.metas.length);
+}
 
 class RoomMetaExtra extends Room {
     get meta(): MetaManager {
-        if (!this.cache.meta) {
-            return this.cache.meta = new MetaManager(this.name);
-        }
-        return this.cache.meta;
+        return getMetaManager(this.name);
     }
 }
 merge(Room, RoomMetaExtra);
@@ -211,7 +225,7 @@ export function runGenesis(f: FlagExtra) {
     if (!changed && f.secondaryColor !== COLOR_CYAN) f.setColor(f.color, COLOR_CYAN);
 }
 
-type PlanLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
+export type PlanLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
 type legend = {
     [tile: string]: [PlanLevel, BuildableStructureConstant]
 }
@@ -262,7 +276,7 @@ function makeTemplate(mem: MetaMem, l: legend, points: string[], tmpl: string) {
     }
 }
 
-function addMemStruct(mem: MetaMem, stype: BuildableStructureConstant, lvl: PlanLevel, xy: number) {
+export function addMemStruct(mem: MetaMem, stype: BuildableStructureConstant, lvl: PlanLevel, xy: number) {
     if (!mem.structs[stype]) {
         mem.structs[stype] = { [lvl]: [xy] };
     } else if (!mem.structs[stype]![lvl]) {
@@ -305,7 +319,7 @@ declare global {
     }
 }
 
-interface MetaMem {
+export interface MetaMem {
     name: string
     color: ColorConstant
     priority?: number
@@ -339,7 +353,7 @@ function metaOrder(l: MetaStructure, r: MetaStructure) {
     return r.priority - l.priority;
 }
 
-class MetaManager {
+export class MetaManager {
     metas: MetaStructure[]
     birth = 0
     begin = 0
@@ -426,6 +440,15 @@ class MetaManager {
             this.makeSite(STRUCTURE_ROAD) ||
             false
             ;
+    }
+
+    // Upkeep for rooms we do not own (ActiveStrat): only the structures that
+    // need no RCL there. Same two-site gate as run().
+    runUnowned(): boolean {
+        const room = this.room;
+        if (!room) return false;
+        if (room.find(FIND_MY_CONSTRUCTION_SITES).length > 2) return false;
+        return this.makeSite(STRUCTURE_CONTAINER) || this.makeSite(STRUCTURE_ROAD);
     }
 
     getMeta(name: string): MetaStructure | null {
@@ -543,7 +566,9 @@ class MetaManager {
             if (free) {
                 const ret = free.createConstructionSite(stype);
                 if (ret === OK) return true;
-                if (ret === ERR_RCL_NOT_ENOUGH) return this.purgeOptional(stype);
+                // Never purge in a room we do not own: the RCL error there
+                // means the room is someone else's, not that we are over a limit.
+                if (ret === ERR_RCL_NOT_ENOUGH) return roomLevel(room) ? this.purgeOptional(stype) : false;
                 room.errlog(ret, "Failed  to create site", stype, free.xy, "blocker", newblocker);
             }
             if (!blocker && newblocker) {
@@ -563,7 +588,7 @@ class MetaManager {
             if (free) {
                 const ret = free.createConstructionSite(stype);
                 if (ret === OK) return true;
-                if (ret === ERR_RCL_NOT_ENOUGH) return this.purge(stype);
+                if (ret === ERR_RCL_NOT_ENOUGH) return roomLevel(room) ? this.purge(stype) : false;
                 room.errlog(ret, "Failed to create site", stype);
             }
             if (!blocker) {
@@ -693,7 +718,7 @@ class MetaManager {
         const newmh = this.maxHitsInner(stype, xy, rcl);
         this.addMaxHits(stype, xy, newmh);
 
-        return translateMaxHits(stype, mh);
+        return translateMaxHits(stype, newmh);
     }
 
     cachedMaxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
@@ -776,13 +801,13 @@ class MetaManager {
     }
 }
 
-function roomLevel(room: Room): PlanLevel {
+export function roomLevel(room: Room): PlanLevel {
     if (!room.controller) return 0;
     if (!room.controller.my) return 0;
     return room.controller.level as PlanLevel;
 }
 
-class MetaStructure {
+export class MetaStructure {
     pos: RoomPosition
     constructor(public mem: MetaMem, readonly manager: MetaManager) {
         const [x, y] = coordsFromXY(mem.xy);
@@ -942,12 +967,13 @@ class MetaStructure {
     }
 
     draw(v: RoomVisual) {
+        // Without vision lookFor throws; draw every planned structure instead.
+        const room = Game.rooms[v.roomName];
         _.forEach(this.mem.structs, (lvls, stype) =>
             _.forEach(lvls!, xys =>
                 xys!.forEach(xy => {
                     const [x, y] = coordsFromXY(xy);
-                    const p = new RoomPosition(x, y, v.roomName);
-                    if (_.any(p.lookFor(LOOK_STRUCTURES), s => s.structureType === stype)) return
+                    if (room && _.any(room.lookForAt(LOOK_STRUCTURES, x, y), s => s.structureType === stype)) return
                     v.structure(x, y, stype as StructureConstant, { opacity: 0.5 });
                 })
             )
@@ -1073,10 +1099,10 @@ function checkSitePos(pos: RoomPosition, stype: BuildableStructureConstant): [Ro
     return [pos, null];
 }
 
-type MetaCtor = typeof MetaStructure & { plan(f: Flag, man: MetaManager): MetaStructure | null };
+export type MetaCtor = typeof MetaStructure & { plan(f: Flag, man: MetaManager): MetaStructure | null };
 const allMetas = new Map<string, MetaCtor>();
 
-function registerMeta(klass: MetaCtor) {
+export function registerMeta(klass: MetaCtor) {
     allMetas.set(klass.name, klass);
 }
 

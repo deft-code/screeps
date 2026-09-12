@@ -9,9 +9,9 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
    `src/role.mason.ts:19`. The JS mixin is merged later in `main.js` and wins,
    which is the intended behaviour for workers, but the mason copy is
    unreachable and was probably meant to be `afterMason`.
-2. **Strat never evolves** (`src/strat.ts:129,133`). `evolve()` returns `null`,
-   so a room claimed after first sight keeps its `NullStrat` (no towers, labs,
-   links, or metastruct upkeep) until a global reset.
+2. ~~Strat never evolves~~ Fixed 2026-09: `NullStrat.evolve()` returns a
+   `ClaimedStrat` when the controller becomes ours (and an `ActiveStrat` when
+   metas appear); the outgoing strat kills its own process.
 3. **`spawnHatches` double-push** (`src/mission.ts:109`). A hatch whose creep
    disappeared is pushed to `done` and then, because `undefined?.spawning` is
    falsy, also pushed into `memory.creeps`; `runCreeps` removes it next tick

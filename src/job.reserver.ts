@@ -49,15 +49,4 @@ export class Reserver extends JobRole {
         this.log("reserve failed", err, controller);
         return "wait";
     }
-
-    // role.reserver.js afterRoadPooper: drop a road site under us on swamp so
-    // the farm route paves itself over time.
-    after() {
-        if (!this.c) return;
-        const terrain = Game.map.getRoomTerrain(this.pos.roomName);
-        if (terrain.get(this.pos.x, this.pos.y) !== TERRAIN_MASK_SWAMP) return;
-        if (this.c.room.find(FIND_MY_CONSTRUCTION_SITES).length) return;
-        if (_.size(Game.constructionSites) > 50) return;
-        this.pos.createConstructionSite(STRUCTURE_ROAD);
-    }
 }

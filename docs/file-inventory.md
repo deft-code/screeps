@@ -30,9 +30,10 @@ Status legend:
 | `src/job.startup.ts`, `job.reboot.ts`, `job.worker.ts`, `job.ctrl.ts`, `job.hub.ts`, `job.hauler.ts`, `job.srcer.ts` | LIVE | 2022 | Job classes spawned by GlobalRespawn. |
 | `src/job.scout.ts`, `src/job.swiper.ts` | REACHABLE | 2022 | Jobs for `Swipe` (Scout also for `Farm`). Swiper never picks anything up (WIP). |
 | `src/ms.farm.ts` | REACHABLE | 2026 | Remote-farm mission; schedule with `"Farm <farm> <home> [cap]"`. Scouts an invisible farm room; paces a wolf against invader cores. |
-| `src/ms.remote.ts` | REACHABLE | 2026 | Remote mission, phase 1 of the team.ts `teamRemote` port; `"Remote <remote> <home>"`. Extends `Farm` for the invader-core wolf; scout for visibility; reservers paced every 225 ticks (team.ts rule) hold the controller. No farmers/roads yet. |
+| `src/ms.remote.ts` | REACHABLE | 2026 | Remote mission, team.ts `teamRemote` port; `"Remote <remote> <home>"`. Extends `Farm` for the invader-core wolf; scout for visibility; reservers paced every 225 ticks (team.ts rule) hold the controller; plans, tracks, draws and (on windDown) removes rsrc/rroad metas. No harvesters yet. |
+| `src/metaremote.ts` | REACHABLE | 2026 | `Meta_rsrc`/`Meta_rroad` and `RemotePlanner`: flagless, multi-room road and container planning for Remote. |
 | `src/job.farmer.ts`, `src/job.wolf.ts`, `src/job.reserver.ts` | REACHABLE | 2026 | Jobs for `Farm`; Task2 ports of `role.farmer.js`, `role.wolf.js` and `role.reserver.js`. |
-| `src/strat.ts` | LIVE | 2020 | `NullStrat`/`ClaimedStrat` per room; hostile lists; runs towers/labs/links/meta/factory. |
+| `src/strat.ts` | LIVE | 2020 | `NullStrat`/`ActiveStrat`/`ClaimedStrat` per room with `evolve()`; hostile lists; runs towers/labs/links/meta/factory; `ActiveStrat` builds mission metas in unclaimed rooms. |
 | `src/shed.ts` | LIVE | 2019 | `run(objs, bucket, fn)` CPU-guarded loop; `canRun`. |
 | `src/cache.ts` | LIVE | 2019 | `tick`/`cache` properties on Room/RoomObject; `theTick.inject`. |
 | `src/debug.ts` | LIVE | 2019 | Logging with source locations; `Debuggable` mixin. |

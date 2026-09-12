@@ -6,10 +6,14 @@ The flags described here are the only flags that exist in the game today.
 
 ## Concepts
 
-- **MetaManager** (`room.meta`, cached per room in `room.cache.meta`): loads
-  `Memory.rooms[name].meta.metas` into `MetaStructure` instances sorted by
-  priority desc then name, and exposes `run()`, `getSpot`, `getSite(s)`,
-  `getMatrix`, `path`, `spawnEnergy`, `maxHits`, `getLinkMode`.
+- **MetaManager** (`room.meta`, or `getMetaManager(roomName)` for a room
+  without vision; one instance per room per global, in a module-level map):
+  loads `Memory.rooms[name].meta.metas` into `MetaStructure` instances sorted
+  by priority desc then name, and exposes `run()`, `runUnowned()`, `getSpot`,
+  `getSite(s)`, `getMatrix`, `path`, `spawnEnergy`, `maxHits`, `getLinkMode`.
+  Never construct a second manager for a room: each `save()` overwrites the
+  room's meta list with that instance's view. `hasMetas(roomName)` answers
+  from raw memory without allocating anything.
 - **MetaStructure**: one planned cluster. Persistent form is `MetaMem`:
 
   ```
@@ -77,7 +81,35 @@ secondary to YELLOW to plan and inspect the visuals; set GREEN to commit. `hub`
 must be saved before `asrc`, `ctrl`, `traffic`, and `wall` can plan (they path
 to the storage site).
 
-## Upkeep (`MetaManager.run()`, every tick for owned rooms)
+## Mission-planned metas (`src/metaremote.ts`)
+
+The Remote mission ([missions-and-jobs.md](missions-and-jobs.md)) plans metas
+without flags through `RemotePlanner(home, remote)`:
+
+| role | what it holds |
+|---|---|
+| `rsrc` (`rsrc_<source xy>`, priority 1) | container (level 0) on the container tile, point `rsrc` on it, `targetid()` = the source. The tile is chosen the `Meta_asrc` way: the source's neighbours are weighted by openness and the first step of a path to the home storage wins. Sources are planned most-cramped first and a tile touching two sources is never a candidate. |
+| `rroad` (`rroad_<remote>_<leg>`, priority 0) | the road tiles of one leg inside one room, level 0. A leg is one multi-room `PathFinder` search to the home storage at range 1. Source legs are paved on every tile through every room they cross (one `rroad` per room); the controller leg is paved only on swamp and only inside the remote room, so it just joins the source corridors. |
+
+Both classes have `static plan = noPlan`, so genesis flags cannot re-plan them
+(a BROWN genesis pass can still delete them). The planner paths with the
+metastruct costs (road 7, plain 11, swamp 12), restricts rooms to the
+`Game.map.findRoute` set plus both ends, marks every existing structure that
+is not a road or rampart `0xFF` in every room (so the upkeep never finds a
+"blocker" to destroy), stamps a ring of `0xF0` around the remote's sources and
+controller, blocks each chosen container tile for later legs, and stamps
+earlier legs (roads 7, plains 10) so legs share corridors. Rooms without vision
+use Rewalker's remembered matrix. Exit tiles never get roads. All structures
+are level 0 because an unowned room's `roomLevel` is 0.
+
+`MetaStructure.draw(v)` works for rooms without vision (it then draws every
+planned structure instead of hiding built ones).
+
+## Upkeep (`MetaManager.run()`, every tick for owned rooms; `runUnowned()` every 10 ticks from `ActiveStrat`)
+
+`runUnowned()` keeps the two-site gate and only calls `makeSite` for
+containers and roads. In a room we do not own (`roomLevel` 0) `makeSite`
+never purges on `ERR_RCL_NOT_ENOUGH`.
 
 Skips when more than 2 of the room's construction sites exist. Then in order:
 tower or spawn if the room has none; extensions while

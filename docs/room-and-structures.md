@@ -3,18 +3,28 @@
 ## Room strategy (`src/strat.ts`)
 
 `room.strat` returns a cached `IStrat` per room name (`GetStrat`). `makeStrat`
-picks `ClaimedStrat` when `controller.my`, else `NullStrat`. Both extend
-`Process` and enqueue themselves with `exec(this, "low")` on construction, so
-they run inside `process.runAll()` ([runtime-tick.md](runtime-tick.md)).
-`evolve()` always returns `null`: a room claimed after its `NullStrat` was
-cached stays a `NullStrat` until the next global reset.
+picks `ClaimedStrat` when `controller.my`, `ActiveStrat` when the room is
+unclaimed but `hasMetas(name)` (metas in `Memory.rooms[name].meta`), else
+`NullStrat`. All extend `Process` and enqueue themselves with
+`exec(this, "low")` on construction, so they run inside `process.runAll()`
+([runtime-tick.md](runtime-tick.md)).
 
-| | `NullStrat` | `ClaimedStrat` |
-|---|---|---|
-| `init()` (from `main`) | `legacyInit` (hostile lists + ratchets), `updateIntel` | same, plus `theRadar.register(observer)` at RCL8 and `theMarket.registerRoom` |
-| `run()` (process row) | no-op, `"low"` | `runTowers`, `popSafeMode`, `runLabs`, `runLinks`, `room.meta.run()`, `drawMinerals`, `runFactory`; `"normal"` |
-| `spawnEnergy()` | `undefined` | `room.meta.spawnEnergy()` |
-| `maxHits(stype, xy)` | fixed table by RCL | `room.meta.maxHits(...)` with CPU accounting |
+`evolve()` is called on every `room.strat` access and the result replaces the
+cached strat. `NullStrat` -> `ClaimedStrat` when the controller becomes ours,
+-> `ActiveStrat` when metas appear; `ActiveStrat` -> `ClaimedStrat` on claim,
+-> `NullStrat` when its metas are removed (a Remote mission's `windDown`).
+The outgoing strat `kill()`s itself in `replace()` so only one process per
+room survives. `ClaimedStrat.evolve()` returns `null`.
+
+| | `NullStrat` | `ActiveStrat` | `ClaimedStrat` |
+|---|---|---|---|
+| `init()` (from `main`) | `legacyInit` (hostile lists + ratchets), `updateIntel` | same | same, plus `theRadar.register(observer)` at RCL8 and `theMarket.registerRoom` |
+| `run()` (process row) | no-op, `"low"` | every 10 ticks (random offset) `room.meta.runUnowned()`: container and road sites only; skipped without vision or in a room someone else owns; `"low"` | `runTowers`, `popSafeMode`, `runLabs`, `runLinks`, `room.meta.run()`, `drawMinerals`, `runFactory`; `"normal"` |
+| `spawnEnergy()` | `undefined` | `undefined` | `room.meta.spawnEnergy()` |
+| `maxHits(stype, xy)` | roads and containers `0` (left to decay); walls/ramparts fixed table by RCL | roads and containers from `room.meta.maxHits(..., 0)`: full when a meta claims the tile, else `0`; rest as `NullStrat` | `room.meta.maxHits(...)` with CPU accounting |
+
+The `0` for unplanned roads and containers is what stops passing creeps' idle
+repairs from spending energy on remote roads nobody planned.
 
 `popSafeMode`: if `room.assaulters` exist and any tower or spawn is damaged,
 `activateSafeMode()` and `Game.notify`.

@@ -8,6 +8,7 @@ import { updateIntel } from "intel";
 import { runFactory } from "struct.factory";
 import { theMarket } from "market";
 import { exec, Priority, Process } from "process";
+import { hasMetas } from "metastruct";
 
 declare global {
     interface Memory {
@@ -111,10 +112,12 @@ export class NullStrat extends Process implements IStrat {
     }
     run(): Priority { return "low" }
     spawnEnergy(): SpawnEnergy[] | undefined { return undefined; }
+    // Roads and containers nobody planned are left to decay; ActiveStrat
+    // answers for the planned ones. Idle repairs by passing creeps stop here.
     maxHits(stype: BuildableStructureConstant, xy: number): number {
         switch (stype) {
-            case STRUCTURE_ROAD: return ROAD_HITS;
-            case STRUCTURE_CONTAINER: return CONTAINER_HITS;
+            case STRUCTURE_ROAD: return 0;
+            case STRUCTURE_CONTAINER: return 0;
             case STRUCTURE_WALL:
             case STRUCTURE_RAMPART:
                 switch (this.room.controller?.level) {
@@ -130,7 +133,61 @@ export class NullStrat extends Process implements IStrat {
         }
         return 0;
     }
-    evolve(): null { return null }
+
+    // GetStrat swaps in whatever evolve() returns. The outgoing strat is a
+    // scheduled process, so it must kill itself or both would keep running.
+    evolve(): IStrat | null {
+        const room = this.room;
+        if (!room) return null;
+        if (room.controller?.my) return this.replace(new ClaimedStrat(this.roomName));
+        if (hasMetas(this.roomName)) return this.replace(new ActiveStrat(this.roomName));
+        return null;
+    }
+
+    protected replace(next: IStrat): IStrat {
+        this.kill();
+        this.room?.log(this.name, "->", next.name);
+        return next;
+    }
+}
+
+// Ticks between site-placement passes in an ActiveStrat room.
+const kActiveUpkeep = 10;
+
+// An unclaimed room that has metas in memory, planned by a mission (Remote).
+// Places their container and road sites while we have vision, and gives the
+// planned roads/containers full maxHits so creeps repair only those. Evolves
+// back to NullStrat once the metas are removed, so the leftovers decay.
+export class ActiveStrat extends NullStrat implements IStrat {
+    name = "activestrat";
+    offset = _.random(kActiveUpkeep - 1);
+
+    run(): Priority {
+        const room = this.room;
+        if (!room) return "low";
+        // Cannot build in a room someone else owns.
+        if (room.controller?.owner && !room.controller.my) return "low";
+        if ((Game.time + this.offset) % kActiveUpkeep) return "low";
+        room.meta.runUnowned();
+        return "low";
+    }
+
+    maxHits(stype: BuildableStructureConstant, xy: number): number {
+        if (stype === STRUCTURE_ROAD || stype === STRUCTURE_CONTAINER) {
+            const room = this.room;
+            if (!room) return 0;
+            return room.meta.maxHits(stype, xy, 0);
+        }
+        return super.maxHits(stype, xy);
+    }
+
+    evolve(): IStrat | null {
+        const room = this.room;
+        if (!room) return null;
+        if (room.controller?.my) return this.replace(new ClaimedStrat(this.roomName));
+        if (!hasMetas(this.roomName)) return this.replace(new NullStrat(this.roomName));
+        return null;
+    }
 }
 
 
@@ -152,6 +209,8 @@ let nhits = 0;
 
 class ClaimedStrat extends NullStrat implements IStrat {
     name = "claimedstrat"
+    // Inherits NullStrat.evolve otherwise, which would re-create itself forever.
+    evolve(): null { return null }
     init() {
         super.init();
         if (this.room.controller?.level === 8) {
@@ -199,6 +258,7 @@ function makeStrat(room: Room): IStrat {
     if (room.controller && room.controller.my) {
             return new ClaimedStrat(room.name);
     }
+    if (hasMetas(room.name)) return new ActiveStrat(room.name);
     return new NullStrat(room.name);
 }
 
