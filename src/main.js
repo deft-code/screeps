@@ -49,10 +49,12 @@ import 'ms.swipe';
 import 'ms.farm';
 import 'ms.reactor';
 import 'ms.remote';
+import 'ms.once';
 import "service.flag";
 
 import "job.hauler";
 import "job.scout";
+import "job.paver";
 import "job.srcer";
 
 import 'roomobj';

@@ -42,6 +42,11 @@ export function task(prototype: any, name: string, desc: PropertyDescriptor) {
 const mycreeps = new Map<string, MyCreep>();
 const myroles = new Map<string, typeof MyCreep>();
 
+// The registered job class for a role name ("paver"), or null.
+export function getRoleClass(role: string): typeof MyCreep | null {
+    return myroles.get(role.toLowerCase()) || null;
+}
+
 export function getRoleName(name: string): string {
     return _.first(_.words(name)).toLowerCase();
 }

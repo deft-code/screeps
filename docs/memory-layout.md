@@ -19,7 +19,8 @@ small; per-tick data belongs in `obj.tick` / `obj.cache`
                      windDown?: true, tombs?: { "asrc0": tick },      // set by windDown(); tick = expected tombstone decay
                      when?: { wolf: tick } } }                        // paceCreeps: tick the last paced egg was laid
   "Remote W27S9 W26S8": { ..., metas?: { W27S9: ["rsrc_608", "rroad_W27S9_608"], W26S9: [...] },  // room -> metas the mission planned
-                          planned?: tick }                            // present once planning was attempted; windDown removes the metas
+                          planned?: tick,                             // present once planning was attempted; windDown removes the metas
+                          pavers?: { W26S9: tick } }                  // last tick a "Once Paver <room>" was scheduled per room
 ```
 
 ### `Memory.creeps[name]` (`mission.ts`, `spawn.ts`, roles)

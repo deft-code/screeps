@@ -1,6 +1,6 @@
 import { Mission, MissionMemory } from "mission";
 import { Farm } from "ms.farm";
-import { register, Priority } from "process";
+import { register, Priority, Service } from "process";
 import { Scout } from "job.scout";
 import { Reserver } from "job.reserver";
 import { whoami } from "Rewalker";
@@ -14,12 +14,16 @@ const kReservePace = 225;
 const kReservePaceSlow = 450;
 const kReserveSlowAt = 450;
 const kReserveStopAt = 1000;
+// Ticks between "Once Paver <room>" schedules for the same room.
+const kPaverPace = 1500;
 
 interface RemoteMemory extends MissionMemory {
     // room -> names of the metas this mission planned there (metaremote.ts).
     // Present (possibly empty) once planning has been attempted.
     metas?: { [room: string]: string[] }
     planned?: number
+    // room -> tick a "Once Paver <room>" was last scheduled for it.
+    pavers?: { [room: string]: number }
 }
 
 // Port of team.ts teamRemote to the mission system, in phases.
@@ -56,6 +60,7 @@ export class Remote extends Farm {
             this.reserve();
             if (!this.memory.metas) this.planMetas();
         }
+        this.schedulePavers();
         this.drawMetas();
         // Farm.run() would lay farmers, so reach Mission.run() directly.
         Mission.prototype.run.call(this);
@@ -118,6 +123,30 @@ export class Remote extends Farm {
         this.memory.planned = Game.time;
         debug.log(this.name, "planMetas used", Game.cpu.getUsed() - start, "cpu");
         return true;
+    }
+
+    // Any unclaimed room on the route with our construction sites in view
+    // gets a "Once Paver <room>" (ms.once.ts): one paver, then the Once winds
+    // down. Service.schedule is idempotent, and kPaverPace keeps a room that
+    // stays unfinished from getting a paver the tick the last one dies.
+    schedulePavers() {
+        const tracked = this.memory.metas;
+        if (!tracked) return;
+        const home = this.getRoomName("home");
+        const when = this.memory.pavers = this.memory.pavers || {};
+        for (const roomName in tracked) {
+            if (roomName === home) continue;
+            const room = Game.rooms[roomName];
+            if (!room || room.controller?.owner) continue;
+            if (!room.find(FIND_MY_CONSTRUCTION_SITES).length) continue;
+            const cmd = `Once Paver ${roomName}`;
+            if (Service.getType(cmd)) continue;
+            const last = when[roomName];
+            if (last && last + kPaverPace > Game.time) continue;
+            when[roomName] = Game.time;
+            debug.log(this.name, "scheduling", cmd);
+            Service.schedule(cmd);
+        }
     }
 
     // Draw every meta this mission planned, in every room, vision or not.

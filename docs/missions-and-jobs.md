@@ -36,13 +36,18 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               Phase 2: planMetas() once the remote is visible (or planMetas(true) from the console):
                                                               RemotePlanner (metaremote.ts) saves rsrc/rroad metas into each room's meta memory and
                                                               memory.metas tracks room -> names; drawMetas() every tick; windDown() removes them.
-                                                              Phase 3 (todo): harvester/paver/trucker
+                                                              schedulePavers(): "Once Paver <room>" for any tracked unclaimed room with our sites in view,
+                                                              at most one per room per 1500 ticks. Phase 3 (todo): harvester/trucker
+         └─ Once             @register  (ms.once.ts)           "Once <Job> <room>"; lays one egg of the job, winds down once it has spawned,
+                                                              kills and deschedules itself when the creep and its tombstone are gone
 
 MyCreep                      wrapper object per creep *name* (mycreep.ts); not a prototype extension
  └─ JobCreep                 knows its Mission; Rewalker movement helpers (job.creep.ts)
      ├─ Startup  @register   body table keyed by energyCapacity      (job.startup.ts)
      ├─ Reboot   @register   priority 10, body from energyAvailable   (job.reboot.ts)
      ├─ Scout    @register   [MOVE] from the "home" room if any, walks to the mission room (job.scout.ts)
+     ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "remote" spawn strategy; harvests in the
+     │                       mission room when empty, taskBuildAny, then taskRepairRemote (roads/containers); spawned by Once
      ├─ Swiper   @register   [MOVE,CARRY], work in progress          (job.swiper.ts)
      └─ JobRole              bridge to legacy roles: start() calls creep.run()/after() (job.role.ts)
          ├─ Worker  @register              (job.worker.ts)
@@ -84,10 +89,13 @@ scheduleService('Farm W5N8 W6N8 2')  // args[1]=farm room, args[2]=home, args[3]
 scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that sector's core (W5N5)
 scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
+scheduleService('Once Paver W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down (Remote schedules these itself)
 ```
 
 `schedule` = `spawn` + push the command onto `Memory.scheduler.services`, which
-`Service.boot()` replays on every global reset. That is why `GlobalRespawn` is
+`Service.boot()` replays on every global reset. Both are idempotent: a command
+that is already live returns the existing instance and is not pushed twice
+(`boot()` also dedupes the list). That is why `GlobalRespawn` is
 alive with no constructor call anywhere in the code. `Service.getType(cmd)`
 returns the live instance. `kill()` removes the name from
 `Memory.scheduler.services` and the services map and sets `dead`, so `runAll`

@@ -9,6 +9,9 @@ export class JobRole extends JobCreep {
     closeSpawn(spawns: StructureSpawn[], eggMem: any) {
         return this.stratSpawn(spawns, "close", eggMem);
     }
+    remoteSpawn(spawns: StructureSpawn[], eggMem: any) {
+        return this.stratSpawn(spawns, "remote", eggMem);
+    }
     private stratSpawn(spawns: StructureSpawn[], spawnStrat: string, eggMem: any) {
         const stratEggMem = _.defaults({}, eggMem, { spawn: spawnStrat, body: this.role });
         //this.log("stratEggMem:", JSON.stringify(stratEggMem), "eggMem:", JSON.stringify(eggMem));

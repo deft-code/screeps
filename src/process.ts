@@ -95,14 +95,19 @@ export class Service extends Process {
         return super.status().replace(/^process/, this.scheduled ? "scheduled" : "transient");
     }
 
+    // Idempotent: a command that is already live is returned as is, and it is
+    // only added to Memory.scheduler.services once.
     static schedule(cmd: string): Service | null {
         const proc = this.spawn(cmd);
-        if (proc) {
+        if (proc && !_.contains(Memory.scheduler.services, cmd)) {
             Memory.scheduler.services.push(cmd);
         }
         return proc;
     }
+    // Idempotent: never creates a second instance (and process) for a live command.
     static spawn(cmd: string): Service | null {
+        const live = services.get(cmd);
+        if (live && !live.dead) return live;
         const klassName = typeName(cmd);
         const klass = getOrImport(klassName);
         if (!klass) {
@@ -117,6 +122,7 @@ export class Service extends Process {
     }
 
     static boot() {
+        Memory.scheduler.services = _.uniq(Memory.scheduler.services);
         for (let serviceName of Memory.scheduler.services) {
             Service.spawn(serviceName);
         }
