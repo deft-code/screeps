@@ -4,7 +4,6 @@ import {daemon, Priority, Process} from "process";
 
 declare global {
   interface CreepMemory {
-    hibernate?: number
     nest: string
   }
 }
@@ -133,8 +132,6 @@ export function runSpawns() {
 
   const start = Game.time;
   for (let mycreep of eggs) {
-    if ((mycreep.memory.hibernate || 0) > Game.time) continue;
-
     let [spawn, body] = mycreep.spawn(spawns);
 
     debug.log(`spawn:${spawn}, body:${body}, type:${(mycreep as any).__proto__.constructor.name}`);

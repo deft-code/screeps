@@ -241,39 +241,25 @@ export abstract class Mission extends Service {
             _.any(this.memory.hatch, egg => getMyCreep(egg).role === role);
     }
 
-    // This spawns creeps no faster than a fixed rate.
-    nCreepsPace(role: string, n: number, life = CREEP_LIFE_TIME) {
-        const sleep = life / n;
-        if (!this.roleEggs(role).length) {
-            const creeps = this.roleCreeps(role);
-            if (!creeps.length) {
-                return this.layEgg(role);
-            }
-            const spawnlag = _.max(creeps, c => c.spawnTime)?.spawnTime || 0;
-            const egg = this.layEgg(role);
-            egg.memory.hibernate = Math.ceil(Game.time + sleep + _.random(10) - spawnlag);
-            return egg;
-        }
-        return null;
-    }
-
     // `n` may be fractional: the target is really (n-1)*life ticks of remaining
     // TTL across the role, so 1.5 keeps one creep alive and lays the next once
     // the survivor drops under half life, averaging 1.5 creeps. Below 1 it
-    // becomes a duty cycle through nCreepsPace: 0.5 means a creep alive half
-    // the time. 0 or less lays nothing.
+    // becomes a duty cycle through paceCreeps: 0.5 means one creep per two
+    // lifetimes. 0 or less lays nothing.
+    // There will only ever be up to n eggs of that role at a time.
     nJobs(ctor: typeof MyCreep, n: number, life = CREEP_LIFE_TIME ){
         return this.nCreeps(ctor.name.toLowerCase(), n, life);
     }
 
+    // Create a new creep of the given role at most once per `rate` ticks.
+    // There will only ever be one egg of that role at a time,
     paceJobs(ctor: typeof MyCreep, rate: number = CREEP_LIFE_TIME) {
         return this.paceCreeps(ctor.name.toLowerCase(), rate);
     }
 
     // Port of team.ts paceRole: lay at most one egg per `rate` ticks, and never
     // while one is still unhatched. Unlike nCreeps it does not replace a creep
-    // that dies early, and unlike nCreepsPace it leaves no hibernating egg
-    // behind when the caller stops asking. Rates under kMinPaceRate are
+    // that dies early. Rates under kMinPaceRate are
     // clamped up to it; a non-positive or non-finite rate lays nothing.
     paceCreeps(role: string, rate: number) {
         if (!(rate > 0) || !isFinite(rate)){
@@ -290,12 +276,12 @@ export abstract class Mission extends Service {
     }
 
     nCreeps(role: string, n: number, life = CREEP_LIFE_TIME) {
-        // nCreepsPace would treat 0 as "lay now, sleep forever" (life/0).
         if (n <= 0) return null;
         const neededttl = (n - 1) * life;
         // a neededttl of 1500 creates 2 creeps
         // a neededttl of 0 spawns replacement as the first dies.
-        if (neededttl < 0) return this.nCreepsPace(role, n);
+        // below 0 the target is a duty cycle, so pace instead: one egg per life/n ticks.
+        if (neededttl < 0) return this.paceCreeps(role, life / n);
 
         const creeps = this.roleCreeps(role);
         const hatches = this.roleHatches(role);

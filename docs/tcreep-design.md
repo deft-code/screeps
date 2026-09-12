@@ -160,7 +160,7 @@ Policy in `TCreep.expired()`:
 
 | life | retire when |
 |---|---|
-| egg | no memory, or `now - max(laid, hibernate) > 3000` (closes known issue 7, "too-old eggs are never removed"; hibernating paced eggs are exempt) |
+| egg | no memory, or `now - laid > 3000` (closes known issue 7, "too-old eggs are never removed") |
 | dead | `now - died > TOMBSTONE_DECAY_PER_PART * MAX_CREEP_SIZE` (250), or sooner once the last room is visible and shows no tombstone for this creep |
 | alive, hatching, unseen | never |
 

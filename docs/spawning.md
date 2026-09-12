@@ -14,16 +14,15 @@ Two spawners exist. Only the first is live.
 1. Eggs = shuffled names with `nest === "egg"`, sorted by `eggOrder`: higher
    `MyCreep.priority` first (Reboot 10, Hauler 9, Srcer 8, others 0), then
    older eggs first in 500-tick buckets.
-2. Skip eggs whose `memory.hibernate` is in the future (set by `nCreepsPace`).
-3. `[spawn, body] = mycreep.spawn(shuffledSpawns)`. Each job decides its own
+2. `[spawn, body] = mycreep.spawn(shuffledSpawns)`. Each job decides its own
    spawn and body. A `null` spawn means "cannot spawn now".
-4. Per-room `usedEnergy` accumulates body costs so several eggs do not all
+3. Per-room `usedEnergy` accumulates body costs so several eggs do not all
    assume the same energy. `spawn.spawning` rooms are skipped after accounting.
-5. `spawn.spawnCreep(body, name, { energyStructures: room.strat.spawnEnergy() })`.
+4. `spawn.spawnCreep(body, name, { energyStructures: room.strat.spawnEnergy() })`.
    Failure with an existing creep of that name marks `nest = "not egg!!!"`.
    Eggs older than 3000 ticks are logged as "Too Old" but never removed (TODO in
    code).
-6. Success: `nest = spawn.name`, `home = room.name`.
+5. Success: `nest = spawn.name`, `home = room.name`.
 
 ## Body definitions
 

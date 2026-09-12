@@ -126,9 +126,6 @@ skip straight to `super.run()`, so they lay no eggs while winding down. A new
 - `nCreeps(role, n, life=1500)`: keep total remaining TTL (creeps + hatches +
   eggs) above `(n-1)*life` plus spawn lag. With `n=1` the replacement is laid as
   the last creep dies.
-- `nCreepsPace(role, n, life)`: one egg at a time, each hibernating for
-  `life/n` ticks after the youngest existing creep. A rate limiter; used when
-  `nCreeps` is called with a fractional `n` below 1.
 - `nJobs(ctor, n)`: `nCreeps(ctor.name.toLowerCase(), n)`.
 - `paceCreeps(role, rate)` / `paceJobs(ctor, rate)`: port of `team.ts
   paceRole`. Lays at most one egg per `rate` ticks (tracked in
@@ -138,8 +135,9 @@ skip straight to `super.run()`, so they lay no eggs while winding down. A new
   should stop the moment the trigger goes away (`Farm.suppressInvaderCore`,
   `Farm.reserve`) or when the target is a rate rather than a head count
   (`Farm` farmers: `1500 / nFarmers`).
-- `nCreeps`/`nJobs` accept fractional `n` (TTL-based; 1.5 averages 1.5 creeps,
-  below 1 is a duty cycle) and lay nothing for `n <= 0`.
+- `nCreeps`/`nJobs` accept fractional `n` (TTL-based; 1.5 averages 1.5 creeps).
+  Below 1 they delegate to `paceCreeps(role, life / n)`, a duty cycle. `n <= 0`
+  lays nothing.
 - `hasEgg(role)`, `hasRole(role)`, `roleCreeps/roleHatches/roleEggs(role)`.
 - `getRoomName(alias)`: `""` = mission room, a room-name string passes through;
   subclasses add aliases (`Swipe` maps `"home"` to `args[2]`).

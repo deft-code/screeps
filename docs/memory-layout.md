@@ -23,8 +23,7 @@ small; per-tick data belongs in `obj.tick` / `obj.cache`
 ### `Memory.creeps[name]` (`mission.ts`, `spawn.ts`, roles)
 New-system creeps start as eggs:
 ```
-{ laid: tick, cpu: 0, mission: "GlobalRespawn", home: "egg", birth: tick, nest: "egg",
-  hibernate?: tick }                   // nCreepsPace delay
+{ laid: tick, cpu: 0, mission: "GlobalRespawn", home: "egg", birth: tick, nest: "egg" }
 ```
 After spawn: `nest = spawnName`, `home = roomName`. Roles then add:
 `task` (legacy `{task, id?, flag?, first?, resource?, max?, spot?}`), `task2`
