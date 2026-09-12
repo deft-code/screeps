@@ -65,6 +65,11 @@ interface IMyCreep {
     run(): boolean
 }
 
+// Screeps console extension: like console.log but the arguments are not HTML-escaped.
+interface Console {
+    logUnsafe(...args: any[]): void
+}
+
 interface Creep {
     run(): void
     after(): void

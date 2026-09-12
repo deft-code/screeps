@@ -267,7 +267,7 @@ export abstract class Mission extends Service {
     // that dies early, and unlike nCreepsPace it leaves no hibernating egg
     // behind when the caller stops asking.
     paceCreeps(role: string, rate: number) {
-        if (rate < 150) {
+        if (rate < 100) {
             if (rate > 0) debug.log(this.name, "BAD pace rate", role, rate);
             return null;
         }

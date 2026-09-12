@@ -61,7 +61,7 @@ function intColor(color: number) {
 
 export function errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode {
   if (err !== OK) {
-    console.log(location(2), errStr(err), ...str);
+    console.logUnsafe(location(2), errStr(err), ...str);
   }
   return err;
 }
@@ -93,12 +93,12 @@ export function location(skip = 1) {
 
 export function dlog(...str: any[]) {
   if(Memory.debug) {
-    console.log(location(2), ...str);
+    console.logUnsafe(location(2), ...str);
   }
 }
 
 export function log(...str: any[]) {
-  console.log(location(2), ...str);
+  console.logUnsafe(location(2), ...str);
 }
 
 let warnTime = Game.time;
@@ -113,7 +113,7 @@ export function warn( ...str: any[]) {
   if (warned.has(loc)) return;
 
   warned.add(loc);
-  console.log(loc, ...str);
+  console.logUnsafe(loc, ...str);
 }
 
 export function errStr(err: ScreepsReturnCode) {
@@ -180,7 +180,7 @@ export abstract class Debuggable {
 
   dlog(...str: any[]) {
     if (this.debug) {
-      console.log(location(2), this, ...str)
+      console.logUnsafe(location(2), this, ...str)
     }
   }
 
@@ -189,12 +189,12 @@ export abstract class Debuggable {
   }
 
   log(...str: any[]) {
-    console.log(location(2), this, ...str)
+    console.logUnsafe(location(2), this, ...str)
   }
 
   errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode {
     if (err !== OK) {
-      console.log(location(2), this, errStr(err), JSON.stringify(err), ...str);
+      console.logUnsafe(location(2), this, errStr(err), JSON.stringify(err), ...str);
     }
     return err;
   }

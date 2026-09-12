@@ -17,7 +17,9 @@ Process                      run(): Priority; kill()           (process.ts)
          └─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [n]"; nJobs(Farmer, n);
                                                               Scout while the farm room is invisible;
                                                               paceJobs(Wolf, 1500) while an invader core stands;
-                                                              paceJobs(Reserver, 225|450) to hold the controller
+                                                              paceJobs(Reserver, max(100, 550/ctrl spots)) while someone else holds the reservation, no hostiles,
+                                                              and living reservers' ttl*CLAIM < ticks left;
+                                                              no farmers while that reservation has > 100 ticks left
 
 MyCreep                      wrapper object per creep *name* (mycreep.ts); not a prototype extension
  └─ JobCreep                 knows its Mission; Rewalker movement helpers (job.creep.ts)
