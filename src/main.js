@@ -15,6 +15,32 @@ global.spawnService = cmd => process.Service.spawn(cmd);
 // Schedule a service to run that persists across global resets.
 global.scheduleService = cmd => process.Service.schedule(cmd);
 
+// Live service instance for a command string, or null. e.g. getService('Swipe W5N8 W6N8').windDown()
+global.getService = cmd => process.Service.getType(cmd);
+
+// Print every live process (daemons, room strats, services) with its status().
+global.lsProcess = () => {
+  const procs = process.Process.all();
+  for (const proc of procs) {
+    console.log(proc.name, '[' + proc.status() + ']');
+  }
+  return `${procs.length} processes`;
+};
+
+// Print every live service with its status(), then any scheduled command
+// that has no live instance (its class failed to spawn at boot).
+global.lsService = () => {
+  const live = process.Service.all();
+  for (const svc of live) {
+    console.log(svc.name, '[' + svc.status() + ']');
+  }
+  const liveNames = live.map(svc => svc.name);
+  for (const cmd of Memory.scheduler.services) {
+    if (!liveNames.includes(cmd)) console.log(cmd, '[scheduled NOT LIVE]');
+  }
+  return `${live.length} live, ${Memory.scheduler.services.length} scheduled`;
+};
+
 import 'strat';
 
 import 'ms.globalrespawn';

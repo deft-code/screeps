@@ -15,6 +15,11 @@ interface MissionMemory {
     creeps: string[]
     hatch: string[]
     eggs: string[]
+    // Set by windDown(). The mission stops laying eggs and only shepherds
+    // its remaining creeps until they and their tombstones are gone.
+    windDown?: boolean
+    // creep name -> tick its tombstone is expected to have decayed.
+    tombs?: { [name: string]: number }
 }
 
 // Ensure missions is here on a clean memory first boot.
@@ -78,10 +83,90 @@ export abstract class Mission extends Service {
     }
 
     run(): Priority {
+        if (this.windingDown) return this.runWindDown();
         this.hatchEggs();
         this.spawnHatches();
         this.runCreeps();
         return super.run();
+    }
+
+    get windingDown(): boolean {
+        return !!this.memory.windDown;
+    }
+
+    status(): string {
+        const mem = this.memory;
+        let out = super.status();
+        if (this.windingDown) out += ` windDown tombs:${_.size(mem.tombs || {})}`;
+        return out + ` eggs:${mem.eggs.length} hatch:${mem.hatch.length} creeps:${mem.creeps.length}`;
+    }
+
+    // Stop laying eggs, purge the ones already laid, and keep running the
+    // living creeps. When the last creep and its tombstone are gone the
+    // mission kills itself, which also deschedules it.
+    windDown() {
+        this.memory.windDown = true;
+        this.memory.tombs = this.memory.tombs || {};
+        debug.log(this.name, "winding down");
+    }
+
+    runWindDown(): Priority {
+        this.purgeEggs();
+        this.spawnHatches();
+        this.watchTombs();
+        this.runCreeps();
+        this.expireTombs();
+
+        const mem = this.memory;
+        if (!mem.eggs.length && !mem.hatch.length && !mem.creeps.length && _.isEmpty(mem.tombs)) {
+            debug.log(this.name, "wound down, killing");
+            this.kill();
+            delete Memory.missions[this.name];
+            return "kill";
+        }
+        return super.run();
+    }
+
+    // Subclasses may lay eggs before calling super.run(); drop anything that
+    // has not spawned yet so the SpawnDaemon never sees it.
+    purgeEggs() {
+        for (const name of this.memory.eggs) {
+            if (Game.creeps[name]) {
+                // Already spawning; let it hatch and be shepherded to death.
+                this.memory.hatch.push(name);
+                continue;
+            }
+            debug.log(this.name, "purging egg", name);
+            delete Memory.creeps[name];
+            unget(name);
+        }
+        this.memory.eggs = [];
+    }
+
+    // Record when each living creep's tombstone would decay if it died now.
+    watchTombs() {
+        const tombs = this.memory.tombs = this.memory.tombs || {};
+        for (const name of this.memory.creeps) {
+            const c = Game.creeps[name];
+            if (c) tombs[name] = Game.time + 1 + c.body.length * TOMBSTONE_DECAY_PER_PART;
+        }
+    }
+
+    // Forget tombstones that have decayed. A visible tombstone extends its
+    // own entry; an invisible one falls back to the recorded estimate.
+    expireTombs() {
+        const tombs = this.memory.tombs;
+        if (!tombs) return;
+        for (const name of _.keys(tombs)) {
+            if (Game.creeps[name]) continue;
+            const tomb = _.find(_.flatten(_.map(Game.rooms, r => r.find(FIND_TOMBSTONES))),
+                t => t.creep.name === name);
+            if (tomb) {
+                tombs[name] = Game.time + tomb.ticksToDecay;
+                continue;
+            }
+            if (Game.time >= tombs[name]) delete tombs[name];
+        }
     }
 
     hatchEggs() {

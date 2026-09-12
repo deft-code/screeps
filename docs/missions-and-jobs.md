@@ -56,9 +56,41 @@ require('process').Service.schedule('Farm W5N8 W6N8 2')  // args[1]=farm room, a
 `schedule` = `spawn` + push the command onto `Memory.scheduler.services`, which
 `Service.boot()` replays on every global reset. That is why `GlobalRespawn` is
 alive with no constructor call anywhere in the code. `Service.getType(cmd)`
-returns the live instance. `kill()` removes the name from memory and the
-services map but does **not** pull the instance out of the run table; it keeps
-running until the next global reset.
+returns the live instance. `kill()` removes the name from
+`Memory.scheduler.services` and the services map and sets `dead`, so `runAll`
+drops it from the run table on the next tick. Living creeps are then never run
+again (nothing outside the mission calls `mycreep.run()`), and eggs left in
+`Memory.creeps` still spawn. Prefer `windDown()` for a clean exit.
+
+## Winding down a mission
+
+```js
+require('process').Service.getType('Swipe W5N8 W6N8').windDown()
+```
+
+`windDown()` sets `Memory.missions[name].windDown`, which survives resets.
+While it is set `Mission.run()` skips the normal path and runs `runWindDown()`:
+
+1. `purgeEggs`: every egg that is not yet spawning is deleted from
+   `Memory.creeps` (so the `SpawnDaemon` never sees it); one already spawning
+   is moved to `hatch`.
+2. `spawnHatches` and `runCreeps` continue as usual, so living creeps keep
+   working until they die of age.
+3. `watchTombs` records, per living creep, the tick its tombstone would decay
+   (`body.length * TOMBSTONE_DECAY_PER_PART`) in `Memory.missions[name].tombs`;
+   `expireTombs` drops entries once that tick passes, or once a visible
+   tombstone for that creep has decayed.
+4. When `eggs`, `hatch`, `creeps` and `tombs` are all empty the mission calls
+   `kill()`, deletes `Memory.missions[name]`, and returns `"kill"`.
+
+`Process.status()` returns the one-line summary `lsProcess()`/`lsService()`
+print (`process|daemon|scheduled|transient`, `row:<priority>`, `dead`). `Mission.status()` appends `windDown` and
+`tombs:` while winding down, then `eggs: hatch: creeps:` counts. A subclass
+that wants more should call `super.status()` and append to the result.
+
+The three shipped missions check `this.windingDown` first thing in `run()` and
+skip straight to `super.run()`, so they lay no eggs while winding down. A new
+`Mission` subclass should do the same.
 
 ## Mission lifecycle
 

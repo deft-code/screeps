@@ -12,8 +12,12 @@ P.Service.schedule('GlobalRespawn')          // start and persist across resets
 P.Service.schedule('Swipe W5N8 W6N8')        // target room, home room
 P.Service.getType('GlobalRespawn')           // live instance (or null)
 P.Service.getType('GlobalRespawn').kill()    // stops now: dropped from the priority table and from Memory
+P.Service.getType('Swipe W5N8 W6N8').windDown()  // stop laying eggs, purge eggs, run creeps to death, then kill()
 
 spawnService('Swipe W5N8 W6N8')              // global helper for P.Service.spawn
+getService('Swipe W5N8 W6N8')                // global helper for P.Service.getType
+lsService()                                  // print svc.name + svc.status() for every live service
+lsProcess()                                  // every live process: daemons, room strats, services; name + status()
 scheduleService('GlobalRespawn')             // global helper for P.Service.schedule
 Memory.scheduler.services                    // what boot() will replay
 Memory.missions.GlobalRespawn                // { eggs, hatch, creeps }
@@ -25,6 +29,20 @@ instance is dropped from the priority table as well as from
 `Memory.scheduler.services`. A process may also retire itself by returning
 `"kill"` from `run()`, which parks it in the `kill` row that `runAll()` never
 runs.
+
+Every process that passes through `exec()` (daemons, `NullStrat`/`ClaimedStrat`
+per room, and services) is tracked in a module `Map` with its current row;
+`Process.all()` returns them and `lsProcess()` prints `name [status()]`. A dead
+process is removed from that map when `runRow` drops it. Killing a daemon is
+only a pause: it has no memory entry, so the `@daemon` decorator recreates it at
+the next global reset. `status()` prints `daemon` so that is visible.
+
+`kill()` abandons living creeps (nothing else runs them) and leaves laid eggs
+in `Memory.creeps`, where the `SpawnDaemon` will still spawn them. `windDown()`
+is the clean alternative: it purges the eggs, keeps running the creeps until
+they and their tombstones are gone, then kills and deletes
+`Memory.missions[name]`. It is persisted in mission memory, so it survives a
+global reset.
 
 Forcing a global reset (to reload stuck module state) is still done by pushing
 code (`npx gulp season`); assigning to a top-level module from the console and

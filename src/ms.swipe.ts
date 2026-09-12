@@ -17,6 +17,7 @@ export class Swipe extends Mission {
     }
 
     run(): Priority {
+        if (this.windingDown) return super.run();
 
         debug.log("swipe mission! from", this.getRoomName(), "to", this.getRoomName("home"), this.room);
 

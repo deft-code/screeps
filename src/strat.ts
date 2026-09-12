@@ -97,6 +97,10 @@ export class NullStrat extends Process implements IStrat {
         exec(this, "low");
     }
 
+    status(): string {
+        return `${super.status()} room:${this.roomName}`;
+    }
+
     get room(): Room {
         return Game.rooms[this.roomName];
     }

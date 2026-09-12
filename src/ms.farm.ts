@@ -21,6 +21,7 @@ export class Farm extends Mission {
     }
 
     run(): Priority {
+        if (this.windingDown) return super.run();
         this.nJobs(Farmer, this.nFarmers);
         super.run();
         return "normal";

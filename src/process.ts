@@ -12,17 +12,36 @@ function cmdArgs(cmd: string): string[] {
 
 export interface IProcess {
     bucket: number
+    // Display name for lsProcess(); class name unless overridden.
+    name: string
     // Set by kill(); runRow drops the process instead of rescheduling it.
     dead: boolean
+    // Set by @daemon; a killed daemon returns at the next global reset.
+    daemon: boolean
     run(): Priority
     kill(): void
+    status(): string
 }
 
 export class Process {
     dead = false;
+    daemon = false;
+    name: string = this.constructor.name;
     constructor(readonly bucket: number = 9000) { }
     run(): Priority { return "low" }
     kill() { this.dead = true; }
+
+    // One-line summary for lsProcess()/lsService(). Subclasses append to super.status().
+    status(): string {
+        const flags = [this.daemon ? "daemon" : "process", `row:${processes.get(this) || "none"}`];
+        if (this.dead) flags.push("dead");
+        return flags.join(" ");
+    }
+
+    // Every process that has been exec'd and not yet dropped for being dead.
+    static all(): IProcess[] {
+        return Array.from(processes.keys());
+    }
 }
 
 declare global {
@@ -62,6 +81,20 @@ export class Service extends Process {
         return services.get(cmd) as unknown as T || null;
     }
 
+    // Every live service instance, keyed by its command string.
+    static all(): Service[] {
+        return Array.from(services.values());
+    }
+
+    // True when boot() will replay this command after a global reset.
+    get scheduled(): boolean {
+        return _.contains(Memory.scheduler.services, this.name);
+    }
+
+    status(): string {
+        return super.status().replace(/^process/, this.scheduled ? "scheduled" : "transient");
+    }
+
     static schedule(cmd: string): Service | null {
         const proc = this.spawn(cmd);
         if (proc) {
@@ -79,8 +112,7 @@ export class Service extends Process {
 
         const proc = new klass(cmd);
         services.set(cmd, proc);
-        const priority = Game.cpu.bucket > 1000 ? "normal" : "low";
-        table[priority].push(proc);
+        exec(proc, Game.cpu.bucket > 1000 ? "normal" : "low");
         return proc
     }
 
@@ -121,10 +153,17 @@ function register_inner(klass: typeof Service) {
 export function daemon(klass: typeof Process) {
     const priority = Game.cpu.bucket > 1000 ? "normal" : "low";
     debug.log("Daemon called for", klass.name, "@", priority);
-    exec(new klass(), priority);
+    const proc = new klass();
+    proc.daemon = true;
+    exec(proc, priority);
 }
 
+// Every live process and the row it currently sits in. Entries are added by
+// exec() and removed by runRow() when a dead process is dropped.
+const processes = new Map<IProcess, Priority>();
+
 export function exec(proc: IProcess, priority: Priority = "low") {
+    processes.set(proc, priority);
     table[priority].push(proc);
 }
 
@@ -144,17 +183,19 @@ function runRow(priority: Priority, minBucket: number) {
     let first = true;
     for (const proc of row) {
         // Killed since the last tick; drop it instead of running it again.
-        if (proc.dead) continue;
+        if (proc.dead) { processes.delete(proc); continue; }
         if (first || canRun(Math.max(minBucket, proc.bucket))) {
             first = false;
             try {
                 const next = proc.run();
                 // run() may have killed the proc, including killing itself.
-                if (!proc.dead) table[next].push(proc);
+                if (proc.dead) processes.delete(proc);
+                else { table[next].push(proc); processes.set(proc, next); }
             } catch (err) {
                 debug.log(proc, err, (err as { stack: string }).stack);
                 Game.notify((err as { stack: string }).stack, 30);
-                if (!proc.dead) deferred.push(proc);
+                if (proc.dead) processes.delete(proc);
+                else deferred.push(proc);
             }
         } else {
             deferred.push(proc);

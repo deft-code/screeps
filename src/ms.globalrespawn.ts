@@ -17,6 +17,7 @@ export class GlobalRespawn extends Mission {
     }
 
     run(): Priority {
+        if (this.windingDown) return super.run();
         const rcl = this.room.controller?.level || 0;
         const ecap = this.room.energyCapacityAvailable;
 
