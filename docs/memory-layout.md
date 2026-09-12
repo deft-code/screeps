@@ -16,7 +16,8 @@ small; per-tick data belongs in `obj.tick` / `obj.cache`
 ### `Memory.missions` (`mission.ts`)
 ```
 { "GlobalRespawn": { eggs: ["startup2"], hatch: ["hauler0"], creeps: ["startup0", "asrc0", ...],
-                     windDown?: true, tombs?: { "asrc0": tick } } }   // set by windDown(); tick = expected tombstone decay
+                     windDown?: true, tombs?: { "asrc0": tick },      // set by windDown(); tick = expected tombstone decay
+                     when?: { wolf: tick } } }                        // paceCreeps: tick the last paced egg was laid
 ```
 
 ### `Memory.creeps[name]` (`mission.ts`, `spawn.ts`, roles)

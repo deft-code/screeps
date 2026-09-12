@@ -17,15 +17,25 @@ declare global {
 
 export type Task2Ret = "again" | "start" | "wait" | false;
 
+// Persist a resumable task in memory.task2. Arguments are JSON-cloned; the
+// first argument that is a game object (has a string `id`) is stored by id and
+// runTask swaps the live object back in (or restarts when it is gone).
 export function task(prototype: any, name: string, desc: PropertyDescriptor) {
     const _name = "_task_" + name;
     prototype[_name] = prototype[name];
-    prototype[name] = function () {
-        this.memory.task2 = {
-            name,
-            args: JSON.parse(JSON.stringify(arguments)),
-        };
-        return prototype[_name].apply(this, arguments);
+    prototype[name] = function (...args: any[]) {
+        const mem: Task2Memory = { name, args: [] };
+        args.forEach((arg, i) => {
+            if (mem.id === undefined && arg && typeof arg === "object" && typeof arg.id === "string") {
+                mem.id = i + 1;
+                mem.args.push(arg.id);
+                return;
+            }
+            mem.args.push(arg);
+        });
+        mem.args = JSON.parse(JSON.stringify(mem.args));
+        this.memory.task2 = mem;
+        return prototype[_name].apply(this, args);
     };
 }
 

@@ -14,13 +14,15 @@ Process                      run(): Priority; kill()           (process.ts)
      └─ Mission (abstract)   owns eggs/hatch/creeps lists in Memory.missions[name]
          ├─ GlobalRespawn    @register  (ms.globalrespawn.ts)  ACTIVE
          ├─ Swipe            @register  (ms.swipe.ts)          registered, not scheduled
-         └─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [n]"; nJobs(Farmer, n)
+         └─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [n]"; nJobs(Farmer, n);
+                                                              Scout while the farm room is invisible;
+                                                              paceJobs(Wolf, 1500) while an invader core stands
 
 MyCreep                      wrapper object per creep *name* (mycreep.ts); not a prototype extension
  └─ JobCreep                 knows its Mission; Rewalker movement helpers (job.creep.ts)
      ├─ Startup  @register   body table keyed by energyCapacity      (job.startup.ts)
      ├─ Reboot   @register   priority 10, body from energyAvailable   (job.reboot.ts)
-     ├─ Scout    @register   [MOVE], walks to the mission room       (job.scout.ts)
+     ├─ Scout    @register   [MOVE] from the "home" room if any, walks to the mission room (job.scout.ts)
      ├─ Swiper   @register   [MOVE,CARRY], work in progress          (job.swiper.ts)
      └─ JobRole              bridge to legacy roles: start() calls creep.run()/after() (job.role.ts)
          ├─ Worker  @register              (job.worker.ts)
@@ -28,6 +30,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Hub     @register              (job.hub.ts)    needs storage + meta 'hub' spot
          ├─ Hauler  @register  priority 9  (job.hauler.ts) energy = min(2500, ecap/2)
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
+         ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' from "home"
          └─ Srcer   @registerAs("asrc"), @registerAs("bsrc")  priority 8, body 'srcer' (job.srcer.ts)
 ```
 
@@ -122,6 +125,11 @@ skip straight to `super.run()`, so they lay no eggs while winding down. A new
   `life/n` ticks after the youngest existing creep. A rate limiter; used when
   `nCreeps` is called with a fractional `n` below 1.
 - `nJobs(ctor, n)`: `nCreeps(ctor.name.toLowerCase(), n)`.
+- `paceCreeps(role, rate)` / `paceJobs(ctor, rate)`: port of `team.ts
+  paceRole`. Lays at most one egg per `rate` ticks (tracked in
+  `memory.when[role]`), never while one is unhatched, and does not replace a
+  creep that dies early. Use it for "suppress" style spawning that should stop
+  the moment the trigger goes away (`Farm.suppressInvaderCore`).
 - `hasEgg(role)`, `hasRole(role)`, `roleCreeps/roleHatches/roleEggs(role)`.
 - `getRoomName(alias)`: `""` = mission room, a room-name string passes through;
   subclasses add aliases (`Swipe` maps `"home"` to `args[2]`).
@@ -157,9 +165,11 @@ run():  if creep gone -> return false
 
 `Task2Ret = "again" | "start" | "wait" | false`. A method decorated with
 `@task` (mycreep.ts) records its name and JSON-cloned args in `memory.task2` on
-first call so the next tick resumes it without re-deciding. `runTask` swaps
-`args[id-1]` for `Game.getObjectById(...)` when `task.id` is set (nothing sets it
-yet). Only `Swiper.dropRange` uses `@task` today.
+first call so the next tick resumes it without re-deciding. The first argument
+that is a game object (has a string `id`) is stored as its id with `task.id`
+set to its 1-based position; `runTask` swaps `Game.getObjectById(...)` back in
+and returns `"start"` when the object is gone. Users: `Swiper.dropRange`,
+`Wolf.attack`, `Wolf.retreat`.
 
 Default `start()` (MyCreep and JobRole) is `this.c.run(); this.c.after();
 return "wait"`, which hands control to the legacy prototype role dispatch

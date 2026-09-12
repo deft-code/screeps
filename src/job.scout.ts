@@ -7,7 +7,10 @@ const rewalker = defaultRewalker();
 @register
 export class Scout extends JobCreep {
     spawn(spawns: StructureSpawn[]): [StructureSpawn|null, BodyPartConstant[]] {
-        return [_.sample(spawns), [MOVE]];
+        // Prefer the mission's home room when it names one; otherwise any spawn.
+        const homeName = this.mission.getRoomName("home");
+        const homeSpawns = spawns.filter(s => s.room.name === homeName);
+        return [_.sample(homeSpawns.length ? homeSpawns : spawns), [MOVE]];
     }
 
     start(): Task2Ret {

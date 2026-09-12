@@ -20,6 +20,8 @@ interface MissionMemory {
     windDown?: boolean
     // creep name -> tick its tombstone is expected to have decayed.
     tombs?: { [name: string]: number }
+    // role -> tick its last paced egg was laid (paceCreeps).
+    when?: { [role: string]: number }
 }
 
 // Ensure missions is here on a clean memory first boot.
@@ -254,6 +256,27 @@ export abstract class Mission extends Service {
 
     nJobs(ctor: typeof MyCreep, n: number, life = CREEP_LIFE_TIME ){
         return this.nCreeps(ctor.name.toLowerCase(), n, life);
+    }
+
+    paceJobs(ctor: typeof MyCreep, rate = CREEP_LIFE_TIME) {
+        return this.paceCreeps(ctor.name.toLowerCase(), rate);
+    }
+
+    // Port of team.ts paceRole: lay at most one egg per `rate` ticks, and never
+    // while one is still unhatched. Unlike nCreeps it does not replace a creep
+    // that dies early, and unlike nCreepsPace it leaves no hibernating egg
+    // behind when the caller stops asking.
+    paceCreeps(role: string, rate: number) {
+        if (rate < 150) {
+            if (rate > 0) debug.log(this.name, "BAD pace rate", role, rate);
+            return null;
+        }
+        const when = this.memory.when = this.memory.when || {};
+        const last = when[role];
+        if (last && last + rate >= Game.time) return null;
+        if (this.hasEgg(role)) return null;
+        when[role] = Game.time + _.random(10);
+        return this.layEgg(role);
     }
 
     nCreeps(role: string, n: number, life = CREEP_LIFE_TIME) {

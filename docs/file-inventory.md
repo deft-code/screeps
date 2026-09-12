@@ -28,7 +28,9 @@ Status legend:
 | `src/job.creep.ts` | LIVE | 2022 | `JobCreep` base with Rewalker moves. |
 | `src/job.role.ts` | LIVE | 2022 | `JobRole` bridge to legacy roles; `localSpawn`. |
 | `src/job.startup.ts`, `job.reboot.ts`, `job.worker.ts`, `job.ctrl.ts`, `job.hub.ts`, `job.hauler.ts`, `job.srcer.ts` | LIVE | 2022 | Job classes spawned by GlobalRespawn. |
-| `src/job.scout.ts`, `src/job.swiper.ts` | REACHABLE | 2022 | Jobs for `Swipe`. Swiper never picks anything up (WIP). |
+| `src/job.scout.ts`, `src/job.swiper.ts` | REACHABLE | 2022 | Jobs for `Swipe` (Scout also for `Farm`). Swiper never picks anything up (WIP). |
+| `src/ms.farm.ts` | REACHABLE | 2026 | Remote-farm mission; schedule with `"Farm <farm> <home> [n]"`. Scouts an invisible farm room; paces a wolf against invader cores. |
+| `src/job.farmer.ts`, `src/job.wolf.ts` | REACHABLE | 2026 | Jobs for `Farm`; Task2 ports of `role.farmer.js` and `role.wolf.js`. |
 | `src/strat.ts` | LIVE | 2020 | `NullStrat`/`ClaimedStrat` per room; hostile lists; runs towers/labs/links/meta/factory. |
 | `src/shed.ts` | LIVE | 2019 | `run(objs, bucket, fn)` CPU-guarded loop; `canRun`. |
 | `src/cache.ts` | LIVE | 2019 | `tick`/`cache` properties on Room/RoomObject; `theTick.inject`. |
