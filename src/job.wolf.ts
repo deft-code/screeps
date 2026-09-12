@@ -31,13 +31,16 @@ export class Wolf extends JobRole {
         const c = this.cc;
         if (this.shouldRetreat()) return this.retreat();
 
-        // role.wolf.js taskWolf: nearest enemy creep in the current room first,
-        // then the invader core, wherever we happen to be.
-        const enemy = this.pos.findClosestByRange(c.room.enemies || []);
-        if (enemy) return this.attack(enemy);
+        // Armed hostiles first, then the invader core, then any other enemy
+        // creep (scouts, haulers), wherever we happen to be.
+        const hostile = this.pos.findClosestByRange(c.room.hostiles || []);
+        if (hostile) return this.attack(hostile);
 
         const core = _.first(c.room.findStructs(STRUCTURE_INVADER_CORE));
         if (core) return this.attack(core);
+
+        const enemy = this.pos.findClosestByRange(c.room.enemies || []);
+        if (enemy) return this.attack(enemy);
 
         if (c.room.name !== this.mission.roomName) {
             return this.moveRoom(this.mission.roomName);
@@ -74,8 +77,9 @@ export class Wolf extends JobRole {
     attack(target: Creep | AnyStructure): Task2Ret {
         const c = this.cc;
         if (target.pos.roomName !== this.pos.roomName) return "start";
-        // Enemy creeps outrank a core; drop the structure to retarget.
-        if (!(target instanceof Creep) && (c.room.enemies || []).length) return "start";
+        // Armed hostiles outrank everything else; retarget when one appears
+        // while we are chewing on a core or an unarmed enemy.
+        if ((c.room.hostiles || []).length && !(target instanceof Creep && target.hostile)) return "start";
 
         const err = c.attack(target);
         if (err === OK) {
