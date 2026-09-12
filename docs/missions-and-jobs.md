@@ -14,6 +14,13 @@ Process                      run(): Priority; kill()           (process.ts)
      └─ Mission (abstract)   owns eggs/hatch/creeps lists in Memory.missions[name]
          ├─ GlobalRespawn    @register  (ms.globalrespawn.ts)  ACTIVE
          ├─ Swipe            @register  (ms.swipe.ts)          registered, not scheduled
+         ├─ Reactor          @register  (ms.reactor.ts)        "Reactor <room>"; mission room = sector core of <room>
+         │                                                     (both coords rounded to x5); Scout from <room> while the core is
+         │                                                     invisible; once visible logs
+         │                                                     the reactor (FIND_REACTORS) every 500 ticks (probe);
+         │                                                     nJobs(Immortan, 1) only while the reactor is visible and not `my` (CLAIM creeps are costly);
+         │                                                     nJobs(Warboy, min(args[2], 700 / tripLoad)) once the home room has an
+         │                                                     extractor on a thorium mineral with thorium left and the reactor is visible
          └─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [cap]"; paceJobs(Farmer, 1500 / n), n = source capacity / (2*avg farmer store), max 2 per spot;
                                                               Scout while the farm room is invisible;
                                                               paceJobs(Wolf, 1500) while an invader core stands;
@@ -35,6 +42,11 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
          ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' from "home"
          ├─ Reserver @register             (job.reserver.ts) port of role.reserver.js; @task reserve, swamp road pooper, body 'reserver' from "home"
+         ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'reserver' from "home", walks to the sector core,
+         │                                                  @task reserve calls creep.claimReactor(reactor) at range 1 (needs a CLAIM part) and logs each new return code
+         ├─ Warboy   @register             (job.warboy.ts) Season 11 thorium runner; WORK/CARRY/MOVE x levels from "home" ecap (max 16, 800 carry);
+         │                                                @task harvest (home thorium mineral) -> deliver (transfer only while reactor.my, waits otherwise)
+         │                                                -> scavenge dropped/tombstone/ruin thorium in its room -> back to the mineral; never suicides
          └─ Srcer   @registerAs("asrc"), @registerAs("bsrc")  priority 8, body 'srcer' (job.srcer.ts)
 ```
 
@@ -59,6 +71,8 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
 scheduleService('GlobalRespawn')
 scheduleService('Swipe W5N8 W6N8')   // args[1]=target, args[2]=home
 scheduleService('Farm W5N8 W6N8 2')  // args[1]=farm room, args[2]=home, args[3]=optional farmer cap
+scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that sector's core (W5N5)
+scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
 ```
 
 `schedule` = `spawn` + push the command onto `Memory.scheduler.services`, which

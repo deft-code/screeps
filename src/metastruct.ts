@@ -518,16 +518,18 @@ class MetaManager {
         if (!room) return false;
         if(!(room.controller?.level! > 5)) return false;
 
-        const min = _.first(room.find(FIND_MINERALS));
-
-        const [free, blocker] = checkSitePos(min.pos, STRUCTURE_EXTRACTOR);
-        if (free) {
-            const ret = free.createConstructionSite(STRUCTURE_EXTRACTOR);
-            if (ret === OK) return true;
-            room.errlog(ret, "Failed  to create extractor", free.xy, "blocker", blocker);
-        }
-        if (blocker) {
-            return this.removeDestroy(blocker);
+        // Season 11 rooms can hold two minerals (e.g. X and thorium); each
+        // needs its own extractor. One site per call; the next tick gets the rest.
+        for (const min of room.find(FIND_MINERALS)) {
+            const [free, blocker] = checkSitePos(min.pos, STRUCTURE_EXTRACTOR);
+            if (free) {
+                const ret = free.createConstructionSite(STRUCTURE_EXTRACTOR);
+                if (ret === OK) return true;
+                room.errlog(ret, "Failed  to create extractor", free.xy, "blocker", blocker);
+            }
+            if (blocker) {
+                return this.removeDestroy(blocker);
+            }
         }
         return false;
     }

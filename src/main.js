@@ -9,8 +9,9 @@ cache.injectAll();
 
 import * as process from "process";
 
-// Spawn a service to run until the next global reset
-global.spawnService = cmd => process.Service.spawn(cmd);
+// temp
+global.r = Game.getObjectById('6a901a3bb8684d0008337ef3');
+
 
 // Schedule a service to run that persists across global resets.
 global.scheduleService = cmd => process.Service.schedule(cmd);
@@ -46,6 +47,7 @@ import 'strat';
 import 'ms.globalrespawn';
 import 'ms.swipe';
 import 'ms.farm';
+import 'ms.reactor';
 import "service.flag";
 
 import "job.hauler";

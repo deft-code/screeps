@@ -14,7 +14,7 @@ export class Scout extends JobCreep {
     }
 
     start(): Task2Ret {
-        this.log("heading to", this.mission.roomName);
+        this.dlog("heading to", this.mission.roomName);
         return this.moveRoom(this.mission.roomName);
     }
 }
