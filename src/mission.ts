@@ -87,6 +87,29 @@ export abstract class Mission extends Service {
         return this.eggs.filter(egg => egg.role === role);
     }
 
+    // Hand every egg, hatch and creep of `ctor`'s role over to `other`. The
+    // names move between the two missions' lists and each creep's memory is
+    // repointed so job.creep's `mission` getter resolves to the new owner.
+    // Returns the moved names.
+    donate(ctor: typeof MyCreep, other: Mission): string[] {
+        return this.donateRole(ctor.name.toLowerCase(), other);
+    }
+
+    donateRole(role: string, other: Mission): string[] {
+        if (other === this) return [];
+        const moved: string[] = [];
+        for (const list of ["eggs", "hatch", "creeps"] as const) {
+            const names = _.remove(this.memory[list], name => getMyCreep(name).role === role);
+            for (const name of names) {
+                Memory.creeps[name].mission = other.name;
+                other.memory[list].push(name);
+                moved.push(name);
+            }
+        }
+        if (moved.length) debug.log(this.name, "donated", role, "to", other.name, moved.join(","));
+        return moved;
+    }
+
     run(): Priority {
         if (this.windingDown) return this.runWindDown();
         this.hatchEggs();
