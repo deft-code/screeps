@@ -21,12 +21,18 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     nJobs(Immortan, 1) only while the reactor is visible and not `my` (CLAIM creeps are costly);
          │                                                     nJobs(Warboy, min(args[2], 700 / tripLoad)) once the home room has an
          │                                                     extractor on a thorium mineral with thorium left and the reactor is visible
-         └─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [cap]"; paceJobs(Farmer, 1500 / n), n = source capacity / (2*avg farmer store), max 2 per spot;
+         ├─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [cap]"; paceJobs(Farmer, 1500 / n), n = source capacity / (2*avg farmer store), max 2 per spot;
                                                               Scout while the farm room is invisible;
                                                               paceJobs(Wolf, 1500) while an invader core stands;
                                                               paceJobs(Reserver, 550/ctrl spots) while someone else holds the reservation, no hostiles,
                                                               and living reservers' ttl*CLAIM < ticks left;
                                                               no farmers while that reservation has > 100 ticks left
+         │   └─ Remote       @register  (ms.remote.ts)         "Remote <remote> <home>"; port of team.ts teamRemote, phase 1. Extends Farm for
+                                                              suppressInvaderCore but replaces run() and reserve():
+                                                              Scout while invisible; Wolf against an invader core; reserve() is team.ts reserve():
+                                                              paceJobs(Reserver, 225), 450 once our reservation > 450 ticks, none above 1000,
+                                                              none while hostiles are present or the controller is owned (the Reserver job attacks
+                                                              a foreign reservation itself); no farmers. Phase 2: harvester/paver/trucker + makePathway roads
 
 MyCreep                      wrapper object per creep *name* (mycreep.ts); not a prototype extension
  └─ JobCreep                 knows its Mission; Rewalker movement helpers (job.creep.ts)
@@ -73,6 +79,7 @@ scheduleService('Swipe W5N8 W6N8')   // args[1]=target, args[2]=home
 scheduleService('Farm W5N8 W6N8 2')  // args[1]=farm room, args[2]=home, args[3]=optional farmer cap
 scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that sector's core (W5N5)
 scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
+scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
 ```
 
 `schedule` = `spawn` + push the command onto `Memory.scheduler.services`, which

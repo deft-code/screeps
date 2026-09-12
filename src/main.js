@@ -48,6 +48,7 @@ import 'ms.globalrespawn';
 import 'ms.swipe';
 import 'ms.farm';
 import 'ms.reactor';
+import 'ms.remote';
 import "service.flag";
 
 import "job.hauler";

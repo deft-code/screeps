@@ -30,6 +30,7 @@ Status legend:
 | `src/job.startup.ts`, `job.reboot.ts`, `job.worker.ts`, `job.ctrl.ts`, `job.hub.ts`, `job.hauler.ts`, `job.srcer.ts` | LIVE | 2022 | Job classes spawned by GlobalRespawn. |
 | `src/job.scout.ts`, `src/job.swiper.ts` | REACHABLE | 2022 | Jobs for `Swipe` (Scout also for `Farm`). Swiper never picks anything up (WIP). |
 | `src/ms.farm.ts` | REACHABLE | 2026 | Remote-farm mission; schedule with `"Farm <farm> <home> [cap]"`. Scouts an invisible farm room; paces a wolf against invader cores. |
+| `src/ms.remote.ts` | REACHABLE | 2026 | Remote mission, phase 1 of the team.ts `teamRemote` port; `"Remote <remote> <home>"`. Extends `Farm` for the invader-core wolf; scout for visibility; reservers paced every 225 ticks (team.ts rule) hold the controller. No farmers/roads yet. |
 | `src/job.farmer.ts`, `src/job.wolf.ts`, `src/job.reserver.ts` | REACHABLE | 2026 | Jobs for `Farm`; Task2 ports of `role.farmer.js`, `role.wolf.js` and `role.reserver.js`. |
 | `src/strat.ts` | LIVE | 2020 | `NullStrat`/`ClaimedStrat` per room; hostile lists; runs towers/labs/links/meta/factory. |
 | `src/shed.ts` | LIVE | 2019 | `run(objs, bucket, fn)` CPU-guarded loop; `canRun`. |
