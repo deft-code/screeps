@@ -11,8 +11,8 @@ import { getSpots } from "spots";
 const kReserverLife = CREEP_CLAIM_LIFE_TIME - 50;
 
 // Schedule from the console:
-//   require('process').Service.schedule('Farm W5N8 W6N8')     // args[1]=farm room, args[2]=home room
-//   require('process').Service.schedule('Farm W5N8 W6N8 2')   // optional args[3]=number of farmers (default 1)
+//   scheduleService('Farm W5N8 W6N8')     // args[1]=farm room, args[2]=home room
+//   scheduleService('Farm W5N8 W6N8 2')   // optional args[3]=cap on the number of farmers
 @register
 export class Farm extends Mission {
     get roomName() {
@@ -24,8 +24,9 @@ export class Farm extends Mission {
         return super.getRoomName(alias);
     }
 
-    get nFarmers() {
-        return Number(this.args[3]) || 1;
+    // Optional hard cap from the schedule command; Infinity when absent.
+    get maxFarmersArg() {
+        return Number(this.args[3]) || Infinity;
     }
 
     run(): Priority {
@@ -41,10 +42,38 @@ export class Farm extends Mission {
             this.reserve();
         }
         if (!this.foreignReserved()) {
-            this.nJobs(Farmer, this.nFarmers);
+            // nFarmers is a count per farmer lifetime; paceJobs wants ticks per egg.
+            const n = this.nFarmers();
+            if (n > 0) this.paceJobs(Farmer, CREEP_LIFE_TIME / n);
         }
         super.run();
         return "normal";
+    }
+
+    // Enough farmers to carry away everything the sources regenerate.
+    nFarmers(): number {
+        const room = this.room;
+        // Without visibility we only know we need someone there, so ask for one.
+        if (!room) return Math.min(1, this.maxFarmersArg);
+
+        const sources = room.find(FIND_SOURCES);
+        if (!sources.length) return 0;
+
+        // Two farmers per harvest spot is the most that can usefully be there.
+        const nspots = _.sum(sources, src => getSpots(src.pos).length);
+        const max = Math.min(nspots * 2, this.maxFarmersArg);
+
+        const farmers = this.roleCreeps("farmer");
+        if (!farmers.length) return max;
+
+        // A farmer is assumed to make two full trips per source refresh cycle
+        // (ENERGY_REGEN_TIME ticks), so each one drains twice its capacity.
+        const avgCapacity = _.sum(farmers, c => c.c?.store.getCapacity() || 0) / farmers.length;
+        const farmerRate = avgCapacity * 2;
+        if (!farmerRate) return max;
+
+        const sourceCapacity = _.sum(sources, src => src.energyCapacity);
+        return Math.min(max, sourceCapacity / farmerRate);
     }
 
     // team.ts suppressInvaderCore: while an invader core stands in the farm
@@ -97,9 +126,9 @@ export class Farm extends Mission {
     }
 
     // One reserver per controller spot per reserver lifetime, so every spot
-    // stays filled. paceCreeps refuses rates below 100, so clamp there.
+    // stays filled. paceCreeps clamps this to its minimum cadence.
     reserverRate(): number {
         const nspots = getSpots(this.room!.controller!.pos).length || 1;
-        return Math.max(100, Math.floor(kReserverLife / nspots));
+        return Math.floor(kReserverLife / nspots);
     }
 }

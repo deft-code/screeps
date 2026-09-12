@@ -30,6 +30,9 @@ Memory.missions = Memory.missions || {};
 // Ensure creeps is here on a clean memory first boot.
 Memory.creeps = Memory.creeps || {};
 
+// Fastest cadence paceCreeps will lay eggs at; faster rates are clamped here.
+export const kMinPaceRate = 100;
+
 export abstract class Mission extends Service {
     constructor(name: string) {
         super(name);
@@ -254,6 +257,11 @@ export abstract class Mission extends Service {
         return null;
     }
 
+    // `n` may be fractional: the target is really (n-1)*life ticks of remaining
+    // TTL across the role, so 1.5 keeps one creep alive and lays the next once
+    // the survivor drops under half life, averaging 1.5 creeps. Below 1 it
+    // becomes a duty cycle through nCreepsPace: 0.5 means a creep alive half
+    // the time. 0 or less lays nothing.
     nJobs(ctor: typeof MyCreep, n: number, life = CREEP_LIFE_TIME ){
         return this.nCreeps(ctor.name.toLowerCase(), n, life);
     }
@@ -265,12 +273,14 @@ export abstract class Mission extends Service {
     // Port of team.ts paceRole: lay at most one egg per `rate` ticks, and never
     // while one is still unhatched. Unlike nCreeps it does not replace a creep
     // that dies early, and unlike nCreepsPace it leaves no hibernating egg
-    // behind when the caller stops asking.
+    // behind when the caller stops asking. Rates under kMinPaceRate are
+    // clamped up to it; a non-positive or non-finite rate lays nothing.
     paceCreeps(role: string, rate: number) {
-        if (rate < 100) {
-            if (rate > 0) debug.log(this.name, "BAD pace rate", role, rate);
+        if (!(rate > 0) || !isFinite(rate)){
+            debug.log("Bad rate", role, rate);
             return null;
         }
+        rate = Math.max(kMinPaceRate, rate);
         const when = this.memory.when = this.memory.when || {};
         const last = when[role];
         if (last && last + rate >= Game.time) return null;
@@ -280,6 +290,8 @@ export abstract class Mission extends Service {
     }
 
     nCreeps(role: string, n: number, life = CREEP_LIFE_TIME) {
+        // nCreepsPace would treat 0 as "lay now, sleep forever" (life/0).
+        if (n <= 0) return null;
         const neededttl = (n - 1) * life;
         // a neededttl of 1500 creates 2 creeps
         // a neededttl of 0 spawns replacement as the first dies.

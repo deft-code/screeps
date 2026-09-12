@@ -14,10 +14,10 @@ Process                      run(): Priority; kill()           (process.ts)
      └─ Mission (abstract)   owns eggs/hatch/creeps lists in Memory.missions[name]
          ├─ GlobalRespawn    @register  (ms.globalrespawn.ts)  ACTIVE
          ├─ Swipe            @register  (ms.swipe.ts)          registered, not scheduled
-         └─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [n]"; nJobs(Farmer, n);
+         └─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [cap]"; paceJobs(Farmer, 1500 / n), n = source capacity / (2*avg farmer store), max 2 per spot;
                                                               Scout while the farm room is invisible;
                                                               paceJobs(Wolf, 1500) while an invader core stands;
-                                                              paceJobs(Reserver, max(100, 550/ctrl spots)) while someone else holds the reservation, no hostiles,
+                                                              paceJobs(Reserver, 550/ctrl spots) while someone else holds the reservation, no hostiles,
                                                               and living reservers' ttl*CLAIM < ticks left;
                                                               no farmers while that reservation has > 100 ticks left
 
@@ -54,10 +54,11 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
 ## Scheduling a mission
 
 ```js
-// From the game console. The convenience globals in main.js are broken; use:
-require('process').Service.schedule('GlobalRespawn')
-require('process').Service.schedule('Swipe W5N8 W6N8')   // args[1]=target, args[2]=home
-require('process').Service.schedule('Farm W5N8 W6N8 2')  // args[1]=farm room, args[2]=home, args[3]=farmers (default 1)
+// From the game console. scheduleService is a global wrapper around Service.schedule
+// (main.js) and works; require('process').Service.schedule(...) is the long form.
+scheduleService('GlobalRespawn')
+scheduleService('Swipe W5N8 W6N8')   // args[1]=target, args[2]=home
+scheduleService('Farm W5N8 W6N8 2')  // args[1]=farm room, args[2]=home, args[3]=optional farmer cap
 ```
 
 `schedule` = `spawn` + push the command onto `Memory.scheduler.services`, which
@@ -132,8 +133,13 @@ skip straight to `super.run()`, so they lay no eggs while winding down. A new
 - `paceCreeps(role, rate)` / `paceJobs(ctor, rate)`: port of `team.ts
   paceRole`. Lays at most one egg per `rate` ticks (tracked in
   `memory.when[role]`), never while one is unhatched, and does not replace a
-  creep that dies early. Use it for "suppress" style spawning that should stop
-  the moment the trigger goes away (`Farm.suppressInvaderCore`).
+  creep that dies early. Rates below `kMinPaceRate` (100) are clamped up to
+  it; non-positive or non-finite rates lay nothing. Use it for spawning that
+  should stop the moment the trigger goes away (`Farm.suppressInvaderCore`,
+  `Farm.reserve`) or when the target is a rate rather than a head count
+  (`Farm` farmers: `1500 / nFarmers`).
+- `nCreeps`/`nJobs` accept fractional `n` (TTL-based; 1.5 averages 1.5 creeps,
+  below 1 is a duty cycle) and lay nothing for `n <= 0`.
 - `hasEgg(role)`, `hasRole(role)`, `roleCreeps/roleHatches/roleEggs(role)`.
 - `getRoomName(alias)`: `""` = mission room, a room-name string passes through;
   subclasses add aliases (`Swipe` maps `"home"` to `args[2]`).
