@@ -1,0 +1,63 @@
+import { JobRole } from "job.role";
+import { register, task, Task2Ret } from "mycreep";
+
+// Port of role.reserver.js (2017 flag-team era) to the 2022 mission/job system.
+// Spawns in the mission's "home" room, walks to the mission room and keeps its
+// controller reserved. A controller reserved by someone else is attacked
+// until the reservation drops. Farm paces one through Farm.reserve(), the
+// team.ts reserve() rule from teamFarm.
+@register
+export class Reserver extends JobRole {
+    spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
+        const homeName = this.homeName;
+        if (!homeName) return [null, []];
+        const homeSpawns = spawns.filter(s => s.room.name === homeName);
+        if (!homeSpawns.length) return [null, []];
+        // body key "reserver" in spawnold.buildBody: 1 MOVE per CLAIM, needs >= 650 energy available
+        return this.localSpawn(homeSpawns, { spawn: homeName, body: "reserver" });
+    }
+
+    get homeName(): string | null {
+        return this.mission.getRoomName("home");
+    }
+
+    start(): Task2Ret {
+        if (this.pos.roomName !== this.mission.roomName) {
+            return this.moveRoom(this.mission.roomName);
+        }
+        const controller = this.c.room.controller;
+        if (!controller) {
+            this.log("no controller to reserve in", this.mission.roomName);
+            return "wait";
+        }
+        return this.reserve(controller);
+    }
+
+    // creep.work.js taskReserve
+    @task
+    reserve(controller: StructureController): Task2Ret {
+        if (controller.pos.roomName !== this.pos.roomName) return "start";
+        let err = this.c.reserveController(controller);
+        if (err === ERR_INVALID_TARGET) {
+            err = this.c.attackController(controller);
+        }
+        if (err === OK) return "wait";
+        if (err === ERR_NOT_IN_RANGE) {
+            this.moveTarget(controller, 1);
+            return "wait";
+        }
+        this.log("reserve failed", err, controller);
+        return "wait";
+    }
+
+    // role.reserver.js afterRoadPooper: drop a road site under us on swamp so
+    // the farm route paves itself over time.
+    after() {
+        if (!this.c) return;
+        const terrain = Game.map.getRoomTerrain(this.pos.roomName);
+        if (terrain.get(this.pos.x, this.pos.y) !== TERRAIN_MASK_SWAMP) return;
+        if (this.c.room.find(FIND_MY_CONSTRUCTION_SITES).length) return;
+        if (_.size(Game.constructionSites) > 50) return;
+        this.pos.createConstructionSite(STRUCTURE_ROAD);
+    }
+}

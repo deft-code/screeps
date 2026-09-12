@@ -16,7 +16,8 @@ Process                      run(): Priority; kill()           (process.ts)
          ├─ Swipe            @register  (ms.swipe.ts)          registered, not scheduled
          └─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [n]"; nJobs(Farmer, n);
                                                               Scout while the farm room is invisible;
-                                                              paceJobs(Wolf, 1500) while an invader core stands
+                                                              paceJobs(Wolf, 1500) while an invader core stands;
+                                                              paceJobs(Reserver, 225|450) to hold the controller
 
 MyCreep                      wrapper object per creep *name* (mycreep.ts); not a prototype extension
  └─ JobCreep                 knows its Mission; Rewalker movement helpers (job.creep.ts)
@@ -31,6 +32,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Hauler  @register  priority 9  (job.hauler.ts) energy = min(2500, ecap/2)
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
          ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' from "home"
+         ├─ Reserver @register             (job.reserver.ts) port of role.reserver.js; @task reserve, swamp road pooper, body 'reserver' from "home"
          └─ Srcer   @registerAs("asrc"), @registerAs("bsrc")  priority 8, body 'srcer' (job.srcer.ts)
 ```
 
@@ -169,7 +171,7 @@ first call so the next tick resumes it without re-deciding. The first argument
 that is a game object (has a string `id`) is stored as its id with `task.id`
 set to its 1-based position; `runTask` swaps `Game.getObjectById(...)` back in
 and returns `"start"` when the object is gone. Users: `Swiper.dropRange`,
-`Wolf.attack`, `Wolf.retreat`.
+`Wolf.attack`, `Wolf.retreat`, `Reserver.reserve`.
 
 Default `start()` (MyCreep and JobRole) is `this.c.run(); this.c.after();
 return "wait"`, which hands control to the legacy prototype role dispatch

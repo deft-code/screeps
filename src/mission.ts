@@ -258,7 +258,7 @@ export abstract class Mission extends Service {
         return this.nCreeps(ctor.name.toLowerCase(), n, life);
     }
 
-    paceJobs(ctor: typeof MyCreep, rate = CREEP_LIFE_TIME) {
+    paceJobs(ctor: typeof MyCreep, rate: number = CREEP_LIFE_TIME) {
         return this.paceCreeps(ctor.name.toLowerCase(), rate);
     }
 
