@@ -313,7 +313,7 @@ export abstract class Mission extends Service {
             + hatches.length * life
             + this.roleEggs(role).length * life;
         const buffer = _.random(10) + spawnlag;
-        debug.log(`role:${role} total:${total} vs needed:${neededttl + buffer}`);
+        debug.dlog(`role:${role} total:${total} vs needed:${neededttl + buffer}`);
         if (total > neededttl + buffer) return null;
         return this.layEgg(role);
     }

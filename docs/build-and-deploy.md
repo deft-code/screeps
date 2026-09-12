@@ -23,6 +23,7 @@ tasks are implemented in `console-tools.js`.
 | Task | What it does |
 |---|---|
 | `npx gulp compile` | Compiles `src/**/*` (TS plus passthrough JS via `allowJs`) to `distjs/`, external sourcemaps to `sourcemaps/`. Dependency of every deploy task. Compile errors set `global.compileFailed` but do **not** abort the push. |
+| `npx gulp cycles` | Walks the static `require("x")` calls in `distjs/*.js` and fails on any cycle, printing the chain (`a -> b -> a`). Runs as the second half of `compile`, so a cycle **does** abort the push. Needed because the Screeps loader throws `Circular reference to module` on any cycle that tsc and node both tolerate. Dynamic requires such as `require(importName)` in `process.ts` are ignored. |
 | `npx gulp season` | compile, then push `distjs/*.js` to the seasonal server (`path: /season`, branch `default`). **Current target: Season 11 on `shardSeason`.** |
 | `npx gulp deploy` | compile, then push to `credentials.branch` on MMO (`shard2` is the only MMO shard the code accepts). |
 | `npx gulp ptr` | compile, then push to PTR. |

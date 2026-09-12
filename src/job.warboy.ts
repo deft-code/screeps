@@ -1,7 +1,7 @@
 import { JobCreep } from "job.creep";
 import { register, task, Task2Ret } from "mycreep";
 import { energyDef } from "spawn";
-import { findReactors, thoriumMineral } from "ms.reactor";
+import { findReactors, thoriumMineral } from "reactor";
 
 // Season 11 thorium runner. Spawned in the Reactor mission's "home" room, it
 // harvests thorium at that room's extractor, walks it to the sector core and

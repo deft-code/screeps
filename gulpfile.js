@@ -14,7 +14,7 @@ const tsProject = ts.createProject('tsconfig.json', { typescript: require('types
 const sourcemaps = require('gulp-sourcemaps');
 const { SourceMapConsumer } = require('source-map');
 
-gulp.task('compile', function () {
+gulp.task('compileTs', function () {
     return tsProject.src()
       .pipe(sourcemaps.init())
       .pipe(tsProject())
@@ -23,6 +23,43 @@ gulp.task('compile', function () {
       .pipe(sourcemaps.write('../sourcemaps', { addComment: false }))
       .pipe(gulp.dest('distjs'));
   })
+
+// The Screeps loader throws "Circular reference to module" for any require
+// cycle, while tsc and node both tolerate them. Walk the static requires in
+// distjs/ and fail on the first back edge, before anything is pushed.
+gulp.task('cycles', function (done) {
+  const dir = 'distjs'
+  const graph = {}
+  for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.js'))) {
+    const src = fs.readFileSync(path.join(dir, f), 'utf8')
+    const deps = new Set()
+    for (const m of src.matchAll(/require\((["'])([^"']+)\1\)/g)) deps.add(m[2])
+    graph[f.slice(0, -3)] = [...deps]
+  }
+  const state = {} // 1 = on stack, 2 = done
+  const stack = []
+  const cycles = []
+  const visit = (mod) => {
+    if (state[mod] === 2 || !graph[mod]) return
+    if (state[mod] === 1) {
+      cycles.push(stack.slice(stack.indexOf(mod)).concat(mod).join(' -> '))
+      return
+    }
+    state[mod] = 1
+    stack.push(mod)
+    for (const dep of graph[mod]) visit(dep)
+    stack.pop()
+    state[mod] = 2
+  }
+  for (const mod of Object.keys(graph)) visit(mod)
+  if (cycles.length) {
+    for (const c of cycles) console.error('require cycle: ' + c)
+    return done(new Error(cycles.length + ' require cycle(s) in distjs; Screeps will refuse to load them'))
+  }
+  done()
+})
+
+gulp.task('compile', gulp.series('compileTs', 'cycles'))
 
 gulp.task('watchCompile', gulp.series('compile', function watchCompile() {
   return gulp.watch('src/*', gulp.series('compile'));

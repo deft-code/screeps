@@ -1,6 +1,6 @@
 import { JobRole } from "job.role";
 import { register, task, Task2Ret } from "mycreep";
-import { findReactors } from "ms.reactor";
+import { findReactors } from "reactor";
 
 
 
