@@ -121,6 +121,7 @@ Status legend:
 | `.gitmodules` | TOOLING | Declares the unused `murmurhash-js` submodule. |
 | `hacking.js`, `markethack.js` | ORPHAN | Runtime-snooping experiments; not in `src/`, never deployed. |
 | `watch.sh`, `.tern-project` | TOOLING (stale) | Linux inotify watcher; Tern autocomplete config. |
+| `.gitattributes`, `.editorconfig` | TOOLING | LF line endings everywhere (git normalisation and editor settings); indent width for TS/JS is left to per-file detection. |
 | `LICENSE` | | MIT-style licence. |
 | `CLAUDE.md`, `docs/` | | This documentation. |
 

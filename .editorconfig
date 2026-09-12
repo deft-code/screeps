@@ -1,0 +1,20 @@
+# EditorConfig (https://editorconfig.org). VS Code needs the "EditorConfig for
+# VS Code" extension (EditorConfig.EditorConfig) to honour this file.
+root = true
+
+[*]
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+# indent_size is deliberately left to the editor's per-file detection for code:
+# the 2017-era JavaScript and the gulpfile use 2 spaces, the 2022-era TypeScript
+# (job.*.ts, ms.*.ts, mission.ts, mycreep.ts, process.ts) uses 4. Match the file.
+
+[*.{json,md,yml,yaml}]
+indent_size = 2
+
+[*.md]
+# Two trailing spaces are a hard line break in Markdown.
+trim_trailing_whitespace = false

@@ -12,6 +12,11 @@ tasks are implemented in `console-tools.js`.
   tasks also read `market_token` and `money_token`.
 - `.gitmodules` declares `murmurhash-js/`, but the build never references it.
   `git submodule update --init` is optional.
+- Line endings are LF everywhere: `.gitattributes` (`* text=auto eol=lf`)
+  normalises on commit and checkout regardless of `core.autocrlf`, and
+  `.editorconfig` tells editors the same (VS Code needs the EditorConfig
+  extension). Indent width is not pinned for TS/JS because the 2017 JavaScript
+  uses 2 spaces and the 2022 TypeScript uses 4.
 
 ## Tasks
 
