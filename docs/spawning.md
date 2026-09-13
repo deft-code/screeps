@@ -29,12 +29,45 @@ Two spawners exist. Only the first is live.
 ### `energyDef({ move, base?, per, energy, max? })` (both spawn.ts and spawnold.js)
 
 Grows `level` from 2 while `defCost(level) <= energy` and `level <= max` (50),
-then builds `per` repeated `level` times, plus `ceil(parts / move)` MOVE parts,
-plus `base`. `move` is the parts-per-MOVE ratio (2 = one MOVE per two other
-parts; 1 = one MOVE each). Parts are sorted by `partsOrdered`:
+then steps back one and builds `per` repeated `level` times, plus
+`ceil(parts / move)` MOVE parts, plus `base`. `move` is the parts-per-MOVE
+ratio (2 = one MOVE per two other parts; 1 = one MOVE each). Parts are sorted
+by `partsOrdered`:
 `TOUGH, WORK, CARRY, premove, ATTACK, RANGED_ATTACK, MOVE, CLAIM, HEAL`; half
 the MOVEs are placed early (`premove`) so damage strips them before WORK/CARRY.
 `base` is appended (and sorted) as well.
+
+How the scaling plays out, since it is easy to misread:
+
+- **Two energy numbers.** The `buildBody` cases pair `energyDef` with
+  `energySpawn(spawns, min)`, which picks the first candidate spawn whose room
+  `energyCapacityAvailable >= min`. `min` is a gate on the *room*, not on the
+  body. The body is then sized from `energy: spawn.room.energyAvailable`, what
+  is banked in that room at the tick the egg is tried. A rich room that has
+  just spawned something gets a small creep; the same room full gets a big one.
+- **The floor is level 1.** `level` starts at 2, so if even level 2 costs more
+  than `energy` the loop never runs and the final `level--` leaves level 1:
+  one copy of `per` plus its MOVEs plus `base`. `energyDef` never returns an
+  empty body, so `spawnCreep` fails with `ERR_NOT_ENOUGH_ENERGY` when
+  `energyAvailable` is below the level-1 cost and the egg retries next tick.
+- **The ceiling is the part cap.** `defCost` returns `Infinity` once
+  `per * level + MOVEs > 50 - base.length`, which ends the loop regardless of
+  energy. `max` caps `level` directly when a job wants a smaller creep.
+
+Worked example, the `guard` case (`base: [MOVE, HEAL]`, `per: [TOUGH,
+RANGED_ATTACK]`, `move: 1`, room capacity >= 550):
+
+| level | body | parts | cost |
+|---|---|---|---|
+| 1 | `T RA M M H` | 5 | 510 |
+| 2 | `2T 2RA 3M H` | 8 | 820 |
+| n | `nT nRA (n+1)M H` | 4n + 2 | 300 + 260n |
+| 12 | `12T 12RA 13M H` | 50 | 3420 |
+
+So a 550-capacity room (RCL 2) always gets the level-1 guard, a full RCL 4 room
+(1300) level 3, and RCL 7 and 8 rooms the 50-part cap. `wolf` (`per: [ATTACK]`,
+`move: 1`, no base, capacity >= 700) runs 130 energy per level from level 1
+(260) to level 25 (3250, 50 parts).
 
 ### Job-specific `spawn()`
 
@@ -72,7 +105,10 @@ passes `body: "srcer"`). Live keys are marked.
 | `hauler` | yes | `energyDef({move:2, per:[C], energy: eggMem.energy})`, spawn with >= `eggMem.energy` available (energy drops to available if under 550) |
 | `srcer` | yes | `srcerBody`: `harvesterBody(eggMem.lvl)` (6 to 15 WORK by source regen level) plus extra CARRY at RCL7/8, trimmed to `energyAvailable` |
 | `startup`, `reboot` | via `Startup`/`Reboot` classes instead | tables shown above; `reboot` case here is `[W,C,M]` |
-| `bootstrap`, `bulldozer`, `cart`, `chemist`, `claimer`, `cap`, `cleaner`, `collector`, `coresrc`, `declaimer`, `defender`, `depositfarmer`, `farmer`, `guard`, `mason`, `micro`, `minecart`, `miner`, `mineral`, `mini`, `rambo`, `reserver`, `scout`, `shunt`, `tower`, `wolf` | no | see `src/spawnold.js:271-586` |
+| `wolf` | `Farm`/`Remote` (`Wolf`) | `energyDef({move:1, per:[ATTACK]})` sized from `energyAvailable`, spawn with capacity >= 700 |
+| `guard` | `Farm`/`Remote` (`Guard`) | `energyDef({move:1, base:[M,H], per:[TOUGH,RA]})` sized from `energyAvailable`, spawn with capacity >= 550; worked example above |
+| `mini` | `Farm`/`Remote` (`Mini`) | fixed `[RA, M, M, H]` (400), first spawn with that much available; does not scale |
+| `bootstrap`, `bulldozer`, `cart`, `chemist`, `claimer`, `cap`, `cleaner`, `collector`, `coresrc`, `declaimer`, `defender`, `depositfarmer`, `farmer`, `mason`, `micro`, `minecart`, `miner`, `mineral`, `rambo`, `reserver`, `scout`, `shunt`, `tower` | no | see `src/spawnold.js:271-586` |
 
 `eggMem` fields honoured by `buildBody`: `body`, `energy`, `ecap`, `lvl`, `max`,
 `move`, `per`, `base` (the last three via `_.defaults` into `energyDef`).

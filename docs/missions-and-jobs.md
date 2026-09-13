@@ -23,13 +23,17 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     extractor on a thorium mineral with thorium left and the reactor is visible
          ├─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [cap]"; paceJobs(Farmer, 1500 / n), n = source capacity / (2*avg farmer store), max 2 per spot;
                                                               Scout while the farm room is invisible;
+                                                              paceJobs(Mini, 1500) while memory.tenemies (any enemy creep seen; team.ts suppressMini);
+                                                              paceJobs(Guard, max(1500 - thostiles, 350)) once memory.thostiles >= 100 (team.ts suppressGuard used 3);
+                                                              paceJobs(Wolf, max(1500 - thostiles, 350)) once memory.thostiles >= 300
+                                                              (armed hostiles seen 300 consecutive ticks; team.ts suppressWolf);
                                                               paceJobs(Wolf, 1500) while an invader core stands;
                                                               paceJobs(Reserver, 550/ctrl spots) while someone else holds the reservation, no hostiles,
                                                               and living reservers' ttl*CLAIM < ticks left;
                                                               no farmers while that reservation has > 100 ticks left
          │   └─ Remote       @register  (ms.remote.ts)         "Remote <remote> <home>"; port of team.ts teamRemote, phase 1. Extends Farm for
-                                                              suppressInvaderCore but replaces run() and reserve():
-                                                              Scout while invisible; Wolf against an invader core; reserve() is team.ts reserve():
+                                                              the suppress* rules but replaces run() and reserve():
+                                                              Scout while invisible; Mini/Guard/Wolf against enemies, hostiles, an invader core; reserve() is team.ts reserve():
                                                               paceJobs(Reserver, 225), 450 once our reservation > 450 ticks, none above 1000,
                                                               none while hostiles are present or the controller is owned (the Reserver job attacks
                                                               a foreign reservation itself); no farmers.
@@ -73,6 +77,9 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Hauler  @register  priority 9  (job.hauler.ts) energy = min(2500, ecap/2)
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
          ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' via "close"
+         ├─ Guard   @register              (job.guard.ts)  port of role.guard.js; Task2 @task hunt/duel/healCreep/retreat, kites melees via idleFlee;
+         │                                                 body 'guard' via "close": room capacity >= 550, energyDef scales T/RA pairs to energy available (spawning.md)
+         │   └─ Mini @register             (job.mini.ts)   Guard on the fixed 'mini' body [RANGED_ATTACK, MOVE, MOVE, HEAL]
          ├─ Reserver @register             (job.reserver.ts) port of role.reserver.js; @task reserve, body 'reserver' via "close"
          ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'reserver' via "close", walks to the sector core,
          │                                                  @task reserve calls creep.claimReactor(reactor) at range 1 (needs a CLAIM part) and logs each new return code

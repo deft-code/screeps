@@ -3,12 +3,28 @@ import { register, Priority } from "process";
 import { Farmer } from "job.farmer";
 import { Scout } from "job.scout";
 import { Wolf } from "job.wolf";
+import { Guard } from "job.guard";
+import { Mini } from "job.mini";
 import { Reserver } from "job.reserver";
 import { whoami } from "Rewalker";
 import { getSpots } from "spots";
 
 // A CLAIM creep lives 600 ticks; leave 50 for the walk to the controller.
 const kReserverLife = CREEP_CLAIM_LIFE_TIME - 50;
+
+// team.ts suppressGuard / suppressWolf: armed hostiles must have been seen in
+// the room for this many consecutive ticks (strat.ts ratchet,
+// memory.thostiles) before a guard, then a wolf, is sent. A brief visit is
+// left to the towers at home; a stay earns a guard, a camp the heavier wolf.
+const kGuardHostileTicks = 100;
+const kWolfHostileTicks = 300;
+// Both cadences shrink by one tick per tick of hostile presence, from 1500
+// down to this floor.
+const kSuppressPace = CREEP_LIFE_TIME;
+const kSuppressMinPace = 350;
+// team.ts suppressMini: one cheap mini per this many ticks while any enemy
+// creep (armed or not) has been seen in the room (memory.tenemies).
+const kMiniPace = CREEP_LIFE_TIME;
 
 // Schedule from the console:
 //   scheduleService('Farm W5N8 W6N8')     // args[1]=farm room, args[2]=home room
@@ -36,8 +52,13 @@ export class Farm extends Mission {
             // No visibility: a scout keeps intel flowing until a farmer arrives.
             this.nJobs(Scout, 1);
         } else {
-            // Both may lay an egg in the same tick: a wolf for the core and a
-            // reserver to contest a foreign reservation.
+            // All may lay an egg in the same tick, in team.ts teamFarm order:
+            // a mini for any enemy, a guard then a wolf for armed hostiles, a
+            // wolf for the core (sharing the wolf pace), and a reserver to
+            // contest a foreign reservation.
+            this.suppressMini();
+            this.suppressGuard();
+            this.suppressWolf();
             this.suppressInvaderCore();
             this.reserve();
         }
@@ -74,6 +95,35 @@ export class Farm extends Mission {
 
         const sourceCapacity = _.sum(sources, src => src.energyCapacity);
         return Math.min(max, sourceCapacity / farmerRate);
+    }
+
+    // team.ts suppressMini: any enemy creep in the room (scouts included)
+    // draws a cheap mini. The tenemies ratchet resets 10 ticks after the last
+    // enemy leaves, so this stops on its own.
+    suppressMini() {
+        if (!this.room!.memory.tenemies) return null;
+        return this.paceJobs(Mini, kMiniPace);
+    }
+
+    // team.ts suppressGuard: armed hostiles for kGuardHostileTicks draw a
+    // guard, faster the longer they stay: one per max(1500 - thostiles, 350).
+    suppressGuard() {
+        const t = this.room!.memory.thostiles || 0;
+        if (t < kGuardHostileTicks) return null;
+        return this.paceJobs(Guard, this.suppressRate(t));
+    }
+
+    // team.ts suppressWolf: once armed hostiles have camped the room for
+    // kWolfHostileTicks, lay wolves at the same shrinking cadence.
+    suppressWolf() {
+        const t = this.room!.memory.thostiles || 0;
+        if (t < kWolfHostileTicks) return null;
+        return this.paceJobs(Wolf, this.suppressRate(t));
+    }
+
+    // Ticks between suppression eggs after t ticks of hostile presence.
+    suppressRate(t: number): number {
+        return Math.max(kSuppressPace - t, kSuppressMinPace);
     }
 
     // team.ts suppressInvaderCore: while an invader core stands in the farm

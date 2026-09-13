@@ -29,7 +29,7 @@ Status legend:
 | `src/job.role.ts` | LIVE | 2022 | `JobRole` bridge to legacy roles; `localSpawn`. |
 | `src/job.startup.ts`, `job.reboot.ts`, `job.worker.ts`, `job.ctrl.ts`, `job.hub.ts`, `job.hauler.ts`, `job.srcer.ts` | LIVE | 2022 | Job classes spawned by GlobalRespawn. |
 | `src/job.scout.ts`, `src/job.swiper.ts` | REACHABLE | 2022 | Jobs for `Swipe` (Scout also for `Farm`). Swiper never picks anything up (WIP). |
-| `src/ms.farm.ts` | REACHABLE | 2026 | Remote-farm mission; schedule with `"Farm <farm> <home> [cap]"`. Scouts an invisible farm room; paces a wolf against invader cores. |
+| `src/ms.farm.ts` | REACHABLE | 2026 | Remote-farm mission; schedule with `"Farm <farm> <home> [cap]"`. Scouts an invisible farm room; paces minis/guards/wolves against enemies, armed hostiles and invader cores (team.ts suppress* rules). |
 | `src/ms.remote.ts` | REACHABLE | 2026 | Remote mission, team.ts `teamRemote` port; `"Remote <remote> <home>"`. Extends `Farm` for the invader-core wolf; scout for visibility; reservers paced every 225 ticks (team.ts rule) hold the controller; plans, tracks, draws and (on windDown) removes rsrc/rroad metas. No harvesters yet. |
 | `src/ms.once.ts` | REACHABLE | 2026 | `"Once <Job> <room>"`: spawns one creep of a job, winds down after it hatches; Remote schedules `Once Paver <room>`. |
 | `src/job.harvester.ts` | REACHABLE | 2026 | Harvester job for Remote: claims an rsrc meta, drop-mines on its container tile, builds/repairs the container. |
@@ -38,7 +38,7 @@ Status legend:
 | `src/ms.startup.ts` | REACHABLE | 2026 | `"Startup <room>"`: keeps `max(1, 6 - rcl)` Pioneers in a freshly claimed room until RCL4, then winds down. |
 | `src/job.pioneer.ts` | REACHABLE | 2026 | Pioneer job for the Startup mission: `Startup.body` capped at 6 pairs, "remote" spawn strategy, homed on the mission room; `rolePioneer` -> `roleBootstrap`. |
 | `src/metaremote.ts` | REACHABLE | 2026 | `Meta_rsrc`/`Meta_rroad` and `RemotePlanner`: flagless, multi-room road and container planning for Remote. |
-| `src/job.farmer.ts`, `src/job.wolf.ts`, `src/job.reserver.ts` | REACHABLE | 2026 | Jobs for `Farm`; Task2 ports of `role.farmer.js`, `role.wolf.js` and `role.reserver.js`. |
+| `src/job.farmer.ts`, `src/job.wolf.ts`, `src/job.guard.ts`, `src/job.mini.ts`, `src/job.reserver.ts` | REACHABLE | 2026 | Jobs for `Farm`/`Remote`; Task2 ports of `role.farmer.js`, `role.wolf.js`, `role.guard.js` (`Mini` = `Guard` on the `mini` body) and `role.reserver.js`. |
 | `src/strat.ts` | LIVE | 2020 | `NullStrat`/`ActiveStrat`/`ClaimedStrat` per room with `evolve()`; hostile lists; runs towers/labs/links/meta/factory; `ActiveStrat` builds mission metas in unclaimed rooms. |
 | `src/shed.ts` | LIVE | 2019 | `run(objs, bucket, fn)` CPU-guarded loop; `canRun`. |
 | `src/cache.ts` | LIVE | 2019 | `tick`/`cache` properties on Room/RoomObject; `theTick.inject`. |

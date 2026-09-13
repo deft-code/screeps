@@ -38,14 +38,15 @@ interface RemoteMemory extends MissionMemory {
 
 // Port of team.ts teamRemote to the mission system, in phases.
 // Phase 1: visibility (Scout) and a held reservation (Reserver), plus the
-// Farm rule against invader cores (Wolf).
+// Farm suppression rules: Mini for any enemy, Guard and Wolf for armed
+// hostiles, Wolf for an invader core.
 // Phase 2: plans metas for the remote (container per source, full roads from
 // the home storage to each source, swamp-only roads to the controller) into the per-room
 // meta memory, tracks and draws them. ActiveStrat builds them in the unowned
 // rooms, ClaimedStrat in the home room.
 // Phase 3 (todo): harvester/paver/trucker.
 //
-// Extends Farm so suppressInvaderCore is shared, but run() and reserve() are
+// Extends Farm so the suppress* rules are shared, but run() and reserve() are
 // replaced: no farmers are laid, and the reservation is maintained rather than
 // only contested.
 //
@@ -65,7 +66,11 @@ export class Remote extends Farm {
             // No visibility: a scout parks in the room until a reserver arrives.
             this.nJobs(Scout, 1);
         } else {
-            // Both may lay an egg in the same tick.
+            // All may lay an egg in the same tick, in team.ts teamRemote
+            // order; the two wolf rules share the wolf pace.
+            this.suppressMini();
+            this.suppressGuard();
+            this.suppressWolf();
             this.suppressInvaderCore();
             this.reserve();
             if (!this.memory.metas) this.planMetas();

@@ -5,13 +5,18 @@ import { CreepRole } from "creep.role";
 // Port of role.wolf.js (2017 flag-team era) to the 2022 mission/job system.
 // A melee creep spawned in the mission's "home" room. It walks to the mission
 // room, kills whatever enemy creeps it meets on the way or in the room, then
-// tears down any invader core. Farm lays one through paceJobs(Wolf, 1500)
-// while a core stands (the team.ts suppressInvaderCore rule).
+// tears down any invader core. Farm and Remote lay one through
+// paceJobs(Wolf, 1500) while a core stands (team.ts suppressInvaderCore) and
+// through paceJobs(Wolf, max(1500 - thostiles, 350)) once armed hostiles have
+// camped the room for 300 ticks (team.ts suppressWolf).
 @register
 export class Wolf extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        // body key "wolf" in spawnold.buildBody: 1 MOVE per ATTACK, needs >= 700 energy available.
-        // Offroad creep: spawns fine from whatever spawns are nearest the mission room.
+        // body key "wolf" in spawnold.buildBody: a close spawn whose room capacity
+        // is >= 700, body scaled by energyDef to the energy available there now:
+        // n ATTACK + n MOVE (130 per level), level 1 (260) up to level 25 (3250, 50 parts).
+        // See docs/spawning.md "Body definitions". Offroad creep: spawns fine from
+        // whatever spawns are nearest the mission room.
         return this.closeSpawn(spawns, { body: "wolf" });
     }
 
