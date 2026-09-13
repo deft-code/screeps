@@ -20,6 +20,9 @@ declare global {
     task?: CreepTaskMem
     boosts?: MineralBoostConstant[]
     spawnid?: Id<StructureSpawn>
+    // Room energy capacity when idleImmortal first ran; renewing stops once the
+    // room outgrows it so the mission relays a body sized for the new capacity.
+    ecap?: number
     start?: number
   }
   interface Creep {
@@ -337,6 +340,11 @@ export class CreepRole extends CreepExtra {
   }
 
   idleImmortal() {
+    if (this.memory.ecap === undefined) this.memory.ecap = this.room.energyCapacityAvailable;
+    if (this.room.energyCapacityAvailable > this.memory.ecap) {
+      this.dlog("room outgrew body, not renewing", this.memory.ecap, this.room.energyCapacityAvailable);
+      return;
+    }
     if (this.room.energyFreeAvailable !== 0) return;
     if (this.ticksToLive >= (CREEP_LIFE_TIME - (600 / this.body.length))) {
       this.dlog("too young to renew", this.ticksToLive);

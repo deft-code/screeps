@@ -110,5 +110,6 @@ module.exports = class CreepHauler {
     }
 
     this.idleTransferExtra()
+    this.idleImmortal()
   }
 }

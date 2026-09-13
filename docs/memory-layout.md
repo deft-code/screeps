@@ -34,7 +34,7 @@ New-system creeps start as eggs:
 After spawn: `nest = spawnName`, `home = roomName`. Roles then add:
 `task` (legacy `{task, id?, flag?, first?, resource?, max?, spot?}`), `task2`
 (`{name, args, id?}`), `_walk` (Rewalker `[destXY, destRoom, [xy, room, dirs], incomplete?]`),
-`srcid/contid/linkid` (srcer), `struct` (ctrl), `repairid`, `spawnid`,
+`srcid/contid/linkid` (srcer), `struct` (ctrl), `repairid`, `spawnid`, `ecap` (room capacity at the first `idleImmortal`; renewing stops once the room exceeds it),
 `boosts[]`, `debug` (expiry tick), `spot`, `start`, `team`.
 Legacy team eggs used `{ team: flagName, egg: { team, body, laid, spawn, priority, ... } }`
 and are no longer created; `Mission.hatchEggs` treats any `nest !== "egg"` as

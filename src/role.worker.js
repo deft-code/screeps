@@ -26,5 +26,8 @@ module.exports = class CreepWorker {
     if (this.store.getUsedCapacity() > this.store.getFreeCapacity()) {
       this.idleBuild() || this.idleRepairAny() || this.idleUpgrade()
     }
+    // Renew when passing a spawn with a full pool; stops once the room
+    // outgrows this body (memory.ecap) so a bigger worker replaces it.
+    this.idleImmortal()
   }
 }
