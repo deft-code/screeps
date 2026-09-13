@@ -39,7 +39,9 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               schedulePavers(): "Once Paver <room>" for any tracked unclaimed room with our sites in view,
                                                               at most one per room per 1500 ticks.
                                                               harvest(): paceJobs(Harvester, (1500 - 50*route dist) / rsrc metas) while visible, no hostiles,
-                                                              not foreign-reserved (civilians in remotes are paced, never replaced). Phase 3 (todo): trucker
+                                                              not foreign-reserved (civilians in remotes are paced, never replaced).
+                                                              truck(): paceJobs(Trucker, min(1500, 1500 / (5*sum(src cap) / (avg carry * 1500 / (2*legSteps+10)))))
+                                                              same gates; 1500 while no trucker is alive; legSteps = longest source leg from planning
          └─ Once             @register  (ms.once.ts)           "Once <Job> <room>"; lays one egg of the job, winds down once it has spawned,
                                                               kills and deschedules itself when the creep and its tombstone are gone
 
@@ -53,6 +55,9 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      ├─ Harvester @register  (job.harvester.ts) port of role.harvester.js for Remote; 6W/1C/3M from "home" (falls back to the nearest spawns) (floor 3W/1C/2M); claims an rsrc meta
      │                       (memory.rsrc; if all are claimed it shadows the harvester with the fewest ticks to live), stands on the
      │                       container tile drop-mining; builds the container site and repairs the container, withdrawing from it for that
+     ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.js for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
+     │                       when empty); withdraws from the fullest rsrc container (sweeps dropped energy), unloads into the home storage
+     │                       when more than half full
      ├─ Swiper   @register   [MOVE,CARRY], work in progress          (job.swiper.ts)
      └─ JobRole              bridge to legacy roles: start() calls creep.run()/after() (job.role.ts)
          ├─ Worker  @register              (job.worker.ts)

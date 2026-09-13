@@ -6,6 +6,7 @@ import { Reserver } from "job.reserver";
 import { whoami } from "Rewalker";
 import { getMetaManager, MetaStructure } from "metastruct";
 import { Harvester } from "job.harvester";
+import { Trucker } from "job.trucker";
 import { dist } from "routes";
 import { RemotePlanner } from "metaremote";
 import * as debug from "debug";
@@ -28,6 +29,8 @@ interface RemoteMemory extends MissionMemory {
     planned?: number
     // room -> tick a "Once Paver <room>" was last scheduled for it.
     pavers?: { [room: string]: number }
+    // Steps of the longest source leg (one-way trucker trip), from planning.
+    legSteps?: number
 }
 
 // Port of team.ts teamRemote to the mission system, in phases.
@@ -64,6 +67,7 @@ export class Remote extends Farm {
             this.reserve();
             if (!this.memory.metas) this.planMetas();
             this.harvest();
+            this.truck();
         }
         this.schedulePavers();
         this.drawMetas();
@@ -112,6 +116,35 @@ export class Remote extends Farm {
         return this.paceJobs(Harvester, (CREEP_LIFE_TIME - walk) / n);
     }
 
+    // team.ts trucker(): enough truckers in flight to carry away what the
+    // sources regenerate, all per creep lifetime:
+    //   energy  = 5 * sum(source capacity)            (regen every 300 ticks)
+    //   haul    = avg trucker carry * 1500 / roundTrip (roundTrip from the planned leg)
+    //   pace    = 1500 / (energy / haul), capped at 1500 so one is always in flight;
+    // 1500 while no trucker is alive to average. Same gates as harvest().
+    truck() {
+        const room = this.room!;
+        if (room.hostiles.length) return null;
+        if (this.foreignReserved()) return null;
+        if (!this.rsrcMetas().length) return null;
+        return this.paceJobs(Trucker, this.truckPace());
+    }
+
+    truckPace(): number {
+        const room = this.room!;
+        const truckers = [...this.roleCreeps("trucker"), ...this.roleHatches("trucker")];
+        const carries = _.compact(truckers.map(t => t.c?.store.getCapacity() || 0));
+        if (!carries.length) return CREEP_LIFE_TIME;
+        const avgCarry = _.sum(carries) / carries.length;
+
+        const energy = 5 * _.sum(room.find(FIND_SOURCES), s => s.energyCapacity);
+        const oneWay = this.memory.legSteps || 50 * dist(this.getRoomName("home")!, this.roomName);
+        const roundTrip = 2 * oneWay + 10;
+        const haul = avgCarry * CREEP_LIFE_TIME / roundTrip;
+        if (!haul || !energy) return CREEP_LIFE_TIME;
+        return Math.min(CREEP_LIFE_TIME, CREEP_LIFE_TIME / (energy / haul));
+    }
+
     // Plan and save the metas for this remote. Needs vision of the remote
     // room and a storage (built or planned) in the home room. `force` removes
     // the current metas first; from the console:
@@ -146,6 +179,7 @@ export class Remote extends Farm {
             debug.log(this.name, "leg", r.leg, "steps", r.steps, "ops", r.ops, "incomplete", r.incomplete, "metas", r.metas.length);
         }
         this.memory.metas = planner.saveAll();
+        this.memory.legSteps = planner.longestLeg;
         this.memory.planned = Game.time;
         debug.log(this.name, "planMetas used", Game.cpu.getUsed() - start, "cpu");
         return true;
@@ -216,6 +250,7 @@ export class Remote extends Farm {
         debug.log(this.name, "removed metas", JSON.stringify(tracked));
         delete this.memory.metas;
         delete this.memory.planned;
+        delete this.memory.legSteps;
     }
 
     windDown() {

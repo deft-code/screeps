@@ -96,6 +96,8 @@ export class RemotePlanner {
     readonly mats = new Map<string, CostMatrix>();
     readonly metas: MetaStructure[] = [];
     readonly storage: RoomPosition;
+    // Steps of the longest complete source leg; the trucker's one-way trip.
+    longestLeg = 0;
 
     constructor(readonly home: string, readonly remote: string) {
         const store = getMetaManager(home).getSite(STRUCTURE_STORAGE) || Game.rooms[home]?.storage?.pos;
@@ -222,6 +224,7 @@ export class RemotePlanner {
         const result: LegResult = { leg, metas: [], incomplete: ret.incomplete, steps: ret.path.length, ops: ret.ops };
         if (!cont || ret.incomplete) return result;
 
+        this.longestLeg = Math.max(this.longestLeg, ret.path.length);
         // The container tile is off limits to every later leg.
         base.set(cont.x, cont.y, 0xFF);
         result.metas.push(Meta_rsrc.make(getMetaManager(this.remote), src, cont));

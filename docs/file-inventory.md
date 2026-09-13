@@ -33,6 +33,7 @@ Status legend:
 | `src/ms.remote.ts` | REACHABLE | 2026 | Remote mission, team.ts `teamRemote` port; `"Remote <remote> <home>"`. Extends `Farm` for the invader-core wolf; scout for visibility; reservers paced every 225 ticks (team.ts rule) hold the controller; plans, tracks, draws and (on windDown) removes rsrc/rroad metas. No harvesters yet. |
 | `src/ms.once.ts` | REACHABLE | 2026 | `"Once <Job> <room>"`: spawns one creep of a job, winds down after it hatches; Remote schedules `Once Paver <room>`. |
 | `src/job.harvester.ts` | REACHABLE | 2026 | Harvester job for Remote: claims an rsrc meta, drop-mines on its container tile, builds/repairs the container. |
+| `src/job.trucker.ts` | REACHABLE | 2026 | Trucker job for Remote: rsrc containers -> home storage, paced by the source regen / haul rate. |
 | `src/job.paver.ts` | REACHABLE | 2026 | Paver job for Once: harvest, build any site, repair roads/containers in the mission room. |
 | `src/metaremote.ts` | REACHABLE | 2026 | `Meta_rsrc`/`Meta_rroad` and `RemotePlanner`: flagless, multi-room road and container planning for Remote. |
 | `src/job.farmer.ts`, `src/job.wolf.ts`, `src/job.reserver.ts` | REACHABLE | 2026 | Jobs for `Farm`; Task2 ports of `role.farmer.js`, `role.wolf.js` and `role.reserver.js`. |
