@@ -47,6 +47,7 @@ Legacy JS mixins merged by main.js's `mods` loop (lib.merge, overwrite on collis
  creep.heal.js    goHeal/goRangedHeal/idleHeal
  creep.oldrepair.js  idleRepairRoad, taskRepairRemote/Wall, taskTurtleMode/Prep/Turtle
  creep.work.js    idleEmergencyUpgrade, idleUpgrade, taskUpgrade(Room), goUpgradeController, taskReserve, idleHarvest, taskHarvestSpots, taskHarvest, taskCampSrc(s)
+                  (taskHarvest remembers task.spot but adopts the current tile when bumped onto another source-adjacent one, so farmers do not walk back and re-bump)
  role.*.js (34 files)  roleXxx/afterXxx and role-private task helpers
 ```
 

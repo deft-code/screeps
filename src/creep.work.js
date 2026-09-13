@@ -120,6 +120,14 @@ module.exports = class CreepWork {
       this.memory.task.spot = spot
     }
 
+    // Bumped onto another tile that still touches the source: adopt it rather
+    // than walking back and bumping whoever took the old spot (farmer churn).
+    if (!this.pos.isEqualTo(spot) && this.pos.isNearTo(src)) {
+      this.dlog('harvest adopt spot', this.pos)
+      spot = this.pos
+      this.memory.task.spot = spot
+    }
+
     const where = this.movePos({pos: spot})
     const err = this.harvest(src)
     if (err === OK) {
