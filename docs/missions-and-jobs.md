@@ -50,7 +50,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      ├─ Scout    @register   [MOVE] from the "home" room if any, walks to the mission room (job.scout.ts)
      ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "remote" spawn strategy; harvests in the
      │                       mission room when empty, taskBuildAny, then taskRepairRemote (roads/containers); spawned by Once
-     ├─ Harvester @register  (job.harvester.ts) port of role.harvester.js for Remote; 6W/1C/3M from "home" (floor 3W/1C/2M); claims an rsrc meta
+     ├─ Harvester @register  (job.harvester.ts) port of role.harvester.js for Remote; 6W/1C/3M from "home" (falls back to the nearest spawns) (floor 3W/1C/2M); claims an rsrc meta
      │                       (memory.rsrc; if all are claimed it shadows the harvester with the fewest ticks to live), stands on the
      │                       container tile drop-mining; builds the container site and repairs the container, withdrawing from it for that
      ├─ Swiper   @register   [MOVE,CARRY], work in progress          (job.swiper.ts)
@@ -60,9 +60,9 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Hub     @register              (job.hub.ts)    needs storage + meta 'hub' spot
          ├─ Hauler  @register  priority 9  (job.hauler.ts) energy = min(2500, ecap/2)
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
-         ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' from "home"
-         ├─ Reserver @register             (job.reserver.ts) port of role.reserver.js; @task reserve, body 'reserver' from "home"
-         ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'reserver' from "home", walks to the sector core,
+         ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' via "close"
+         ├─ Reserver @register             (job.reserver.ts) port of role.reserver.js; @task reserve, body 'reserver' via "close"
+         ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'reserver' via "close", walks to the sector core,
          │                                                  @task reserve calls creep.claimReactor(reactor) at range 1 (needs a CLAIM part) and logs each new return code
          ├─ Warboy   @register             (job.warboy.ts) Season 11 thorium runner; WORK/CARRY/MOVE x levels from "home" ecap (max 16, 800 carry);
          │                                                @task harvest (home thorium mineral) -> deliver (transfer only while reactor.my, waits otherwise)

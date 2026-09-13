@@ -3,6 +3,7 @@ import { register, Task2Ret } from "mycreep";
 import { CreepRepair } from "creep.repair";
 import { getMetaManager, MetaStructure } from "metastruct";
 import type { Remote } from "ms.remote";
+import { findSpawns } from "spawnold";
 
 declare global {
     interface CreepMemory {
@@ -20,8 +21,16 @@ declare global {
 @register
 export class Harvester extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
+        // Harvesters are road-bound (3 MOVE for 10 parts) and the Remote's roads
+        // run from the "home" room, so spawn there when it has spawns; fall back
+        // to the nearest spawns ("local") otherwise. Every other job is offroad
+        // and uses closeSpawn.
+        // TODO: lift this into a JobRole.homeSpawn that takes a TS body builder
+        // once another job needs home-preferring spawns with a custom body.
         const homeName = this.mission.getRoomName("home");
-        const spawn = _.find(spawns, s => s.room.name === homeName && !s.spawning);
+        let pool = homeName ? spawns.filter(s => s.room.name === homeName) : [];
+        if (!pool.length) pool = findSpawns(spawns, this.mission.roomName, { spawn: "local" }) as StructureSpawn[];
+        const spawn = _.find(pool, s => !s.spawning) || _.first(pool);
         if (!spawn) return [null, []];
         return [spawn, Harvester.body(spawn.room.energyCapacityAvailable)];
     }

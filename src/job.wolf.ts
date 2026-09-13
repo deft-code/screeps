@@ -10,12 +10,9 @@ import { CreepRole } from "creep.role";
 @register
 export class Wolf extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        const homeName = this.homeName;
-        if (!homeName) return [null, []];
-        const homeSpawns = spawns.filter(s => s.room.name === homeName);
-        if (!homeSpawns.length) return [null, []];
-        // body key "wolf" in spawnold.buildBody: 1 MOVE per ATTACK, needs >= 700 energy available
-        return this.localSpawn(homeSpawns, { spawn: homeName, body: "wolf" });
+        // body key "wolf" in spawnold.buildBody: 1 MOVE per ATTACK, needs >= 700 energy available.
+        // Offroad creep: spawns fine from whatever spawns are nearest the mission room.
+        return this.closeSpawn(spawns, { body: "wolf" });
     }
 
     get homeName(): string | null {

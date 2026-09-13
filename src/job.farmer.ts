@@ -8,12 +8,9 @@ import { CreepRepair } from "creep.repair";
 @register
 export class Farmer extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        const homeName = this.homeName;
-        if (!homeName) return [null, []];
-        const homeSpawns = spawns.filter(s => s.room.name === homeName);
-        if (!homeSpawns.length) return [null, []];
-        // body key "farmer" in spawnold.buildBody: 1 MOVE per [WORK, CARRY, CARRY], needs ecap >= 550
-        return this.localSpawn(homeSpawns, { spawn: homeName, body: "farmer" });
+        // body key "farmer" in spawnold.buildBody: 1 MOVE per [WORK, CARRY, CARRY], needs ecap >= 550.
+        // Offroad creep: spawns fine from whatever spawns are nearest the mission room.
+        return this.closeSpawn(spawns, { body: "farmer" });
     }
 
     get homeName(): string | null {

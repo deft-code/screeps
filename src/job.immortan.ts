@@ -34,12 +34,9 @@ declare global {
 @register
 export class Immortan extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        const homeName = this.mission.getRoomName("home");
-        if (!homeName) return [null, []];
-        const homeSpawns = spawns.filter(s => s.room.name === homeName);
-        if (!homeSpawns.length) return [null, []];
         // body key "reserver" in spawnold.buildBody: 1 MOVE per CLAIM, needs >= 650 energy available
-        return this.localSpawn(homeSpawns, { spawn: homeName, body: "reserver" });
+        // Offroad creep: spawns fine from whatever spawns are nearest the mission room.
+        return this.closeSpawn(spawns, { body: "reserver" });
     }
 
     start(): Task2Ret {
