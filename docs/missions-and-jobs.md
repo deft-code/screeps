@@ -209,7 +209,9 @@ skip straight to `super.run()`, so they lay no eggs while winding down. A new
 
 - `nCreeps(role, n, life=1500)`: keep total remaining TTL (creeps + hatches +
   eggs) above `(n-1)*life` plus spawn lag. With `n=1` the replacement is laid as
-  the last creep dies.
+  the last creep dies. Never more than one unhatched egg per role at a time
+  (`hasEgg`), so `n=2` from nothing lays the second egg only after the first
+  hatches.
 - `nJobs(ctor, n, life=1500)`: `nCreeps(ctor.name.toLowerCase(), n, life)`.
 - `donate(ctor, other)` / `donateRole(role, other)` / `donateAll(other)`: move
   one role's, or every role's, eggs, hatches and creeps to mission `other`,

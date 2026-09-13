@@ -302,7 +302,7 @@ export abstract class Mission extends Service {
     // the survivor drops under half life, averaging 1.5 creeps. Below 1 it
     // becomes a duty cycle through paceCreeps: 0.5 means one creep per two
     // lifetimes. 0 or less lays nothing.
-    // There will only ever be up to n eggs of that role at a time.
+    // There is never more than one unhatched egg of a role at a time.
     nJobs(ctor: typeof MyCreep, n: number, life: number = CREEP_LIFE_TIME) {
         return this.nCreeps(ctor.name.toLowerCase(), n, life);
     }
@@ -356,6 +356,9 @@ export abstract class Mission extends Service {
         const buffer = _.random(10) + spawnlag;
         debug.dlog(`role:${role} total:${total} vs needed:${neededttl + buffer}`);
         if (total > neededttl + buffer) return null;
+        // One unhatched egg per role at a time, as paceCreeps: the next is
+        // laid once this one has hatched and its TTL counts for real.
+        if (this.hasEgg(role)) return null;
         return this.layEgg(role);
     }
 
