@@ -374,6 +374,12 @@ const ROUTE_HOSTILE_CLAIMED = 10
 const kOpsPerRoom = 4000
 const kMaxOps = 20000
 
+// When a chased destination moves off the current path, re-plan only if the
+// straight-line distance beats the remaining path by this many tiles. Range
+// is a lower bound on any fresh path, so a bend around a wall or a zigzagging
+// target makes the direct distance look shorter without a real shortcut.
+const kDetourMargin = 2
+
 let _rewalker: Rewalker | null = null
 export function defaultRewalker() {
     if (!_rewalker) {
@@ -839,6 +845,17 @@ class Step {
 
             // Add more to path if needed
             if (!last.inRangeTo(this.dest, this.range)) {
+                // Extending from the tip records the target's trail. When the
+                // target has looped back, the trail is a detour: a fresh path
+                // needs at least (range - goal range) steps, so if that beats
+                // the steps still on the old path, re-plan from the creep.
+                // getRangeTo is Infinity across rooms, which keeps the extend.
+                const direct = this.creep.pos.getRangeTo(this.dest) - this.range
+                if (direct + kDetourMargin < this.path.size) {
+                    const [err, path] = this.planSteps(this.creep.pos, [goal], this.creep.ticksToLive || CREEP_LIFE_TIME)
+                    this.path = path
+                    return this.step()
+                }
                 const [err, path] = this.planSteps(last, [goal], this.creep.ticksToLive || CREEP_LIFE_TIME);
                 this.path._steps += path._steps
             } else {

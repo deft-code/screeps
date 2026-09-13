@@ -39,7 +39,12 @@ The path is stored as a start position plus a string of direction digits
 
 Each tick `walkTo`:
 1. If the destination changed: re-plan when it moved more than 3 tiles or the
-   path is short, otherwise `trim` the tail and append a short extension.
+   path is short, otherwise `trim` the tail. If the tip is still out of range,
+   re-plan from the creep when the straight-line distance (less goal range)
+   plus `kDetourMargin` (2) is shorter than the remaining path, since the old
+   path is then a detour around a target that looped back; otherwise append a
+   short extension from the tip. Across rooms the range is infinite, so the
+   extension is always used.
 2. If the creep is on `path.first` or adjacent to `path.second`, advance the
    path (twice if it was bumped forward) and take a `waryStep`.
 3. If it was bumped off the path, `rewalkTo`.
