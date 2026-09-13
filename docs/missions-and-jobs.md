@@ -21,7 +21,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     nJobs(Immortan, 1) only while the reactor is visible and not `my` (CLAIM creeps are costly);
          │                                                     nJobs(Warboy, min(args[2], 700 / tripLoad)) once the home room has an
          │                                                     extractor on a thorium mineral with thorium left and the reactor is visible
-         ├─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [cap]"; paceJobs(Farmer, 1500 / n), n = source capacity / (2*avg farmer store), max 2 per spot;
+         ├─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [cap]"; paceNJobs(Farmer, n), n = source capacity / (2*avg farmer store), max 2 per spot;
                                                               Scout while the farm room is invisible;
                                                               paceJobs(Mini, 1500) while memory.tenemies (any enemy creep seen; team.ts suppressMini);
                                                               paceJobs(Guard, max(1500 - thostiles, 350)) once memory.thostiles >= 100 (team.ts suppressGuard used 3);
@@ -48,10 +48,11 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               same gates; 1500 while no trucker is alive; legSteps = longest source leg from planning
          ├─ Once             @register  (ms.once.ts)           "Once <Job> <room>"; lays one egg of the job, winds down once it has spawned,
                                                               kills and deschedules itself when the creep and its tombstone are gone
-         └─ Startup          @register  (ms.startup.ts)        "Startup <room>"; assists a freshly claimed room: while its controller is ours and
-                                                              below RCL4, nJobs(Pioneer, max(1, 6 - rcl)) (the GlobalRespawn startup count) spawned
-                                                              outside the room; at RCL4 windDown(): pioneers live out their lives, then the mission
-                                                              kills and deschedules itself. Lays nothing while the room is not ours. Distinct from
+         └─ Startup          @register  (ms.startup.ts)        "Startup <room>"; claims and boots a room: nJobs(Scout, 1) while the room is invisible;
+                                                              nJobs(Claimer, 1, 600) while the controller is not ours and owned rooms < GCL;
+                                                              while ours and below RCL4, paceNJobs(Pioneer, max(1, 6 - rcl)) and nJobs(Guard, 1) while the room has no tower (the GlobalRespawn
+                                                              startup count per lifetime) spawned outside the room; at RCL4 windDown(): pioneers live
+                                                              out their lives, then the mission kills and deschedules itself. Distinct from
                                                               the `Startup` job class (separate registries).
 MyCreep                      wrapper object per creep *name* (mycreep.ts); not a prototype extension
  └─ JobCreep                 knows its Mission; Rewalker movement helpers (job.creep.ts)
@@ -78,10 +79,12 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
          ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' via "close"
          ├─ Guard   @register              (job.guard.ts)  port of role.guard.js; Task2 @task hunt/duel/healCreep/retreat, kites melees via idleFlee;
-         │                                                 body 'guard' via "close": room capacity >= 550, energyDef scales T/RA pairs to energy available (spawning.md)
-         │   └─ Mini @register             (job.mini.ts)   Guard on the fixed 'mini' body [RANGED_ATTACK, MOVE, MOVE, HEAL]
+         │                                                 body 'guard' via "remote": room capacity >= 550, energyDef scales T/RA pairs to energy available (spawning.md)
+         │   └─ Mini @register             (job.mini.ts)   Guard on the fixed 'mini' body [RANGED_ATTACK, MOVE, MOVE, HEAL], still via "close"
          ├─ Reserver @register             (job.reserver.ts) port of role.reserver.js; @task reserve, body 'reserver' via "close"
-         ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'reserver' via "close", walks to the sector core,
+         ├─ Claimer  @register             (job.claimer.ts) port of role.claimer.js for Startup; body 'claimer' ([MOVE, CLAIM]) via "remote";
+         │                                                 @task claim: claimController, or attackController when someone else owns it; idles once `my`
+         ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'claimer' ([MOVE, CLAIM]) via "close", walks to the sector core,
          │                                                  @task reserve calls creep.claimReactor(reactor) at range 1 (needs a CLAIM part) and logs each new return code
          ├─ Warboy   @register             (job.warboy.ts) Season 11 thorium runner; WORK/CARRY/MOVE x levels from "home" ecap (max 16, 800 carry);
          │                                                @task harvest (home thorium mineral) -> deliver (transfer only while reactor.my, waits otherwise)
@@ -127,6 +130,21 @@ drops it from the run table on the next tick. Living creeps are then never run
 again (nothing outside the mission calls `mycreep.run()`), and eggs left in
 `Memory.creeps` still spawn. Prefer `windDown()` for a clean exit.
 
+## Evolving a mission into another command
+
+```js
+getService('Farm W25S8 W26S8').evolve('Farm W25S8 W25S7')
+```
+
+`Mission.evolve(cmd)` schedules `cmd` (idempotent; a live instance is reused),
+`donateRole`s every role's eggs, hatches and creeps to it (each creep's
+`memory.mission` is repointed), merges the `paceCreeps` timers (`memory.when`),
+then `kill()`s the old mission and deletes `Memory.missions[old]`. Nothing is
+purged, so no creep is lost. Only the base `MissionMemory` moves: a subclass
+with extra state (Remote's `metas`) should override `evolve` if it needs it
+carried. The target may be a different mission class; the creeps keep their
+jobs and simply resolve `this.mission` to the new instance.
+
 ## Winding down a mission
 
 ```js
@@ -149,7 +167,7 @@ While it is set `Mission.run()` skips the normal path and runs `runWindDown()`:
    `kill()`, deletes `Memory.missions[name]`, and returns `"kill"`.
 
 `Process.status()` returns the one-line summary `lsProcess()`/`lsService()`
-print (`process|daemon|scheduled|transient`, `row:<priority>`, `dead`). `Mission.status()` appends `windDown` and
+show via `Process.toString()` = `name [status()]` (`process|daemon|scheduled|transient`, `row:<priority>`, `dead`). `Mission.status()` appends `windDown` and
 `tombs:` while winding down, then `eggs: hatch: creeps:` counts. A subclass
 that wants more should call `super.status()` and append to the result.
 
@@ -183,7 +201,10 @@ skip straight to `super.run()`, so they lay no eggs while winding down. A new
 - `nCreeps(role, n, life=1500)`: keep total remaining TTL (creeps + hatches +
   eggs) above `(n-1)*life` plus spawn lag. With `n=1` the replacement is laid as
   the last creep dies.
-- `nJobs(ctor, n)`: `nCreeps(ctor.name.toLowerCase(), n)`.
+- `nJobs(ctor, n, life=1500)`: `nCreeps(ctor.name.toLowerCase(), n, life)`.
+- `paceNJobs(ctor, n, life=1500)`: `paceJobs(ctor, life / n)`, i.e. `n` creeps
+  per lifetime as a rate; `n <= 0` lays nothing (`Farm` farmers, `Startup`
+  pioneers).
 - `paceCreeps(role, rate)` / `paceJobs(ctor, rate)`: port of `team.ts
   paceRole`. Lays at most one egg per `rate` ticks (tracked in
   `memory.when[role]`), never while one is unhatched, and does not replace a

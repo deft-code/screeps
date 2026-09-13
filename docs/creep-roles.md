@@ -78,7 +78,7 @@ To bring one back, write a `Job*` class ([missions-and-jobs.md](missions-and-job
 | `depositfarmer` | `role.depositfarmer.ts` | Highway deposit farming (needs the dead radar/deposit pipeline). |
 | `harvester`, `harvestaga`, `miner`, `srcer`, `coresrc`, `auxsrc` | `.js` | Older source miners; `srcer` (159 lines) is the pre-meta static miner. |
 | `trucker`, `truckaga`, `collector`, `cart`, `farmer`, `zombiefarmer`, `dropper` | `.js` | Remote-mining logistics for the flag team system. |
-| `upgrader`, `paver`, `reserver`, `claimer`, `declaimer`, `scout`, `manual`, `recycle` | `.js`/`.ts` | Utility roles. `role.recycle.ts` is not imported at all. |
+| `upgrader`, `paver`, `reserver`, `claimer`, `declaimer`, `scout`, `manual`, `recycle` | `.js`/`.ts` | Utility roles. `role.recycle.ts` is not imported at all. `paver`, `reserver`, `claimer`, `scout` have Task2 job ports (`job.*.ts`) that the missions use instead. |
 | `guard`, `mini`, `tower`, `wolf`, `micro`, `defender`, `medic`, `caboose`, `archer`, `rambo`, `ram`, `bulldozer`, `opener`, `cleaner`, `stomper`, `drain`, `chemist`, `power` | `.js` | Combat, siege, lab, and power roles. `role.power.js` has hardcoded MMO room `W29N11`. |
 
 ## Task and return conventions (legacy layer)

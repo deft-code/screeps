@@ -9,6 +9,8 @@ import { Guard } from "job.guard";
 // has been seen in the room (team.ts suppressMini, memory.tenemies).
 @register
 export class Mini extends Guard {
+    // A small, fast defender; ahead of the civilian eggs, behind srcers.
+    priority = 7;
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         return this.closeSpawn(spawns, { body: "mini" });
     }

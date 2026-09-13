@@ -23,23 +23,22 @@ global.getService = cmd => process.Service.getType(cmd);
 global.lsProcess = () => {
   const procs = process.Process.all();
   for (const proc of procs) {
-    console.log(proc.name, '[' + proc.status() + ']');
+    console.log(proc.toString());
   }
   return `${procs.length} processes`;
 };
 
-// Print every live service with its status(), then any scheduled command
-// that has no live instance (its class failed to spawn at boot).
+// Every live service, as a list. The console prints each via
+// Process.toString() as `name [status()]`; index the result to reach an
+// instance: lsService()[0].windDown(). Any scheduled command that has no live
+// instance (its class failed to spawn at boot) is logged first.
 global.lsService = () => {
   const live = process.Service.all();
-  for (const svc of live) {
-    console.log(svc.name, '[' + svc.status() + ']');
-  }
   const liveNames = live.map(svc => svc.name);
   for (const cmd of Memory.scheduler.services) {
     if (!liveNames.includes(cmd)) console.log(cmd, '[scheduled NOT LIVE]');
   }
-  return `${live.length} live, ${Memory.scheduler.services.length} scheduled`;
+  return live;
 };
 
 import 'strat';
@@ -70,6 +69,7 @@ import 'role.shovel';
 import 'role.src';
 import 'job.startup';
 import 'job.pioneer';
+import 'job.claimer';
 
 import 'deposit';
 

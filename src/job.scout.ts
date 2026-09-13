@@ -6,6 +6,8 @@ const rewalker = defaultRewalker();
 
 @register
 export class Scout extends JobCreep {
+    // Cheap and unblocking: vision gates whole missions, so jump the 0-priority queue.
+    priority = 7;
     spawn(spawns: StructureSpawn[]): [StructureSpawn|null, BodyPartConstant[]] {
         // Prefer the mission's home room when it names one; otherwise any spawn.
         const homeName = this.mission.getRoomName("home");

@@ -63,9 +63,9 @@ export class Farm extends Mission {
             this.reserve();
         }
         if (!this.foreignReserved()) {
-            // nFarmers is a count per farmer lifetime; paceJobs wants ticks per egg.
+            // nFarmers is a count per tfarmer lifetime; paceJobs wants ticks per egg.
             const n = this.nFarmers();
-            if (n > 0) this.paceJobs(Farmer, CREEP_LIFE_TIME / n);
+            this.paceNJobs(Farmer, n);
         }
         super.run();
         return "normal";

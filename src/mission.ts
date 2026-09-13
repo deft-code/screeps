@@ -110,6 +110,33 @@ export abstract class Mission extends Service {
         return moved;
     }
 
+    // Replace this mission with `cmd`: schedule the new mission (or reuse it
+    // if live), hand it every egg, hatch and creep of every role plus the
+    // paceCreeps timers, then kill this one and drop its memory. Nothing is
+    // purged or wound down, so no creep is lost. Use it to change a mission's
+    // arguments, e.g. a Farm's home room once a nearer room is claimed:
+    //   getService('Farm W25S8 W26S8').evolve('Farm W25S8 W25S7')
+    // Subclass memory beyond the base lists (Remote's metas) is not carried;
+    // subclasses with such state should override and handle it.
+    evolve(cmd: string): Mission | null {
+        if (cmd === this.name) return this;
+        const other = Service.schedule(cmd) as Mission | null;
+        if (!other || !(other instanceof Mission)) {
+            debug.log(this.name, "evolve: no mission for", cmd);
+            return null;
+        }
+        const roles = _.uniq(_.map([...this.memory.eggs, ...this.memory.hatch, ...this.memory.creeps],
+            name => getMyCreep(name).role));
+        for (const role of roles) this.donateRole(role, other);
+        if (this.memory.when) {
+            other.memory.when = _.assign(other.memory.when || {}, this.memory.when);
+        }
+        debug.log(this.name, "evolved into", cmd);
+        this.kill();
+        delete Memory.missions[this.name];
+        return other;
+    }
+
     run(): Priority {
         if (this.windingDown) return this.runWindDown();
         this.hatchEggs();
@@ -270,7 +297,7 @@ export abstract class Mission extends Service {
     // becomes a duty cycle through paceCreeps: 0.5 means one creep per two
     // lifetimes. 0 or less lays nothing.
     // There will only ever be up to n eggs of that role at a time.
-    nJobs(ctor: typeof MyCreep, n: number, life = CREEP_LIFE_TIME ){
+    nJobs(ctor: typeof MyCreep, n: number, life: number = CREEP_LIFE_TIME) {
         return this.nCreeps(ctor.name.toLowerCase(), n, life);
     }
 
@@ -278,6 +305,14 @@ export abstract class Mission extends Service {
     // There will only ever be one egg of that role at a time,
     paceJobs(ctor: typeof MyCreep, rate: number = CREEP_LIFE_TIME) {
         return this.paceCreeps(ctor.name.toLowerCase(), rate);
+    }
+
+    // paceJobs with the rate derived from a count: `n` creeps per `life`
+    // ticks, so one egg every life / n ticks. `n` <= 0 lays nothing (paceCreeps
+    // rejects the non-finite rate).
+    paceNJobs(ctor: typeof MyCreep, n: number, life: number = CREEP_LIFE_TIME) {
+        if (n <= 0) return null;
+        return this.paceJobs(ctor, life / n);
     }
 
     // Port of team.ts paceRole: lay at most one egg per `rate` ticks, and never
@@ -298,7 +333,7 @@ export abstract class Mission extends Service {
         return this.layEgg(role);
     }
 
-    nCreeps(role: string, n: number, life = CREEP_LIFE_TIME) {
+    nCreeps(role: string, n: number, life: number = CREEP_LIFE_TIME) {
         if (n <= 0) return null;
         const neededttl = (n - 1) * life;
         // a neededttl of 1500 creates 2 creeps

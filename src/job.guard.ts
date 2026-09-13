@@ -29,7 +29,7 @@ export class Guard extends JobRole {
         //   level n:  nT nRA (n+1)M H       300 + 260n, up to
         //   level 12: 12T 12RA 13M H       50 parts, 3420 (the part cap)
         // Sorted TOUGH first, half the MOVEs next, RANGED_ATTACK, MOVE, HEAL last.
-        return this.closeSpawn(spawns, { body: "guard" });
+        return this.remoteSpawn(spawns, { body: "guard" });
     }
 
     get homeName(): string | null {

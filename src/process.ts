@@ -21,6 +21,7 @@ export interface IProcess {
     run(): Priority
     kill(): void
     status(): string
+    toString(): string
 }
 
 export class Process {
@@ -30,6 +31,11 @@ export class Process {
     constructor(readonly bucket: number = 9000) { }
     run(): Priority { return "low" }
     kill() { this.dead = true; }
+
+    // `name [status()]`; what lsProcess()/lsService() show per process.
+    toString(): string {
+        return `${this.name} [${this.status()}]`;
+    }
 
     // One-line summary for lsProcess()/lsService(). Subclasses append to super.status().
     status(): string {

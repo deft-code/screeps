@@ -1,6 +1,9 @@
 import { Mission } from "mission";
 import { register, Priority } from "process";
 import { Pioneer } from "job.pioneer";
+import { Scout } from "job.scout";
+import { Claimer } from "job.claimer";
+import { Guard } from "job.guard";
 import * as debug from "debug";
 
 // RCL at which the assisted room is on its own and the mission winds down.
@@ -12,12 +15,15 @@ const kLogPace = 100;
 //
 //   scheduleService('Startup W5N8')   // args[1]=room to assist
 //
-// While the room's controller is ours and below RCL4, keeps
-// max(1, 6 - rcl) Pioneers (job.pioneer.ts) alive: the GlobalRespawn startup
+// Without vision of the room one Scout (job.scout.ts) parks there. While the
+// room's controller is not ours and GCL allows another room, one Claimer
+// (job.claimer.ts) claims it. While it is ours and below RCL4, paces Pioneers
+// (job.pioneer.ts) at max(1, 6 - rcl) per lifetime (paceNJobs): the GlobalRespawn startup
 // count, spawned by the nearest spawns outside the room ("remote" strategy)
-// and homed on the room. At RCL4 the mission winds down: no more eggs, the
+// and homed on the room, plus nJobs(Guard, 1) until the room has a tower.
+// At RCL4 the mission winds down: no more eggs, the
 // living pioneers work until they die, then the mission kills and
-// deschedules itself. A room that is not (or no longer) ours lays nothing.
+// deschedules itself.
 @register
 export class Startup extends Mission {
     get roomName(): string {
@@ -29,17 +35,34 @@ export class Startup extends Mission {
 
         const room = this.room;
         const controller = room?.controller;
-        if (!room || !controller || !controller.my) {
-            if (Game.time % kLogPace === 0) debug.log(this.name, "waiting: room is not ours");
+        if (!room) {
+            this.nJobs(Scout, 1);
+        } else if (!controller) {
+            if (Game.time % kLogPace === 0) debug.log(this.name, "waiting: room has no controller");
+        } else if (!controller.my) {
+            this.claim();
         } else if (controller.level >= kDoneRCL) {
             debug.log(this.name, "reached RCL", controller.level);
             this.windDown();
         } else {
-            this.nJobs(Pioneer, Math.max(1, 6 - controller.level));
+            this.paceNJobs(Pioneer, Math.max(1, 6 - controller.level));
+            if (!room.findStructs(STRUCTURE_TOWER).length) this.nJobs(Guard, 1);
         }
 
         super.run();
         return "normal";
+    }
+
+    // One claimer alive at a time (nJobs with the CLAIM lifetime), only while
+    // GCL has room for another controller. A controller someone else owns is
+    // attacked by the claimer, as role.claimer.js did.
+    claim() {
+        const owned = _.filter(Game.rooms, r => r.controller?.my).length;
+        if (owned >= Game.gcl.level) {
+            if (Game.time % kLogPace === 0) debug.log(this.name, "waiting: GCL", Game.gcl.level, "owns", owned);
+            return null;
+        }
+        return this.nJobs(Claimer, 1, CREEP_CLAIM_LIFE_TIME);
     }
 
     status(): string {
