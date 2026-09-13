@@ -21,6 +21,9 @@ const kReserveStopAt = 1000;
 const kPaverPace = 1500;
 // Walking allowance per room of route distance when pacing civilians.
 const kTicksPerRoom = 50;
+// One-way trucker trip per room of route distance when no leg was measured;
+// real legs run container to storage and measure ~70 tiles per room.
+const kTilesPerRoom = 70;
 
 interface RemoteMemory extends MissionMemory {
     // room -> names of the metas this mission planned there (metaremote.ts).
@@ -138,7 +141,7 @@ export class Remote extends Farm {
         const avgCarry = _.sum(carries) / carries.length;
 
         const energy = 5 * _.sum(room.find(FIND_SOURCES), s => s.energyCapacity);
-        const oneWay = this.memory.legSteps || 50 * dist(this.getRoomName("home")!, this.roomName);
+        const oneWay = this.memory.legSteps || kTilesPerRoom * dist(this.getRoomName("home")!, this.roomName);
         const roundTrip = 2 * oneWay + 10;
         const haul = avgCarry * CREEP_LIFE_TIME / roundTrip;
         if (!haul || !energy) return CREEP_LIFE_TIME;

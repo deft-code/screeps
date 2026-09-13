@@ -39,6 +39,8 @@ export class Paver extends JobRole {
 
     after() {
         const c = this.cc;
+        // Scoop energy dropped or left in tombstones/ruins within reach.
+        c.idleNom();
         c.idleBuild() || c.idleRepairAny();
     }
 }

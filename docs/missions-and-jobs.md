@@ -51,7 +51,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      ├─ Reboot   @register   priority 10, body from energyAvailable   (job.reboot.ts)
      ├─ Scout    @register   [MOVE] from the "home" room if any, walks to the mission room (job.scout.ts)
      ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "remote" spawn strategy; harvests in the
-     │                       mission room when empty, taskBuildAny, then taskRepairRemote (roads/containers); spawned by Once
+     │                       mission room when empty, taskBuildAny, then taskRepairRemote (roads/containers); after(): idleNom + idleBuild|idleRepairAny; spawned by Once
      ├─ Harvester @register  (job.harvester.ts) port of role.harvester.js for Remote; 6W/1C/3M from "home" (falls back to the nearest spawns) (floor 3W/1C/2M); claims an rsrc meta
      │                       (memory.rsrc; if all are claimed it shadows the harvester with the fewest ticks to live), stands on the
      │                       container tile drop-mining; builds the container site and repairs the container, withdrawing from it for that

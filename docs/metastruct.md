@@ -38,9 +38,9 @@ The flags described here are the only flags that exist in the game today.
 | `cap` | 101 | 5x5 extension cluster with a centre container (RCL2-4). Link mode `sink`. |
 | `lab` | 0 | 10 labs (RCL6-8), 2 spawns, observer, nuker. Its spawn energies are filled last. |
 | `extna` / `extnb` / `extnc` | 0 | Optional (level 9) extension fields, 3x3 / 5x5 / 7x7 checkerboards with roads at RCL5. |
-| `asrc` / `bsrc` | 103 | Source cluster: container on the path step nearest storage, road, link(5) at the adjacent tile nearest storage, extensions(3) on the other free neighbours. `myspot` = container tile; `targetid()` = the source. Link mode `src`. |
+| `asrc` / `bsrc` | 103 | Source cluster: container on the path step nearest storage, road, link(5) at the adjacent tile nearest storage, extensions(3) on the other free neighbours. `myspot` = container tile; `targetid()` = the source. Link mode `src`. The child flag's secondary colour overrides the container tile: RED takes the second-best neighbour, PURPLE the third-best (ranked by weighted path cost to storage, `Meta_asrc.pickSpot`); any other colour keeps the best. |
 | `min` | 0 | Container on the flag tile (RCL6), point `mineral`. |
-| `ctrl` | 0 | Path from flag to storage; point `ctrl` at step 2, link(5) at step 3. Link mode `sink`. |
+| `ctrl` | 0 | Path from flag to storage. Flag on the controller: point `ctrl` at step 2, link(5) at step 3. Flag anywhere else: point `ctrl` on the flag tile itself, link(5) at step 1 (warns if the tile is beyond upgrade range 3). Link mode `sink`. |
 | `tripod` | 0 | Three towers around a point (`parkedLayout`); deployed layout with link and roads exists but is not used. |
 | `traffic` | 0 | Roads: ring around storage/terminal/spawns, then repeated `PathFinder` runs from storage and terminal to every other meta's `dests()` until CPU says stop. Needs storage, terminal, and 3 spawns planned first. |
 | `wall` | 0 | Horizontal rampart/wall line east of the flag (rampart every other tile or beside terrain walls), a parallel road, and on-ramps from each rampart to the road. |

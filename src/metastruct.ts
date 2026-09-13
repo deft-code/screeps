@@ -1355,7 +1355,9 @@ class Meta_asrc extends MetaStructure {
         // Before extensions
         mem.priority = 103;
 
-        const self = ret.path[0];
+        // Best spot is the first step toward storage. RED picks the second
+        // best, PURPLE the third, ranked by the same weighted path cost.
+        const self = Meta_asrc.pickSpot(f, man, cm, t, ret.path[0], storep);
         addMemStruct(mem, STRUCTURE_CONTAINER, 3, self.xy);
 
         // easy travel near source, but hard were extns will be.
@@ -1409,6 +1411,36 @@ class Meta_asrc extends MetaStructure {
 
         return meta;
     }
+    static pickSpot(f: FlagExtra, man: MetaManager, cm: CostMatrix, t: RoomTerrain, best: RoomPosition, storep: RoomPosition): RoomPosition {
+        let rank = 0;
+        if (f.secondaryColor === COLOR_RED) rank = 1;
+        if (f.secondaryColor === COLOR_PURPLE) rank = 2;
+        if (rank === 0) return best;
+
+        const others = [] as { pos: RoomPosition, cost: number }[];
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                if (dx === 0 && dy === 0) continue;
+                const x = f.pos.x + dx;
+                const y = f.pos.y + dy;
+                if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+                const terrain = t.get(x, y);
+                if (terrain & TERRAIN_MASK_WALL) continue;
+                const pos = new RoomPosition(x, y, f.pos.roomName);
+                if (pos.isEqualTo(best)) continue;
+                const ret = man.path(cm, pos, [{ pos: storep, range: 1 }]);
+                if (ret.incomplete) continue;
+                // Entering this tile costs its weight plus terrain, like the first step did.
+                const enter = cm.get(x, y) + ((terrain & TERRAIN_MASK_SWAMP) ? kPathSwamp : kPathPlain);
+                others.push({ pos, cost: ret.cost + enter });
+            }
+        }
+        if (!others.length) return best;
+        const sorted = _.sortBy(others, o => o.cost);
+        const pick = sorted[Math.min(rank - 1, sorted.length - 1)].pos;
+        f.log("spot rank", rank + 1, "of", sorted.length + 1, pick);
+        return pick;
+    }
     dests(): [number, number][] {
         return this.pointDests();
     }
@@ -1458,12 +1490,21 @@ class Meta_ctrl extends MetaStructure {
         if (!p) return null;
         const cm = man.getMatrix([f.role]);
         const ret = man.path(cm, f.pos, [{ pos: p, range: 1 }]);
-        if (ret.path.length < 4) return null;
         const v = new RoomVisual(man.name);
         for (const pos of ret.path) {
             v.circle(pos.x, pos.y);
         }
         const mem = MetaStructure.makeMem(f);
+        const ctrl = f.room?.controller;
+        if (ctrl && !ctrl.pos.isEqualTo(f.pos)) {
+            // Flag placed off the controller: stand on the flag, link on the next step to storage.
+            if (ret.path.length < 1) return null;
+            if (!ctrl.pos.inRangeTo(f.pos, 3)) f.log("ctrl spot out of upgrade range", f.pos);
+            mem.points[calcRole(mem.name)] = toXY(f.pos);
+            addMemStruct(mem, STRUCTURE_LINK, 5, ret.path[0].xy);
+            return new this(mem, man);
+        }
+        if (ret.path.length < 4) return null;
         mem.points[calcRole(mem.name)] = ret.path[2].xy;
         addMemStruct(mem, STRUCTURE_LINK, 5, ret.path[3].xy);
         return new this(mem, man);
