@@ -137,12 +137,13 @@ getService('Farm W25S8 W26S8').evolve('Farm W25S8 W25S7')
 ```
 
 `Mission.evolve(cmd)` schedules `cmd` (idempotent; a live instance is reused),
-`donateRole`s every role's eggs, hatches and creeps to it (each creep's
+`donateAll`s its eggs, hatches and creeps to it (`donateRole` per role) (each creep's
 `memory.mission` is repointed), merges the `paceCreeps` timers (`memory.when`),
 then `kill()`s the old mission and deletes `Memory.missions[old]`. Nothing is
 purged, so no creep is lost. Only the base `MissionMemory` moves: a subclass
-with extra state (Remote's `metas`) should override `evolve` if it needs it
-carried. The target may be a different mission class; the creeps keep their
+with extra state should override `evolve`; `Remote.evolve` calls
+`removeMetas()` first so the old plan and its sites go, and the new Remote
+replans against its own home on its next visible run. The target may be a different mission class; the creeps keep their
 jobs and simply resolve `this.mission` to the new instance.
 
 ## Winding down a mission
@@ -202,6 +203,9 @@ skip straight to `super.run()`, so they lay no eggs while winding down. A new
   eggs) above `(n-1)*life` plus spawn lag. With `n=1` the replacement is laid as
   the last creep dies.
 - `nJobs(ctor, n, life=1500)`: `nCreeps(ctor.name.toLowerCase(), n, life)`.
+- `donate(ctor, other)` / `donateRole(role, other)` / `donateAll(other)`: move
+  one role's, or every role's, eggs, hatches and creeps to mission `other`,
+  repointing each creep's `memory.mission`; return the moved names.
 - `paceNJobs(ctor, n, life=1500)`: `paceJobs(ctor, life / n)`, i.e. `n` creeps
   per lifetime as a rate; `n <= 0` lays nothing (`Farm` farmers, `Startup`
   pioneers).

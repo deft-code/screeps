@@ -79,7 +79,7 @@ So a 550-capacity room (RCL 2) always gets the level-1 guard, a full RCL 4 room
   room itself; `Startup.body(ecap, 6)`, so the energyDef branch stops at 6 WORK/CARRY
   pairs (20 parts, 1300 energy).
 - **Egg order** (`spawn.ts eggOrder`): higher `priority` first (Reboot 10,
-  Hauler 9, Srcer 8, Scout 7, Mini 7, everything else 0), then older first in
+  Hauler 9, Srcer 8, Scout 7, Mini 7, everything else 0, Trucker -1), then older first in
   500-tick buckets. Priorities are plain numbers compared by subtraction, so
   negative values work and sort after 0.
 - **Reboot**: same shape but sized from `energyAvailable`, so it spawns

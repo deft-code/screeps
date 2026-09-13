@@ -16,6 +16,8 @@ const kReserverLife = CREEP_CLAIM_LIFE_TIME - 50;
 // the room for this many consecutive ticks (strat.ts ratchet,
 // memory.thostiles) before a guard, then a wolf, is sent. A brief visit is
 // left to the towers at home; a stay earns a guard, a camp the heavier wolf.
+const kMicroEnemyTicks = 5;
+const kMiniHostileTicks = 10;
 const kGuardHostileTicks = 100;
 const kWolfHostileTicks = 300;
 // Both cadences shrink by one tick per tick of hostile presence, from 1500
@@ -97,11 +99,20 @@ export class Farm extends Mission {
         return Math.min(max, sourceCapacity / farmerRate);
     }
 
+    suppressNano() {
+        const t = this.room!.memory.tenemies || 0;
+        if (t < kMicroEnemyTicks) return null;
+        return null;
+        // TODO implment Micro Range + Move with only targeting of non-ranged creeps.
+        //return this.paceNJobs(Micro, 1);
+    }
+
     // team.ts suppressMini: any enemy creep in the room (scouts included)
     // draws a cheap mini. The tenemies ratchet resets 10 ticks after the last
     // enemy leaves, so this stops on its own.
     suppressMini() {
-        if (!this.room!.memory.tenemies) return null;
+        const t = this.room!.memory.thostiles || 0;
+        if (t < kMiniHostileTicks) return null;
         return this.paceJobs(Mini, kMiniPace);
     }
 

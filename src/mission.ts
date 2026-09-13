@@ -110,6 +110,14 @@ export abstract class Mission extends Service {
         return moved;
     }
 
+    // donateRole for every role this mission has an egg, hatch or creep of.
+    // Returns the moved names.
+    donateAll(other: Mission): string[] {
+        const roles = _.uniq(_.map([...this.memory.eggs, ...this.memory.hatch, ...this.memory.creeps],
+            name => getMyCreep(name).role));
+        return _.flatten(roles.map(role => this.donateRole(role, other)));
+    }
+
     // Replace this mission with `cmd`: schedule the new mission (or reuse it
     // if live), hand it every egg, hatch and creep of every role plus the
     // paceCreeps timers, then kill this one and drop its memory. Nothing is
@@ -125,9 +133,7 @@ export abstract class Mission extends Service {
             debug.log(this.name, "evolve: no mission for", cmd);
             return null;
         }
-        const roles = _.uniq(_.map([...this.memory.eggs, ...this.memory.hatch, ...this.memory.creeps],
-            name => getMyCreep(name).role));
-        for (const role of roles) this.donateRole(role, other);
+        this.donateAll(other);
         if (this.memory.when) {
             other.memory.when = _.assign(other.memory.when || {}, this.memory.when);
         }

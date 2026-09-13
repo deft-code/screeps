@@ -53,6 +53,7 @@ interface RemoteMemory extends MissionMemory {
 // Schedule from the console:
 //   scheduleService('Remote W5N8 W6N8')   // args[1]=remote room, args[2]=home room
 // Retire with windDown(), not kill(): windDown removes the planned metas.
+// evolve(cmd) also removes them before handing the creeps over.
 @register
 export class Remote extends Farm {
     get memory(): RemoteMemory {
@@ -264,6 +265,14 @@ export class Remote extends Farm {
     windDown() {
         super.windDown();
         this.removeMetas();
+    }
+
+    // The planned metas are keyed to this mission's home room and tracked
+    // only in this mission's memory, so drop them (and their sites) before
+    // the creeps move; the new mission replans on its next visible run.
+    evolve(cmd: string): Mission | null {
+        if (cmd !== this.name) this.removeMetas();
+        return super.evolve(cmd);
     }
 
     status(): string {

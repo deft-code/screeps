@@ -12,6 +12,8 @@ import type { Remote } from "ms.remote";
 // repairs: the paver and harvester do that.
 @register
 export class Trucker extends JobRole {
+    // Hauling remote energy yields to every other egg; the containers buffer it.
+    priority = -1;
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         const close = closeSpawns(spawns, this.mission.roomName) as StructureSpawn[];
         const spawn = _.find(close, s => !s.spawning) || _.first(close);
