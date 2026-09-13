@@ -237,7 +237,8 @@ export class Path {
         for (let i = 0; i < this._steps.length; i++) {
             last = positionAtDirection(last, this.nthDir(i))
             if (last.inRangeTo(dest, range)) {
-                this._steps = this._steps.slice(i + 1)
+                // Keep the steps that reach `last`; drop everything beyond it.
+                this._steps = this._steps.slice(0, i + 1)
                 return last
             }
         }
@@ -856,8 +857,13 @@ class Step {
                     this.path = path
                     return this.step()
                 }
-                const [err, path] = this.planSteps(last, [goal], this.creep.ticksToLive || CREEP_LIFE_TIME);
-                this.path._steps += path._steps
+                const [err, ext] = this.planSteps(last, [goal], this.creep.ticksToLive || CREEP_LIFE_TIME);
+                // PathFinder omits the origin, so ext.first is the tile after the
+                // tip: splice in the connecting step or the extension lands one
+                // tile off. An empty result falls back to creep.pos; skip that.
+                if (ext.first.isNearTo(last) && !ext.first.isEqualTo(last)) {
+                    this.path._steps += getDirectionTo(last, ext.first) + ext._steps
+                }
             } else {
                 drawGoal(last, 'orange', goal)
             }
