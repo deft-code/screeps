@@ -41,6 +41,10 @@ the MOVEs are placed early (`premove`) so damage strips them before WORK/CARRY.
 - **Startup**: `_.sample(Game.spawns)`; body by `room.energyCapacityAvailable`:
   300 -> rotates `[W,W,C,M]` / `[W,C,M,M]` / `[W,C,C,M,M]` by `Game.time % 3`;
   350/400-450/500/550 fixed tables; else `energyDef({move:2, base:[M,C], per:[W,C]})`.
+- **Pioneer** (`ms.startup.ts`): `findSpawns(spawns, mission.roomName, {spawn:"remote"})`,
+  i.e. the nearest spawns at route distance > 0 from the mission room, never the
+  room itself; `Startup.body(ecap, 6)`, so the energyDef branch stops at 6 WORK/CARRY
+  pairs (20 parts, 1300 energy).
 - **Reboot**: same shape but sized from `energyAvailable`, so it spawns
   immediately with whatever is in the spawn.
 - **Scout**: `[MOVE]`. **Swiper**: `[MOVE, CARRY]`.

@@ -1,4 +1,3 @@
-
 import { JobCreep } from "job.creep";
 import { register } from "mycreep";
 import { energyDef } from "spawn";
@@ -8,34 +7,32 @@ export class Startup extends JobCreep {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         const spawn = _.sample(Game.spawns);
         if (!spawn) return [null, []];
-        const energy = spawn.room.energyCapacityAvailable;
-        let body;
+        return [spawn, Startup.body(spawn.room.energyCapacityAvailable)];
+    }
+
+    // Body for a bootstrap generalist at a room's energy capacity. `max` caps
+    // the number of WORK/CARRY pairs in the energyDef branch (>550 energy).
+    static body(energy: number, max = 50): BodyPartConstant[] {
         switch (energy) {
             case 300: {
                 const mod = Game.time % 3;
-                if (mod === 0) {
-                    body = [WORK, WORK, CARRY, MOVE];
-                } else if (mod === 1) {
-                    body = [WORK, CARRY, MOVE, MOVE];
-                } else {
-                    body = [WORK, CARRY, CARRY, MOVE, MOVE];
-                }
-                break;
+                if (mod === 0) return [WORK, WORK, CARRY, MOVE];
+                if (mod === 1) return [WORK, CARRY, MOVE, MOVE];
+                return [WORK, CARRY, CARRY, MOVE, MOVE];
             }
-            case 350: body = [WORK, WORK, CARRY, MOVE, MOVE]; break;
+            case 350: return [WORK, WORK, CARRY, MOVE, MOVE];
             case 400:
-            case 450: body = [WORK, WORK, CARRY, CARRY, MOVE, MOVE]; break;
-            case 500: body = [WORK, WORK, WORK, CARRY, MOVE, MOVE, MOVE]; break;
-            case 550: body = [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE]; break;
+            case 450: return [WORK, WORK, CARRY, CARRY, MOVE, MOVE];
+            case 500: return [WORK, WORK, WORK, CARRY, MOVE, MOVE, MOVE];
+            case 550: return [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE];
             default:
-                body = energyDef({
+                return energyDef({
                     move: 2,
                     base: [MOVE, CARRY],
                     per: [WORK, CARRY],
                     energy,
+                    max,
                 });
-                break;
         }
-        return [spawn, body];
     }
 }

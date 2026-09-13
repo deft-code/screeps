@@ -42,12 +42,19 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               not foreign-reserved (civilians in remotes are paced, never replaced).
                                                               truck(): paceJobs(Trucker, min(1500, 1500 / (5*sum(src cap) / (avg carry * 1500 / (2*legSteps+10)))))
                                                               same gates; 1500 while no trucker is alive; legSteps = longest source leg from planning
-         └─ Once             @register  (ms.once.ts)           "Once <Job> <room>"; lays one egg of the job, winds down once it has spawned,
+         ├─ Once             @register  (ms.once.ts)           "Once <Job> <room>"; lays one egg of the job, winds down once it has spawned,
                                                               kills and deschedules itself when the creep and its tombstone are gone
-
+         └─ Startup          @register  (ms.startup.ts)        "Startup <room>"; assists a freshly claimed room: while its controller is ours and
+                                                              below RCL4, nJobs(Pioneer, max(1, 6 - rcl)) (the GlobalRespawn startup count) spawned
+                                                              outside the room; at RCL4 windDown(): pioneers live out their lives, then the mission
+                                                              kills and deschedules itself. Lays nothing while the room is not ours. Distinct from
+                                                              the `Startup` job class (separate registries).
 MyCreep                      wrapper object per creep *name* (mycreep.ts); not a prototype extension
  └─ JobCreep                 knows its Mission; Rewalker movement helpers (job.creep.ts)
      ├─ Startup  @register   body table keyed by energyCapacity      (job.startup.ts)
+     │   └─ Pioneer @register (job.pioneer.ts) startup for another room, laid by the Startup mission: same body table capped at 6
+     │                       WORK/CARRY pairs, spawned via the "remote" strategy (nearest spawns outside the mission room), and
+     │                       init() sets memory.home to the mission room so roleBootstrap works there (rolePioneer in role.bootstrap.js)
      ├─ Reboot   @register   priority 10, body from energyAvailable   (job.reboot.ts)
      ├─ Scout    @register   [MOVE] from the "home" room if any, walks to the mission room (job.scout.ts)
      ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "remote" spawn strategy; harvests in the

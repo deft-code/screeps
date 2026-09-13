@@ -50,6 +50,7 @@ import 'ms.farm';
 import 'ms.reactor';
 import 'ms.remote';
 import 'ms.once';
+import 'ms.startup';
 import "service.flag";
 
 import "job.hauler";
@@ -68,6 +69,7 @@ import 'role.mineral';
 import 'role.shovel';
 import 'role.src';
 import 'job.startup';
+import 'job.pioneer';
 
 import 'deposit';
 

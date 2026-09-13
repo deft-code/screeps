@@ -2,6 +2,9 @@ import * as routes from 'routes';
 module.exports = class CreepBootstrap {
   roleStartup() { return this.roleBootstrap() }
   afterStartup() { return this.afterBootstrap() }
+  // Pioneer (job.pioneer.ts): a startup for another room, laid by ms.startup.ts.
+  rolePioneer() { return this.roleBootstrap() }
+  afterPioneer() { return this.afterBootstrap() }
 
   roleBootstrap() {
     let what = this.idleEmergencyUpgrade() || this.taskTask()
