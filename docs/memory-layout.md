@@ -44,7 +44,7 @@ a stuck egg and resets it.
 | field | writer | live | shape |
 |---|---|---|---|
 | `intel` | `intel.ts` | yes | `{ last, enabled?, owner?: [userIdx, rcl], core?: [lvl, expire], power?: [xy, amount, expire], deposit?: [xy, cooldown, expire], portal? }` |
-| `meta` | `metastruct.ts` | yes | `{ metas: MetaMem[], keep?, drop?, roadkeep?, roaddrop?: xy[], rampart?, constructedWall?: {xy: MAXHITS} }` see [metastruct.md](metastruct.md) |
+| `meta` | `metastruct.ts` | yes | `{ metas: MetaMem[], keep?, drop?, roadkeep?, roaddrop?: xy[], rampart?, constructedWall?: {xy: MAXHITS} }`; `MetaMem.retire?: {xy: rcl}` retires a tile from that RCL; see [metastruct.md](metastruct.md) |
 | `links` | `struct.link.ts` | yes | `{ [xy]: { mode: "^"|"+"|"-"|"="|"x" } }` (old entries may still say `"src"`/`"sink"`) |
 | `labs` | `struct.lab.js` | yes | `{ current?: resource, order?: labId[], [labId]: { note, planType?, boost?, boostTime? } }` |
 | `spots` | `room.ts` | yes (read) | `{ [name]: xy }` manual standing spots; metastruct points are the usual source |

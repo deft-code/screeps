@@ -22,6 +22,11 @@ function calcRole(name: string): string {
     return _.words(name)[0].toLowerCase();
 }
 
+// Ticks between passes that destroy structures on retired tiles.
+const kRetirePace = 10;
+// Structures that decay when nobody repairs them; retire() leaves them to it.
+const kDecays: StructureConstant[] = [STRUCTURE_ROAD, STRUCTURE_CONTAINER, STRUCTURE_RAMPART];
+
 export const kPathRoad = 7;
 export const kPathPlain = 11;
 export const kPathSwamp = 12;
@@ -276,6 +281,12 @@ function makeTemplate(mem: MetaMem, l: legend, points: string[], tmpl: string) {
     }
 }
 
+// Retire whatever this meta plans at `xy` once the room reaches `rcl`.
+export function addMemRetire(mem: MetaMem, xy: number, rcl: number) {
+    if (!mem.retire) mem.retire = {};
+    mem.retire[xy] = rcl;
+}
+
 export function addMemStruct(mem: MetaMem, stype: BuildableStructureConstant, lvl: PlanLevel, xy: number) {
     if (!mem.structs[stype]) {
         mem.structs[stype] = { [lvl]: [xy] };
@@ -327,6 +338,12 @@ export interface MetaMem {
     points: MetaPoints
     structs: MetaStructs
     onramps?: number[]
+    // Tile -> RCL from which the structure planned there is retired: no longer
+    // built, repaired or drawn, and destroyed by MetaManager.retire().
+    retire?: MetaRetire
+}
+type MetaRetire = {
+    [xy: number]: number
 }
 type MetaPoints = {
     [name: string]: number
@@ -362,6 +379,9 @@ export class MetaManager {
         const metaMem = this.memory;
         this.metas = _.compact(_.map(metaMem.metas, mem => newMeta(mem, this))) as MetaStructure[];
         this.metas.sort(metaOrder);
+        for (const meta of this.metas) {
+            if (meta.migrate()) Game.rooms[name]?.log(meta.name, "meta memory migrated");
+        }
         this.save();
         this.birth = Game.time
         this.begin = 10 + _.random(50);
@@ -386,6 +406,11 @@ export class MetaManager {
     }
 
     save() {
+        this.clearHitsCache();
+        this.memory.metas = _.map(this.metas, meta => meta.mem);
+    }
+
+    clearHitsCache() {
         const metaMem = this.memory;
         delete metaMem.drop;
         delete metaMem.keep;
@@ -393,7 +418,18 @@ export class MetaManager {
         delete metaMem.roadkeep;
         delete metaMem[STRUCTURE_RAMPART];
         delete metaMem[STRUCTURE_WALL];
-        metaMem.metas = _.map(this.metas, meta => meta.mem);
+    }
+
+    // Destroy one structure standing on a retired tile (MetaMem.retire), then
+    // drop the maxHits cache so the retired tile stops reading as repairable.
+    retire(room: Room): boolean {
+        for (const meta of this.metas) {
+            if (meta.retire(room)) {
+                this.clearHitsCache();
+                return true;
+            }
+        }
+        return false;
     }
 
     run() {
@@ -404,6 +440,8 @@ export class MetaManager {
             Game.rooms[this.name].dlog("Anti-thrashing");
             //return 
         }
+
+        if (Game.time % kRetirePace === 0 && this.retire(room)) return;
 
         const nsites = room.find(FIND_MY_CONSTRUCTION_SITES).length
         if (nsites > 2) {
@@ -871,8 +909,45 @@ export class MetaStructure {
         return [];
     }
 
+    // Is the tile's planned structure retired at this RCL?
+    isRetired(xy: number, rcl: number): boolean {
+        const at = this.mem.retire?.[xy];
+        return at !== undefined && rcl >= at;
+    }
+
+    // One-shot memory upgrade when the manager loads; return true if mem changed.
+    migrate(): boolean {
+        return false;
+    }
+
+    // Clear one retired tile: remove a planned site, or destroy a planned
+    // structure that would not decay on its own. Roads, containers and
+    // ramparts are left to decay once nothing repairs them (calcStructHits
+    // answers Unknown for a retired tile); ramparts are also planned over
+    // other structures. purge() keeps its own, older rules.
+    retire(room: Room): boolean {
+        const rcl = Number(roomLevel(room));
+        for (const key in this.mem.retire) {
+            const xy = parseInt(key, 10);
+            if (!this.isRetired(xy, rcl)) continue;
+            const [x, y] = coordsFromXY(xy);
+            const found: (Structure | ConstructionSite)[] = [
+                ...room.lookForAt(LOOK_STRUCTURES, x, y),
+                ...room.lookForAt(LOOK_CONSTRUCTION_SITES, x, y),
+            ];
+            for (const st of found) {
+                if (!this.hasAny(st.structureType as BuildableStructureConstant, xy)) continue;
+                if (!(st instanceof ConstructionSite) && _.contains(kDecays, st.structureType)) continue;
+                room.log(this.name, "retiring", st.structureType, "at", x, y);
+                return this.manager.removeDestroy(st);
+            }
+        }
+        return false;
+    }
+
     // Does this meta manage a an stype at up to maxLvl
     has(stype: BuildableStructureConstant, maxLvl: number, xy: number): boolean {
+        if (this.isRetired(xy, maxLvl)) return false;
         const lvls = this.mem.structs[stype];
         if (!lvls) return false;
         const optxys = lvls[9];
@@ -953,7 +1028,9 @@ export class MetaStructure {
     findXys(xys: undefined | number[], stype: BuildableStructureConstant, room: Room): [RoomPosition | null, Structure | ConstructionSite | null] {
         if (!xys) return [null, null];
         let blocker: Structure | ConstructionSite | null = null;
+        const rcl = Number(roomLevel(room));
         for (const xy of xys!) {
+            if (this.isRetired(xy, rcl)) continue;
             const p = fromXY(xy, room.name);
             const [free, newblocker] = checkSitePos(p, stype);
             if (free) {
@@ -972,6 +1049,7 @@ export class MetaStructure {
         _.forEach(this.mem.structs, (lvls, stype) =>
             _.forEach(lvls!, xys =>
                 xys!.forEach(xy => {
+                    if (room && this.isRetired(xy, Number(roomLevel(room)))) return
                     const [x, y] = coordsFromXY(xy);
                     if (room && _.any(room.lookForAt(LOOK_STRUCTURES, x, y), s => s.structureType === stype)) return
                     v.structure(x, y, stype as StructureConstant, { opacity: 0.5 });
@@ -1023,7 +1101,7 @@ export class MetaStructure {
     }
 
     maxHits(stype: BuildableStructureConstant, xy: number, rcl: number): MAXHITS {
-        return this.calcStructHits(stype, xy);
+        return this.calcStructHits(stype, xy, rcl);
     }
 
     calcRclHits(rcl:number): MAXHITS {
@@ -1053,8 +1131,9 @@ export class MetaStructure {
         return MAXHITS.Unknown;
     }
 
-    calcStructHits(stype: BuildableStructureConstant, xy: number): MAXHITS {
+    calcStructHits(stype: BuildableStructureConstant, xy: number, rcl: number): MAXHITS {
         if (stype === STRUCTURE_RAMPART || stype === STRUCTURE_WALL) return MAXHITS.Unknown;
+        if (this.isRetired(xy, rcl)) return MAXHITS.Unknown;
         if (this.hasAny(stype, xy)) return MAXHITS.Full;
         return MAXHITS.Unknown;
     }
@@ -1183,7 +1262,7 @@ class Meta_hub extends MetaStructure {
             STRUCTURE_TERMINAL,
             STRUCTURE_TOWER,
         ];
-        return this.calcStructHits(stype, xy) ||
+        return this.calcStructHits(stype, xy, rcl) ||
             this.calcRampBldgHits(ramped, xy, rcl) ||
             this.calcRampSpotHits(xy, rcl);
     }
@@ -1262,7 +1341,7 @@ class Meta_lab extends MetaStructure {
         return this.getSpawnEnergies();
     }
     maxHits(stype: BuildableStructureConstant, xy: number, rcl:number): number {
-        return this.calcStructHits(stype, xy) ||
+        return this.calcStructHits(stype, xy, rcl) ||
             this.calcRampBldgHits([STRUCTURE_SPAWN], xy, rcl);
     }
 }
@@ -1483,6 +1562,12 @@ class Meta_min extends MetaStructure {
     // }
 }
 
+const kCtrlContainerLevel: PlanLevel = 2;
+// Links unlock at RCL5 (CONTROLLER_STRUCTURES.link) but the two RCL5 links go
+// to the asrc/bsrc metas; the ctrl link is the third, at RCL6. The container is
+// retired the same level, then decays unrepaired.
+const kCtrlLinkLevel: PlanLevel = 6;
+
 @registerMeta
 class Meta_ctrl extends MetaStructure {
     static plan(f: FlagExtra, man: MetaManager) {
@@ -1501,13 +1586,42 @@ class Meta_ctrl extends MetaStructure {
             if (ret.path.length < 1) return null;
             if (!ctrl.pos.inRangeTo(f.pos, 3)) f.log("ctrl spot out of upgrade range", f.pos);
             mem.points[calcRole(mem.name)] = toXY(f.pos);
-            addMemStruct(mem, STRUCTURE_LINK, 5, ret.path[0].xy);
+            addMemStruct(mem, STRUCTURE_LINK, kCtrlLinkLevel, ret.path[0].xy);
+            Meta_ctrl.addContainer(mem);
             return new this(mem, man);
         }
         if (ret.path.length < 4) return null;
         mem.points[calcRole(mem.name)] = ret.path[2].xy;
-        addMemStruct(mem, STRUCTURE_LINK, 5, ret.path[3].xy);
+        addMemStruct(mem, STRUCTURE_LINK, kCtrlLinkLevel, ret.path[3].xy);
+        Meta_ctrl.addContainer(mem);
         return new this(mem, man);
+    }
+
+    // Upgrader buffer under the ctrl creep (container mode 'sink': haulers fill
+    // it). Built from RCL kCtrlContainerLevel, retired once the link can be
+    // built; being a container it then decays rather than being destroyed.
+    // Replaces role.ctrl.js structAtSpot.
+    static addContainer(mem: MetaMem) {
+        const xy = mem.points[calcRole(mem.name)];
+        addMemStruct(mem, STRUCTURE_CONTAINER, kCtrlContainerLevel, xy);
+        addMemRetire(mem, xy, Number(kCtrlLinkLevel));
+    }
+
+    // Metas planned before Sept 2026: move the link from RCL5 to kCtrlLinkLevel
+    // and add the retiring container.
+    migrate(): boolean {
+        let changed = false;
+        const links = this.mem.structs[STRUCTURE_LINK];
+        if (links && links[5] && !links[kCtrlLinkLevel as 6]) {
+            links[kCtrlLinkLevel as 6] = links[5];
+            delete links[5];
+            changed = true;
+        }
+        if (!this.mem.structs[STRUCTURE_CONTAINER] && this.mem.points[calcRole(this.name)] !== undefined) {
+            Meta_ctrl.addContainer(this.mem);
+            changed = true;
+        }
+        return changed;
     }
     dests(): [number, number][] {
         return this.pointDests();
@@ -1541,7 +1655,7 @@ class Meta_tripod extends MetaStructure {
         return new this(mem, man);
     }
     maxHits(stype: BuildableStructureConstant, xy: number, rcl: number): MAXHITS {
-        return this.calcStructHits(stype, xy) ||
+        return this.calcStructHits(stype, xy, rcl) ||
             this.calcRampBldgHits([STRUCTURE_TOWER], xy, rcl) ||
             this.calcRampSpotHits(xy, rcl);
     }
@@ -1678,7 +1792,7 @@ class Meta_wall extends MetaStructure {
             return this.calcRampWallHits(stype, xy, rcl-3);
         }
 
-        return this.calcRampWallHits(stype, xy, rcl) || this.calcStructHits(stype, xy);
+        return this.calcRampWallHits(stype, xy, rcl) || this.calcStructHits(stype, xy, rcl);
     }
 
     dests(): [number, number][] {
@@ -1796,7 +1910,7 @@ class Meta_nuke extends MetaStructure {
 
             return Math.max(Math.floor(baseHits/2), MAXHITS.Low);
         }
-        return this.calcStructHits(stype, xy);
+        return this.calcStructHits(stype, xy, rcl);
     }
 
     draw(v: RoomVisual) {

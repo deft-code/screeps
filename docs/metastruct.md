@@ -20,7 +20,8 @@ The flags described here are the only flags that exist in the game today.
   { name: "hub", color: COLOR_x (template rotation), priority?: number, xy: anchor,
     points: { hub: xy, shovel: xy },            // named standing spots
     structs: { extension: { 2: [xy...], 3: [xy...], 9: [xy...] }, ... }, // by RCL
-    onramps?: xy[] }                            // Meta_wall only
+    onramps?: xy[],                             // Meta_wall only
+    retire?: { [xy]: rcl } }                    // tile retired from this RCL on (see Retiring structures)
   ```
 
   Level `9` means *optional*: built only after all required sites and purged
@@ -40,7 +41,7 @@ The flags described here are the only flags that exist in the game today.
 | `extna` / `extnb` / `extnc` | 0 | Optional (level 9) extension fields, 3x3 / 5x5 / 7x7 checkerboards with roads at RCL5. |
 | `asrc` / `bsrc` | 103 | Source cluster: container on the path step nearest storage, road, link(5) at the adjacent tile nearest storage, extensions(3) on the other free neighbours. `myspot` = container tile; `targetid()` = the source. Link mode `src`. The child flag's secondary colour overrides the container tile: RED takes the second-best neighbour, PURPLE the third-best (ranked by weighted path cost to storage, `Meta_asrc.pickSpot`); any other colour keeps the best. |
 | `min` | 0 | Container on the flag tile (RCL6), point `mineral`. |
-| `ctrl` | 0 | Path from flag to storage. Flag on the controller: point `ctrl` at step 2, link(5) at step 3. Flag anywhere else: point `ctrl` on the flag tile itself, link(5) at step 1 (warns if the tile is beyond upgrade range 3). Link mode `sink`. |
+| `ctrl` | 0 | Path from flag to storage. Flag on the controller: point `ctrl` at step 2, link(6) at step 3. Flag anywhere else: point `ctrl` on the flag tile itself, link(6) at step 1 (warns if the tile is beyond upgrade range 3). Container(2) on the `ctrl` point, retired at the link's level (6; the two RCL5 links belong to asrc/bsrc) and left to decay (`Meta_ctrl.addContainer`; `migrate()` adds it to metas planned before Sept 2026). Link mode `sink`. |
 | `tripod` | 0 | Three towers around a point (`parkedLayout`); deployed layout with link and roads exists but is not used. |
 | `traffic` | 0 | Roads: ring around storage/terminal/spawns, then repeated `PathFinder` runs from storage and terminal to every other meta's `dests()` until CPU says stop. Needs storage, terminal, and 3 spawns planned first. |
 | `wall` | 0 | Horizontal rampart/wall line east of the flag (rampart every other tile or beside terrain walls), a parallel road, and on-ramps from each rampart to the road. |
@@ -111,7 +112,7 @@ planned structure instead of hiding built ones).
 containers and roads. In a room we do not own (`roomLevel` 0) `makeSite`
 never purges on `ERR_RCL_NOT_ENOUGH`.
 
-Skips when more than 2 of the room's construction sites exist. Then in order:
+Every `kRetirePace` (10) ticks, first clears one retired tile (below). Skips when more than 2 of the room's construction sites exist. Then in order:
 tower or spawn if the room has none; extensions while
 `energyCapacityAvailable < 600`; then
 `terminal, tower, spawn, extension, storage, wall, link, container, extractor
@@ -121,6 +122,22 @@ road`. `makeSite` walks metas in priority order, tries required levels
 foreign site is `removeDestroy`ed (storage/terminal/factory are protected while
 a replacement site exists). `ERR_RCL_NOT_ENOUGH` triggers `purge` of structures
 no meta claims at this RCL.
+
+## Retiring structures
+
+`MetaMem.retire` maps a tile to the RCL from which whatever the meta plans
+there is retired. `addMemRetire(mem, xy, rcl)` sets it at plan time. From that
+RCL on: `findXys` skips the tile so no site is created, `has` denies it so
+`purge` may remove it, `calcStructHits` answers Unknown so nobody repairs it,
+`draw` hides it, and `MetaManager.retire()` (top of `run()`, one tile per
+pass every 10 ticks) `removeDestroy`s a planned-type site, or a planned-type
+structure that would not decay on its own, then clears the maxHits cache.
+Roads, containers and ramparts (`kDecays`) are left to decay unrepaired
+instead of being destroyed; `purge` keeps its older rules.
+`MetaStructure.migrate()` is a per-class hook run when the manager loads (before
+its `save()`) for one-shot memory upgrades. First user: the `Meta_ctrl`
+container, previously built ad hoc by `role.ctrl.js` `structAtSpot` with no
+repair and no removal.
 
 ## Services metas provide to the rest of the bot
 

@@ -23,12 +23,6 @@ module.exports = class CreepCtrl {
     }
   }
 
-  afterCtrl() {
-    const p = this.room.getSpot(this.role)
-    if (!p) return
-    const r = Game.rooms[p.roomName]
-    if (r.controller.level < 8) {
-      this.structAtSpot(STRUCTURE_CONTAINER)
-    }
-  }
+  // The ctrl container is planned by Meta_ctrl (metastruct.ts) since Sept
+  // 2026; it used to be built here with structAtSpot.
 }
