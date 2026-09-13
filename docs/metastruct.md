@@ -24,8 +24,9 @@ The flags described here are the only flags that exist in the game today.
     retire?: { [xy]: rcl } }                    // tile retired from this RCL on (see Retiring structures)
   ```
 
-  Level `9` means *optional*: built only after all required sites and purged
-  when `ERR_RCL_NOT_ENOUGH`.
+  Level `9` (`kAllLvls`) means *optional*: offered at every RCL but only by
+  `makeSite`'s second pass, after all required sites, and purged when
+  `ERR_RCL_NOT_ENOUGH`.
 - **Templates**: ASCII layouts with a legend `{ char: [rcl, STRUCTURE_x] }`,
   digits for named points, `.` for empty. `rotate()` flips/rotates by the child
   flag's secondary colour (RED, ORANGE, BLUE, YELLOW, PURPLE; anything else = as
@@ -38,8 +39,8 @@ The flags described here are the only flags that exist in the game today.
 | `hub` | 102 | 4x4 core: spawn(1), towers(3/5/7), roads, storage(4), link(5), terminal(6), factory(7), power spawn(8); points `hub`, `shovel`; ramparts on everything important. Link mode `hub`. |
 | `cap` | 101 | 5x5 extension cluster with a centre container (RCL2-4). Link mode `sink`. |
 | `lab` | 0 | 10 labs (RCL6-8), 2 spawns, observer, nuker. Its spawn energies are filled last. |
-| `extna` / `extnb` / `extnc` | 0 | Optional (level 9) extension fields, 3x3 / 5x5 / 7x7 checkerboards with roads at RCL5. |
-| `asrc` / `bsrc` | 103 | Source cluster: container on the path step nearest storage, road, link(5) at the adjacent tile nearest storage, extensions(3) on the other free neighbours. `myspot` = container tile; `targetid()` = the source. Link mode `src`. The child flag's secondary colour overrides the container tile: RED takes the second-best neighbour, PURPLE the third-best (ranked by weighted path cost to storage, `Meta_asrc.pickSpot`); any other colour keeps the best. |
+| `extna` / `extnb` / `extnc` | 0 | Optional (level 9) extension fields, 3x3 / 5x5 / 7x7 checkerboards with roads at RCL5. Tiles are stored nearest the `hub` spot first (`Meta_extn.orderByHub`; storage site, then the anchor, without a hub), which is the build order; `migrate()` re-sorts fields planned earlier. |
+| `asrc` / `bsrc` | 103 | Source cluster: container on the path step nearest storage, road, link(5) at the adjacent tile nearest storage, extensions(2) on the other free neighbours (RCL2 so they outrank `cap`'s RCL2 field by priority; `migrate()` moves older RCL3 entries). `myspot` = container tile; `targetid()` = the source. Link mode `src`. The child flag's secondary colour overrides the container tile: RED takes the second-best neighbour, PURPLE the third-best (ranked by weighted path cost to storage, `Meta_asrc.pickSpot`); any other colour keeps the best. |
 | `min` | 0 | Container on the flag tile (RCL6), point `mineral`. |
 | `ctrl` | 0 | Path from flag to storage. Flag on the controller: point `ctrl` at step 2, link(6) at step 3. Flag anywhere else: point `ctrl` on the flag tile itself, link(6) at step 1 (warns if the tile is beyond upgrade range 3). Container(2) on the `ctrl` point, retired at the link's level (6; the two RCL5 links belong to asrc/bsrc) and left to decay (`Meta_ctrl.addContainer`; `migrate()` adds it to metas planned before Sept 2026). Link mode `sink`. |
 | `tripod` | 0 | Three towers around a point (`parkedLayout`); deployed layout with link and roads exists but is not used. |

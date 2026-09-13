@@ -231,6 +231,9 @@ export function runGenesis(f: FlagExtra) {
 }
 
 export type PlanLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
+// Optional level: offered at every RCL, but only by makeSite's second pass,
+// after every required tile the room can build (levels 0..RCL) is placed.
+export const kAllLvls = 9;
 type legend = {
     [tile: string]: [PlanLevel, BuildableStructureConstant]
 }
@@ -651,7 +654,7 @@ export class MetaManager {
         for (const meta of metas) {
             const lvls = meta.mem.structs[stype];
             if (!lvls) continue;
-            const xys = lvls[9];
+            const xys = lvls[kAllLvls];
             if (!xys) continue;
             for (const xy of xys) {
                 const [x, y] = coordsFromXY(xy);
@@ -950,7 +953,7 @@ export class MetaStructure {
         if (this.isRetired(xy, maxLvl)) return false;
         const lvls = this.mem.structs[stype];
         if (!lvls) return false;
-        const optxys = lvls[9];
+        const optxys = lvls[kAllLvls];
         if (optxys && _.any(optxys, optxy => optxy === xy)) return true;
         for (let lvl = 1; lvl <= maxLvl; lvl++) {
             if (_.any(lvls[lvl as 1]!, lxy => lxy === xy)) return true;
@@ -1022,7 +1025,7 @@ export class MetaStructure {
     findOptional(stype: BuildableStructureConstant, room: Room): [RoomPosition | null, Structure | ConstructionSite | null] {
         const lvls = this.mem.structs[stype];
         if (!lvls) return [null, null];
-        return this.findXys(lvls[9], stype, room);
+        return this.findXys(lvls[kAllLvls], stype, room);
     }
 
     findXys(xys: undefined | number[], stype: BuildableStructureConstant, room: Room): [RoomPosition | null, Structure | ConstructionSite | null] {
@@ -1350,12 +1353,32 @@ class Meta_extn extends MetaStructure {
     static layout: string;
     static plan(f: Flag, man: MetaManager) {
         const legend: legend = {
-            e: [9, STRUCTURE_EXTENSION],
+            e: [kAllLvls, STRUCTURE_EXTENSION],
             r: [5, STRUCTURE_ROAD],
         };
         const mem = MetaStructure.makeMem(f);
         makeTemplate(mem, legend, [], this.layout);
+        Meta_extn.orderByHub(mem, man);
         return new this(mem, man);
+    }
+
+    // findXys takes the first free tile, so the extension list's order is the
+    // build order. Sort it by range to the hub spot (storage site, then the
+    // meta's own anchor, when the room has no hub) so the field fills from
+    // the hub outward and haulers walk less.
+    static orderByHub(mem: MetaMem, man: MetaManager) {
+        const hub = man.getSpot('hub') || man.getSite(STRUCTURE_STORAGE) || fromXY(mem.xy, man.name);
+        const xys = mem.structs[STRUCTURE_EXTENSION]?.[kAllLvls];
+        if (!xys) return;
+        mem.structs[STRUCTURE_EXTENSION]![kAllLvls] = _.sortBy(xys, xy => hub.getRangeTo(fromXY(xy, man.name)));
+    }
+
+    // Fields planned before Sept 2026 were in template scan order.
+    migrate(): boolean {
+        const before = this.mem.structs[STRUCTURE_EXTENSION]?.[kAllLvls];
+        if (!before) return false;
+        Meta_extn.orderByHub(this.mem, this.manager);
+        return !_.isEqual(before, this.mem.structs[STRUCTURE_EXTENSION]![kAllLvls]);
     }
 }
 
@@ -1412,6 +1435,12 @@ function calcWeight(x: number, y: number, t: RoomTerrain): number {
     return 20 - count;
 }
 
+// Source extensions are filled by the srcer standing next to them, so they
+// are the cheapest extensions to run. RCL2 puts them ahead of Meta_cap's
+// RCL2 field: makeSite walks metas by priority (asrc/bsrc 103 > cap 101) but
+// only over levels the room has reached.
+const kSrcExtensionLevel: PlanLevel = 2;
+
 @registerMeta
 class Meta_asrc extends MetaStructure {
     static plan(f: FlagExtra, man: MetaManager) {
@@ -1457,7 +1486,7 @@ class Meta_asrc extends MetaStructure {
         }
 
         const roadp = ret.path[0];
-        addMemStruct(mem, STRUCTURE_ROAD, 9, roadp.xy);
+        addMemStruct(mem, STRUCTURE_ROAD, kAllLvls, roadp.xy);
 
         let linkp = roadp; // this will change if there are at least 2 nearby spots (very likely).
         let linkDist = 100;
@@ -1482,13 +1511,23 @@ class Meta_asrc extends MetaStructure {
         addMemStruct(mem, STRUCTURE_LINK, 5, linkp.xy);
         for (const ep of adj) {
             if (ep.isEqualTo(linkp)) continue;
-            addMemStruct(mem, STRUCTURE_EXTENSION, 3, ep.xy);
+            addMemStruct(mem, STRUCTURE_EXTENSION, kSrcExtensionLevel, ep.xy);
         }
 
         const meta = new this(mem, man);
         meta.myspot = self.xy;
 
         return meta;
+    }
+
+    // Metas planned before Sept 2026 had their extensions at RCL3, which let
+    // the cap field's RCL2 extensions build first despite the lower priority.
+    migrate(): boolean {
+        const ext = this.mem.structs[STRUCTURE_EXTENSION];
+        if (!ext || !ext[3]) return false;
+        ext[kSrcExtensionLevel] = [...(ext[kSrcExtensionLevel] || []), ...ext[3]];
+        delete ext[3];
+        return true;
     }
     static pickSpot(f: FlagExtra, man: MetaManager, cm: CostMatrix, t: RoomTerrain, best: RoomPosition, storep: RoomPosition): RoomPosition {
         let rank = 0;
