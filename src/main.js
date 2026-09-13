@@ -50,6 +50,7 @@ import 'ms.reactor';
 import 'ms.remote';
 import 'ms.once';
 import 'ms.startup';
+import 'ms.hub';
 import "service.flag";
 
 import "job.hauler";

@@ -24,6 +24,7 @@ lsService().find(s => s.name.startsWith('Remote')).windDown()   // the array is 
 getService('Farm W25S8 W26S8').evolve('Farm W25S8 W25S7')   // reschedule under new args, moving every egg/creep; kills the old one
 lsProcess()                                  // print every live process: daemons, room strats, services; name [status()]
 scheduleService('GlobalRespawn')             // global helper for P.Service.schedule
+scheduleService('Hub W25S7')                 // GlobalRespawn's loop (no startups) for another owned room, from its own spawns
 Memory.scheduler.services                    // what boot() will replay
 Memory.missions.GlobalRespawn                // { eggs, hatch, creeps }
 ```

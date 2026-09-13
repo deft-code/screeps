@@ -26,14 +26,16 @@ return                                 # lines 356-439 are dead
 | process | how it gets there | does |
 |---|---|---|
 | `GlobalRespawn` mission | `Memory.scheduler.services`, replayed by `Service.boot()` at every global reset; **never constructed in code** | lays eggs for startup/asrc/bsrc/hauler/worker/ctrl/hub in `Game.spawns.Home`'s room and runs those creeps |
+| `Hub <room>` mission | `scheduleService('Hub W25S7')`, then `Memory.scheduler.services` | the same loop without startups for another owned room, from its own spawns |
 | `ClaimedStrat` per owned room | `room.strat` constructor `exec`s itself | towers, safe mode, labs, links, metastruct construction, factory |
 | `FlagService` daemon | `@daemon` at import | orange genesis flags -> metastruct planning |
 | `SpawnDaemon` | `@daemon` at import | turns eggs into `spawnCreep` |
 
 Consequences: no market automation, radar scanning, deposit farming, power
 creeps, or flag "teams" run on this build even though their code loads. The only
-flags in the game are metastruct genesis/child flags. `Swipe` is the only other
-mission and is registered but not scheduled.
+flags in the game are metastruct genesis/child flags. The other missions
+(`Hub`, `Startup`, `Farm`, `Remote`, `Reactor`, `Once`, `Swipe`) run only when
+scheduled by command string ([docs/missions-and-jobs.md](docs/missions-and-jobs.md)).
 
 ## Architecture in one screen
 
@@ -41,7 +43,7 @@ mission and is registered but not scheduled.
 main.js
  ├─ process.ts      Process/Service, priority rows critical>normal>low>late(>extra), canRun CPU gate
  ├─ mission.ts      Mission = Service with eggs->hatch->creeps lists in Memory.missions
- │   └─ ms.globalrespawn.ts / ms.swipe.ts        @register, scheduled by command string
+ │   └─ ms.globalrespawn.ts / ms.hub.ts / ms.startup.ts / ms.farm.ts / ...   @register, scheduled by command string
  ├─ mycreep.ts      MyCreep wrapper per creep name; role registry (@register/@registerAs); Task2
  │   ├─ job.creep.ts -> job.startup/reboot/scout/swiper.ts
  │   └─ job.role.ts  -> job.worker/ctrl/hub/hauler/srcer.ts   start() = creep.run()+after()  (bridge)

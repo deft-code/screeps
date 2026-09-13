@@ -13,6 +13,9 @@ Process                      run(): Priority; kill()           (process.ts)
  └─ Service                  named by a command string, e.g. "Swipe W5N8 W6N8"
      └─ Mission (abstract)   owns eggs/hatch/creeps lists in Memory.missions[name]
          ├─ GlobalRespawn    @register  (ms.globalrespawn.ts)  ACTIVE
+         ├─ Hub              @register  (ms.hub.ts)            "Hub <room>"; GlobalRespawn for any owned room, without the startup creeps:
+                                                              Reboot while the mission has no creeps, bsrc/asrc (ecap >= 550) or hauler, Worker, Ctrl, Hub once storage exists,
+                                                              all spawned "local"; idles (paced log) while the room is not ours. Distinct from the `Hub` job class (separate registries).
          ├─ Swipe            @register  (ms.swipe.ts)          registered, not scheduled
          ├─ Reactor          @register  (ms.reactor.ts)        "Reactor <room>"; mission room = sector core of <room>
          │                                                     (both coords rounded to x5); Scout from <room> while the core is
@@ -111,6 +114,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
 // From the game console. scheduleService is a global wrapper around Service.schedule
 // (main.js) and works; require('process').Service.schedule(...) is the long form.
 scheduleService('GlobalRespawn')
+scheduleService('Hub W25S7')         // args[1]=owned room; GlobalRespawn without startups, from the room's own spawns
 scheduleService('Swipe W5N8 W6N8')   // args[1]=target, args[2]=home
 scheduleService('Farm W5N8 W6N8 2')  // args[1]=farm room, args[2]=home, args[3]=optional farmer cap
 scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that sector's core (W5N5)
@@ -241,6 +245,26 @@ The `||` chain lays at most one of startup/bsrc/asrc/hauler per tick. `asrc`/
 `bsrc` need `Meta_asrc`/`Meta_bsrc` metastructures to find their source
 ([metastruct.md](metastruct.md)); `Hub.spawn` returns no spawn until a `hub`
 spot exists.
+
+## Hub (`src/ms.hub.ts`)
+
+`"Hub <room>"`, the same loop for any other owned room, minus the startup line:
+
+```
+if room invisible or controller not ours: paced log; super.run(); return "normal"
+if no creeps at all:              nJobs(Reboot, 1)
+(ecap >= 550 && (nCreeps('bsrc',1) || nCreeps('asrc',1))) || nCreeps('hauler', 1)
+nJobs(Worker, 1); nJobs(Ctrl, 1); if storage: nJobs(Hub, 1)
+super.run(); return "critical"
+```
+
+Every job spawns "local" (nearest spawns by route distance), so the room's own
+spawn once it has one; `Reboot.spawn` prefers the mission room's spawns for the
+same reason. Before the room has a spawn the `Startup` mission's pioneers carry
+it, so both missions can run side by side until `Startup` winds down at RCL4.
+The mission class is `Hub` in the process registry and the job class is `Hub`
+in the creep registry; `nJobs(HubJob, 1)` still lays `hub<n>` eggs because
+`nJobs` uses the constructor's runtime name. `status()` appends `rcl:<level>`.
 
 ## MyCreep.run() and Task2
 

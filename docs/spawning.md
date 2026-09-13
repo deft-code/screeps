@@ -83,7 +83,8 @@ So a 550-capacity room (RCL 2) always gets the level-1 guard, a full RCL 4 room
   500-tick buckets. Priorities are plain numbers compared by subtraction, so
   negative values work and sort after 0.
 - **Reboot**: same shape but sized from `energyAvailable`, so it spawns
-  immediately with whatever is in the spawn.
+  immediately with whatever is in the spawn; the spawn is a random one in the
+  mission room, or any spawn if the room has none.
 - **Scout**: `[MOVE]`. **Swiper**: `[MOVE, CARRY]`.
 - **JobRole subclasses** (`Worker`, `Ctrl`, `Hub`, `Hauler`, `Srcer`):
   `localSpawn(spawns, eggMem)` -> `findSpawns(spawns, mission.roomName, {spawn:"local", body: role, ...eggMem})`
@@ -107,7 +108,7 @@ passes `body: "srcer"`). Live keys are marked.
 | `ctrl` | yes | `buildCtrl`: RCL8 fixed 8M/15W/3C at >= 2050 energy; RCL7 15M/30W/5C at >= 4200; else `energyDef({move:2, per:[W], base:[C](+C above RCL4), energy: eggMem.ecap})` |
 | `hub` | yes | `9x CARRY + MOVE`, spawn with >= 500 available |
 | `hauler` | yes | `energyDef({move:2, per:[C], energy: eggMem.energy})`, spawn with >= `eggMem.energy` available (energy drops to available if under 550) |
-| `srcer` | yes | `srcerBody`: `harvesterBody(eggMem.lvl)` (6 to 15 WORK by source regen level) plus extra CARRY at RCL7/8, trimmed to `energyAvailable` |
+| `srcer` | yes | `srcerBody`: `harvesterBody(eggMem.lvl)` (6 to 15 WORK by source regen level) plus extra CARRY at RCL7/8, trimmed to the room's `energyCapacityAvailable` (floor `[W,W,M]`); the daemon waits for the energy |
 | `startup`, `reboot` | via `Startup`/`Reboot` classes instead | tables shown above; `reboot` case here is `[W,C,M]` |
 | `wolf` | `Farm`/`Remote` (`Wolf`) | `energyDef({move:1, per:[ATTACK]})` sized from `energyAvailable`, spawn with capacity >= 700 |
 | `guard` | `Farm`/`Remote` (`Guard`) | `energyDef({move:1, base:[M,H], per:[TOUGH,RA]})` sized from `energyAvailable`, spawn with capacity >= 550; worked example above |

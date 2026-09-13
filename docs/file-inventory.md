@@ -27,7 +27,7 @@ Status legend:
 | `src/ms.swipe.ts` | REACHABLE | 2022 | Scout-then-swipe mission; schedule with `"Swipe <target> <home>"`. |
 | `src/job.creep.ts` | LIVE | 2022 | `JobCreep` base with Rewalker moves. |
 | `src/job.role.ts` | LIVE | 2022 | `JobRole` bridge to legacy roles; `localSpawn`. |
-| `src/job.startup.ts`, `job.reboot.ts`, `job.worker.ts`, `job.ctrl.ts`, `job.hub.ts`, `job.hauler.ts`, `job.srcer.ts` | LIVE | 2022 | Job classes spawned by GlobalRespawn. |
+| `src/job.startup.ts`, `job.reboot.ts`, `job.worker.ts`, `job.ctrl.ts`, `job.hub.ts`, `job.hauler.ts`, `job.srcer.ts` | LIVE | 2022 | Job classes spawned by GlobalRespawn (all but Startup also by the Hub mission). `Reboot.spawn` prefers the mission room's spawns. |
 | `src/job.scout.ts`, `src/job.swiper.ts` | REACHABLE | 2022 | Jobs for `Swipe` (Scout also for `Farm`). Swiper never picks anything up (WIP). |
 | `src/ms.farm.ts` | REACHABLE | 2026 | Remote-farm mission; schedule with `"Farm <farm> <home> [cap]"`. Scouts an invisible farm room; paces minis/guards/wolves against enemies, armed hostiles and invader cores (team.ts suppress* rules). |
 | `src/ms.remote.ts` | REACHABLE | 2026 | Remote mission, team.ts `teamRemote` port; `"Remote <remote> <home>"`. Extends `Farm` for the invader-core wolf; scout for visibility; reservers paced every 225 ticks (team.ts rule) hold the controller; plans, tracks, draws and (on windDown) removes rsrc/rroad metas. No harvesters yet. |
@@ -35,6 +35,7 @@ Status legend:
 | `src/job.harvester.ts` | REACHABLE | 2026 | Harvester job for Remote: claims an rsrc meta, drop-mines on its container tile, builds/repairs the container. |
 | `src/job.trucker.ts` | REACHABLE | 2026 | Trucker job for Remote: rsrc containers -> home storage, paced by the source regen / haul rate. |
 | `src/job.paver.ts` | REACHABLE | 2026 | Paver job for Once: harvest, build any site, repair roads/containers in the mission room. |
+| `src/ms.hub.ts` | REACHABLE | 2026 | `"Hub <room>"`: GlobalRespawn's loop for another owned room without the startup creeps (Reboot when creepless, bsrc/asrc or hauler, Worker, Ctrl, Hub once storage), all spawned "local". |
 | `src/ms.startup.ts` | REACHABLE | 2026 | `"Startup <room>"`: Scout while invisible, Claimer while not ours (GCL permitting), Pioneers paced at `max(1, 6 - rcl)` per lifetime until RCL4 (one Guard until a tower stands), then winds down. |
 | `src/job.claimer.ts` | REACHABLE | 2026 | Claimer job for Startup: `[MOVE, CLAIM]` from the nearest spawns, claims (or attacks a foreign-owned) controller. |
 | `src/job.pioneer.ts` | REACHABLE | 2026 | Pioneer job for the Startup mission: `Startup.body` capped at 6 pairs, "remote" spawn strategy, homed on the mission room; `rolePioneer` -> `roleBootstrap`. |

@@ -239,10 +239,16 @@ function srcerBody(spawns, eggMem) {
   } else if (rcl === 8) {
     idealBody.push(CARRY, CARRY, CARRY);
   }
-  const max = spawn.room.energyAvailable;
+  // Size to what the room can hold, not what it holds right now: the
+  // SpawnDaemon waits for the energy. Trimming to energyAvailable spawned
+  // lone [WORK] srcers that could never move (Hub W25S7, 2026-09).
+  const max = spawn.room.energyCapacityAvailable;
   const body = trimBody(idealBody, max);
+  // Never less than something that can walk to its source.
+  if (bodyCost(body) < bodyCost(kMinSrcer)) return [spawn, kMinSrcer.slice()];
   return [spawn, body];
 }
+const kMinSrcer = [WORK, WORK, MOVE];
 
 function depositBody(spawn, eggMem) {
   const team = Game.flags[eggMem.team];

@@ -7,7 +7,10 @@ export class Reboot extends JobCreep {
     priority = 10;
 
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        const spawn = _.sample(Game.spawns);
+        // The mission room's own spawns when it has any (its Reboot must be
+        // homed there); any spawn otherwise.
+        const local = _.filter(spawns, s => s.room.name === this.mission.roomName);
+        const spawn = _.sample(local.length ? local : spawns);
         if (!spawn) return [null, []];
         const energy = spawn.room.energyAvailable;
         const body = energyDef({
