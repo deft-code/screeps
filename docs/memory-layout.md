@@ -24,6 +24,8 @@ small; per-tick data belongs in `obj.tick` / `obj.cache`
 ```
 
 ### `Memory.creeps[name]` (`mission.ts`, `spawn.ts`, roles)
+`rsrc`: name of the rsrc meta a Harvester works (`job.harvester.ts`).
+
 New-system creeps start as eggs:
 ```
 { laid: tick, cpu: 0, mission: "GlobalRespawn", home: "egg", birth: tick, nest: "egg" }

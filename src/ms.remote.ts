@@ -4,7 +4,9 @@ import { register, Priority, Service } from "process";
 import { Scout } from "job.scout";
 import { Reserver } from "job.reserver";
 import { whoami } from "Rewalker";
-import { getMetaManager } from "metastruct";
+import { getMetaManager, MetaStructure } from "metastruct";
+import { Harvester } from "job.harvester";
+import { dist } from "routes";
 import { RemotePlanner } from "metaremote";
 import * as debug from "debug";
 
@@ -16,6 +18,8 @@ const kReserveSlowAt = 450;
 const kReserveStopAt = 1000;
 // Ticks between "Once Paver <room>" schedules for the same room.
 const kPaverPace = 1500;
+// Walking allowance per room of route distance when pacing civilians.
+const kTicksPerRoom = 50;
 
 interface RemoteMemory extends MissionMemory {
     // room -> names of the metas this mission planned there (metaremote.ts).
@@ -59,6 +63,7 @@ export class Remote extends Farm {
             this.suppressInvaderCore();
             this.reserve();
             if (!this.memory.metas) this.planMetas();
+            this.harvest();
         }
         this.schedulePavers();
         this.drawMetas();
@@ -84,6 +89,27 @@ export class Remote extends Farm {
             if (res.ticksToEnd > kReserveSlowAt) pace = kReservePaceSlow;
         }
         return this.paceJobs(Reserver, pace);
+    }
+
+    // The rsrc metas planned in the remote room, in a stable order.
+    rsrcMetas(): MetaStructure[] {
+        const names = this.memory.metas?.[this.roomName] || [];
+        const man = getMetaManager(this.roomName);
+        return _.compact(names.filter(n => /^rsrc_/.test(n)).sort().map(n => man.getMeta(n))) as MetaStructure[];
+    }
+
+    // team.ts harvester(): one harvester per source per lifetime. Civilians
+    // in a remote die to combat, so they are paced rather than replaced:
+    // one egg every (lifetime - walk) / sources ticks, which slightly
+    // overspawns. Held back by hostiles and by a foreign reservation.
+    harvest() {
+        const room = this.room!;
+        if (room.hostiles.length) return null;
+        if (this.foreignReserved()) return null;
+        const n = this.rsrcMetas().length;
+        if (!n) return null;
+        const walk = kTicksPerRoom * dist(this.getRoomName("home")!, this.roomName);
+        return this.paceJobs(Harvester, (CREEP_LIFE_TIME - walk) / n);
     }
 
     // Plan and save the metas for this remote. Needs vision of the remote

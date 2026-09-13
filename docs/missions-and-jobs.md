@@ -37,7 +37,9 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               RemotePlanner (metaremote.ts) saves rsrc/rroad metas into each room's meta memory and
                                                               memory.metas tracks room -> names; drawMetas() every tick; windDown() removes them.
                                                               schedulePavers(): "Once Paver <room>" for any tracked unclaimed room with our sites in view,
-                                                              at most one per room per 1500 ticks. Phase 3 (todo): harvester/trucker
+                                                              at most one per room per 1500 ticks.
+                                                              harvest(): paceJobs(Harvester, (1500 - 50*route dist) / rsrc metas) while visible, no hostiles,
+                                                              not foreign-reserved (civilians in remotes are paced, never replaced). Phase 3 (todo): trucker
          └─ Once             @register  (ms.once.ts)           "Once <Job> <room>"; lays one egg of the job, winds down once it has spawned,
                                                               kills and deschedules itself when the creep and its tombstone are gone
 
@@ -48,6 +50,9 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      ├─ Scout    @register   [MOVE] from the "home" room if any, walks to the mission room (job.scout.ts)
      ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "remote" spawn strategy; harvests in the
      │                       mission room when empty, taskBuildAny, then taskRepairRemote (roads/containers); spawned by Once
+     ├─ Harvester @register  (job.harvester.ts) port of role.harvester.js for Remote; 6W/1C/3M from "home" (floor 3W/1C/2M); claims an rsrc meta
+     │                       (memory.rsrc; if all are claimed it shadows the harvester with the fewest ticks to live), stands on the
+     │                       container tile drop-mining; builds the container site and repairs the container, withdrawing from it for that
      ├─ Swiper   @register   [MOVE,CARRY], work in progress          (job.swiper.ts)
      └─ JobRole              bridge to legacy roles: start() calls creep.run()/after() (job.role.ts)
          ├─ Worker  @register              (job.worker.ts)

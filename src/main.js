@@ -55,6 +55,7 @@ import "service.flag";
 import "job.hauler";
 import "job.scout";
 import "job.paver";
+import "job.harvester";
 import "job.srcer";
 
 import 'roomobj';
