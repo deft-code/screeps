@@ -6,6 +6,7 @@ import { Ctrl } from "job.ctrl";
 import { Hub } from "job.hub";
 import { Reboot } from "job.reboot";
 import { Upgrader } from "job.upgrader";
+import { CtrlHauler } from "job.ctrlhauler";
 
 @register
 export class GlobalRespawn extends Mission {
@@ -35,6 +36,7 @@ export class GlobalRespawn extends Mission {
 
         this.room.storage && this.nJobs(Hub, 1);
         this.nJobs(Upgrader, Upgrader.want(this.room));
+        this.nJobs(CtrlHauler, CtrlHauler.want(this));
 
         super.run();
         return "critical";

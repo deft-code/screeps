@@ -5,6 +5,7 @@ import { Ctrl } from "job.ctrl";
 import { Hub as HubJob } from "job.hub";
 import { Reboot } from "job.reboot";
 import { Upgrader } from "job.upgrader";
+import { CtrlHauler } from "job.ctrlhauler";
 import * as debug from "debug";
 
 // Ticks between "not ours" log lines while the room is not (or no longer) ours.
@@ -61,6 +62,7 @@ export class Hub extends Mission {
 
         room.storage && this.nJobs(HubJob, 1);
         this.nJobs(Upgrader, Upgrader.want(room));
+        this.nJobs(CtrlHauler, CtrlHauler.want(this));
 
         super.run();
         return "critical";

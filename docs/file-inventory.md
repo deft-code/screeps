@@ -35,6 +35,7 @@ Status legend:
 | `src/job.harvester.ts` | REACHABLE | 2026 | Harvester job for Remote: claims an rsrc meta, drop-mines on its container tile, builds/repairs the container. |
 | `src/job.trucker.ts` | REACHABLE | 2026 | Trucker job for Remote: rsrc containers -> home storage, paced by the source regen / haul rate. |
 | `src/job.paver.ts` | REACHABLE | 2026 | Paver job for Once: harvest, build any site, repair roads/containers in the mission room. |
+| `src/job.ctrlhauler.ts` | LIVE | 2026 | CtrlHauler job for GlobalRespawn/Hub: refills the Meta_ctrl container from storage while storage >= 100k and both container and ctrl creep are empty. |
 | `src/ms.hub.ts` | REACHABLE | 2026 | `"Hub <room>"`: GlobalRespawn's loop for another owned room without the startup creeps (Reboot when creepless, bsrc/asrc or haulers scaled by dropped energy, Worker, Ctrl, Hub once storage), all spawned "local". |
 | `src/ms.startup.ts` | REACHABLE | 2026 | `"Startup <room>"`: Scout while invisible, Claimer while not ours (GCL permitting), Pioneers paced at `max(1, 6 - rcl)` per lifetime until RCL4 (one Guard until a tower stands), then winds down. |
 | `src/job.claimer.ts` | REACHABLE | 2026 | Claimer job for Startup: `[MOVE, CLAIM]` from the nearest spawns, claims (or attacks a foreign-owned) controller. |

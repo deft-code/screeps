@@ -69,7 +69,8 @@ Docs: [missions-and-jobs](docs/missions-and-jobs.md),
 `startup`/`reboot` (`role.bootstrap.js`), `worker` (`role.worker.js`), `ctrl`
 (`role.ctrl.js`), `hauler` (`role.hauler.js`), `hub` (`role.hub.ts`),
 `asrc`/`bsrc` (`role.src.ts`), `upgrader` (`job.upgrader.ts`, only while RCL < 8 and
-storage >= 100k energy). Everything else with a `roleXxx` method is
+storage >= 100k energy), `ctrlhauler` (`job.ctrlhauler.ts`, storage -> ctrl container
+while storage >= 100k and container + ctrl creep are empty). Everything else with a `roleXxx` method is
 loaded but no job spawns it. Table and task conventions in
 [docs/creep-roles.md](docs/creep-roles.md).
 

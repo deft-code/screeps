@@ -80,6 +80,9 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Ctrl    @register              (job.ctrl.ts)   boosts XGH2O, ecap rules
          ├─ Hub     @register              (job.hub.ts)    needs storage + meta 'hub' spot
          ├─ Hauler  @register  priority 9  (job.hauler.ts) energy = min(2500, ecap/2)
+         ├─ CtrlHauler @register priority -1 (job.ctrlhauler.ts) storage -> Meta_ctrl container shuttle; body 'hauler' (<= 1500 energy, local);
+         │                                                 want(mission) = 1 only while storage energy >= 100k, the ctrl container exists and is empty,
+         │                                                 and the mission's ctrl creep is empty (else 0); after() idleNom
          ├─ Upgrader @register priority -1 (job.upgrader.ts) port of role.upgrader.js; surplus sink: taskRecharge then goUpgradeController,
          │                                                 after() idleNom + idleRecharge; body 'upgrader' (2W/1C per level) via "local";
          │                                                 Upgrader.want(room) = 0 at RCL8, without storage, or below 100k, else storage energy / 100k (linear, fractional: 150k = 1.5)
@@ -263,6 +266,7 @@ if no creeps at all:              nJobs(Reboot, 1)
 (ecap >= 550 && (nCreeps('bsrc',1) || nCreeps('asrc',1))) || nCreeps('hauler', nHaulers())
   # nHaulers = min(3, 1 + floor(max(0, dropped energy - 1000) / 2000)); constants at the top of ms.hub.ts
 nJobs(Worker, 1); nJobs(Ctrl, 1); if storage: nJobs(Hub, 1)
+nJobs(Upgrader, Upgrader.want(room)); nJobs(CtrlHauler, CtrlHauler.want(mission))
 nJobs(Upgrader, Upgrader.want(room))   # 0 at RCL8 / no storage / < 100k, else storage energy / 100k (150k = 1.5); laid last (priority -1)
 super.run(); return "critical"
 ```
