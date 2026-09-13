@@ -381,6 +381,11 @@ const kMaxOps = 20000
 // target makes the direct distance look shorter without a real shortcut.
 const kDetourMargin = 2
 
+// Ceiling for the weight a long-stationary creep of ours puts on its tile.
+// Step.bump() pushes our own blockers aside, so a parked harvester should
+// nudge paths around it, not wall off a corridor. 50 is 25 plain tiles.
+const kMyStuckCap = 50
+
 let _rewalker: Rewalker | null = null
 export function defaultRewalker() {
     if (!_rewalker) {
@@ -507,12 +512,14 @@ export class Rewalker {
             const stuck = this.getStuckTicks(creep)
             if (stuck > 3) {
                 if (creep.my) {
-                    mat.set(creep.pos.x, creep.pos.y, Math.min(254, 10 + stuck))
+                    mat.set(creep.pos.x, creep.pos.y, Math.min(kMyStuckCap, 10 + stuck))
                 } else {
                     mat.set(creep.pos.x, creep.pos.y, 100 + stuck)
                 }
             }
-            if (this.isAllied(creep)) continue
+            // Danger zones are for creeps that can hurt us; our own guards
+            // and minis must not repel our paths (FIND_CREEPS includes them).
+            if (creep.my || this.isAllied(creep)) continue
             if (creep.getActiveBodyparts(RANGED_ATTACK)) {
                 matrixAvoid(mat, creep.pos, 4)
             } else if (creep.getActiveBodyparts(ATTACK)) {
@@ -978,6 +985,16 @@ class Step {
                 maxOps,
             })
         this.incomplete = ret.incomplete
+
+        // A walk that starts and ends in one room should stay in it. Leaving
+        // means something made the room's own tiles pricier than a detour.
+        if (pos.roomName === goals[0].pos.roomName) {
+            const foreign = _.uniq(ret.path.filter(p => p.roomName !== pos.roomName).map(p => p.roomName))
+            if (foreign.length) {
+                console.log(`Rewalker intra-room walk leaves ${pos.roomName}: ${this.creep.name} ${pos} -> ${goals[0].pos}`,
+                    `via ${foreign.join(',')} cost ${ret.cost} steps ${ret.path.length} ops ${ret.ops}/${maxOps}`)
+            }
+        }
 
         if (ret.incomplete && ret.path.length > 1) {
             // Walk the first half only, so the path runs out early and the

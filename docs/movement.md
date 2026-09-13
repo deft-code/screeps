@@ -67,10 +67,15 @@ heuristic ignores `plainCost`, so slow creeps need several times the default
 for walks over 4 rooms; shorter walks search unrestricted. An incomplete
 search is logged (`Rewalker incomplete path ...`), `Step.incomplete` is set
 (stored as `_walk[3]`), and only the first half of the partial path is walked
-so the replan happens early. Room matrices (`calcMatrix`) mark: foreign ramparts and all
+so the replan happens early. A walk whose start and goal share a room but
+whose path leaves it is logged (`Rewalker intra-room walk leaves ...`) with
+the rooms, cost and ops, since that only happens when the room's own tiles
+were made expensive. Room matrices (`calcMatrix`) mark: foreign ramparts and all
 non-walkable structures `0xFF`, roads `1`, keeper lairs avoided at range 3,
-stuck creeps `10+ticks` (own) or `100+ticks` (others), hostile melee/ranged
-avoided at range 2/4, and any recent own tombstone marks the whole room
+stuck creeps `10+ticks` capped at `kMyStuckCap` 50 (own, since `bump()` can
+move them) or `100+ticks` uncapped (others), hostile melee/ranged
+avoided at range 2/4 (own and system creeps are skipped; until Sept 2026 our
+guards repelled our own paths), and any recent own tombstone marks the whole room
 expensive for a while. Matrices for rooms without vision are kept serialised in
 `RoomInfo.mat` and rebuilt when vision returns.
 
