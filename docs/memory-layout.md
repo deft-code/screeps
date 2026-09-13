@@ -48,7 +48,7 @@ a stuck egg and resets it.
 | `links` | `struct.link.ts` | yes | `{ [xy]: { mode: "^"|"+"|"-"|"="|"x" } }` (old entries may still say `"src"`/`"sink"`) |
 | `labs` | `struct.lab.js` | yes | `{ current?: resource, order?: labId[], [labId]: { note, planType?, boost?, boostTime? } }` |
 | `spots` | `room.ts` | yes (read) | `{ [name]: xy }` manual standing spots; metastruct points are the usual source |
-| `containers` | `struct.container.js` | yes | `{ [id]: { note, mode: "src"|"sink" } }` |
+| `containers` | `struct.container.js` | yes | `{ [id]: { v: 2, mode: "src"|"sink"|"hub" } }` |
 | `nstructs`, `thostiles`, `tassaulters`, `tenemies`, `hostilestime`, `assaulterstime`, `enemiestime` | `strat.ts` | yes | hostile presence ratchets |
 | `bestSpots` | `source.js` | yes (read) | `{ [srcNote]: [x, y] }` manual override of best harvest tile |
 | `role` | manual | yes (read) | overrides `room.role` |

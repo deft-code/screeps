@@ -270,6 +270,10 @@ export class CreepCarry extends CreepMove {
         case STRUCTURE_TOWER:
         case STRUCTURE_NUKER:
           break;
+        case STRUCTURE_CONTAINER:
+          // Sink containers are upgrader buffers; idle refills leave them alone.
+          if (s.mode !== 'sink' && s.store.energy) return this.idleWithdraw(s, RESOURCE_ENERGY);
+          break;
         default:
           if (isStoreStruct(s) && s.store.energy) return this.idleWithdraw(s, RESOURCE_ENERGY);
           break;
@@ -278,8 +282,10 @@ export class CreepCarry extends CreepMove {
     return false
   }
 
-  taskRechargeLimit(limit: number) {
-    this.dlog(`recharge ${limit}`)
+  // noSink leaves out 'sink' containers (upgrader buffers); callers that
+  // must never starve pass it first and fall back to a plain call.
+  taskRechargeLimit(limit: number, opts: { noSink?: boolean } = {}) {
+    this.dlog(`recharge ${limit}`, opts.noSink ? 'noSink' : '')
 
     if (!this.store.getFreeCapacity()) return false
 
@@ -304,7 +310,8 @@ export class CreepCarry extends CreepMove {
         STRUCTURE_STORAGE,
         STRUCTURE_TERMINAL
       ) as XferStruct[],
-      s => isStoreStruct(s) && s.store.energy >= limit
+      s => isStoreStruct(s) && s.store.energy >= limit &&
+        !(opts.noSink && s.structureType === STRUCTURE_CONTAINER && s.mode === 'sink')
     ))
 
     let e = this.pos.findClosestByRange(all) as any;
@@ -315,8 +322,8 @@ export class CreepCarry extends CreepMove {
     return this.taskPickup(e)
   }
 
-  taskRecharge() {
-    return this.taskRechargeLimit(this.store.getFreeCapacity() / 3) || this.taskRechargeLimit(1)
+  taskRecharge(opts: { noSink?: boolean } = {}) {
+    return this.taskRechargeLimit(this.store.getFreeCapacity() / 3, opts) || this.taskRechargeLimit(1, opts)
   }
 
   taskWithdrawAny() {

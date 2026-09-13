@@ -184,7 +184,7 @@ interface Structure {
 }
 
 interface StructureContainer {
-    mode: "src" | "sink"
+    mode: "src" | "sink" | "hub"
 }
 
 interface StructureController {

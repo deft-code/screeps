@@ -15,7 +15,9 @@ module.exports = class CreepHauler {
 
     if (this.room.energyFreeAvailable) {
       this.dlog('refill pools')
-      if (!this.store.energy) return this.taskRecharge()
+      // Sink containers feed upgraders: only touch them when nothing else
+      // in the room (drops, tombstones, ruins, other structures) has energy.
+      if (!this.store.energy) return this.taskRecharge({ noSink: true }) || this.taskRecharge()
       return this.taskTransferPool()
     }
 
@@ -66,7 +68,7 @@ module.exports = class CreepHauler {
     for (let struct of structs) {
       switch (struct.structureType) {
         case STRUCTURE_CONTAINER:
-          if (struct.mode === 'sink' && struct.store.getFreeCapacity() > 500) {
+          if (struct.mode !== 'src' && struct.store.getFreeCapacity() > 500) {
             return this.taskTransfer(struct, RESOURCE_ENERGY)
           }
           break

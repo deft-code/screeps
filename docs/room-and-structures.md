@@ -99,7 +99,10 @@ ask the terminal to `requestMineral`/`autoBuy`. `needs(orig)` walks
 ## Containers, controller, sources, tombstones
 
 - `container.mode` (`struct.container.js`): `src` if within 2 of a source or
-  mineral else `sink`, memoised in `Memory.rooms[x].containers[id]`.
+  mineral, `sink` if within 4 of the controller, else `hub`; memoised in
+  `Memory.rooms[x].containers[id]` with a version `v` that forces a recompute
+  when `calcMode` changes. Haulers drain only `src`, fill `sink` and `hub`,
+  and recharge from `sink` only when nothing else in the room has energy.
 - `controller.resTicks`, `controller.reservable` (hardcoded username
   `deft-code`).
 - `source.spots` / `source.bestSpot` (`source.js`): walkable neighbours scored
