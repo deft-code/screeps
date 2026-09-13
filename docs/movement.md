@@ -26,7 +26,9 @@ Helpers exported for everyone: `coordsToXY/coordsFromXY/toXY/fromXY` (the
 `x*100+y` packing shared with `path.ts`), `getDirectionTo` (cross-room aware),
 `positionAtDirection` (wraps to the next room), `atExit`, `cleanGoal` (shrinks
 goals that spill over room edges), `matrixSerialize/Deserialize` (sparse when
-small), `matrixAvoid`, `calcWeight(creep)` -> `[weight, moves]`,
+small), `matrixAvoid(mat, pos, range, base = 10, step = 10)` (adds `base +
+(range - d) * step` to each walkable tile at Chebyshev distance `d`),
+`calcWeight(creep)` -> `[weight, moves]`,
 `hasActivePart`, `whoami()`.
 
 ## How a walk proceeds (`class Step`)
@@ -54,7 +56,13 @@ rejoins instead of recomputing everything.
 
 `planSteps` uses `PathFinder.search` with `plainCost 2 / swampCost 10`, or
 `1 / 5` when MOVE parts >= other parts, `swamp 1` at 5x MOVE; `maxCost` =
-ticks to live. Room matrices (`calcMatrix`) mark: foreign ramparts and all
+ticks to live; `maxOps` = `4000 * route rooms`, capped at 20000 (PathFinder's
+heuristic ignores `plainCost`, so slow creeps need several times the default
+2000). Rooms are limited to the `findRoute` set via `restrictedRoomCallback`
+for walks over 4 rooms; shorter walks search unrestricted. An incomplete
+search is logged (`Rewalker incomplete path ...`), `Step.incomplete` is set
+(stored as `_walk[3]`), and only the first half of the partial path is walked
+so the replan happens early. Room matrices (`calcMatrix`) mark: foreign ramparts and all
 non-walkable structures `0xFF`, roads `1`, keeper lairs avoided at range 3,
 stuck creeps `10+ticks` (own) or `100+ticks` (others), hostile melee/ranged
 avoided at range 2/4, and any recent own tombstone marks the whole room

@@ -106,7 +106,12 @@ export function matrixDeserialize(data: Array<number>): CostMatrix {
     return mat
 }
 
-export function matrixAvoid(mat: CostMatrix, pos: RoomPosition, range: number) {
+// Raise the cost of every walkable tile within `range` of `pos`.
+// Each tile gets `base` plus `step` for every ring it is closer to `pos`
+// than the outermost ring: the outer ring costs +base, the centre costs
+// +base + range * step. The defaults reproduce the historical
+// `(range - d + 1) * 10` ramp.
+export function matrixAvoid(mat: CostMatrix, pos: RoomPosition, range: number, base = 10, step = 10) {
     const t = Game.map.getRoomTerrain(pos.roomName);
     for (let dx = -range; dx <= range; dx++) {
         for (let dy = -range; dy <= range; dy++) {
@@ -120,8 +125,9 @@ export function matrixAvoid(mat: CostMatrix, pos: RoomPosition, range: number) {
             let w = mat.get(x, y)
             if (w === 0) w = (tile === TERRAIN_MASK_SWAMP ? 10 : 2)
             const d = Math.max(Math.abs(dx), Math.abs(dy))
-            w += (range - d + 1) * 10
-            mat.set(x, y, w)
+            w += base + (range - d) * step
+            // 255 is impassable to PathFinder; stay walkable however penalties stack.
+            mat.set(x, y, Math.min(w, 254))
         }
     }
 }
@@ -363,6 +369,11 @@ const ROUTE_SK = 7
 const ROUTE_HOSTILE_RESERVED = 8
 const ROUTE_HOSTILE_CLAIMED = 10
 
+// PathFinder budget per room on the route. Measured: a plain three-room walk
+// at plainCost 2 needs ~1800 ops, a room carrying a flat +3 penalty ~6700.
+const kOpsPerRoom = 4000
+const kMaxOps = 20000
+
 let _rewalker: Rewalker | null = null
 export function defaultRewalker() {
     if (!_rewalker) {
@@ -462,7 +473,8 @@ export class Rewalker {
                     // Weight is determined by what's underneath
                     break
                 case STRUCTURE_KEEPER_LAIR:
-                    matrixAvoid(mat, struct.pos, 3)
+                    matrixAvoid(mat, struct.pos, 3, 50, 5);
+                    matrixAvoid(mat, struct.pos, 4, 0, 5);
                     break
                 default:
                     mat.set(x, y, 0xff)
@@ -504,7 +516,7 @@ export class Rewalker {
         // Use recent tombstones to identify hostile rooms and increase the travel cost accordingly.
         for (const tomb of room.find(FIND_TOMBSTONES)) {
             if (tomb.creep.owner.username === whoami() && (tomb.creep.ticksToLive || 0) > 50) {
-                matrixAvoid(mat, tomb.pos, 50);
+                matrixAvoid(mat, tomb.pos, 50, 3, 0);
                 // Just one avoid for the whole room is enough.
                 break;
             }
@@ -516,7 +528,7 @@ export class Rewalker {
     guessRoomCost(roomName: string): number {
         if (roomName.includes('0')) return ROUTE_HIGHWAY
         const parsed = /^[WE]\d?(\d)[NS]\d?(\d)$/.exec(roomName)
-        if (!parsed) {
+        if (parsed) {
             const col = parsed![0]
             const row = parsed![1]
             if (col === '5' && row === '5') return ROUTE_HIGHWAY
@@ -845,7 +857,8 @@ class Step {
                 const [err, path] = this.planSteps(this.creep.pos,
                     [cleanGoal({ pos: this.dest, range: this.range })],
                     this.creep.ticksToLive || CREEP_LIFE_TIME);
-                if (err < OK) return err as ScreepsReturnCode;
+                // An incomplete plan still returns its (halved) path; walk it.
+                if (err < OK && path.done) return err as ScreepsReturnCode;
                 this.path = path
                 return this.step()
             }
@@ -926,15 +939,31 @@ class Step {
             swampCost = 1
         }
 
+        // Budget scales with the route: goals[0] is the true destination, any
+        // others (rewalkTo waypoints) lie along the current path and are nearer.
+        const rooms = this.rewalker.getRouteDist(pos.roomName, goals[0].pos.roomName)
+        const maxOps = Math.min(kMaxOps, kOpsPerRoom * rooms)
+
         const ret = PathFinder.search(
             pos,
             goals,
             {
-                roomCallback: this.rewalker.roomCallback,
+                roomCallback: this.rewalker.restrictedRoomCallback(pos, goals),
                 plainCost,
                 swampCost,
                 maxCost: maxSteps,
+                maxOps,
             })
+        this.incomplete = ret.incomplete
+
+        if (ret.incomplete && ret.path.length > 1) {
+            // Walk the first half only, so the path runs out early and the
+            // replan from there has a shorter, hopefully complete, search.
+            const keep = Math.ceil(ret.path.length / 2)
+            console.log(`Rewalker incomplete path ${this.creep.name} ${pos} -> ${goals[0].pos}`,
+                `ops ${ret.ops}/${maxOps} rooms ${rooms} walking ${keep}/${ret.path.length} steps`)
+            ret.path.length = keep
+        }
 
         const color = ret.incomplete ? 'red' : 'cornflowerblue'
         if (ret.path.length < 1) {
