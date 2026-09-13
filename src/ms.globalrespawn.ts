@@ -27,7 +27,7 @@ export class GlobalRespawn extends Mission {
 
         this.nCreeps('startup', Math.max(1, 6 - rcl)) ||
             ecap >= 550 && (this.nCreeps('bsrc', 1) || this.nCreeps('asrc', 1)) ||
-            this.nCreeps('hauler', 1);
+            this.nCreeps('hauler', 2);
 
         this.nJobs(Worker, 1);
         this.nJobs(Ctrl, 1);

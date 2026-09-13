@@ -81,4 +81,9 @@ export class Trucker extends JobRole {
         c.goWithdraw(cont, RESOURCE_ENERGY);
         return "wait";
     }
+
+    // Grab any energy lying next to the path (spilled drop-mining, tombstones).
+    after() {
+        this.cc.idleNom();
+    }
 }

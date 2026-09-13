@@ -142,7 +142,10 @@ export class Harvester extends JobRole {
         return "wait";
     }
 
+    // Idle work only in the remote itself: on the way there the harvester
+    // would otherwise build and repair whatever it passes in the home room.
     after() {
+        if (this.pos.roomName !== this.mission.roomName) return;
         const c = this.cc;
         c.idleNom() || c.idleBuild() || c.idleRepairAny();
     }

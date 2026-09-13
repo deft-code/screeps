@@ -14,7 +14,7 @@ Process                      run(): Priority; kill()           (process.ts)
      └─ Mission (abstract)   owns eggs/hatch/creeps lists in Memory.missions[name]
          ├─ GlobalRespawn    @register  (ms.globalrespawn.ts)  ACTIVE
          ├─ Hub              @register  (ms.hub.ts)            "Hub <room>"; GlobalRespawn for any owned room, without the startup creeps:
-                                                              Reboot while the mission has no creeps, bsrc/asrc (ecap >= 550) or hauler, Worker, Ctrl, Hub once storage exists,
+                                                              Reboot while the mission has no creeps, bsrc/asrc (ecap >= 550) or haulers (1 + one per 2k dropped energy over 1k, max 3), Worker, Ctrl, Hub once storage exists,
                                                               all spawned "local"; idles (paced log) while the room is not ours. Distinct from the `Hub` job class (separate registries).
          ├─ Swipe            @register  (ms.swipe.ts)          registered, not scheduled
          ├─ Reactor          @register  (ms.reactor.ts)        "Reactor <room>"; mission room = sector core of <room>
@@ -69,10 +69,11 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       mission room when empty, taskBuildAny, then taskRepairRemote (roads/containers); after(): idleNom + idleBuild|idleRepairAny; spawned by Once
      ├─ Harvester @register  (job.harvester.ts) port of role.harvester.js for Remote; 6W/1C/3M from "home" (falls back to the nearest spawns) (floor 3W/1C/2M); claims an rsrc meta
      │                       (memory.rsrc; if all are claimed it shadows the harvester with the fewest ticks to live), stands on the
-     │                       container tile drop-mining; builds the container site and repairs the container, withdrawing from it for that
+     │                       container tile drop-mining; builds the container site and repairs the container, withdrawing from it for that;
+     │                       after() idles (nom/build/repair) only while inside the mission room
      ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.js for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
      │                       when empty); withdraws from the fullest rsrc container (sweeps dropped energy), unloads into the home storage
-     │                       when more than half full
+     │                       when more than half full; after() idleNom picks up adjacent energy
      ├─ Swiper   @register   [MOVE,CARRY], work in progress          (job.swiper.ts)
      └─ JobRole              bridge to legacy roles: start() calls creep.run()/after() (job.role.ts)
          ├─ Worker  @register              (job.worker.ts)
@@ -253,7 +254,8 @@ spot exists.
 ```
 if room invisible or controller not ours: paced log; super.run(); return "normal"
 if no creeps at all:              nJobs(Reboot, 1)
-(ecap >= 550 && (nCreeps('bsrc',1) || nCreeps('asrc',1))) || nCreeps('hauler', 1)
+(ecap >= 550 && (nCreeps('bsrc',1) || nCreeps('asrc',1))) || nCreeps('hauler', nHaulers())
+  # nHaulers = min(3, 1 + floor(max(0, dropped energy - 1000) / 2000)); constants at the top of ms.hub.ts
 nJobs(Worker, 1); nJobs(Ctrl, 1); if storage: nJobs(Hub, 1)
 super.run(); return "critical"
 ```
@@ -264,7 +266,8 @@ same reason. Before the room has a spawn the `Startup` mission's pioneers carry
 it, so both missions can run side by side until `Startup` winds down at RCL4.
 The mission class is `Hub` in the process registry and the job class is `Hub`
 in the creep registry; `nJobs(HubJob, 1)` still lays `hub<n>` eggs because
-`nJobs` uses the constructor's runtime name. `status()` appends `rcl:<level>`.
+`nJobs` uses the constructor's runtime name. `status()` appends `rcl:<level>`,
+the dropped energy and the current hauler target.
 
 ## MyCreep.run() and Task2
 
