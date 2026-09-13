@@ -565,6 +565,18 @@ export function buildBody(spawns, eggMem, { maxRCL }) {
         energy: spawn.room.energyAvailable
       }))
       break
+    case 'upgrader':
+      // Surplus sink for job.upgrader.ts: two WORK per CARRY, one MOVE per
+      // two parts, sized from the energy banked in the room.
+      spawn = energySpawn(spawns, 550)
+      if (!spawn) break
+      body = energyDef(_.defaults({}, eggMem, {
+        move: 2,
+        base: [MOVE, CARRY],
+        per: [WORK, WORK, CARRY],
+        energy: spawn.room.energyAvailable
+      }))
+      break
     case 'wolf':
       spawn = energySpawn(spawns, 700)
       if (!spawn) break

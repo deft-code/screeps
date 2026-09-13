@@ -14,7 +14,7 @@ Process                      run(): Priority; kill()           (process.ts)
      └─ Mission (abstract)   owns eggs/hatch/creeps lists in Memory.missions[name]
          ├─ GlobalRespawn    @register  (ms.globalrespawn.ts)  ACTIVE
          ├─ Hub              @register  (ms.hub.ts)            "Hub <room>"; GlobalRespawn for any owned room, without the startup creeps:
-                                                              Reboot while the mission has no creeps, bsrc/asrc (ecap >= 550) or haulers (1 + one per 2k dropped energy over 1k, max 3), Worker, Ctrl, Hub once storage exists,
+                                                              Reboot while the mission has no creeps, bsrc/asrc (ecap >= 550) or haulers (1 + one per 2k dropped energy over 1k, max 3), Worker, Ctrl, Hub once storage exists, Upgrader.want(room) upgraders (below RCL8: storage energy / 100k, from 100k, fractional),
                                                               all spawned "local"; idles (paced log) while the room is not ours. Distinct from the `Hub` job class (separate registries).
          ├─ Swipe            @register  (ms.swipe.ts)          registered, not scheduled
          ├─ Reactor          @register  (ms.reactor.ts)        "Reactor <room>"; mission room = sector core of <room>
@@ -80,6 +80,9 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Ctrl    @register              (job.ctrl.ts)   boosts XGH2O, ecap rules
          ├─ Hub     @register              (job.hub.ts)    needs storage + meta 'hub' spot
          ├─ Hauler  @register  priority 9  (job.hauler.ts) energy = min(2500, ecap/2)
+         ├─ Upgrader @register priority -1 (job.upgrader.ts) port of role.upgrader.js; surplus sink: taskRecharge then goUpgradeController,
+         │                                                 after() idleNom + idleRecharge; body 'upgrader' (2W/1C per level) via "local";
+         │                                                 Upgrader.want(room) = 0 at RCL8, without storage, or below 100k, else storage energy / 100k (linear, fractional: 150k = 1.5)
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
          ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' via "close"
          ├─ Guard   @register              (job.guard.ts)  port of role.guard.js; Task2 @task hunt/duel/healCreep/retreat, kites melees via idleFlee;
@@ -239,6 +242,7 @@ nCreeps('startup', max(1, 6-rcl)) # 5 at RCL1 down to 1 at RCL5+
   || (ecap >= 550 && (nCreeps('bsrc',1) || nCreeps('asrc',1)))
   || nCreeps('hauler', 1)
 nJobs(Worker, 1); nJobs(Ctrl, 1); if storage: nJobs(Hub, 1)
+nJobs(Upgrader, Upgrader.want(room))   # 0 at RCL8 / no storage / < 100k, else storage energy / 100k (150k = 1.5); laid last (priority -1)
 super.run(); return "critical"
 ```
 
@@ -257,6 +261,7 @@ if no creeps at all:              nJobs(Reboot, 1)
 (ecap >= 550 && (nCreeps('bsrc',1) || nCreeps('asrc',1))) || nCreeps('hauler', nHaulers())
   # nHaulers = min(3, 1 + floor(max(0, dropped energy - 1000) / 2000)); constants at the top of ms.hub.ts
 nJobs(Worker, 1); nJobs(Ctrl, 1); if storage: nJobs(Hub, 1)
+nJobs(Upgrader, Upgrader.want(room))   # 0 at RCL8 / no storage / < 100k, else storage energy / 100k (150k = 1.5); laid last (priority -1)
 super.run(); return "critical"
 ```
 

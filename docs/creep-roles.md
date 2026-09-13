@@ -63,6 +63,7 @@ Spawned by `GlobalRespawn` -> `JobRole`/`JobCreep` -> these prototype methods:
 | `ctrl` | `Ctrl` | `roleCtrl` | `role.ctrl.js` | Sit on the `ctrl` spot, upgrade; refill from an adjacent store/link/container (remembers `memory.struct`). `after`: place a container on the spot below RCL8. |
 | `hauler` | `Hauler` | `roleHauler` | `role.hauler.js` | Fill towers, then extensions/spawns (`taskTransferPool`), pick up drops, drain src containers / terminal surplus, distribute to labs/nuker/power spawn/sink containers, dump minerals to terminal/storage. |
 | `hub` | `Hub` | `roleHub` | `role.hub.ts` | Stationary on the `hub` spot: shuttle energy among storage, terminal, hub link, and adjacent spawn/tower using `storageBalance` and `hubNeed`. `after`: renew in place (`idleImmortal`). |
+| `upgrader` | `Upgrader` | Task2 `start()` (no `roleUpgrader` call) | `job.upgrader.ts` | Surplus sink, laid while RCL < 8 and storage holds >= 100k energy (storage energy / 100k, so 150k = 1.5; priority -1): `taskRecharge` from storage/links/containers, then `goUpgradeController`. `after`: `idleNom` + `idleRecharge`. `role.upgrader.js` is the unported original. |
 | `asrc`, `bsrc` | `Srcer` | `roleAsrc`/`roleBsrc` | `role.src.ts` | Static miner on the meta spot: harvest, fill adjacent extensions/spawn, manage the source link mode (`src`/`dump`/`pause`), sip from container/link when recharging. `after`: idle build/repair. |
 
 Everything else with a `roleXxx` method is loaded but not spawned by any job.

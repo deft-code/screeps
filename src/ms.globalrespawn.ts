@@ -5,6 +5,7 @@ import { Worker } from "job.worker";
 import { Ctrl } from "job.ctrl";
 import { Hub } from "job.hub";
 import { Reboot } from "job.reboot";
+import { Upgrader } from "job.upgrader";
 
 @register
 export class GlobalRespawn extends Mission {
@@ -33,6 +34,7 @@ export class GlobalRespawn extends Mission {
         this.nJobs(Ctrl, 1);
 
         this.room.storage && this.nJobs(Hub, 1);
+        this.nJobs(Upgrader, Upgrader.want(this.room));
 
         super.run();
         return "critical";
