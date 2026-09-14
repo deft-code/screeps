@@ -8,10 +8,19 @@ import { Reboot } from "job.reboot";
 import { Upgrader } from "job.upgrader";
 import { CtrlHauler } from "job.ctrlhauler";
 
+// Room of the spawn named Home, or of any spawn when none carries that name
+// (shard2's spawns are Spawn1-3, and the mission threw every tick there,
+// leaving its creeps unrun and unreplaced).
+function homeSpawn(): StructureSpawn | undefined {
+    return Game.spawns.Home || _.first(_.values(Game.spawns) as StructureSpawn[]);
+}
+
 @register
 export class GlobalRespawn extends Mission {
     get roomName(): string {
-        return Game.spawns.Home.room.name;
+        const spawn = homeSpawn();
+        if (!spawn) throw new Error("GlobalRespawn: no spawns at all");
+        return spawn.room.name;
     }
 
     get room() {

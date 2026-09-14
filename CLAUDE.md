@@ -28,14 +28,14 @@ return                                 # lines 356-439 are dead
 | `GlobalRespawn` mission | `Memory.scheduler.services`, replayed by `Service.boot()` at every global reset; **never constructed in code** | lays eggs for startup/asrc/bsrc/hauler/worker/ctrl/hub in `Game.spawns.Home`'s room and runs those creeps |
 | `Hub <room>` mission | `scheduleService('Hub W25S7')`, then `Memory.scheduler.services` | the same loop without startups for another owned room, from its own spawns |
 | `ClaimedStrat` per owned room | `room.strat` constructor `exec`s itself | towers, safe mode, labs, links, metastruct construction, factory |
-| `FlagService` daemon | `@daemon` at import | orange genesis flags -> metastruct planning |
+| `FlagService` daemon | `@daemon` at import | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
 | `SpawnDaemon` | `@daemon` at import | turns eggs into `spawnCreep` |
 
 Consequences: no market automation, radar scanning, deposit farming, power
 creeps, or flag "teams" run on this build even though their code loads. The only
-flags in the game are metastruct genesis/child flags. The other missions
-(`Hub`, `Startup`, `Farm`, `Remote`, `Reactor`, `Once`, `Swipe`) run only when
-scheduled by command string ([docs/missions-and-jobs.md](docs/missions-and-jobs.md)).
+flags in the game are metastruct genesis/child flags and purple service flags. The other missions
+(`Hub`, `Startup`, `Farm`, `Remote`, `Reactor`, `Once`, `Swipe`) and the `Selloff <room>`
+terminal-selling service run only when scheduled by command string or a purple flag ([docs/missions-and-jobs.md](docs/missions-and-jobs.md)).
 
 ## Architecture in one screen
 
@@ -184,7 +184,7 @@ links, labs, spots, containers}`, `Memory.intel`, `Memory.flags[genesis].newer`,
 
 - A room claimed after first sight keeps `NullStrat` until reset (`evolve()`
   always returns `null`).
-- `GlobalRespawn` throws every tick unless a spawn is literally named `Home`.
+- `GlobalRespawn` uses the spawn named `Home`, else the first spawn in `Game.spawns`; with no spawns at all it throws every tick.
 - `afterWorker` exists in both `role.worker.js` (wins) and `role.mason.ts`.
 - `struct.tower.js` imports a non-existent `dynMaxHits`; only the storage
   > 800k overheal branch hits it.

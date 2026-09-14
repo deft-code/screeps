@@ -27,8 +27,11 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
    throws on `room.assaulters.length` (caught and deferred by `runRow`).
 7. **Too-old eggs are never removed** (`src/spawn.ts:158`, TODO in code). An egg
    whose `spawn()` keeps failing is retried forever.
-8. **`GlobalRespawn` hard-requires `Game.spawns.Home`**; any other spawn name
-   throws every tick inside the mission (deferred, so the whole mission stalls).
+8. **`GlobalRespawn` used to hard-require `Game.spawns.Home`**; since Sept 2026
+   it falls back to the first spawn in `Game.spawns`, and only a room with no
+   spawns at all makes it throw every tick (the whole mission then stalls: its
+   creeps are neither run nor replaced, which is how shard2's W3N4 lost four of
+   seven creeps while the spawns were named `Spawn1-3`).
 
 ## Latent bugs in code that is loaded but currently unreachable
 

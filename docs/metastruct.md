@@ -52,7 +52,15 @@ The flags described here are the only flags that exist in the game today.
 
 `FlagService` (a `@daemon` in the `low` row) iterates `Game.flags` every tick:
 `COLOR_ORANGE` primary -> `runGenesis(flag)`; `COLOR_GREY` primary with no parent
--> `flag.remove()`.
+-> `flag.remove()`; `COLOR_PURPLE` primary -> the flag's name, with `_` read as a
+space, is a service command (`Swipe_W4N3_W3N4`): `Service.spawn` it if not live
+and remember it, and `kill()` any remembered command whose purple flag is gone.
+Missions are refused: one that spawns is killed at once (its empty
+`Memory.missions` entry removed) and counts as a failure. A failure, or a name that
+spawns nothing, turns the flag white with purple secondary; recolour it purple to
+retry. The processes
+are transient and the set is in-memory, so both rebuild from the flags after a
+global reset; a purple flag naming an already-live scheduled service is left alone.
 
 A **genesis flag** is any flag with primary `COLOR_ORANGE`. Its secondary colour
 is a command; after acting it usually resets itself to `COLOR_CYAN` (idle):

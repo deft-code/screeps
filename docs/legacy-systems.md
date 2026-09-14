@@ -50,6 +50,10 @@ the `role` getter would clash with `CreepRole.role`. Dead end.
 
 ## Market automation (`src/struct.terminal.js run()`, `src/market.ts run()`, `src/markethack.js`)
 
+The live replacement, since Sept 2026, is the `Selloff <room>` service
+(`ms.selloff.ts`, [missions-and-jobs.md](missions-and-jobs.md)): buy-order
+selling only, scheduled by command or purple flag.
+
 Terminal balancing, auto-buying core minerals, selling surplus, price EMAs in
 `Memory.market`, and the `getRawMarket` hack that hijacks `Object.prototype`
 with a `Symbol` getter to grab the engine's raw order table. All callers are

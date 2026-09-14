@@ -11,6 +11,15 @@ flag-driven "team" system ([legacy-systems.md](legacy-systems.md)).
 ```
 Process                      run(): Priority; kill()           (process.ts)
  └─ Service                  named by a command string, e.g. "Swipe W5N8 W6N8"
+     ├─ Selloff      @register  (ms.selloff.ts)   "Selloff <room>"; no creeps, so a purple flag "Selloff_<room>" may run it.
+     │                                            Kills itself when the room is not ours or has no terminal (room invisible counts).
+     │                                            Each tick the room's terminal is off cooldown: non-energy stock in random order,
+     │                                            per resource walk the buy orders (Game.market.getAllOrders cached 50 ticks,
+     │                                            best price first) and Game.market.deal the first that fits; the transfer
+     │                                            energy comes from this terminal, so the amount is halved until affordable; when
+     │                                            not even one unit is, the tick's deal buys energy from the cheapest sell order
+     │                                            instead (up to 100k in the terminal, capped by credits and transfer energy).
+     │                                            One deal per tick (deal() starts the 10-tick terminal cooldown).
      └─ Mission (abstract)   owns eggs/hatch/creeps lists in Memory.missions[name]
          ├─ GlobalRespawn    @register  (ms.globalrespawn.ts)  ACTIVE
          ├─ Hub              @register  (ms.hub.ts)            "Hub <room>"; GlobalRespawn for any owned room, without the startup creeps:
@@ -74,7 +83,10 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.js for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
      │                       when empty); withdraws from the fullest rsrc container (sweeps dropped energy), unloads into the home storage
      │                       when more than half full; after() idleNom picks up adjacent energy
-     ├─ Swiper   @register   [MOVE,CARRY], work in progress          (job.swiper.ts)
+     ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs from the spawns nearest home, sized to energy on hand (max 50 parts);
+     │                       loots the Swipe target: @task withdrawFrom the cheapest-path non-own structure with anything in its store (Rewalker.planWalk over all candidates), most plentiful resource first
+     │                       (nuker excluded; rampart-covered ones skipped 1500 ticks via memory.skip) until full, or until the room is empty and it holds anything,
+     │                       then straight to home: @task transferTo storage/terminal, else dropAt the controller
      └─ JobRole              bridge to legacy roles: start() calls creep.run()/after() (job.role.ts)
          ├─ Worker  @register              (job.worker.ts)
          ├─ Ctrl    @register              (job.ctrl.ts)   boosts XGH2O, ecap rules
@@ -128,6 +140,7 @@ scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that
 scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
 scheduleService('Once Paver W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down (Remote schedules these itself)
+scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown
 ```
 
 `schedule` = `spawn` + push the command onto `Memory.scheduler.services`, which
@@ -239,7 +252,7 @@ skip straight to `super.run()`, so they lay no eggs while winding down. A new
 
 ## GlobalRespawn (`src/ms.globalrespawn.ts`)
 
-Room = `Game.spawns.Home.room`. **A spawn named `Home` is required.** Each tick:
+Room = `Game.spawns.Home.room`, or the first spawn's room when no spawn is named `Home` (throws only with no spawns at all). Each tick:
 
 ```
 if no creeps at all:              nJobs(Reboot, 1)        # emergency: body sized from energyAvailable

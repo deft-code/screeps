@@ -51,6 +51,7 @@ import 'ms.remote';
 import 'ms.once';
 import 'ms.startup';
 import 'ms.hub';
+import 'ms.selloff';
 import "service.flag";
 
 import "job.hauler";
