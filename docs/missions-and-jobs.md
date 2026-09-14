@@ -37,7 +37,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │   └─ Remote       @register  (ms.remote.ts)         "Remote <remote> <home>"; port of team.ts teamRemote, phase 1. Extends Farm for
                                                               the suppress* rules but replaces run() and reserve():
                                                               Scout while invisible; Mini/Guard/Wolf against enemies, hostiles, an invader core; reserve() is team.ts reserve():
-                                                              paceJobs(Reserver, 225), 450 once our reservation > 450 ticks, none above 1000,
+                                                              paceJobs(Reserver, 225), 450 once our reservation > 450 ticks, none above 1000, never faster than 500 / free tiles around the controller,
                                                               none while hostiles are present or the controller is owned (the Reserver job attacks
                                                               a foreign reservation itself); no farmers.
                                                               Phase 2: planMetas() once the remote is visible (or planMetas(true) from the console):
@@ -47,7 +47,7 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               at most one per room per 1500 ticks.
                                                               harvest(): paceJobs(Harvester, (1500 - 50*route dist) / rsrc metas) while visible, no hostiles,
                                                               not foreign-reserved (civilians in remotes are paced, never replaced).
-                                                              truck(): paceJobs(Trucker, min(1500, 1500 / (5*sum(src cap) / (avg carry * 1500 / (2*legSteps+10)))))
+                                                              truck(): paceJobs(Trucker, min(1500, 1500 / (5*sum(src cap) / (avg carry * 1500 / (2*legSteps+10))))) only once a container stands on an rsrc tile;
                                                               same gates; 1500 while no trucker is alive; legSteps = longest source leg from planning
          ├─ Once             @register  (ms.once.ts)           "Once <Job> <room>"; lays one egg of the job, winds down once it has spawned,
                                                               kills and deschedules itself when the creep and its tombstone are gone

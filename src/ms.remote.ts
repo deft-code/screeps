@@ -3,7 +3,8 @@ import { Farm } from "ms.farm";
 import { register, Priority, Service } from "process";
 import { Scout } from "job.scout";
 import { Reserver } from "job.reserver";
-import { whoami } from "Rewalker";
+import { whoami, coordsFromXY } from "Rewalker";
+import { getSpots } from "spots";
 import { getMetaManager, MetaStructure } from "metastruct";
 import { Harvester } from "job.harvester";
 import { Trucker } from "job.trucker";
@@ -17,6 +18,9 @@ const kReservePace = 225;
 const kReservePaceSlow = 450;
 const kReserveSlowAt = 450;
 const kReserveStopAt = 1000;
+// Reservers stand next to the controller, so never pace them faster than the
+// free tiles around it can absorb: at least kReserveSpotPace / spots ticks apart.
+const kReserveSpotPace = 500;
 // Ticks between "Once Paver <room>" schedules for the same room.
 const kPaverPace = 1500;
 // Walking allowance per room of route distance when pacing civilians.
@@ -101,7 +105,25 @@ export class Remote extends Farm {
             if (res.ticksToEnd > kReserveStopAt) return null;
             if (res.ticksToEnd > kReserveSlowAt) pace = kReservePaceSlow;
         }
+        pace = Math.max(pace, this.reserveSpotPace());
         return this.paceJobs(Reserver, pace);
+    }
+
+    reserveSpotPace(): number {
+        const nspots = getSpots(this.room!.controller!.pos).length || 1;
+        return Math.floor(kReserveSpotPace / nspots);
+    }
+
+    // Truckers have nothing to haul until a harvester's container stands on
+    // an rsrc tile; the harvester builds it (job.harvester.ts).
+    hasContainer(): boolean {
+        const room = this.room!;
+        return _.any(this.rsrcMetas(), m => {
+            const xy = m.getSite(STRUCTURE_CONTAINER);
+            if (xy === null) return false;
+            const [x, y] = coordsFromXY(xy);
+            return _.any(room.lookForAt(LOOK_STRUCTURES, x, y), s => s.structureType === STRUCTURE_CONTAINER);
+        });
     }
 
     // The rsrc metas planned in the remote room, in a stable order.
@@ -130,12 +152,14 @@ export class Remote extends Farm {
     //   energy  = 5 * sum(source capacity)            (regen every 300 ticks)
     //   haul    = avg trucker carry * 1500 / roundTrip (roundTrip from the planned leg)
     //   pace    = 1500 / (energy / haul), capped at 1500 so one is always in flight;
-    // 1500 while no trucker is alive to average. Same gates as harvest().
+    // 1500 while no trucker is alive to average. Same gates as harvest(), plus
+    // a built container on an rsrc tile.
     truck() {
         const room = this.room!;
         if (room.hostiles.length) return null;
         if (this.foreignReserved()) return null;
         if (!this.rsrcMetas().length) return null;
+        if (!this.hasContainer()) return null;
         return this.paceJobs(Trucker, this.truckPace());
     }
 
