@@ -80,7 +80,10 @@ export class CreepHub extends CreepCarry {
 
         let wd: TaskRet = false;
         if (this.store.getFreeCapacity()) {
-            if (link && (
+            // Never drain a src link: we are the one filling it, so taking the
+            // energy back just loops (W3N4, Sept 2026: hub link memoised as src
+            // with no sink link, so hubNeed was 0 and this branch fired every tick).
+            if (link && link.mode !== Mode.src && (
                 (link.mode === Mode.sink && link.store.energy) ||
                 link.cooldown > 10 ||
                 hubTarget < 200 ||

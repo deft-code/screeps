@@ -31,7 +31,8 @@ Process                      run(): Priority; kill()           (process.ts)
      │                                            swipe -> MyPowerCreep.runSwipe(child flag room, Furiosa flag room); the child flag is removed once
      │                                            runSwipe returns false (creep empty and the room has nothing left, judged at home after the last
      │                                            partial unload too), so the next child takes over without a trip back.
-     │                                            No usable child flag: walk to within 5 of the Furiosa flag and wait.
+     │                                            No usable child flag: walk to within 5 of the Furiosa flag and wait. TTL < 300: runRenew
+     │                                            at the home power spawn instead of any child behaviour.
      └─ Mission (abstract)   owns eggs/hatch/creeps lists in Memory.missions[name]
          ├─ GlobalRespawn    @register  (ms.globalrespawn.ts)  ACTIVE
          ├─ Hub              @register  (ms.hub.ts)            "Hub <room>"; GlobalRespawn for any owned room, without the startup creeps:

@@ -296,6 +296,38 @@ export class MyPowerCreep extends TPowerCreep {
         return this.walkTo(new RoomPosition(25, 25, roomName), range);
     }
 
+    // --- renew ------------------------------------------------------------------
+
+    // Renew at a power spawn we happen to stand next to; no movement. Power
+    // creeps live 5000 ticks per renew and die for good when TTL runs out.
+    idleRenew(): boolean {
+        if (this.intents.renew) return true;
+        const p = this.p;
+        if (!p.room) return false;
+        const ps = _.find(p.room.findStructs(STRUCTURE_POWER_SPAWN) as StructurePowerSpawn[], s => s.my && p.pos.isNearTo(s));
+        if (!ps) return false;
+        return this.renew(ps) === OK;
+    }
+
+    // Walk to the power spawn in `roomName` (default: the room we spawned in)
+    // and renew there. Returns a status string.
+    runRenew(roomName = this.homeName): string {
+        if (!roomName) return "renew: no home room";
+        const p = this.p;
+        if (p.pos.roomName !== roomName) {
+            this.moveRoom(roomName);
+            return `renew: to ${roomName}`;
+        }
+        const ps = _.find(p.room!.findStructs(STRUCTURE_POWER_SPAWN) as StructurePowerSpawn[], s => s.my);
+        if (!ps) return `renew: no power spawn in ${roomName}`;
+        if (!p.pos.isNearTo(ps)) {
+            this.walkTo(ps.pos, 1);
+            return "renew: to power spawn";
+        }
+        const err = this.renew(ps);
+        return err === OK ? "renewed" : `renew failed ${err}`;
+    }
+
     // --- swipe: loot a room's structures and haul home (job.swiper.ts, for a power creep) ---
     //
     // Fill up from the cheapest-path non-own structure with anything in its
@@ -307,6 +339,7 @@ export class MyPowerCreep extends TPowerCreep {
     // whether it stands there or has just unloaded at home.
     runSwipe(targetRoom: string, homeRoom: string): string | false {
         const p = this.p;
+        this.idleRenew();
         const mem = this.memory.swipe = this.memory.swipe || {};
         const holding = p.store.getUsedCapacity() > 0;
         if (!p.store.getFreeCapacity()) return this.swipeDeliver(homeRoom);

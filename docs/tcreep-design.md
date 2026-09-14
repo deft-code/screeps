@@ -544,6 +544,8 @@ that `src/` actually imports. They are self-contained rather than built on
   each recording `intents.<kind>` on `OK` per the CLAUDE.md convention.
   `spawn(ps)` records the power spawn's room as `memory.home` (`homeName`/`home`
   getters on `TPowerCreep`). Movement helpers `walkTo(pos, range)` / `moveRoom(room)` wrap Rewalker.
+  `idleRenew()` renews at an adjacent own power spawn without moving (runSwipe
+  calls it first); `runRenew(room = homeName)` walks to that room's power spawn and renews.
   Behaviours are plain methods a service calls each tick; the first is
   `runSwipe(targetRoom, homeRoom)`, the `job.swiper.ts` loop for a power creep:
   fill from the cheapest-path non-own stocked structure (`planWalk` over the

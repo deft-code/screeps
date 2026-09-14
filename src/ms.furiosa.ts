@@ -9,6 +9,8 @@ export const kFuriosaName = "Furiosa";
 const kLogPace = 100;
 // With no child flag to act on, Furiosa waits this close to the Furiosa flag.
 const kIdleRange = 5;
+// Below this many ticks to live she drops everything and goes home to renew.
+const kRenewBelow = 300;
 
 interface FuriosaMemory {
     // Room whose power spawn Furiosa is homed on.
@@ -38,6 +40,8 @@ declare global {
 //   swipe   MyPowerCreep.runSwipe(child room, Furiosa flag room); the child flag
 //           is removed once runSwipe reports the room empty (false)
 // With no usable child flag she walks to within kIdleRange of the Furiosa flag.
+// Below kRenewBelow ticks to live she instead goes to the home power spawn to
+// renew (MyPowerCreep.runRenew); runSwipe also renews in passing (idleRenew).
 @register
 export class Furiosa extends Service {
     get memory(): FuriosaMemory {
@@ -67,6 +71,10 @@ export class Furiosa extends Service {
         if (!pc.exists) return "low";
         if (!pc.spawned) {
             this.spawnCreep(pc);
+            return "low";
+        }
+        if (pc.ticksToLive < kRenewBelow) {
+            this.lastStatus = pc.runRenew(this.homeName || pc.homeName);
             return "low";
         }
         this.lastStatus = this.runChildren(pc);
