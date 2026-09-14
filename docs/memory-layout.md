@@ -7,6 +7,13 @@ small; per-tick data belongs in `obj.tick` / `obj.cache`
 
 ## Live keys
 
+### `Memory.furiosa` (`ms.furiosa.ts`)
+
+`{ home?: roomName }`: the room whose power spawn the Furiosa service homes its
+power creep on; pinned by a flag named `Furiosa`, else re-picked at random among
+our power spawns when unset or stale. `Memory.powerCreeps[name].home` is the room
+the creep was last spawned in (`MyPowerCreep.spawn`), alongside `swipe` state.
+
 ### `Memory.scheduler` (`process.ts`)
 ```
 { services: ["GlobalRespawn", ...],   // command strings replayed by Service.boot()

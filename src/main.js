@@ -52,6 +52,7 @@ import 'ms.once';
 import 'ms.startup';
 import 'ms.hub';
 import 'ms.selloff';
+import 'ms.furiosa';
 import "service.flag";
 
 import "job.hauler";

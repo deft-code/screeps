@@ -3,6 +3,12 @@ import { TaskRet } from "Tasker";
 import { Link, Mode, hubNeed, storageBalance } from "struct.link";
 import { CreepCarry } from "creep.carry";
 
+// Non-energy stock the terminal is filled to from storage by the hub creep,
+// and the per-resource ceiling: a resource is only moved while the terminal
+// holds less than kTerminalPerResource of it.
+const kTerminalMinerals = 150000;
+const kTerminalPerResource = 5000;
+
 
 @injecter(Creep)
 export class CreepHub extends CreepCarry {
@@ -32,6 +38,12 @@ export class CreepHub extends CreepCarry {
                     term = struct; break
             }
         }
+        // Minerals in hand go to the terminal before anything else.
+        if (term && this.store.getUsedCapacity() > this.store.energy) {
+            const res = _.find(Object.keys(this.store) as ResourceConstant[], r => r !== RESOURCE_ENERGY)!;
+            return this.goTransfer(term, res, false);
+        }
+
         let needE = false;
         let xfer: TaskRet = false;
 
@@ -82,6 +94,35 @@ export class CreepHub extends CreepCarry {
             }
         }
 
+        if (!xfer && !wd && !this.intents.transfer && !this.intents.withdraw) {
+            return this.withdrawMineral(store, term);
+        }
+        return false;
+    }
+
+    // Move non-energy stock from storage toward the terminal: only while the
+    // terminal's non-energy total is under kTerminalMinerals, only resources it
+    // holds less than kTerminalPerResource of, and only with an empty hand.
+    withdrawMineral(store: StructureStorage | null, term: StructureTerminal | null): TaskRet {
+        if (!store || !term || this.store.getUsedCapacity()) return false;
+        const termMinerals = term.store.getUsedCapacity() - term.store.energy;
+        if (termMinerals >= kTerminalMinerals) return false;
+        const room = kTerminalMinerals - termMinerals;
+        for (const res of Object.keys(store.store) as ResourceConstant[]) {
+            if (res === RESOURCE_ENERGY || !store.store[res]) continue;
+            const have = term.store[res] || 0;
+            if (have >= kTerminalPerResource) continue;
+            const amount = Math.min(store.store[res], kTerminalPerResource - have, room, this.store.getFreeCapacity());
+            if (amount <= 0) continue;
+            this.dlog('terminal minerals', res, amount);
+            const err = this.withdraw(store, res, amount);
+            if (err === OK) {
+                this.intents.withdraw = store;
+                return 'minerals';
+            }
+            this.dlog('mineral withdraw failed', err, res, amount);
+            return false;
+        }
         return false;
     }
 

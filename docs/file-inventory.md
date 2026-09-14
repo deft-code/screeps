@@ -51,7 +51,7 @@ Status legend:
 | `src/guards.ts` | LIVE | 2019 | Type guards (`isSType`, `isStoreStruct`, ...). |
 | `src/constants.js` | LIVE | 2017 | RCL energy caps, reaction tables, `EnergyReserve`. |
 | `src/types.d.ts` | LIVE | 2019 | Global type augmentations. |
-| `src/Tasker.ts` | LIVE (types) | 2019 | `TaskRet`; `Tasker` class used only by powercreep/flag. |
+| `src/Tasker.ts` | LIVE (types) | 2019 | `TaskRet`; `Tasker` class used only by flag. |
 | `src/pace.ts` | LIVE (`humanize`) | 2019 | Tick-rate estimate (sampler not wired). |
 
 ## Metastructure and flags
@@ -117,7 +117,7 @@ Status legend:
 |---|---|---|---|
 | `src/team.ts`, `src/team.egg.js` | DEAD | 2017/19 | Flag teams and egg factories. |
 | `src/spawnold.js` | LIVE (`findSpawns`, `buildBody`) / DEAD (`run`) | 2017 | Body table still used by `JobRole`. |
-| `src/powercreep.ts` | DEAD | 2019 | Power creep roles (MMO-specific). |
+| `src/powercreep.ts` | LIVE | 2026 | Rebuilt: `TPowerCreep` / `MyPowerCreep` wrappers plus `getPowerCreep(name)` / `myPowerCreeps()` ([tcreep-design.md](tcreep-design.md) Appendix D). The 2019 prototype roles are gone (git history; [legacy-systems.md](legacy-systems.md)). |
 | `src/console.js` | REACHABLE (console) | 2019 | Global console helpers and client hacks. |
 | `src/markethack.js` | LIVE (side effect) / DEAD (use) | 2020 | Patches `Object.prototype` at import. |
 | `src/history.ts`, `memprof.ts`, `memhack.js`, `profiler.ts`, `server.js`, `stack.js`, `planner.js` | ORPHAN | 2017-20 | See [legacy-systems.md](legacy-systems.md). |

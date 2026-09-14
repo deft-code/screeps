@@ -523,6 +523,40 @@ Docs to update at phase 1: `creep-roles.md` (dispatch and mixin chain sections),
 `runtime-tick.md` (RetireDaemon row), `memory-layout.md` (new creep fields),
 `file-inventory.md`, `known-issues.md` (items 3 and 7 closed), `CLAUDE.md`.
 
+## Appendix D: first shipped wrappers, `TPowerCreep` / `MyPowerCreep` (Sept 2026)
+
+`src/powercreep.ts` was rebuilt around the first wrappers built on this design
+that `src/` actually imports. They are self-contained rather than built on
+`spike/tobj.ts`, since nothing in `src/` may import `spike/`:
+
+- `TPowerCreep(name)`: any power creep, mine or foreign. `obj` resolves once per
+  tick (`Game.powerCreeps[name]`, else a per-tick index of
+  `FIND_HOSTILE_POWER_CREEPS` over visible rooms); `p` returns the game object
+  or throws. Inspection only: `exists`, `my`, `spawned`, `onThisShard`, `pos`,
+  `room`, `level`, `className`, `hits`, `store`, `powers`, `hasPower`,
+  `powerLevel`, `powerCooldown`, `powerReady` (cooldown and ops),
+  `roomPowerEnabled`, `spawnCooldown` (wall-clock ms). `mine()` returns the
+  `MyPowerCreep` for one of mine, else null. Keeps only `name`, `lastSeen`,
+  `lastRoom`, `lastXY` across ticks.
+- `MyPowerCreep extends TPowerCreep`: every PowerCreep intent (`spawn`, `renew`,
+  `upgrade`, `rename`, `delete`, `suicide`, `usePower`, `enableRoom`, `move`,
+  `moveTo`, `moveByPath`, `withdraw`, `transfer`, `pickup`, `drop`, `say`, ...),
+  each recording `intents.<kind>` on `OK` per the CLAUDE.md convention.
+  `spawn(ps)` records the power spawn's room as `memory.home` (`homeName`/`home`
+  getters on `TPowerCreep`). Movement helpers `walkTo(pos, range)` / `moveRoom(room)` wrap Rewalker.
+  Behaviours are plain methods a service calls each tick; the first is
+  `runSwipe(targetRoom, homeRoom)`, the `job.swiper.ts` loop for a power creep:
+  fill from the cheapest-path non-own stocked structure (`planWalk` over the
+  candidates; nuker and rampart-covered tiles excluded, refusals skipped 1500
+  ticks), then straight to the home storage/terminal (else drop at the
+  controller) one resource per tick; state in `memory.swipe = { target, skip }`;
+  returns a status string, or false (and clears the state) once the creep is
+  empty and the target room has nothing left: standing there, or back home after
+  unloading the last partial load (`memory.swipe.dry`).
+- `getPowerCreep(name)` is the registry (one wrapper per name per global; mine
+  always come back as `MyPowerCreep`), `myPowerCreeps()` lists mine.
+
+
 ## Appendix A: spike
 
 ```

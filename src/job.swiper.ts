@@ -13,10 +13,24 @@ const kMaxBodyEnergy = 2500;
 // Withdrawing from a nuker is bugged; everything else with a store is fair game.
 const kNoSwipe: StructureConstant[] = [STRUCTURE_NUKER];
 
-// Resources a store holds, most plentiful first.
+// Structures in `room` a swiper may loot: not ours, holding anything, no
+// rampart on top, not in `skip` (structure id -> tick until which it is left
+// alone). Shared with ms.swipe.ts, which winds the mission down when empty.
+export function swipeTargets(room: Room, skip: { [id: string]: number } = {}): AnyStoreStructure[] {
+    return room.find(FIND_STRUCTURES, {
+        filter: (s: AnyStructure) => !(s as OwnedStructure).my &&
+            !_.contains(kNoSwipe, s.structureType) &&
+            (s as AnyStoreStructure).store !== undefined &&
+            stocked((s as AnyStoreStructure).store).length > 0 &&
+            !(skip[s.id] > Game.time) &&
+            !_.any(s.pos.lookFor(LOOK_STRUCTURES), r => r.structureType === STRUCTURE_RAMPART),
+    }) as AnyStoreStructure[];
+}
+
+// Resources a store holds, in random order (so a loot run mixes what it takes).
 function stocked(store: StoreDefinition | Store<ResourceConstant, false>): ResourceConstant[] {
     const s = store as unknown as { [res: string]: number };
-    return _.sortBy(Object.keys(s).filter(res => s[res] > 0), res => -s[res]) as ResourceConstant[];
+    return _.shuffle(Object.keys(s).filter(res => s[res] > 0)) as ResourceConstant[];
 }
 
 declare global {
@@ -27,7 +41,7 @@ declare global {
 }
 
 // Loot an abandoned or hostile base for the Swipe mission
-// ("Swipe <target> <home>"). Withdraws any resource, most plentiful first, from
+// ("Swipe <target> <home>"). Withdraws any resource, picked at random, from
 // the cheapest-path structure that is not ours and holds something (spawns,
 // extensions, towers, storage, terminal, labs, links, containers...; nukers
 // excepted) until full, or until the room has nothing left to take while it
@@ -74,15 +88,7 @@ export class Swiper extends JobCreep {
     // Structures that are not ours, hold anything, have no rampart on top and
     // have not refused us recently.
     findTargets(): AnyStoreStructure[] {
-        const skip = this.memory.skip || {};
-        return this.c.room.find(FIND_STRUCTURES, {
-            filter: (s: AnyStructure) => !(s as OwnedStructure).my &&
-                !_.contains(kNoSwipe, s.structureType) &&
-                (s as AnyStoreStructure).store !== undefined &&
-                stocked((s as AnyStoreStructure).store).length > 0 &&
-                !(skip[s.id] > Game.time) &&
-                !this.ramparted(s),
-        }) as AnyStoreStructure[];
+        return swipeTargets(this.c.room, this.memory.skip);
     }
 
     // The candidate with the cheapest path: one PathFinder search over every
@@ -96,10 +102,6 @@ export class Swiper extends JobCreep {
         if (i >= 0) return targets[i];
         this.dlog("planWalk failed", i, "falling back to range");
         return this.pos.findClosestByRange(targets);
-    }
-
-    ramparted(s: Structure): boolean {
-        return _.any(s.pos.lookFor(LOOK_STRUCTURES), r => r.structureType === STRUCTURE_RAMPART);
     }
 
     @task
@@ -137,7 +139,7 @@ export class Swiper extends JobCreep {
         const c = this.c;
         if (!c.store.getUsedCapacity()) return "start";
         if (!this.pos.isNearTo(store)) return this.moveTarget(store, 1);
-        // One resource per tick, most plentiful first.
+        // One resource per tick, in random order.
         const res = _.first(stocked(c.store))!;
         const err = c.transfer(store, res);
         if (err !== OK) this.log("transfer to", store, "failed", err);

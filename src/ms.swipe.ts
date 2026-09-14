@@ -3,7 +3,7 @@ import { Mission } from "mission";
 import { register, Priority } from "process";
 import * as debug from "debug";
 import { Scout } from "job.scout";
-import { Swiper } from "job.swiper";
+import { Swiper, swipeTargets } from "job.swiper";
 
 @register
 export class Swipe extends Mission {
@@ -23,6 +23,10 @@ export class Swipe extends Mission {
 
         if(!this.room) {
             this.nJobs(Scout, 1);
+        } else if (!swipeTargets(this.room).length) {
+            // Nothing left to loot: stop laying, let the swiper finish and die.
+            debug.log(this.name, this.roomName, "has no swipe targets left, winding down");
+            this.windDown();
         } else {
             this.nJobs(Swiper, 1);
         }

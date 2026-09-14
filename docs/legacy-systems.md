@@ -67,8 +67,11 @@ and leaves the prototype patch in place.
 - Deposits: `depositRun` creates `deposit_<room>` BLUE/RED team flags for nearby
   highway deposits and `role.depositfarmer.ts` farms them. Dead with teams.
 - Power creeps: `HarleyQuinn`, `Heimdall`, `Genesis`, `Magellan` with hardcoded
-  MMO rooms (`W29N11`, `W21N15`, `W23N15`) and shard checks. `run()`/`after()`
-  are only called after the dead `return`. Uses the generic `Tasker`.
+  MMO rooms (`W29N11`, `W21N15`, `W23N15`) and shard checks, Tasker-driven
+  task*/idle* methods (drain extensions, regen sources, operate observer, renew
+  at home, enable rooms, ping-pong flags). Removed from `src/powercreep.ts` in
+  Sept 2026 (see git history before the rewrite); the file now holds only the
+  `TPowerCreep`/`MyPowerCreep` wrappers and `ms.furiosa.ts` drives power creeps.
 
 ## `main.js` hacks
 

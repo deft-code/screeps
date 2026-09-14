@@ -31,8 +31,8 @@ return                                 # lines 356-439 are dead
 | `FlagService` daemon | `@daemon` at import | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
 | `SpawnDaemon` | `@daemon` at import | turns eggs into `spawnCreep` |
 
-Consequences: no market automation, radar scanning, deposit farming, power
-creeps, or flag "teams" run on this build even though their code loads. The only
+Consequences: no market automation, radar scanning, deposit farming, or flag
+"teams" run on this build even though their code loads. The only
 flags in the game are metastruct genesis/child flags and purple service flags. The other missions
 (`Hub`, `Startup`, `Farm`, `Remote`, `Reactor`, `Once`, `Swipe`) and the `Selloff <room>`
 terminal-selling service run only when scheduled by command string or a purple flag ([docs/missions-and-jobs.md](docs/missions-and-jobs.md)).
@@ -198,7 +198,7 @@ links, labs, spots, containers}`, `Memory.intel`, `Memory.flags[genesis].newer`,
 ## Legacy and orphans
 
 `team.ts`/`team.egg.js` (flag teams), `spawnold.run`, `room.keeper.js`,
-`planner.js`, `powercreep.ts`, `struct.terminal.run`, `matrix.js`,
+`planner.js`, `struct.terminal.run`, `matrix.js`,
 and 30-odd `role.*.js` files are loaded but not driven.
 `FindRoute.ts`, `PriorityQueue.js`, `history.ts`, `memprof.ts`, `memhack.js`,
 `profiler.ts`, `role.js`, `role.legacy.js`, `role.recycle.ts`, `server.js`,

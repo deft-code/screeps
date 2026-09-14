@@ -20,12 +20,25 @@ Process                      run(): Priority; kill()           (process.ts)
      │                                            not even one unit is, the tick's deal buys energy from the cheapest sell order
      │                                            instead (up to 100k in the terminal, capped by credits and transfer energy).
      │                                            One deal per tick (deal() starts the 10-tick terminal cooldown).
+     ├─ Furiosa      @register  (ms.furiosa.ts)   "Furiosa"; manages the power creep of that name (Memory.furiosa.home).
+     │                                            Keeps a home: a flag named Furiosa pins it to the flag's room (waits there if it
+     │                                            has no power spawn); else the stored room if ours with a power spawn, else a
+     │                                            random own power spawn's room, else none. Spawns Game.powerCreeps.Furiosa (via
+     │                                            MyPowerCreep.spawn, which records memory.home on the creep) at the home power
+     │                                            spawn when she exists but is unspawned and the spawn cooldown has passed.
+     │                                            Spawned: the Furiosa flag's child flags ("<prefix><n>_Furiosa", sorted by name)
+     │                                            pick the behaviour; first known prefix wins, unknown ones are logged and skipped.
+     │                                            swipe -> MyPowerCreep.runSwipe(child flag room, Furiosa flag room); the child flag is removed once
+     │                                            runSwipe returns false (creep empty and the room has nothing left, judged at home after the last
+     │                                            partial unload too), so the next child takes over without a trip back.
+     │                                            No usable child flag: walk to within 5 of the Furiosa flag and wait.
      └─ Mission (abstract)   owns eggs/hatch/creeps lists in Memory.missions[name]
          ├─ GlobalRespawn    @register  (ms.globalrespawn.ts)  ACTIVE
          ├─ Hub              @register  (ms.hub.ts)            "Hub <room>"; GlobalRespawn for any owned room, without the startup creeps:
                                                               Reboot while the mission has no creeps, bsrc/asrc (ecap >= 550) or haulers (1 + one per 2k dropped energy over 1k, max 3), Worker, Ctrl, Hub once storage exists, Upgrader.want(room) upgraders (below RCL8: storage energy / 100k, from 100k, fractional),
                                                               all spawned "local"; idles (paced log) while the room is not ours. Distinct from the `Hub` job class (separate registries).
-         ├─ Swipe            @register  (ms.swipe.ts)          registered, not scheduled
+         ├─ Swipe            @register  (ms.swipe.ts)          "Swipe <target> <home>"; Scout while the target is invisible, else one Swiper;
+         │                                                     winds down once the target room has no swipe targets left (job.swiper swipeTargets)
          ├─ Reactor          @register  (ms.reactor.ts)        "Reactor <room>"; mission room = sector core of <room>
          │                                                     (both coords rounded to x5); Scout from <room> while the core is
          │                                                     invisible; once visible logs
@@ -84,7 +97,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       when empty); withdraws from the fullest rsrc container (sweeps dropped energy), unloads into the home storage
      │                       when more than half full; after() idleNom picks up adjacent energy
      ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs from the spawns nearest home, sized to energy on hand (max 50 parts);
-     │                       loots the Swipe target: @task withdrawFrom the cheapest-path non-own structure with anything in its store (Rewalker.planWalk over all candidates), most plentiful resource first
+     │                       loots the Swipe target: @task withdrawFrom the cheapest-path non-own structure with anything in its store (Rewalker.planWalk over all candidates), one resource at a time in random order
      │                       (nuker excluded; rampart-covered ones skipped 1500 ticks via memory.skip) until full, or until the room is empty and it holds anything,
      │                       then straight to home: @task transferTo storage/terminal, else dropAt the controller
      └─ JobRole              bridge to legacy roles: start() calls creep.run()/after() (job.role.ts)
@@ -141,6 +154,7 @@ scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
 scheduleService('Once Paver W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down (Remote schedules these itself)
 scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown
+scheduleService('Furiosa')           // power creep Furiosa; picks a home power spawn room into Memory.furiosa.home
 ```
 
 `schedule` = `spawn` + push the command onto `Memory.scheduler.services`, which
