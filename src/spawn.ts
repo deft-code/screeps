@@ -134,7 +134,8 @@ export function runSpawns() {
   for (let mycreep of eggs) {
     let [spawn, body] = mycreep.spawn(spawns);
 
-    debug.log(`spawn:${spawn}, body:${body}, type:${(mycreep as any).__proto__.constructor.name}`);
+    const parts = _.map(_.countBy(body), (n, part) => `${part}:${n}`).join(" ");
+    debug.log(`spawn:${spawn}, body:${parts}, type:${(mycreep as any).__proto__.constructor.name}`);
 
     if (!spawn) continue;
 

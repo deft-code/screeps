@@ -3,6 +3,7 @@ import { register, task, Task2Ret } from "mycreep";
 import { closeSpawns } from "spawnold";
 import { energyDef } from "spawn";
 import { defaultRewalker } from "Rewalker";
+import { CreepRepair } from "creep.repair";
 
 const rewalker = defaultRewalker();
 
@@ -153,5 +154,13 @@ export class Swiper extends JobCreep {
         if (this.walkRange(ctrl) !== OK) return "wait";
         this.c.drop(res);
         return "wait";
+    }
+
+    get cc(): CreepRepair {
+        return this.c as CreepRepair;
+    }
+
+    after() {
+        this.cc.idleNom();
     }
 }

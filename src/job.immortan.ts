@@ -27,17 +27,18 @@ declare global {
 }
 
 // Season 11 reactor reserver (the warlord the warboys feed). Spawns a
-// "claimer" body ([MOVE, CLAIM]) near the Reactor mission's "home" room, walks to the sector
+// "immortan" body ([MOVE x5, CLAIM]) near the Reactor mission's "home" room, walks to the sector
 // core and reserves the reactor when nobody holds it. Unlike Reserver this
 // targets a Reactor room object, not a controller; see ms.reactor.ts for the
 // object's shape.
 @register
 export class Immortan extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        // body key "claimer" in spawnold.buildBody: [MOVE, CLAIM]; one CLAIM part
-        // is all claimReactor needs. Offroad creep: spawns fine from whatever
-        // spawns are nearest the mission room.
-        return this.closeSpawn(spawns, { body: "claimer" });
+        // body key "immortan" in spawnold.buildBody: [MOVE x5, CLAIM]; one CLAIM
+        // part is all claimReactor needs, and 5 MOVE lets it cross swamps at
+        // full speed. Offroad creep: spawns fine from whatever spawns are
+        // nearest the mission room.
+        return this.closeSpawn(spawns, { body: "immortan" });
     }
 
     start(): Task2Ret {

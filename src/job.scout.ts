@@ -17,6 +17,11 @@ export class Scout extends JobCreep {
 
     start(): Task2Ret {
         this.dlog("heading to", this.mission.roomName);
-        return this.moveRoom(this.mission.roomName);
+        const ret = this.moveRoom(this.mission.roomName);
+        if (ret !== "start") return ret;
+        // Arrived. Keep drifting toward the middle of the room: parked near an
+        // exit the scout gets bounced across the border and loses the vision
+        // it was spawned for.
+        return this.moveRoom(this.mission.roomName, 2525, 15);
     }
 }

@@ -120,7 +120,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Reserver @register             (job.reserver.ts) port of role.reserver.js; @task reserve, body 'reserver' via "close"
          ├─ Claimer  @register             (job.claimer.ts) port of role.claimer.js for Startup; body 'claimer' ([MOVE, CLAIM]) via "remote";
          │                                                 @task claim: claimController, or attackController when someone else owns it; idles once `my`
-         ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'claimer' ([MOVE, CLAIM]) via "close", walks to the sector core,
+         ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'immortan' ([MOVE x5, CLAIM], full speed on swamps) via "close", walks to the sector core,
          │                                                  @task reserve calls creep.claimReactor(reactor) at range 1 (needs a CLAIM part) and logs each new return code
          ├─ Warboy   @register             (job.warboy.ts) Season 11 thorium runner; WORK/CARRY/MOVE x levels from "home" ecap (max 16, 800 carry);
          │                                                @task harvest (home thorium mineral) -> deliver (transfer only while reactor.my, waits otherwise)

@@ -321,6 +321,12 @@ export function buildBody(spawns, eggMem, { maxRCL }) {
       body = [MOVE, CLAIM]
       spawn = energySpawn(spawns, bodyCost(body))
       break
+    case 'immortan':
+      // 5 MOVE per CLAIM: 1 fatigue/tick on plain, 10 on swamp, against 10
+      // recovery, so the walk to the sector core costs nothing on swamps.
+      body = [MOVE, MOVE, MOVE, MOVE, MOVE, CLAIM]
+      spawn = energySpawn(spawns, bodyCost(body))
+      break
     case 'cap':
       body = [MOVE, CARRY, CARRY];
       if (maxRCL >= 7) body.push(...body);
