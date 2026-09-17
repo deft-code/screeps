@@ -324,7 +324,9 @@ export function buildBody(spawns, eggMem, { maxRCL }) {
     case 'immortan':
       // 5 MOVE per CLAIM: 1 fatigue/tick on plain, 10 on swamp, against 10
       // recovery, so the walk to the sector core costs nothing on swamps.
-      body = [MOVE, MOVE, MOVE, MOVE, MOVE, CLAIM]
+      // One CARRY (empty on the walk, so no fatigue) to tidy spilled thorium
+      // into the reactor; ordered so the CLAIM part dies last.
+      body = [MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CLAIM]
       spawn = energySpawn(spawns, bodyCost(body))
       break
     case 'cap':

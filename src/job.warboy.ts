@@ -20,6 +20,12 @@ import { findReactors, thoriumMineral } from "reactor";
 const kTravelBuffer = 50;
 const kLoadedAging = 3;
 const kDefaultTravel = 300;
+// Leave early when the reactor's remaining fuel has fallen to the planned
+// travel time: arriving any later lets it go dark. Missing that exact tick
+// (no vision for a tick or two) is forgiven for this many ticks; once the
+// fuel is further below the travel time the run cannot land in time anyway,
+// so fill up instead.
+const kDepartSlack = 25;
 
 declare global {
     interface CreepMemory {
@@ -82,9 +88,22 @@ export class Warboy extends JobCreep {
         return (this.memory.travel ?? kDefaultTravel + kTravelBuffer) * kLoadedAging;
     }
 
-    // Carrying thorium and either full or too old to keep gathering.
+    // Carrying thorium and either full, too old to keep gathering, or the
+    // reactor is about to run out within the trip time.
     get shouldDeliver(): boolean {
-        return this.thorium > 0 && (!this.c.store.getFreeCapacity() || this.ticksToLive < this.deliverTtl);
+        if (this.thorium <= 0) return false;
+        return !this.c.store.getFreeCapacity() || this.ticksToLive < this.deliverTtl || this.reactorNeedsUs;
+    }
+
+    // The visible reactor's fuel will last only as long as our walk there.
+    get reactorNeedsUs(): boolean {
+        const travel = this.memory.travel;
+        if (!travel || !RESOURCE_THORIUM) return false;
+        const room = Game.rooms[this.mission.roomName];
+        const reactor = room && findReactors(room)[0];
+        if (!reactor || !reactor.my) return false;
+        const shortfall = travel - (reactor.store[RESOURCE_THORIUM] || 0);
+        return shortfall >= 0 && shortfall <= kDepartSlack;
     }
 
     // Where a delivery ends: beside the reactor when we can see the core,
@@ -195,13 +214,18 @@ export class Warboy extends JobCreep {
             if (!this.pos.inRangeTo(reactor, 2)) this.moveTarget(reactor, 2);
             return "wait";
         }
-        const err = this.c.transfer(reactor as unknown as Structure, RESOURCE_THORIUM!);
-        if (err === ERR_NOT_IN_RANGE) {
+        if (!this.pos.isNearTo(reactor)) {
             this.moveTarget(reactor, 1);
             return "wait";
         }
-        // ERR_FULL: the reactor holds 1000; stand by until it burns some.
-        if (err !== OK && err !== ERR_FULL) this.log("transfer failed", err, reactor);
+        // The reactor holds 1000 and burns 1 a tick: hand over whatever fits
+        // (transfer with no amount is ERR_FULL unless the whole load fits,
+        // which would leave a full warboy waiting beside it until it died).
+        const T = RESOURCE_THORIUM!;
+        const amount = Math.min(this.thorium, reactor.store.getFreeCapacity(T) || 0);
+        if (amount <= 0) return "wait";
+        const err = this.c.transfer(reactor as unknown as Structure, T, amount);
+        if (err !== OK) this.log("transfer failed", err, amount, reactor);
         return "wait";
     }
 }

@@ -51,7 +51,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     nJobs(Immortan, 1) while the reactor is visible and either not `my` or `my` with over 100 thorium aboard (CLAIM creeps are costly);
          │                                                     nJobs(Warboy, min(args[2], 700 / tripLoad)) once the home room has an
          │                                                     extractor on a thorium mineral with thorium left, the core is visible with a reactor in it and no armed hostile (room.hostiles),
-         │                                                     and the reactor holds under 500 thorium (it caps at 1000, burns 1/tick)
+         │                                                     and a full load will still fit when it lands: store - 600 (lead ticks) + thorium inbound from every Reactor mission's warboys and eggs + 450 <= 1000
          ├─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [cap]"; paceNJobs(Farmer, n), n = source capacity / (2*avg farmer store), max 2 per spot;
                                                               Scout while the farm room is invisible;
                                                               paceJobs(Mini, 1500) while memory.tenemies (any enemy creep seen; team.ts suppressMini);
@@ -125,12 +125,16 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Reserver @register             (job.reserver.ts) port of role.reserver.js; @task reserve, body 'reserver' via "close"
          ├─ Claimer  @register             (job.claimer.ts) port of role.claimer.js for Startup; body 'claimer' ([MOVE, CLAIM]) via "remote";
          │                                                 @task claim: claimController, or attackController when someone else owns it; idles once `my`
-         ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'immortan' ([MOVE x5, CLAIM], full speed on swamps) via "close", walks to the sector core,
+         ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'immortan' ([MOVE x5, CARRY, CLAIM], full speed on swamps) via "close", walks to the sector core,
          │                                                  @task reserve calls creep.claimReactor(reactor) at range 1 (needs a CLAIM part) whenever it is not ours, or every tick
-         │                                                  while a hostile creep with a live CLAIM part is in the room; logs each new return code
+         │                                                  while a hostile creep with a live CLAIM part is in the room; logs each new return code;
+         │                                                  steps off a tile holding >= 10 thorium to a clean one beside the reactor; with the CARRY part
+         │                                                  feeds any thorium aboard to the reactor while it holds < 980 and tops up to 9 from a tombstone or
+         │                                                  ruin within reach while carrying less; a pile (pickup takes up to 50) only if it fits under 9,
+         │                                                  or when empty with the reactor at <= 900 so the lot goes straight in
          ├─ Warboy   @register             (job.warboy.ts) Season 11 thorium runner; fixed RCL6 body 9 WORK / 9 CARRY / 18 MOVE (2250 energy, 450 carry) from a "home" spawn with that much energy;
-         │                                                gathers until full or ticksToLive < 3 x (planned walk to the reactor + 50), the walk PathFinder-planned from the harvest tile (memoized per tile) and 3 the aging rate of a loaded creep: @task scavenge dropped/tombstone/ruin thorium in its room first,
-         │                                                then @task harvest (home thorium mineral); then deliver (transfer only while reactor.my, waits otherwise)
+         │                                                gathers until full, or ticksToLive < 3 x (planned walk to the reactor + 50), or the visible reactor's fuel has fallen to that walk time (within 25 ticks; further below it cannot land in time so it keeps filling), the walk PathFinder-planned from the harvest tile (memoized per tile) and 3 the aging rate of a loaded creep: @task scavenge dropped/tombstone/ruin thorium in its room first,
+         │                                                then @task harvest (home thorium mineral); then deliver (transfers whatever fits each tick, only while reactor.my, waits otherwise)
          │                                                and back to gathering; a partial load is delivered when nothing is left to gather; never suicides
          └─ Srcer   @registerAs("asrc"), @registerAs("bsrc")  priority 8, body 'srcer' (job.srcer.ts)
 ```

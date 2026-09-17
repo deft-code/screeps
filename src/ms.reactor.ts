@@ -12,10 +12,14 @@ import { RoomIntel } from "intel";
 // against carry per CARRY), plus the walk both ways. Tune from observation.
 const kWarboyCycle = 700;
 
-// The reactor holds 1000 thorium and burns 1 a tick. Lay no warboy while it
-// still has this much aboard: a load arriving at a nearly full reactor waits
-// beside it, aging 3 ticks to live per tick for nothing.
-const kRefuelBelow = 500;
+// The reactor holds 1000 thorium and burns 1 a tick. A warboy laid now lands
+// about kLeadTicks later (~110 to spawn once the room has the energy, ~300
+// to fill, 120-290 to walk), by when the reactor has burned that much and
+// every load already in flight, from either mission, has arrived. Lay only
+// if a full load still fits then; a warboy that would land too late leaves
+// early instead (Warboy.reactorNeedsUs).
+const kReactorCapacity = 1000;
+const kLeadTicks = 600;
 
 // Keep an Immortan standing by while our reactor holds more thorium than
 // this: fuel worth re-claiming on the spot if someone takes the reactor.
@@ -35,6 +39,30 @@ interface ReactorMemory extends MissionMemory {
     pauseUntil?: number
     // creep name -> room it was last seen in, for creepDied.
     seen?: { [name: string]: string }
+}
+
+// Thorium on its way to the reactor from every Reactor mission: what each
+// living warboy carries (a full load if it is still at home filling up) and a
+// full load for each egg. Missions share one reactor, so this must look past
+// the calling mission.
+function inboundThorium(): number {
+    let total = 0;
+    for (const name in Memory.missions) {
+        if (!name.startsWith("Reactor ")) continue;
+        const home = name.split(" ")[1];
+        const mem = Memory.missions[name];
+        for (const list of [mem.eggs, mem.hatch]) {
+            total += list.filter(n => n.startsWith("warboy")).length * Warboy.tripLoad;
+        }
+        for (const cname of mem.creeps) {
+            if (!cname.startsWith("warboy")) continue;
+            const c = Game.creeps[cname];
+            if (!c) continue;
+            const carried = RESOURCE_THORIUM && c.store[RESOURCE_THORIUM] || 0;
+            total += c.pos.roomName === home ? Math.max(carried, Warboy.tripLoad) : carried;
+        }
+    }
+    return total;
 }
 
 // Tick each mission last dumped its probe; module-level so it resets with the global.
@@ -155,15 +183,17 @@ export class Reactor extends Mission {
     // burn rate: each delivers tripLoad per kWarboyCycle ticks. Only while the
     // home room can actually mine thorium (a thorium mineral with an extractor
     // and thorium left), the core is visible (the scout's job) with no armed
-    // hostile in it (an enemy scout only draws the guard), and its reactor has
-    // room for a load (under kRefuelBelow).
+    // hostile in it (an enemy scout only draws the guard), and the reactor
+    // will have room for another full load when it lands.
     fuel() {
         const home = this.getRoom("home");
         if (!home || !thoriumMineral(home)) return null;
         const reactor = this.reactors[0];
         if (!reactor) return null;
         if (this.hostiles.length) return null;
-        if (RESOURCE_THORIUM && (reactor.store[RESOURCE_THORIUM] || 0) >= kRefuelBelow) return null;
+        const stored = RESOURCE_THORIUM && reactor.store[RESOURCE_THORIUM] || 0;
+        const atLanding = stored - kLeadTicks + inboundThorium();
+        if (atLanding + Warboy.tripLoad > kReactorCapacity) return null;
         const n = Math.min(this.maxWarboysArg, kWarboyCycle / Warboy.tripLoad);
         return this.nJobs(Warboy, n);
     }
