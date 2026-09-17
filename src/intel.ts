@@ -147,7 +147,9 @@ function updateIntelMem(mem: RoomIntelMem, room: Room) {
     }
 
     const kind = roomKind(room.name)
-    if (kind === Kind.SourceKeeper) {
+    // Strongholds live in SK rooms; Season 11 sector cores (the Portal kind,
+    // x5y5) can hold one too, guarding the reactor.
+    if (kind === Kind.SourceKeeper || kind === Kind.Portal) {
         const core = _.first(room.findStructs(STRUCTURE_INVADER_CORE));
         if (core) {
             mem.core = [core.level, Game.time + core.effectTTL(EFFECT_COLLAPSE_TIMER)];

@@ -280,6 +280,7 @@ export abstract class Mission extends Service {
         }
         for (const name of done) {
             debug.log("Creep Died!", name);
+            this.creepDied(name);
             delete Memory.creeps[name];
             unget(name);
         }
@@ -287,6 +288,10 @@ export abstract class Mission extends Service {
             _.remove(this.memory.creeps, c => _.contains(done, c));
         }
     }
+
+    // Hook: a creep of this mission was found dead this tick. Runs before its
+    // memory is dropped; the creep object itself is already gone.
+    creepDied(name: string) { }
 
     hasEgg(role: string) {
         return _.any(this.memory.eggs, egg => getMyCreep(egg).role === role);

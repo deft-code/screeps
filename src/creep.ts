@@ -73,6 +73,12 @@ export class CreepExtra extends Creep {
     return this.melee || this.ranged
   }
 
+  // NPC Source Keeper: tethered to its lair, so a creep passing through an
+  // SK room walks around it (Rewalker avoids lairs) rather than fighting it.
+  get keeper() {
+    return this.owner.username === 'Source Keeper'
+  }
+
   get assault() {
     return this.hostile || (this.activeByType.get(WORK) || 0) > 1 || (this.activeByType.get(HEAL) || 0) > 1;
   }

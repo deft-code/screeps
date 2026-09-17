@@ -1,14 +1,41 @@
-import { Mission } from "mission";
+import { Mission, MissionMemory } from "mission";
 import { register, Priority } from "process";
 import * as debug from "debug";
 import { Scout } from "job.scout";
 import { Immortan } from "job.immortan";
+import { Guard } from "job.guard";
 import { Warboy } from "job.warboy";
 import { sectorCore, findReactors, thoriumMineral } from "reactor";
+import { RoomIntel } from "intel";
 
 // Ticks of one warboy round trip: ~250 harvesting (rate per WORK cancels
 // against carry per CARRY), plus the walk both ways. Tune from observation.
 const kWarboyCycle = 700;
+
+// The reactor holds 1000 thorium and burns 1 a tick. Lay no warboy while it
+// still has this much aboard: a load arriving at a nearly full reactor waits
+// beside it, aging 3 ticks to live per tick for nothing.
+const kRefuelBelow = 500;
+
+// Keep an Immortan standing by while our reactor holds more thorium than
+// this: fuel worth re-claiming on the spot if someone takes the reactor.
+const kGuardAbove = 100;
+
+// One scout per this many ticks keeps the core in view between warboy trips;
+// a fresh one is laid before the last (1500-tick) one dies.
+const kScoutPace = 1400;
+
+// An invader core (level > 0) in the room where one of our creeps just died
+// pauses all laying for this long: the survivors die off and the next egg,
+// the scout, probes the core again; dying to it renews the pause.
+const kCorePause = 1500;
+
+interface ReactorMemory extends MissionMemory {
+    // Lay nothing until this tick.
+    pauseUntil?: number
+    // creep name -> room it was last seen in, for creepDied.
+    seen?: { [name: string]: string }
+}
 
 // Tick each mission last dumped its probe; module-level so it resets with the global.
 const lastProbe = new Map<string, number>();
@@ -34,14 +61,29 @@ export class Reactor extends Mission {
         return super.getRoomName(alias);
     }
 
+    get mem(): ReactorMemory {
+        return this.memory as ReactorMemory;
+    }
+
+    get paused(): boolean {
+        return (this.mem.pauseUntil || 0) > Game.time;
+    }
+
     run(): Priority {
         if (this.windingDown) return super.run();
+        this.noteRooms();
+        if (this.paused) {
+            // Shepherd the living, lay nothing.
+            super.run();
+            return "normal";
+        }
 
-        if (!this.room) {
-            // No visibility at the core: a scout parks there so we can look around.
-            this.nJobs(Scout, 1);
-        } else {
+        // A scout parked at the core keeps it visible so hold() and fuel()
+        // can read the reactor even with no warboy in the room.
+        this.paceJobs(Scout, kScoutPace);
+        if (this.room) {
             this.probe();
+            this.guard();
             this.hold();
             this.fuel();
         }
@@ -49,12 +91,58 @@ export class Reactor extends Mission {
         return "normal";
     }
 
+    // Remember where each living creep is, so creepDied knows where it fell.
+    noteRooms() {
+        const seen = this.mem.seen = this.mem.seen || {};
+        for (const name of this.memory.creeps) {
+            const c = Game.creeps[name];
+            if (c) seen[name] = c.pos.roomName;
+        }
+    }
+
+    // A creep of ours died: if the room it died in has an invader core (per
+    // that room's intel, written while the creep still gave us vision), stop
+    // laying for kCorePause ticks and drop any egg already queued.
+    creepDied(name: string) {
+        const seen = this.mem.seen || {};
+        const roomName = seen[name];
+        delete seen[name];
+        if (!roomName) return;
+        const lvl = RoomIntel.get(roomName)?.coreLvl || 0;
+        if (lvl <= 0) return;
+        this.mem.pauseUntil = Game.time + kCorePause;
+        this.purgeEggs();
+        debug.log(this.name, name, "died in", roomName, "with a level", lvl, "invader core; pausing until", this.mem.pauseUntil);
+    }
+
+    // Enemy creeps in the core (strat.init's room.enemies: anything not ours
+    // or allied, armed or not, so a rival claimer counts): keep one Guard
+    // there until they are gone.
+    guard() {
+        if (!this.enemies.length) return null;
+        return this.nJobs(Guard, 1);
+    }
+
+    // Enemy creeps in the core this tick; empty without vision.
+    get enemies(): Creep[] {
+        return this.room?.enemies || [];
+    }
+
+    // The armed ones (strat.init's room.hostiles): what a warboy must not meet.
+    get hostiles(): Creep[] {
+        return this.room?.hostiles || [];
+    }
+
     // CLAIM creeps are expensive, so an Immortan is laid only when we can see
-    // the reactor and it is not ours. Anyone can re-claim it, so this also
-    // covers taking it back after a loss.
+    // the reactor and either it is not ours (anyone can re-claim it, so this
+    // also covers taking it back after a loss) or it is ours and fuelled past
+    // kGuardAbove, so a loss can be reversed before the fuel is burned for
+    // someone else.
     hold() {
         const reactor = this.reactors[0];
-        if (!reactor || reactor.my) return null;
+        if (!reactor) return null;
+        const fuel = RESOURCE_THORIUM && reactor.store[RESOURCE_THORIUM] || 0;
+        if (reactor.my && fuel <= kGuardAbove) return null;
         return this.nJobs(Immortan, 1);
     }
 
@@ -65,13 +153,18 @@ export class Reactor extends Mission {
 
     // Enough warboys in flight to deliver 1 thorium per tick, the reactor's
     // burn rate: each delivers tripLoad per kWarboyCycle ticks. Only while the
-    // home room can actually mine thorium and we can see the reactor.
+    // home room can actually mine thorium (a thorium mineral with an extractor
+    // and thorium left), the core is visible (the scout's job) with no armed
+    // hostile in it (an enemy scout only draws the guard), and its reactor has
+    // room for a load (under kRefuelBelow).
     fuel() {
         const home = this.getRoom("home");
         if (!home || !thoriumMineral(home)) return null;
-        if (!this.reactors.length) return null;
-        const load = Warboy.tripLoad(home.energyCapacityAvailable);
-        const n = Math.min(this.maxWarboysArg, kWarboyCycle / load);
+        const reactor = this.reactors[0];
+        if (!reactor) return null;
+        if (this.hostiles.length) return null;
+        if (RESOURCE_THORIUM && (reactor.store[RESOURCE_THORIUM] || 0) >= kRefuelBelow) return null;
+        const n = Math.min(this.maxWarboysArg, kWarboyCycle / Warboy.tripLoad);
         return this.nJobs(Warboy, n);
     }
 
@@ -105,6 +198,7 @@ export class Reactor extends Mission {
     status(): string {
         const r = this.reactors[0];
         const state = r ? ` owner:${r.owner?.username ?? "-"} work:${r.continuousWork}` : "";
-        return super.status() + ` core:${this.roomName} visible:${!!this.room} reactors:${this.reactors.length}${state}`;
+        const pause = this.paused ? ` paused:${this.mem.pauseUntil! - Game.time}` : "";
+        return super.status() + ` core:${this.roomName} visible:${!!this.room} reactors:${this.reactors.length}${state}${pause}`;
     }
 }

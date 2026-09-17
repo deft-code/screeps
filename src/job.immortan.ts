@@ -64,10 +64,17 @@ export class Immortan extends JobRole {
             this.moveTarget(reactor, 1);
             return "wait";
         }
-        // Ownership can be taken by anyone; sit here and re-claim the tick it goes.
-        if (reactor.my) return "wait";
+        // Ownership can be taken by anyone; sit here and re-claim the tick it
+        // goes. With a rival claimer in the room, claim every tick even while
+        // it is ours so their claim never gets a tick to itself.
+        if (reactor.my && !this.rivalClaimers()) return "wait";
         this.report("claimReactor", this.c.claimReactor(reactor), reactor);
         return "wait";
+    }
+
+    // Hostile creeps in this room with a live CLAIM part.
+    rivalClaimers(): boolean {
+        return this.c.room.find(FIND_HOSTILE_CREEPS, { filter: c => c.getActiveBodyparts(CLAIM) > 0 }).length > 0;
     }
 
     // Log once per distinct (intent, code) so the console shows what happened

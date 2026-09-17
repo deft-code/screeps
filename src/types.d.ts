@@ -80,6 +80,7 @@ interface Creep {
     taskHarvestSpots(): false | string
     assault: boolean
     hostile: boolean
+    keeper: boolean
     melee: boolean
     spawnTime: number
     role: string

@@ -47,8 +47,10 @@ export class Guard extends JobRole {
         if (this.shouldRetreat()) return this.retreat();
 
         if (c.room.name !== this.mission.roomName) {
-            // Fight whatever is in the way rather than walking through it.
-            const enemy = this.pos.findClosestByRange(c.room.enemies || []);
+            // Fight whatever is in the way rather than walking through it,
+            // except Source Keepers: they stay by their lair, and engaging one
+            // from range 3 parks the guard there for good.
+            const enemy = this.pos.findClosestByRange((c.room.enemies || []).filter(e => !e.keeper));
             if (enemy && this.pos.inRangeTo(enemy, 3)) return this.engage(enemy);
             return this.moveRoom(this.mission.roomName);
         }

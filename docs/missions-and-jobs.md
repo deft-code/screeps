@@ -41,12 +41,17 @@ Process                      run(): Priority; kill()           (process.ts)
          ├─ Swipe            @register  (ms.swipe.ts)          "Swipe <target> <home>"; Scout while the target is invisible, else one Swiper;
          │                                                     winds down once the target room has no swipe targets left (job.swiper swipeTargets)
          ├─ Reactor          @register  (ms.reactor.ts)        "Reactor <room>"; mission room = sector core of <room>
-         │                                                     (both coords rounded to x5); Scout from <room> while the core is
-         │                                                     invisible; once visible logs
+         │                                                     (both coords rounded to x5); paceJobs(Scout, 1400) from <room> keeps the core
+         │                                                     visible at all times; while visible logs
          │                                                     the reactor (FIND_REACTORS) every 500 ticks (probe);
-         │                                                     nJobs(Immortan, 1) only while the reactor is visible and not `my` (CLAIM creeps are costly);
+         │                                                     a creep dying in a room whose intel shows an invader core (level > 0) pauses all laying
+         │                                                     for 1500 ticks (Mission.creepDied hook; queued eggs purged) so the survivors die off and the
+         │                                                     next scout re-probes the core, dying to it again renewing the pause;
+         │                                                     nJobs(Guard, 1) while any enemy creep (room.enemies) is in the core;
+         │                                                     nJobs(Immortan, 1) while the reactor is visible and either not `my` or `my` with over 100 thorium aboard (CLAIM creeps are costly);
          │                                                     nJobs(Warboy, min(args[2], 700 / tripLoad)) once the home room has an
-         │                                                     extractor on a thorium mineral with thorium left and the reactor is visible
+         │                                                     extractor on a thorium mineral with thorium left, the core is visible with a reactor in it and no armed hostile (room.hostiles),
+         │                                                     and the reactor holds under 500 thorium (it caps at 1000, burns 1/tick)
          ├─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [cap]"; paceNJobs(Farmer, n), n = source capacity / (2*avg farmer store), max 2 per spot;
                                                               Scout while the farm room is invisible;
                                                               paceJobs(Mini, 1500) while memory.tenemies (any enemy creep seen; team.ts suppressMini);
@@ -121,10 +126,12 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Claimer  @register             (job.claimer.ts) port of role.claimer.js for Startup; body 'claimer' ([MOVE, CLAIM]) via "remote";
          │                                                 @task claim: claimController, or attackController when someone else owns it; idles once `my`
          ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'immortan' ([MOVE x5, CLAIM], full speed on swamps) via "close", walks to the sector core,
-         │                                                  @task reserve calls creep.claimReactor(reactor) at range 1 (needs a CLAIM part) and logs each new return code
-         ├─ Warboy   @register             (job.warboy.ts) Season 11 thorium runner; WORK/CARRY/MOVE x levels from "home" ecap (max 16, 800 carry);
-         │                                                @task harvest (home thorium mineral) -> deliver (transfer only while reactor.my, waits otherwise)
-         │                                                -> scavenge dropped/tombstone/ruin thorium in its room -> back to the mineral; never suicides
+         │                                                  @task reserve calls creep.claimReactor(reactor) at range 1 (needs a CLAIM part) whenever it is not ours, or every tick
+         │                                                  while a hostile creep with a live CLAIM part is in the room; logs each new return code
+         ├─ Warboy   @register             (job.warboy.ts) Season 11 thorium runner; fixed RCL6 body 9 WORK / 9 CARRY / 18 MOVE (2250 energy, 450 carry) from a "home" spawn with that much energy;
+         │                                                gathers until full or ticksToLive < 3 x (planned walk to the reactor + 50), the walk PathFinder-planned from the harvest tile (memoized per tile) and 3 the aging rate of a loaded creep: @task scavenge dropped/tombstone/ruin thorium in its room first,
+         │                                                then @task harvest (home thorium mineral); then deliver (transfer only while reactor.my, waits otherwise)
+         │                                                and back to gathering; a partial load is delivered when nothing is left to gather; never suicides
          └─ Srcer   @registerAs("asrc"), @registerAs("bsrc")  priority 8, body 'srcer' (job.srcer.ts)
 ```
 

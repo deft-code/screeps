@@ -450,34 +450,42 @@ export class CreepCarry extends CreepMove {
     return false
   }
 
-  idleNom() {
+  // Grab one `resource` lying within reach: a pile, then a tombstone, then a
+  // ruin. No movement; one pickup or withdraw intent at most.
+  idleNomType(resource: ResourceConstant) {
     if (!this.store.getFreeCapacity()) return false
     if (this.intents.pickup) return false
 
     const spot = _.find(
       this.room.lookForAtRange(LOOK_RESOURCES, this.pos, 1, true),
-      spot => spot[LOOK_RESOURCES].resourceType === RESOURCE_ENERGY)
+      spot => spot[LOOK_RESOURCES].resourceType === resource)
     if (spot) {
       this.dlog(spot)
       return this.goPickup(spot[LOOK_RESOURCES], false)
     }
 
+    if (this.intents.withdraw) return false
+
     const tomb = _.find(
       this.room.lookForAtRange(LOOK_TOMBSTONES, this.pos, 1, true),
-      spot => spot[LOOK_TOMBSTONES].store[RESOURCE_ENERGY] > 0)
+      spot => spot[LOOK_TOMBSTONES].store[resource] > 0)
     if (tomb) {
       this.dlog(tomb)
-      return this.goWithdraw(tomb[LOOK_TOMBSTONES], RESOURCE_ENERGY, false)
+      return this.goWithdraw(tomb[LOOK_TOMBSTONES], resource, false)
     }
 
     const ruin = _.find(
       this.room.lookForAtRange(LOOK_RUINS, this.pos, 1, true),
-      spot => spot[LOOK_RUINS].store[RESOURCE_ENERGY] > 0)
+      spot => spot[LOOK_RUINS].store[resource] > 0)
     if (ruin) {
       const r = ruin[LOOK_RUINS]
-      return this.goWithdraw(r, RESOURCE_ENERGY, false);
+      return this.goWithdraw(r, resource, false);
     }
     return false
+  }
+
+  idleNom() {
+    return this.idleNomType(RESOURCE_ENERGY)
   }
 
   taskPickupAny(exclude = []) {
