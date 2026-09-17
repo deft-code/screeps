@@ -471,7 +471,7 @@ export class MetaManager {
             this.makeSite(STRUCTURE_WALL) ||
             this.makeSite(STRUCTURE_LINK) ||
             this.makeSite(STRUCTURE_CONTAINER) ||
-            this.makeExtractor() ||
+            this.makeSite(STRUCTURE_EXTRACTOR) ||
             this.makeSite(STRUCTURE_LAB) ||
             this.makeSite(STRUCTURE_OBSERVER) ||
             this.makeSite(STRUCTURE_NUKER) ||
@@ -575,27 +575,6 @@ export class MetaManager {
             }
         }
         return dests;
-    }
-
-    makeExtractor(): boolean {
-        const room = Game.rooms[this.name];
-        if (!room) return false;
-        if(!(room.controller?.level! > 5)) return false;
-
-        // Season 11 rooms can hold two minerals (e.g. X and thorium); each
-        // needs its own extractor. One site per call; the next tick gets the rest.
-        for (const min of room.find(FIND_MINERALS)) {
-            const [free, blocker] = checkSitePos(min.pos, STRUCTURE_EXTRACTOR);
-            if (free) {
-                const ret = free.createConstructionSite(STRUCTURE_EXTRACTOR);
-                if (ret === OK) return true;
-                room.errlog(ret, "Failed  to create extractor", free.xy, "blocker", blocker);
-            }
-            if (blocker) {
-                return this.removeDestroy(blocker);
-            }
-        }
-        return false;
     }
 
     makeSite(stype: BuildableStructureConstant): boolean {
@@ -1584,21 +1563,58 @@ class Meta_asrc extends MetaStructure {
 @registerMeta
 class Meta_bsrc extends Meta_asrc { }
 
+// Minerals need an extractor on the mineral tile (RCL6) and something to
+// carry the yield. The single per-room extractor allowance is spent by
+// makeSite in meta priority order, so Meta_reactor (thorium) outranks this.
+const kMineralLevel: PlanLevel = 6;
+const kReactorPriority = 10;
+
+// The mineral within `range` of the flag matching `pick`, else null.
+function flagMineral(f: FlagExtra, range: number, pick: (m: Mineral) => boolean): Mineral | null {
+    if (!f.room) {
+        f.log("needs vision to find its mineral");
+        return null;
+    }
+    return f.pos.findInRange(FIND_MINERALS, range, { filter: pick })[0] || null;
+}
+
 @registerMeta
 class Meta_min extends MetaStructure {
-    static plan(f: Flag, man: MetaManager) {
+    // Flag beside an ordinary mineral: container (the standing spot) on the
+    // flag tile, extractor on the mineral. Thorium belongs to Meta_reactor.
+    static plan(f: FlagExtra, man: MetaManager) {
+        const min = flagMineral(f, 1, m => m.mineralType !== RESOURCE_THORIUM && !m.pos.isEqualTo(f.pos));
+        if (!min) {
+            f.log("no mineral beside the flag (it must not sit on the mineral)");
+            return null;
+        }
         const mem = MetaStructure.makeMem(f);
-        addMemStruct(mem, STRUCTURE_CONTAINER, 6, f.pos.xy);
+        addMemStruct(mem, STRUCTURE_EXTRACTOR, kMineralLevel, min.pos.xy);
+        addMemStruct(mem, STRUCTURE_CONTAINER, kMineralLevel, f.pos.xy);
         mem.points['mineral'] = f.pos.xy;
         return new this(mem, man);
     }
     dests(): [number, number][] {
         return [[this.mem.xy, 1]];
     }
-    // draw(v: RoomVisual) {
-    //     const [x, y] = coordsFromXY(this.mem.xy);
-    //     v.structure(x, y, STRUCTURE_CONTAINER, { opacity: 0.5 });
-    // }
+}
+
+@registerMeta
+class Meta_reactor extends MetaStructure {
+    // Season 11: an extractor over the thorium mineral, nothing else. Warboys
+    // (job.warboy) carry the thorium straight to the sector core, so there is
+    // no container and no road destination. Flag on or beside the thorium.
+    static plan(f: FlagExtra, man: MetaManager) {
+        const min = flagMineral(f, 1, m => m.mineralType === RESOURCE_THORIUM);
+        if (!min) {
+            f.log("no thorium mineral on or beside the flag");
+            return null;
+        }
+        const mem = MetaStructure.makeMem(f);
+        mem.priority = kReactorPriority;
+        addMemStruct(mem, STRUCTURE_EXTRACTOR, kMineralLevel, min.pos.xy);
+        return new this(mem, man);
+    }
 }
 
 const kCtrlContainerLevel: PlanLevel = 2;
