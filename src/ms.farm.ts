@@ -8,6 +8,7 @@ import { Mini } from "job.mini";
 import { Reserver } from "job.reserver";
 import { whoami } from "Rewalker";
 import { getSpots } from "spots";
+import * as debug from "debug";
 
 // A CLAIM creep lives 600 ticks; leave 50 for the walk to the controller.
 const kReserverLife = CREEP_CLAIM_LIFE_TIME - 50;
@@ -27,6 +28,8 @@ const kSuppressMinPace = 350;
 // team.ts suppressMini: one cheap mini per this many ticks while any enemy
 // creep (armed or not) has been seen in the room (memory.tenemies).
 const kMiniPace = CREEP_LIFE_TIME;
+// Ticks between "waiting" log lines while the home room is not ready.
+const kLogPace = 100;
 
 // Schedule from the console:
 //   scheduleService('Farm W5N8 W6N8')     // args[1]=farm room, args[2]=home room
@@ -50,6 +53,15 @@ export class Farm extends Mission {
     run(): Priority {
         if (this.windingDown) return super.run();
 
+        // The farmers unload in the home (drop) room and need something there
+        // to spend the energy on: idle, laying nothing, until it has a spawn
+        // or a spawn site. Living creeps still run.
+        if (!this.homeReady()) {
+            if (Game.time % kLogPace === 0) debug.log(this.name, "waiting: home room has no spawn or spawn site");
+            super.run();
+            return "normal";
+        }
+
         if (!this.room) {
             // No visibility: a scout keeps intel flowing until a farmer arrives.
             this.nJobs(Scout, 1);
@@ -71,6 +83,19 @@ export class Farm extends Mission {
         }
         super.run();
         return "normal";
+    }
+
+    // The home room is ours and has a spawn or a spawn construction site. An
+    // invisible home room is not ready.
+    homeReady(): boolean {
+        const home = Game.rooms[this.getRoomName("home") || ""] as Room | undefined;
+        if (!home?.controller?.my) return false;
+        if (home.findStructs(STRUCTURE_SPAWN).length) return true;
+        return _.any(home.find(FIND_MY_CONSTRUCTION_SITES), s => s.structureType === STRUCTURE_SPAWN);
+    }
+
+    status(): string {
+        return super.status() + (this.windingDown || this.homeReady() ? "" : " home-not-ready");
     }
 
     // Enough farmers to carry away everything the sources regenerate.

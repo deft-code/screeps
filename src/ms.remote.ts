@@ -64,6 +64,12 @@ export class Remote extends Farm {
         return super.memory as RemoteMemory;
     }
 
+    // Farm's wait for a home spawn is not ported: run() is replaced below and
+    // a Remote is only scheduled from an established room.
+    homeReady(): boolean {
+        return true;
+    }
+
     run(): Priority {
         if (this.windingDown) return Mission.prototype.run.call(this);
 

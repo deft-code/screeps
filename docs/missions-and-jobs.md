@@ -52,7 +52,8 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     nJobs(Warboy, min(args[2], 700 / tripLoad)) once the home room has an
          │                                                     extractor on a thorium mineral with thorium left, the core is visible with a reactor in it and no armed hostile (room.hostiles),
          │                                                     and a full load will still fit when it lands: store - 600 (lead ticks) + thorium inbound from every Reactor mission's warboys and eggs + 450 <= 1000
-         ├─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [cap]"; paceNJobs(Farmer, n), n = source capacity / (2*avg farmer store), max 2 per spot;
+         ├─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [cap]"; idles (no eggs, paced log, status `home-not-ready`) until <home> is ours and has a spawn or a
+                                                              spawn construction site (`homeReady`; Remote overrides it to true); paceNJobs(Farmer, n), n = source capacity / (2*avg farmer store), max 2 per spot;
                                                               Scout while the farm room is invisible;
                                                               paceJobs(Mini, 1500) while memory.tenemies (any enemy creep seen; team.ts suppressMini);
                                                               paceJobs(Guard, max(1500 - thostiles, 350)) once memory.thostiles >= 100 (team.ts suppressGuard used 3);
