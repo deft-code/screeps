@@ -32,12 +32,12 @@ export class Process {
     run(): Priority { return "low" }
     kill() { this.dead = true; }
 
-    // `name [status()]`; what lsProcess()/lsService() show per process.
+    // `name [status()]`; what lsProcess()/statusServices() show per process.
     toString(): string {
         return `${this.name} [${this.status()}]`;
     }
 
-    // One-line summary for lsProcess()/lsService(). Subclasses append to super.status().
+    // One-line summary for lsProcess()/statusServices(). Subclasses append to super.status().
     status(): string {
         const flags = [this.daemon ? "daemon" : "process", `row:${processes.get(this) || "none"}`];
         if (this.dead) flags.push("dead");

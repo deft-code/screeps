@@ -8,6 +8,8 @@ import * as debug from "debug";
 
 // RCL at which the assisted room is on its own and the mission winds down.
 const kDoneRCL = 4;
+// Pioneers per creep lifetime while the room is ours and below kDoneRCL.
+const kPioneers = 2;
 // Ticks between "not ours" log lines while waiting for the room.
 const kLogPace = 100;
 
@@ -18,9 +20,9 @@ const kLogPace = 100;
 // Without vision of the room one Scout (job.scout.ts) parks there. While the
 // room's controller is not ours and GCL allows another room, one Claimer
 // (job.claimer.ts) claims it. While it is ours and below RCL4, paces Pioneers
-// (job.pioneer.ts) at max(1, 6 - rcl) per lifetime (paceNJobs): the GlobalRespawn startup
-// count, spawned by the nearest spawns outside the room ("remote" strategy)
-// and homed on the room, plus nJobs(Guard, 1) until the room has a tower.
+// (job.pioneer.ts) at kPioneers (2) per lifetime (paceNJobs), spawned by the
+// nearest spawns outside the room ("remote" strategy) and homed on the room,
+// plus nJobs(Guard, 1) until the room has a tower.
 // At RCL4 the mission winds down: no more eggs, the
 // living pioneers work until they die, then the mission kills and
 // deschedules itself.
@@ -45,7 +47,7 @@ export class Startup extends Mission {
             debug.log(this.name, "reached RCL", controller.level);
             this.windDown();
         } else {
-            this.paceNJobs(Pioneer, Math.max(1, 6 - controller.level));
+            this.paceNJobs(Pioneer, kPioneers);
             if (!room.findStructs(STRUCTURE_TOWER).length) this.nJobs(Guard, 1);
         }
 

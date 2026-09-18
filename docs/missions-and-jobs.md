@@ -81,8 +81,8 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               kills and deschedules itself when the creep and its tombstone are gone
          └─ Startup          @register  (ms.startup.ts)        "Startup <room>"; claims and boots a room: nJobs(Scout, 1) while the room is invisible;
                                                               nJobs(Claimer, 1, 600) while the controller is not ours and owned rooms < GCL;
-                                                              while ours and below RCL4, paceNJobs(Pioneer, max(1, 6 - rcl)) and nJobs(Guard, 1) while the room has no tower (the GlobalRespawn
-                                                              startup count per lifetime) spawned outside the room; at RCL4 windDown(): pioneers live
+                                                              while ours and below RCL4, paceNJobs(Pioneer, 2) (hardcoded kPioneers per lifetime) and nJobs(Guard, 1) while the room has no tower,
+                                                              spawned outside the room; at RCL4 windDown(): pioneers live
                                                               out their lives, then the mission kills and deschedules itself. Distinct from
                                                               the `Startup` job class (separate registries).
 MyCreep                      wrapper object per creep *name* (mycreep.ts); not a prototype extension
@@ -217,7 +217,7 @@ While it is set `Mission.run()` skips the normal path and runs `runWindDown()`:
 4. When `eggs`, `hatch`, `creeps` and `tombs` are all empty the mission calls
    `kill()`, deletes `Memory.missions[name]`, and returns `"kill"`.
 
-`Process.status()` returns the one-line summary `lsProcess()`/`lsService()`
+`Process.status()` returns the one-line summary `lsProcess()`/`statusServices()`
 show via `Process.toString()` = `name [status()]` (`process|daemon|scheduled|transient`, `row:<priority>`, `dead`). `Mission.status()` appends `windDown` and
 `tombs:` while winding down, then `eggs: hatch: creeps:` counts. A subclass
 that wants more should call `super.status()` and append to the result.

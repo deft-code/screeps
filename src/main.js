@@ -28,11 +28,9 @@ global.lsProcess = () => {
   return `${procs.length} processes`;
 };
 
-// Every live service, as a list. The console prints each via
-// Process.toString() as `name [status()]`; index the result to reach an
-// instance: lsService()[0].windDown(). Any scheduled command that has no live
-// instance (its class failed to spawn at boot) is logged first.
-global.lsService = () => {
+// Log any scheduled command that has no live instance (its class failed to
+// spawn at boot), then return the live services.
+const liveServices = () => {
   const live = process.Service.all();
   const liveNames = live.map(svc => svc.name);
   for (const cmd of Memory.scheduler.services) {
@@ -40,6 +38,13 @@ global.lsService = () => {
   }
   return live;
 };
+
+// Names (command strings) of every live service; pass one to getService() to
+// reach the instance: getService(lsService()[0]).windDown().
+global.lsService = () => liveServices().map(svc => svc.name);
+
+// `name [status()]` of every live service, as a list.
+global.statusServices = () => liveServices().map(svc => svc.toString());
 
 import 'strat';
 

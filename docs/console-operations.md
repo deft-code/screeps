@@ -19,8 +19,9 @@ P.Service.getType('Swipe W5N8 W6N8').windDown()  // stop laying eggs, purge eggs
 
 spawnService('Swipe W5N8 W6N8')              // global helper for P.Service.spawn
 getService('Swipe W5N8 W6N8')                // global helper for P.Service.getType
-lsService()                                  // every live Service instance as an array; prints one `name [status()]` per line (Process.toString)
-lsService().find(s => s.name.startsWith('Remote')).windDown()   // the array is live instances
+lsService()                                  // names (command strings) of every live Service, as an array
+statusServices()                             // `name [status()]` (Process.toString) of every live Service, as an array
+getService(lsService().find(n => n.startsWith('Remote'))).windDown()   // names feed getService
 getService('Farm W25S8 W26S8').evolve('Farm W25S8 W25S7')   // reschedule under new args, moving every egg/creep; kills the old one
 lsProcess()                                  // print every live process: daemons, room strats, services; name [status()]
 scheduleService('GlobalRespawn')             // global helper for P.Service.schedule
@@ -39,7 +40,9 @@ runs.
 Every process that passes through `exec()` (daemons, `NullStrat`/`ClaimedStrat`
 per room, and services) is tracked in a module `Map` with its current row;
 `Process.all()` returns them; `Process.toString()` is `name [status()]`, which
-`lsProcess()` prints and `lsService()` returns as an array of instances. A dead
+`lsProcess()` prints and `statusServices()` returns as an array of strings
+(`lsService()` returns only the names). Both service helpers first log any
+scheduled command that has no live instance as `[scheduled NOT LIVE]`. A dead
 process is removed from that map when `runRow` drops it. Killing a daemon is
 only a pause: it has no memory entry, so the `@daemon` decorator recreates it at
 the next global reset. `status()` prints `daemon` so that is visible.

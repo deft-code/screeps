@@ -27,15 +27,21 @@ return                                 # lines 356-439 are dead
 |---|---|---|
 | `GlobalRespawn` mission | `Memory.scheduler.services`, replayed by `Service.boot()` at every global reset; **never constructed in code** | lays eggs for startup/asrc/bsrc/hauler/worker/ctrl/hub in `Game.spawns.Home`'s room and runs those creeps |
 | `Hub <room>` mission | `scheduleService('Hub W25S7')`, then `Memory.scheduler.services` | the same loop without startups for another owned room, from its own spawns |
+| `Remote <farm> <home>` missions (5) | scheduled, same way | remote sources: harvester/trucker/reserver/scout, plus guard/mini/wolf against hostiles and invader cores |
+| `Reactor <home>` missions (2) | scheduled, same way | Season 11 scoring: scout, warboys (thorium runners), immortan (reactor claimer), guard at the sector core |
+| `Startup W22S7` mission | scheduled, same way | claiming a third room: scout, claimer, pioneers, guard until it has a tower |
 | `ClaimedStrat` per owned room | `room.strat` constructor `exec`s itself | towers, safe mode, labs, links, metastruct construction, factory |
 | `FlagService` daemon | `@daemon` at import | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
 | `SpawnDaemon` | `@daemon` at import | turns eggs into `spawnCreep` |
 
 Consequences: no market automation, radar scanning, deposit farming, or flag
 "teams" run on this build even though their code loads. The only
-flags in the game are metastruct genesis/child flags and purple service flags. The other missions
-(`Hub`, `Startup`, `Farm`, `Remote`, `Reactor`, `Once`, `Swipe`) and the `Selloff <room>`
-terminal-selling service run only when scheduled by command string or a purple flag ([docs/missions-and-jobs.md](docs/missions-and-jobs.md)).
+flags in the game are metastruct genesis/child flags (genesis `Noon` W26S8,
+`Port` W25S7, `Three` W22S7) and purple service flags. Missions exist only
+while scheduled: the table is `Memory.scheduler.services` as of Sept 2026, so
+read that key rather than trusting this list. `Farm`, `Once`, `Swipe` and the
+`Selloff <room>` terminal-selling service are not scheduled and run only by
+command string or a purple flag ([docs/missions-and-jobs.md](docs/missions-and-jobs.md)).
 
 ## Architecture in one screen
 
@@ -43,10 +49,10 @@ terminal-selling service run only when scheduled by command string or a purple f
 main.js
  ├─ process.ts      Process/Service, priority rows critical>normal>low>late(>extra), canRun CPU gate
  ├─ mission.ts      Mission = Service with eggs->hatch->creeps lists in Memory.missions
- │   └─ ms.globalrespawn.ts / ms.hub.ts / ms.startup.ts / ms.farm.ts / ...   @register, scheduled by command string
+ │   └─ ms.globalrespawn / hub / startup / farm / remote / reactor / swipe .ts   @register, scheduled by command string
  ├─ mycreep.ts      MyCreep wrapper per creep name; role registry (@register/@registerAs); Task2
- │   ├─ job.creep.ts -> job.startup/reboot/scout/swiper.ts
- │   └─ job.role.ts  -> job.worker/ctrl/hub/hauler/srcer.ts   start() = creep.run()+after()  (bridge)
+ │   ├─ job.creep.ts -> job.startup/reboot/scout/swiper/warboy.ts      pure Task2 jobs (this.c is the Creep)
+ │   └─ job.role.ts  -> job.worker/ctrl/hub/hauler/srcer/guard/immortan.ts   start() = creep.run()+after()  (bridge)
  ├─ spawn.ts        SpawnDaemon + energyDef; spawnold.js supplies findSpawns/buildBody body table
  ├─ creep.role.ts   dispatch: creep name "asrc3" -> role "asrc" -> Creep.prototype.roleAsrc()
  │   creep.ts > creep.role.ts > creep.move.ts > creep.carry.ts > creep.harvest/build/repair.ts (mixins)
@@ -56,6 +62,7 @@ main.js
  ├─ struct.link/tower/lab/factory/terminal/container/controller  structure logic and prototype helpers
  ├─ Rewalker.ts     movement engine (matrix.js is dead)
  ├─ cache.ts / debug.ts / roomobj.ts / lib.js / shed.ts   infrastructure
+ ├─ reactor.ts      Season 11 helpers: sectorCore, findReactors, thoriumMineral, RESOURCE_THORIUM typing
  └─ intel.ts / radar.ts / market.ts / deposit.ts          intel is live; the rest only registers
 ```
 
@@ -70,9 +77,13 @@ Docs: [missions-and-jobs](docs/missions-and-jobs.md),
 (`role.ctrl.js`), `hauler` (`role.hauler.js`), `hub` (`role.hub.ts`),
 `asrc`/`bsrc` (`role.src.ts`), `upgrader` (`job.upgrader.ts`, only while RCL < 8 and
 storage >= 100k energy), `ctrlhauler` (`job.ctrlhauler.ts`, storage -> ctrl container
-while storage >= 100k and container + ctrl creep are empty). Everything else with a `roleXxx` method is
-loaded but no job spawns it. Table and task conventions in
-[docs/creep-roles.md](docs/creep-roles.md).
+while storage >= 100k and container + ctrl creep are empty). Those are the
+base-room roles from `GlobalRespawn`/`Hub`. The scheduled missions add pure
+job-layer creeps (no `roleXxx` method): `harvester`, `trucker`, `reserver`
+(`Remote`); `warboy`, `immortan` (`Reactor`); `claimer`, `pioneer` (`Startup`);
+and `scout`, `guard`, `mini`, `wolf` wherever a mission wants vision or a
+fight. Everything else with a `roleXxx` method is loaded but no job spawns it.
+Table and task conventions in [docs/creep-roles.md](docs/creep-roles.md).
 
 ## Conventions that code depends on
 
@@ -160,6 +171,33 @@ the line before. Other knobs:
 `SCREEPS_CONSOLE_TIMEOUT` (seconds to wait for a result, default 30; the task
 exits 1 on timeout, which usually means the script is not running on that shard).
 
+Debugging the live game (patterns that worked):
+
+- Results only: `echo '<expr>' | npx gulp console 2>&1 | grep "^< "`. Stdin with
+  single quotes outside and double inside avoids every quoting fight.
+- **No `< ` line means the expression threw** (typically a null deref such as
+  `getService(x).status()` after that mission was killed). Rerun null-safe, or
+  drop the grep and `| tail -5` to see the tick's output.
+- Rates and movement: sample in a loop, `for i in 1 2 3; do echo '...' | npx gulp
+  console 2>&1 | grep "^< "; done`. Calls land ~2 ticks apart; include
+  `Game.time` in the result. Measure before theorising: a "repathing loop" was a
+  creep standing still in `engage()`, and "x2 aging" was really x3.
+- Any module is requirable by bare name in the console, so verify code right
+  after a push: `require("job.warboy").Warboy.body`,
+  `require("spawnold").buildBody(Object.values(Game.spawns),{body:"immortan"},{maxRCL:8})`
+  (returns `[spawn, body]`), `require("reactor").findReactors(Game.rooms.W25S5)[0].store`.
+- Push and check in one line: `npx gulp season 2>&1 | grep -i "error\|Committed"`.
+  `Committed` = pushed; any `error` line is a TS error that did **not** stop the
+  push. `npx gulp compile` compiles without pushing.
+- Every push is a global reset: module-level state (memo `Map`s, constants
+  edited in-game) is rebuilt from source, `Memory` (creep memory included)
+  survives. Pushes are rate limited (the `RateLimiting: (N/240 ...)` counter in
+  the output), so batch edits rather than pushing per line.
+- `memory.task2` often reads `null` from the console even while `@task`s run;
+  judge a creep by position, store and TTL across ticks instead.
+- The log lines above the result are greppable by their `file:line#func` tag,
+  e.g. `| grep "#runGenesis"` shows the planned `mem:` JSON after a YELLOW.
+
 ## Console essentials
 
 ```js
@@ -168,10 +206,41 @@ spawnService('Swipe W5N8 W6N8')       // runs only until the next global reset
 require('process').Service.getType('GlobalRespawn').kill()   // stops it now
 Game.creeps.asrc0.debug = 500; Memory.debug = true           // per-creep / global dlog
 Game.flags.genesis.setColor(COLOR_ORANGE, COLOR_YELLOW)      // plan metas; GREEN commits
+getService('Reactor W26S8').status()          // getService = Service.getType; null once killed
+getService('Reactor W26S8').layEgg('warboy')  // one extra egg (lowercased job class); nJobs never culls it
+getService('Reactor W25S7').windDown()        // purge eggs, run creeps to death, kill + deschedule
+scheduleService('Reactor W25S7')              // bring it back
+Game.rooms.W25S7.createFlag(30, 29, 'reactor_Port', COLOR_GREY, COLOR_GREY)  // child flag, then YELLOW, check log, GREEN
 ```
+
+Genesis flags reset themselves to CYAN (secondary `4`) when a command is done.
+Remove a stuck egg: `delete Memory.creeps.warboy0` and `_.pull` it from
+`Memory.missions[m].eggs`.
 
 More in [docs/console-operations.md](docs/console-operations.md), including the
 destructive `wipe`/`worldWipe`/`scalp`/`purgeWalls` helpers.
+
+## Season 11 state and rules (measured live, Sept 2026)
+
+- Owned rooms, both RCL6: `W26S8` (spawn `Home`, genesis flag `Noon`) and
+  `W25S7` (genesis `Port`). Their sector core is `W25S5` (an x5y5 room is
+  `Kind.Portal` in `intel.ts`). `Reactor W26S8` and `Reactor W25S7` are
+  scheduled; the walk to the reactor is ~240 ticks from W26S8, ~120 from W25S7.
+- Rooms hold two minerals, an ordinary one and thorium (`RESOURCE_THORIUM` =
+  `"T"`), but `CONTROLLER_STRUCTURES.extractor` is 1 at every RCL. Extractors
+  are planned structs now: `Meta_reactor` (thorium, priority 10) outranks
+  `Meta_min`; there is no mineral scan outside the metas.
+- Thorium aging: a creep loses `1 + floor(log10(thorium on its tile))` TTL per
+  tick. Cargo, piles, tombstones and ruins on the tile all count; under 10 is
+  free, 100-999 is 3/tick. A loaded warboy's 1500 TTL is ~500 real ticks.
+- Reactor (`findReactors(room)[0]`): holds 1000, burns 1/tick, `continuousWork`
+  resets the tick it runs dry. Anyone with a CLAIM part can `claimReactor` an
+  owned reactor (we lost it once), hence the standing Immortan.
+- `transfer` with no amount is `ERR_FULL` unless the whole load fits; pass
+  `min(carried, getFreeCapacity)`. `pickup` has no amount at all (takes up to
+  free capacity); only `withdraw` can be limited.
+- Spawn energy is the real bottleneck at RCL6: a 2250-energy warboy queues
+  behind guards/immortans from the same room, so lead time is ~600-700 ticks.
 
 ## Memory keys you will touch
 
@@ -194,6 +263,12 @@ links, labs, spots, containers}`, `Memory.intel`, `Memory.flags[genesis].newer`,
   degrade silently.
 - Hardcoded MMO rooms (`W29N11`, `W21N15`, ...) and username `deft-code`
   remain in dead code and `routes.isHostile`/`controller.reservable`.
+- `MetaManager.purge(STRUCTURE_EXTRACTOR)` destroys a built extractor no meta
+  claims, the first time a meta's extractor site hits `ERR_RCL_NOT_ENOUGH`.
+  Plan `min`/`reactor` on the tile the extractor already occupies.
+- `room.enemies` includes Source Keepers and unarmed scouts; `room.hostiles` is
+  the armed subset. Gate spawning on `hostiles`, and filter `creep.keeper` for
+  anything walking through an SK room.
 
 ## Legacy and orphans
 
