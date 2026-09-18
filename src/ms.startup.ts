@@ -4,11 +4,12 @@ import { Pioneer } from "job.pioneer";
 import { Scout } from "job.scout";
 import { Claimer } from "job.claimer";
 import { Guard } from "job.guard";
+import { hasMetas } from "metastruct";
 import * as debug from "debug";
 
 // RCL at which the assisted room is on its own and the mission winds down.
 const kDoneRCL = 4;
-// Pioneers per creep lifetime while the room is ours and below kDoneRCL.
+// Pioneers per creep lifetime below kDoneRCL, before and after the claim.
 const kPioneers = 2;
 // Ticks between "not ours" log lines while waiting for the room.
 const kLogPace = 100;
@@ -19,10 +20,13 @@ const kLogPace = 100;
 //
 // Without vision of the room one Scout (job.scout.ts) parks there. While the
 // room's controller is not ours and GCL allows another room, one Claimer
-// (job.claimer.ts) claims it. While it is ours and below RCL4, paces Pioneers
-// (job.pioneer.ts) at kPioneers (2) per lifetime (paceNJobs), spawned by the
-// nearest spawns outside the room ("remote" strategy) and homed on the room,
-// plus nJobs(Guard, 1) until the room has a tower.
+// (job.claimer.ts) claims it. Meanwhile, if the room is free (no owner, no
+// reservation) and has saved metas, the Pioneers go early: ActiveStrat
+// (strat.ts) places the planned road and container sites in an unowned room
+// and the pioneers harvest and build them. While it is ours and below RCL4,
+// paces Pioneers (job.pioneer.ts) at kPioneers (2) per lifetime (paceNJobs),
+// spawned by the nearest spawns outside the room ("remote" strategy) and
+// homed on the room, plus nJobs(Guard, 1) until the room has a tower.
 // At RCL4 the mission winds down: no more eggs, the
 // living pioneers work until they die, then the mission kills and
 // deschedules itself.
@@ -43,6 +47,7 @@ export class Startup extends Mission {
             if (Game.time % kLogPace === 0) debug.log(this.name, "waiting: room has no controller");
         } else if (!controller.my) {
             this.claim();
+            if (this.canPioneerEarly(controller)) this.paceNJobs(Pioneer, kPioneers);
         } else if (controller.level >= kDoneRCL) {
             debug.log(this.name, "reached RCL", controller.level);
             this.windDown();
@@ -53,6 +58,14 @@ export class Startup extends Mission {
 
         super.run();
         return "normal";
+    }
+
+    // Pioneers ahead of the claim need sources they may harvest (nobody owns
+    // or reserves the room) and something to build: only saved metas get
+    // sites in an unowned room, and only roads and containers.
+    canPioneerEarly(controller: StructureController): boolean {
+        if (controller.owner || controller.reservation) return false;
+        return hasMetas(this.roomName);
     }
 
     // One claimer alive at a time (nJobs with the CLAIM lifetime), only while
@@ -68,7 +81,9 @@ export class Startup extends Mission {
     }
 
     status(): string {
-        const lvl = this.room?.controller?.level;
-        return super.status() + ` rcl:${lvl === undefined ? "?" : lvl}/${kDoneRCL}`;
+        const ctrl = this.room?.controller;
+        const lvl = ctrl?.level;
+        const early = ctrl && !ctrl.my && this.canPioneerEarly(ctrl) ? " early" : "";
+        return super.status() + ` rcl:${lvl === undefined ? "?" : lvl}/${kDoneRCL}${early}`;
     }
 }

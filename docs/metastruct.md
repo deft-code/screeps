@@ -40,12 +40,12 @@ The flags described here are the only flags that exist in the game today.
 | `cap` | 101 | 5x5 extension cluster with a centre container (RCL2-4). Link mode `sink`. |
 | `lab` | 0 | 10 labs (RCL6-8), 2 spawns, observer, nuker. Its spawn energies are filled last. |
 | `extna` / `extnb` / `extnc` | 0 | Optional (level 9) extension fields, 3x3 / 5x5 / 7x7 checkerboards with roads at RCL5. Tiles are stored nearest the `hub` spot first (`Meta_extn.orderByHub`; storage site, then the anchor, without a hub), which is the build order; `migrate()` re-sorts fields planned earlier. |
-| `asrc` / `bsrc` | 103 | Source cluster: container on the path step nearest storage, road, link(5) at the adjacent tile nearest storage, extensions(2) on the other free neighbours (RCL2 so they outrank `cap`'s RCL2 field by priority; `migrate()` moves older RCL3 entries). `myspot` = container tile; `targetid()` = the source. Link mode `src`. The child flag's secondary colour overrides the container tile: RED takes the second-best neighbour, PURPLE the third-best (ranked by weighted path cost to storage, `Meta_asrc.pickSpot`); any other colour keeps the best. |
+| `asrc` / `bsrc` | 103 | Source cluster: container on the path step nearest storage (the parent flag stands in for storage while no storage meta is saved), road, link(5) at the adjacent tile nearest storage, extensions(2) on the other free neighbours (RCL2 so they outrank `cap`'s RCL2 field by priority; `migrate()` moves older RCL3 entries). `myspot` = container tile; `targetid()` = the source. Link mode `src`. The child flag's secondary colour overrides the container tile: RED takes the second-best neighbour, PURPLE the third-best (ranked by weighted path cost to storage, `Meta_asrc.pickSpot`); any other colour keeps the best. |
 | `min` | 0 | Flag beside an ordinary (non-thorium) mineral: extractor(6) on the mineral, container(6) on the flag tile, point `mineral` there. Needs vision to plan; refuses a flag sitting on the mineral. |
 | `reactor` | 10 | Season 11: extractor(6) over the thorium mineral on or beside the flag, nothing else (warboys carry thorium straight to the sector core). Outranks `min` because `CONTROLLER_STRUCTURES.extractor` is 1 at every RCL and `makeSite` spends it in priority order. |
-| `ctrl` | 0 | Path from flag to storage. Flag on the controller: point `ctrl` at step 2, link(6) at step 3. Flag anywhere else: point `ctrl` on the flag tile itself, link(6) at step 1 (warns if the tile is beyond upgrade range 3). Container(2) on the `ctrl` point, retired at the link's level (6; the two RCL5 links belong to asrc/bsrc) and left to decay (`Meta_ctrl.addContainer`; `migrate()` adds it to metas planned before Sept 2026). Link mode `sink`. |
+| `ctrl` | 0 | Path from flag to storage (parent flag without a storage meta). Flag on the controller: point `ctrl` at step 2, link(6) at step 3. Flag anywhere else: point `ctrl` on the flag tile itself, link(6) at step 1 (warns if the tile is beyond upgrade range 3). Container(2) on the `ctrl` point, retired at the link's level (6; the two RCL5 links belong to asrc/bsrc) and left to decay (`Meta_ctrl.addContainer`; `migrate()` adds it to metas planned before Sept 2026). Link mode `sink`. |
 | `tripod` | 0 | Three towers around a point (`parkedLayout`); deployed layout with link and roads exists but is not used. |
-| `traffic` | 0 | Roads: ring around storage/terminal/spawns, then repeated `PathFinder` runs from storage and terminal to every other meta's `dests()` until CPU says stop. Needs storage, terminal, and 3 spawns planned first. |
+| `traffic` | 0 | Roads: ring around storage/terminal/spawns, then repeated `PathFinder` runs from storage and terminal to every other meta's `dests()` until CPU says stop. With a storage meta saved it also needs the terminal and 3 spawns saved; without one it runs from the parent flag, rings whatever spawns are saved, and still needs at least one saved `dests()`. |
 | `wall` | 0 | Horizontal rampart/wall line east of the flag (rampart every other tile or beside terrain walls), a parallel road, and on-ramps from each rampart to the road. |
 | `nuke` | 200 | Auto-created by `checkNukes(room)` (never called): ramparts over blast tiles with hits scaled by expected damage. |
 
@@ -88,9 +88,12 @@ Manual workflow: place `genesis` (orange/cyan) in the room; add child flags
 (`hub_genesis`, `cap_genesis`, `asrc_genesis` on source A, `bsrc_genesis` on
 source B, `ctrl_genesis` near the controller, `lab_genesis`, `extn*_genesis`,
 `traffic_genesis`, `wall_genesis`, `min_genesis` on the mineral); set genesis
-secondary to YELLOW to plan and inspect the visuals; set GREEN to commit. `hub`
-must be saved before `asrc`, `ctrl`, `traffic`, and `wall` can plan (they path
-to the storage site).
+secondary to YELLOW to plan and inspect the visuals; set GREEN to commit.
+`asrc`/`bsrc`, `ctrl` and `traffic` path to the saved storage site; with no
+storage meta saved they path to their parent (genesis) flag instead
+(`storageOrParent`), so put the genesis flag where the storage will be or
+re-plan them with BLUE once the hub is saved (an unsaved hub in `newer` does
+not count). `wall` still needs the saved storage site.
 
 ## Mission-planned metas (`src/metaremote.ts`)
 

@@ -11,7 +11,11 @@ module.exports = class CreepBootstrap {
     if (what) return what
 
     if (!this.atHome) {
-      return this.taskMoveRoom(this.home.controller);
+      // `home` falls back to the current room without vision of memory.home,
+      // which parked pioneers on the wrong controller; head for the room itself.
+      const home = Game.rooms[this.memory.home]
+      if (home && home.controller) return this.taskMoveRoom(home.controller)
+      return this.moveRoom({ pos: new RoomPosition(25, 25, this.memory.home) })
     }
 
     if (!this.store.energy) {
@@ -19,7 +23,9 @@ module.exports = class CreepBootstrap {
       if (what) return what
     }
 
-    if (this.home.controller.level < 2) {
+    // Only in a room we own: a pioneer sent ahead of the claim (ms.startup.ts)
+    // cannot upgrade, and returning here would keep it from ever building.
+    if (this.home.controller.my && this.home.controller.level < 2) {
       this.dlog('controller override')
       return this.taskUpgradeRoom()
     }

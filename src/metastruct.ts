@@ -1177,6 +1177,18 @@ function planMeta(f: Flag) {
     return klass.plan(f, man);
 }
 
+// Where asrc/bsrc, ctrl and traffic path to: the saved storage site, else the
+// child's parent (genesis) flag, so a fresh room plans in one YELLOW pass
+// with the genesis flag standing in for the storage.
+function storageOrParent(f: FlagExtra, man: MetaManager): RoomPosition | null {
+    const storep = man.getSite(STRUCTURE_STORAGE);
+    if (storep) return storep;
+    const parent = f.parent;
+    if (!parent || parent.pos.roomName !== man.name) return null;
+    f.log("no storage meta, planning toward", parent);
+    return parent.pos;
+}
+
 function newMeta(mem: MetaMem, man: MetaManager) {
     const role = calcRole(mem.name);
     const klassName = 'Meta_' + role;
@@ -1423,7 +1435,7 @@ const kSrcExtensionLevel: PlanLevel = 2;
 @registerMeta
 class Meta_asrc extends MetaStructure {
     static plan(f: FlagExtra, man: MetaManager) {
-        const storep = man.getSite(STRUCTURE_STORAGE);
+        const storep = storageOrParent(f, man);
         if (!storep) return null;
         const t = Game.map.getRoomTerrain(f.pos.roomName);
         //const cm = man.getMatrix([f.self]);
@@ -1626,7 +1638,7 @@ const kCtrlLinkLevel: PlanLevel = 6;
 @registerMeta
 class Meta_ctrl extends MetaStructure {
     static plan(f: FlagExtra, man: MetaManager) {
-        const p = man.getSite(STRUCTURE_STORAGE);
+        const p = storageOrParent(f, man);
         if (!p) return null;
         const cm = man.getMatrix([f.role]);
         const ret = man.path(cm, f.pos, [{ pos: p, range: 1 }]);
@@ -1724,25 +1736,27 @@ class Meta_tripod extends MetaStructure {
 class Meta_traffic extends MetaStructure {
     static plan(f: FlagExtra, man: MetaManager) {
         const s = man.getSite(STRUCTURE_STORAGE);
-        if (!s) return null;
         const t = man.getSite(STRUCTURE_TERMINAL);
-        if (!t) return null;
-
         const sps = man.getSites(STRUCTURE_SPAWN);
-        if (sps.length < 3) return null;
+        // With a storage meta, wait for the rest of the base. Without one the
+        // roads run from the parent flag and ring whatever is planned so far.
+        if (s && (!t || sps.length < 3)) return null;
+        const from = storageOrParent(f, man);
+        if (!from) return null;
 
+        // Only saved metas have dests; an empty road plan is not worth parking.
         const dests = man.getDests();
-        if (dests.length < 0) return null;
+        if (dests.length < 1) return null;
 
         const tdests = _.clone(dests);
 
         const mem = MetaStructure.makeMem(f);
         const cm = man.getMatrix([f.role]);
-        this.wrapPosition(mem, cm, s);
-        this.wrapPosition(mem, cm, t);
+        if (s) this.wrapPosition(mem, cm, s);
+        if (t) this.wrapPosition(mem, cm, t);
         sps.forEach(sp => this.wrapPosition(mem, cm, sp));
-        this.planTraffic(mem, man, cm, s, dests);
-        this.planTraffic(mem, man, cm, t, tdests);
+        this.planTraffic(mem, man, cm, from, dests);
+        if (t) this.planTraffic(mem, man, cm, t, tdests);
 
         return new this(mem, man);
     }

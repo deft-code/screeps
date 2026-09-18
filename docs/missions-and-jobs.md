@@ -37,7 +37,7 @@ Process                      run(): Priority; kill()           (process.ts)
          ├─ GlobalRespawn    @register  (ms.globalrespawn.ts)  ACTIVE
          ├─ Hub              @register  (ms.hub.ts)            "Hub <room>"; GlobalRespawn for any owned room, without the startup creeps:
                                                               Reboot while the mission has no creeps, bsrc/asrc (ecap >= 550) or haulers (1 + one per 2k dropped energy over 1k, max 3), Worker, Ctrl, Hub once storage exists, Upgrader.want(room) upgraders (below RCL8: storage energy / 100k, from 100k, fractional),
-                                                              all spawned "local"; idles (paced log) while the room is not ours. Distinct from the `Hub` job class (separate registries).
+                                                              all spawned "local"; idles (paced log) while the room is not ours or has no spawn of its own (status `no-spawn`). Distinct from the `Hub` job class (separate registries).
          ├─ Swipe            @register  (ms.swipe.ts)          "Swipe <target> <home>"; Scout while the target is invisible, else one Swiper;
          │                                                     winds down once the target room has no swipe targets left (job.swiper swipeTargets)
          ├─ Reactor          @register  (ms.reactor.ts)        "Reactor <room>"; mission room = sector core of <room>
@@ -80,7 +80,9 @@ Process                      run(): Priority; kill()           (process.ts)
          ├─ Once             @register  (ms.once.ts)           "Once <Job> <room>"; lays one egg of the job, winds down once it has spawned,
                                                               kills and deschedules itself when the creep and its tombstone are gone
          └─ Startup          @register  (ms.startup.ts)        "Startup <room>"; claims and boots a room: nJobs(Scout, 1) while the room is invisible;
-                                                              nJobs(Claimer, 1, 600) while the controller is not ours and owned rooms < GCL;
+                                                              nJobs(Claimer, 1, 600) while the controller is not ours and owned rooms < GCL, and meanwhile
+                                                              paceNJobs(Pioneer, 2) if nobody owns or reserves the room and it has saved metas (`canPioneerEarly`;
+                                                              ActiveStrat places the road/container sites, status shows `early`);
                                                               while ours and below RCL4, paceNJobs(Pioneer, 2) (hardcoded kPioneers per lifetime) and nJobs(Guard, 1) while the room has no tower,
                                                               spawned outside the room; at RCL4 windDown(): pioneers live
                                                               out their lives, then the mission kills and deschedules itself. Distinct from
