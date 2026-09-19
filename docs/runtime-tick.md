@@ -25,7 +25,8 @@ server recycling the VM). Order in `main.js`:
    `team`, `team.egg`, `powercreep`, `creep`, `lib`, `spawnold`, `role.shunt`,
    `markethack`, `radar`, `intel` are imported. Each one's side effects run:
    prototype extensions, decorator registrations, `@daemon` instantiation,
-   `Memory.*` defaulting, and `markethack.enable()` patching `Object.prototype`.
+   `Memory.*` defaulting, and `markethack.enable()` patching `Object.prototype`
+   (every shard but `shardSeason`, whose market is switched off).
 4. The `mods` array (`src/main.js:79-123`) lists 39 legacy JS mixins (5
    `creep.*.js`, 34 `role.*.js`). Each is `lib.merge`d onto `Creep.prototype`.
    Because this runs *after* the TS `role.*.ts` imports, a JS method wins any

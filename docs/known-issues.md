@@ -41,10 +41,14 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
 10. **`Game.terminals`, `Game.storages`, `Game.ncreeps` are never assigned**
     (defined by a deleted `globals.js`). Used by `struct.terminal.js` market
     functions, `team.ts:427`, `team.egg.js:5`.
-11. **`markethack.disable()` references undefined `key`** (should be
-    `hackingKey`). `enable()` runs at import and patches `Object.prototype`
-    with a Symbol getter; every `_.size(this)` on any object property lookup of
-    that symbol counts toward the hijack.
+11. **`markethack` depends on engine internals** (`src/markethack.ts`):
+    `enable()` runs at import (not on `shardSeason`) and patches
+    `Object.prototype` with a Symbol getter that `getOrderById(symbol)` trips on
+    the engine's raw order table. It checks itself against the API once per
+    global reset and falls back to `Game.market` when the capture fails;
+    `require('markethack').status()` says which path is in use. The raw table
+    (`getRawMarket()`) is engine state with prices in milli-credits: never
+    write to it.
 12. **`Swiper` never picks up anything** (`src/job.swiper.ts`): it walks to the
     target room, and once over half full walks home to drop; no withdraw/pickup
     step exists. Commit `6a9979b` describes it as in progress.

@@ -54,11 +54,19 @@ The live replacement, since Sept 2026, is the `Selloff <room>` service
 (`ms.selloff.ts`, [missions-and-jobs.md](missions-and-jobs.md)): buy-order
 selling only, scheduled by command or purple flag.
 
-Terminal balancing, auto-buying core minerals, selling surplus, price EMAs in
-`Memory.market`, and the `getRawMarket` hack that hijacks `Object.prototype`
-with a `Symbol` getter to grab the engine's raw order table. All callers are
-after the `return` in `main.js`. `markethack.enable()` still executes at import
-and leaves the prototype patch in place.
+Terminal balancing, auto-buying core minerals, selling surplus and price EMAs
+in `Memory.market`. All callers are after the `return` in `main.js`.
+
+`markethack` is no longer legacy: the 2020 `getRawMarket` hack (a `Symbol`
+getter on `Object.prototype` that grabs the engine's raw order table, skipping
+the API's JSON deep copy) was rewritten in Sept 2026 as `src/markethack.ts`,
+which wraps it in `getAllOrders(filter)` / `getOrderById(id)` with
+`Game.market`'s signatures, falls back to the API when the capture finds
+nothing, and does nothing on `shardSeason`. Measured then on shard2 (1500
+orders): API whole book 3.5-4.5 CPU, one resource 0.1-0.6, `getOrderById`
+0.02-0.05; capturing the raw table 0.2-0.3. Nothing imports the wrappers yet
+(`ms.selloff.ts` still calls `Game.market`); the header comment in the file
+has the mechanism and the trade-offs.
 
 ## Radar, deposits, power creeps (`src/radar.ts run()`, `src/deposit.ts`, `src/powercreep.ts`)
 

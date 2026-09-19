@@ -120,7 +120,7 @@ Status legend:
 | `src/spawnold.js` | LIVE (`findSpawns`, `buildBody`) / DEAD (`run`) | 2017 | Body table still used by `JobRole`. |
 | `src/powercreep.ts` | LIVE | 2026 | Rebuilt: `TPowerCreep` / `MyPowerCreep` wrappers plus `getPowerCreep(name)` / `myPowerCreeps()` ([tcreep-design.md](tcreep-design.md) Appendix D). The 2019 prototype roles are gone (git history; [legacy-systems.md](legacy-systems.md)). |
 | `src/console.js` | REACHABLE (console) | 2019 | Global console helpers and client hacks. |
-| `src/markethack.js` | LIVE (side effect) / DEAD (use) | 2020 | Patches `Object.prototype` at import. |
+| `src/markethack.ts` | LIVE (side effect) / REACHABLE (console, no importer yet) | 2020, rewritten 2026 | `getAllOrders` / `getOrderById` with `Game.market`'s signatures, read from the engine's raw order table (a Symbol getter on `Object.prototype`, installed at import) with a fallback to the API; no-op on `shardSeason`. `status()` from the console. See [legacy-systems.md](legacy-systems.md). |
 | `src/history.ts`, `memprof.ts`, `memhack.js`, `profiler.ts`, `server.js`, `stack.js`, `planner.js` | ORPHAN | 2017-20 | See [legacy-systems.md](legacy-systems.md). |
 
 ## Repo root
