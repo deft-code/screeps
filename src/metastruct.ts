@@ -344,6 +344,8 @@ export interface MetaMem {
     // Tile -> RCL from which the structure planned there is retired: no longer
     // built, repaired or drawn, and destroyed by MetaManager.retire().
     retire?: MetaRetire
+    // Meta_traffic only: signature of the inputs the roads were planned from.
+    sig?: string
 }
 type MetaRetire = {
     [xy: number]: number
@@ -1738,9 +1740,9 @@ class Meta_traffic extends MetaStructure {
         const s = man.getSite(STRUCTURE_STORAGE);
         const t = man.getSite(STRUCTURE_TERMINAL);
         const sps = man.getSites(STRUCTURE_SPAWN);
-        // With a storage meta, wait for the rest of the base. Without one the
-        // roads run from the parent flag and ring whatever is planned so far.
-        if (s && (!t || sps.length < 3)) return null;
+        // Rings whatever storage/terminal/spawns are saved so far; roads run
+        // from storage, or the parent flag without one. Re-plan with BLUE
+        // once the lab (spawns 2 and 3) is saved.
         const from = storageOrParent(f, man);
         if (!from) return null;
 
@@ -1751,6 +1753,7 @@ class Meta_traffic extends MetaStructure {
         const tdests = _.clone(dests);
 
         const mem = MetaStructure.makeMem(f);
+        mem.sig = this.signature(man);
         const cm = man.getMatrix([f.role]);
         if (s) this.wrapPosition(mem, cm, s);
         if (t) this.wrapPosition(mem, cm, t);
@@ -1759,6 +1762,26 @@ class Meta_traffic extends MetaStructure {
         if (t) this.planTraffic(mem, man, cm, t, tdests);
 
         return new this(mem, man);
+    }
+
+    // Everything plan() reads from the saved metas: ringed sites and dests.
+    // A meta added, moved or deleted changes it, and check() then re-plans.
+    static signature(man: MetaManager): string {
+        const sites = [STRUCTURE_STORAGE, STRUCTURE_TERMINAL, STRUCTURE_SPAWN].map(
+            stype => man.getSites(stype).map(p => p.xy).sort().join());
+        const dests = man.getDests().map(g => `${g.pos.xy}:${g.range}`).sort().join();
+        return `${sites.join('|')}|${dests}`;
+    }
+
+    check(f: Flag): boolean {
+        return super.check(f) && this.mem.sig === Meta_traffic.signature(this.manager);
+    }
+
+    // Roads planned before the signature existed are taken as current.
+    migrate(): boolean {
+        if (this.mem.sig !== undefined) return false;
+        this.mem.sig = Meta_traffic.signature(this.manager);
+        return true;
     }
 
     static wrapPosition(mem: MetaMem, cm: CostMatrix, p: RoomPosition) {
