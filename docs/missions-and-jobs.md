@@ -170,7 +170,7 @@ scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that
 scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
 scheduleService('Once Paver W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down (Remote schedules these itself)
-scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown
+scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown; under 50k terminal energy keeps one 50k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)
 scheduleService('Furiosa')           // power creep Furiosa; picks a home power spawn room into Memory.furiosa.home
 ```
 
