@@ -9,6 +9,9 @@ export class Scout extends JobCreep {
     // Cheap and unblocking: vision gates whole missions, so jump the 0-priority queue.
     priority = 7;
     spawn(spawns: StructureSpawn[]): [StructureSpawn|null, BodyPartConstant[]] {
+        // A mission's designated spawn room is the only choice when it names one.
+        const spawnName = this.mission.getRoomName("spawn");
+        if (spawnName) return [_.sample(spawns.filter(s => s.room.name === spawnName)) || null, [MOVE]];
         // Prefer the mission's home room when it names one; otherwise any spawn.
         const homeName = this.mission.getRoomName("home");
         const homeSpawns = spawns.filter(s => s.room.name === homeName);

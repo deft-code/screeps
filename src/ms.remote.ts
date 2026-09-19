@@ -70,6 +70,13 @@ export class Remote extends Farm {
         return true;
     }
 
+    // Farm's designated spawn room (args[3]) is not ported either: harvesters
+    // and truckers pick their own spawns and would ignore it.
+    getRoomName(alias = "") {
+        if (alias === "spawn") return null;
+        return super.getRoomName(alias);
+    }
+
     run(): Priority {
         if (this.windingDown) return Mission.prototype.run.call(this);
 

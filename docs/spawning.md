@@ -97,6 +97,13 @@ So a 550-capacity room (RCL 2) always gets the level-1 guard, a full RCL 4 room
 rooms with distance > 0; anything else is treated as a room name. Spawning
 spawns are filtered out at the end.
 
+`JobRole.stratSpawn` replaces the strategy with `mission.getRoomName("spawn")`
+when the mission returns one (`Farm <farm> <home> <spawn>`), so every
+`localSpawn`/`closeSpawn`/`remoteSpawn` job of that mission spawns from that
+room only. There is no fallback: while its spawns are busy, or the room is
+under a body's energy floor, the egg waits. Jobs with a hand-written `spawn()`
+(harvester, trucker, pioneer, swiper, warboy) do not look at it; `Scout` does.
+
 ### `buildBody` cases (`eggMem.body`)
 
 The role name doubles as the body key unless the job overrides it (`Srcer`

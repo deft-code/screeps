@@ -5,7 +5,11 @@ import { energyDef } from "spawn";
 @register
 export class Startup extends JobCreep {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        const spawn = _.sample(Game.spawns);
+        // The mission room's own spawns when it has any (a startup is homed
+        // where it hatches, so one born in another owned room works there
+        // instead); any spawn otherwise.
+        const local = _.filter(spawns, s => s.room.name === this.mission.roomName);
+        const spawn = _.sample(local.length ? local : spawns);
         if (!spawn) return [null, []];
         return [spawn, Startup.body(spawn.room.energyCapacityAvailable)];
     }

@@ -3,13 +3,15 @@ import { register, Task2Ret } from "mycreep";
 import { CreepRepair } from "creep.repair";
 
 // Port of role.farmer.js (2017 flag-team era) to the 2022 mission/job system.
-// Spawns in the mission's "home" room, walks to the mission (farm) room,
-// harvests until full, then walks home and deploys the energy there.
+// Spawns near the mission (farm) room, or in the mission's designated "spawn"
+// room when it has one, walks to the farm room, harvests until full, then
+// walks to the mission's "home" room and deploys the energy there.
 @register
 export class Farmer extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         // body key "farmer" in spawnold.buildBody: 1 MOVE per [WORK, CARRY, CARRY], needs ecap >= 550.
-        // Offroad creep: spawns fine from whatever spawns are nearest the mission room.
+        // Offroad creep: spawns fine from whatever spawns are nearest the mission room
+        // (stratSpawn swaps in the mission's designated spawn room, if any).
         return this.closeSpawn(spawns, { body: "farmer" });
     }
 

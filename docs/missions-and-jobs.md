@@ -52,8 +52,9 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     nJobs(Warboy, min(args[2], 700 / tripLoad)) once the home room has an
          │                                                     extractor on a thorium mineral with thorium left, the core is visible with a reactor in it and no armed hostile (room.hostiles),
          │                                                     and a full load will still fit when it lands: store - 600 (lead ticks) + thorium inbound from every Reactor mission's warboys and eggs + 450 <= 1000
-         ├─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [cap]"; idles (no eggs, paced log, status `home-not-ready`) until <home> is ours and has a spawn or a
-                                                              spawn construction site (`homeReady`; Remote overrides it to true); paceNJobs(Farmer, n), n = source capacity / (2*avg farmer store), max 2 per spot;
+         ├─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [spawn]"; idles (no eggs, paced log, status `home-not-ready`) until <home> is ours and has a spawn or a
+                                                              spawn construction site (`homeReady`; Remote overrides it to true); with [spawn] every creep comes from that room only
+                                                              (`getRoomName("spawn")`, read by `JobRole.stratSpawn` and `Scout.spawn`; idles `spawn-not-ready` while it has no spawn; Remote nulls it); paceNJobs(Farmer, n), n = source capacity / (2*avg farmer store), max 2 per spot;
                                                               Scout while the farm room is invisible;
                                                               paceJobs(Mini, 1500) while memory.tenemies (any enemy creep seen; team.ts suppressMini);
                                                               paceJobs(Guard, max(1500 - thostiles, 350)) once memory.thostiles >= 100 (team.ts suppressGuard used 3);
@@ -163,7 +164,8 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
 scheduleService('GlobalRespawn')
 scheduleService('Hub W25S7')         // args[1]=owned room; GlobalRespawn without startups, from the room's own spawns
 scheduleService('Swipe W5N8 W6N8')   // args[1]=target, args[2]=home
-scheduleService('Farm W5N8 W6N8 2')  // args[1]=farm room, args[2]=home, args[3]=optional farmer cap
+scheduleService('Farm W5N8 W6N8')    // args[1]=farm room, args[2]=home (drop) room
+scheduleService('Farm W5N8 W6N8 W7N8')  // optional args[3]=the only room its creeps spawn from (no fallback; eggs wait)
 scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that sector's core (W5N5)
 scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
@@ -277,7 +279,9 @@ skip straight to `super.run()`, so they lay no eggs while winding down. A new
   lays nothing.
 - `hasEgg(role)`, `hasRole(role)`, `roleCreeps/roleHatches/roleEggs(role)`.
 - `getRoomName(alias)`: `""` = mission room, a room-name string passes through;
-  subclasses add aliases (`Swipe` maps `"home"` to `args[2]`).
+  subclasses add aliases (`Swipe` maps `"home"` to `args[2]`; `Farm` maps
+  `"spawn"` to its optional `args[3]`). A non-null `"spawn"` pins every
+  `JobRole.stratSpawn` job and `Scout` of the mission to that room's spawns.
 
 ## GlobalRespawn (`src/ms.globalrespawn.ts`)
 

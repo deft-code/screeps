@@ -32,22 +32,21 @@ const kMiniPace = CREEP_LIFE_TIME;
 const kLogPace = 100;
 
 // Schedule from the console:
-//   scheduleService('Farm W5N8 W6N8')     // args[1]=farm room, args[2]=home room
-//   scheduleService('Farm W5N8 W6N8 2')   // optional args[3]=cap on the number of farmers
+//   scheduleService('Farm W5N8 W6N8')        // args[1]=farm room, args[2]=home room
+//   scheduleService('Farm W5N8 W6N8 W7N8')   // optional args[3]=the only room its creeps spawn from
 @register
 export class Farm extends Mission {
     get roomName() {
         return this.args[1];
     }
 
+    // "spawn" is read by JobRole.stratSpawn and Scout.spawn: when set, the
+    // mission's creeps come from that room's spawns and nowhere else, waiting
+    // while they are busy. null leaves each job its usual spawn strategy.
     getRoomName(alias = "") {
         if (alias === "home") return this.args[2];
+        if (alias === "spawn") return this.args[3] || null;
         return super.getRoomName(alias);
-    }
-
-    // Optional hard cap from the schedule command; Infinity when absent.
-    get maxFarmersArg() {
-        return Number(this.args[3]) || Infinity;
     }
 
     run(): Priority {
@@ -58,6 +57,13 @@ export class Farm extends Mission {
         // or a spawn site. Living creeps still run.
         if (!this.homeReady()) {
             if (Game.time % kLogPace === 0) debug.log(this.name, "waiting: home room has no spawn or spawn site");
+            super.run();
+            return "normal";
+        }
+
+        // Eggs for a designated spawn room with no spawn would never hatch.
+        if (!this.spawnReady()) {
+            if (Game.time % kLogPace === 0) debug.log(this.name, "waiting: spawn room has no spawn");
             super.run();
             return "normal";
         }
@@ -94,22 +100,32 @@ export class Farm extends Mission {
         return _.any(home.find(FIND_MY_CONSTRUCTION_SITES), s => s.structureType === STRUCTURE_SPAWN);
     }
 
+    // No designated spawn room, or one that has a spawn of ours.
+    spawnReady(): boolean {
+        const name = this.getRoomName("spawn");
+        if (!name) return true;
+        return _.any(Game.spawns, s => s.room.name === name);
+    }
+
     status(): string {
-        return super.status() + (this.windingDown || this.homeReady() ? "" : " home-not-ready");
+        if (this.windingDown) return super.status();
+        return super.status() +
+            (this.homeReady() ? "" : " home-not-ready") +
+            (this.spawnReady() ? "" : " spawn-not-ready");
     }
 
     // Enough farmers to carry away everything the sources regenerate.
     nFarmers(): number {
         const room = this.room;
         // Without visibility we only know we need someone there, so ask for one.
-        if (!room) return Math.min(1, this.maxFarmersArg);
+        if (!room) return 1;
 
         const sources = room.find(FIND_SOURCES);
         if (!sources.length) return 0;
 
         // Two farmers per harvest spot is the most that can usefully be there.
         const nspots = _.sum(sources, src => getSpots(src.pos).length);
-        const max = Math.min(nspots * 2, this.maxFarmersArg);
+        const max = nspots * 2;
 
         const farmers = this.roleCreeps("farmer");
         if (!farmers.length) return max;

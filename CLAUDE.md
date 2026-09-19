@@ -25,8 +25,8 @@ return                                 # lines 356-439 are dead
 
 | process | how it gets there | does |
 |---|---|---|
-| `GlobalRespawn` mission | `Memory.scheduler.services`, replayed by `Service.boot()` at every global reset; **never constructed in code** | lays eggs for startup/asrc/bsrc/hauler/worker/ctrl/hub in `Game.spawns.Home`'s room and runs those creeps |
-| `Hub <room>` mission | `scheduleService('Hub W25S7')`, then `Memory.scheduler.services` | the same loop without startups for another owned room, from its own spawns |
+| `Hub <room>` missions (3: W26S8, W25S7, W22S7) | `scheduleService('Hub W25S7')`, then `Memory.scheduler.services`, replayed by `Service.boot()` at every global reset; **never constructed in code** | lays eggs for asrc/bsrc/hauler (1-3 by dropped energy)/worker/ctrl/hub/upgrader/ctrlhauler from the room's own spawns and runs those creeps |
+| `GlobalRespawn` mission | **not scheduled** since Sept 2026 (evolved into `Hub W26S8`); schedule it by hand after a respawn | the Hub loop plus `max(1, 6-rcl)` startups and a fixed 2 haulers, in `Game.spawns.Home`'s room; `evolve('Hub <room>')` it once the room stands |
 | `Remote <farm> <home>` missions (5) | scheduled, same way | remote sources: harvester/trucker/reserver/scout, plus guard/mini/wolf against hostiles and invader cores |
 | `Reactor <home>` missions (2) | scheduled, same way | Season 11 scoring: scout, warboys (thorium runners), immortan (reactor claimer), guard at the sector core |
 | `Startup W22S7` mission | scheduled, same way | claiming a third room: scout, claimer, pioneers, guard until it has a tower |
@@ -253,7 +253,7 @@ links, labs, spots, containers}`, `Memory.intel`, `Memory.flags[genesis].newer`,
 
 - A room claimed after first sight keeps `NullStrat` until reset (`evolve()`
   always returns `null`).
-- `GlobalRespawn` uses the spawn named `Home`, else the first spawn in `Game.spawns`; with no spawns at all it throws every tick.
+- `GlobalRespawn` (unscheduled, see above) uses the spawn named `Home`, else the first spawn in `Game.spawns`; with no spawns at all it throws every tick.
 - `afterWorker` exists in both `role.worker.js` (wins) and `role.mason.ts`.
 - `struct.tower.js` imports a non-existent `dynMaxHits`; only the storage
   > 800k overheal branch hits it.

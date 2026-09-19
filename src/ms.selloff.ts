@@ -7,6 +7,8 @@ const kOrderCacheTicks = 50;
 // Energy the terminal is topped up to (from the cheapest sell order) when a
 // sale fails for lack of transfer energy.
 const kEnergyTarget = 100000;
+// Below this much terminal energy a tick buys energy before it tries to sell.
+const kEnergyLow = 10000;
 
 interface OrderCache {
     tick: number
@@ -49,7 +51,10 @@ type SellResult = "sold" | "noEnergy" | false;
 // terminal on its TERMINAL_COOLDOWN (10 ticks) like send() does. The transfer
 // energy is paid by this terminal, so the amount is halved until it fits; when
 // even one unit does not fit, the tick's deal is instead buying energy from the
-// cheapest sell order, up to kEnergyTarget in the terminal.
+// cheapest sell order, up to kEnergyTarget in the terminal. The same buy comes
+// first whenever the terminal holds under kEnergyLow energy; when it cannot be
+// made (the buyer pays transfer energy too, so an empty terminal cannot deal)
+// the tick falls through to selling.
 @register
 export class Selloff extends Service {
     lastDeal = "";
@@ -71,6 +76,7 @@ export class Selloff extends Service {
             return "kill";
         }
         if (term.cooldown) return "low";
+        if (term.store.energy < kEnergyLow && this.buyEnergy(term)) return "low";
 
         const stock = (Object.keys(term.store) as ResourceConstant[])
             .filter(res => res !== RESOURCE_ENERGY && term.store[res] > 0);
