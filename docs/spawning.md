@@ -140,3 +140,29 @@ spawns owned by `hub`, `cap`, and `asrc/bsrc` metas first (shuffled within a
 priority tier, and already-full ones ahead), then remaining structures sorted by
 range to storage/terminal, then `Meta_lab` energies last. `NullStrat` returns
 `undefined` (engine default order).
+
+## Spawn telemetry (`spawnload.ts`)
+
+`SpawnTelemetry` (`@daemon`, stays in the `critical` row, bucket 0) counts, per
+spawn, the ticks `spawn.spawning` was set; `runSpawns` calls `noteSpawned(spawn)`
+on every `OK` from `spawnCreep`. Counters live in `Memory.spawns[name]`
+([memory-layout.md](memory-layout.md)) in 500-tick windows: the live window, a
+fifo of the last 3 closed ones, and an integer ema (alpha 0.1) of everything
+older. A window closes when `floor(Game.time / 500)` changes, so a skipped tick
+cannot leave one open.
+
+Plain functions, nothing on `StructureSpawn.prototype`:
+
+| function | returns |
+|---|---|
+| `spawnLoad(spawn)` | fraction 0..1 of ticks busy over the live window + fifo (1500-2000 ticks once warm); only the live window has a partial denominator |
+| `spawnLoadLong(spawn)` | the ema folded over the fifo and then the live window (weighted by the share of it that has passed); with no history it equals `spawnLoad` |
+| `spawnRate(spawn)` / `spawnRateLong(spawn)` | the same two forms for creeps started, per `CREEP_LIFE_TIME` (1500) ticks |
+| `roomSpawnLoad(roomName)` / `globalSpawnLoad()` | busy spawn-ticks over observed spawn-ticks for the spawns in scope |
+| `roomSpawnLoadLong` / `globalSpawnLoadLong` | mean of the per-spawn long loads |
+| `roomSpawnRate[Long]` / `globalSpawnRate[Long]` | sum of the per-spawn rates |
+
+Aggregates return `null` when no spawn is in scope. Console: `spawnLoads()`
+prints `load short/long rate short/long` for global, each room, each spawn.
+An entry's first window is scaled up from the ticks it actually saw, or dropped
+if that was under 100. Nothing reads the telemetry yet.

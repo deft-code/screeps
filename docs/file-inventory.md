@@ -22,6 +22,7 @@ Status legend:
 | `src/mission.ts` | LIVE | 2019/2022 | `Mission` base: eggs/hatch/creeps, `nCreeps`, `layEgg`, `findName`. |
 | `src/mycreep.ts` | LIVE | 2022 | `MyCreep` wrapper, role registry, `@task`, `Task2Ret`. |
 | `src/spawn.ts` | LIVE | 2022 | `SpawnDaemon`, `energyDef`, `runSpawns`. |
+| `src/spawnload.ts` | LIVE | 2026 | `SpawnTelemetry` daemon: per-spawn busy ticks and creeps started in `Memory.spawns`; `spawnLoad`/`spawnRate` (+`Long`, `room*`, `global*`) readers, console `spawnLoads()`. No consumer yet. |
 | `src/service.flag.ts` | LIVE | 2022 | `FlagService` daemon -> metastruct genesis. |
 | `src/ms.globalrespawn.ts` | LIVE | 2022 | The active mission. |
 | `src/ms.swipe.ts` | REACHABLE | 2022 | Scout-then-swipe mission; schedule with `"Swipe <target> <home>"`. |

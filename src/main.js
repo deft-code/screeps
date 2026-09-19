@@ -46,6 +46,10 @@ global.lsService = () => liveServices().map(svc => svc.name);
 // `name [status()]` of every live service, as a list.
 global.statusServices = () => liveServices().map(svc => svc.toString());
 
+// Spawn telemetry table (spawnload.ts): load short/long and creeps per 1500
+// ticks short/long, for everything, each room and each spawn.
+global.spawnLoads = () => require('spawnload').report();
+
 import 'strat';
 
 import 'ms.globalrespawn';

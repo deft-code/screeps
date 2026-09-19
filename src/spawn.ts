@@ -1,6 +1,7 @@
 import { getMyCreep, MyCreep } from "mycreep";
 import * as debug from "debug";
 import {daemon, Priority, Process} from "process";
+import { noteSpawned } from "spawnload";
 
 declare global {
   interface CreepMemory {
@@ -159,6 +160,7 @@ export function runSpawns() {
           //delete Memory.creeps[eggName];
         }
       } else {
+        noteSpawned(spawn);
         mycreep.memory.nest = spawn.name;
         mycreep.memory.home = spawn.room.name;
 

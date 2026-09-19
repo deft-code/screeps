@@ -33,6 +33,7 @@ return                                 # lines 356-439 are dead
 | `ClaimedStrat` per owned room | `room.strat` constructor `exec`s itself | towers, safe mode, labs, links, metastruct construction, factory |
 | `FlagService` daemon | `@daemon` at import | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
 | `SpawnDaemon` | `@daemon` at import | turns eggs into `spawnCreep` |
+| `SpawnTelemetry` | `@daemon` at import (`spawnload.ts`) | per-spawn busy ticks and creeps started, 500-tick windows in `Memory.spawns`; `spawnLoads()` prints it |
 
 Consequences: no market automation, radar scanning, deposit farming, or flag
 "teams" run on this build even though their code loads. The only
@@ -247,7 +248,8 @@ destructive `wipe`/`worldWipe`/`scalp`/`purgeWalls` helpers.
 `Memory.scheduler.services`, `Memory.missions[name]`, `Memory.creeps[name]`
 (`nest`, `home`, `task`, `task2`, `_walk`), `Memory.rooms[x].{intel, meta,
 links, labs, spots, containers}`, `Memory.intel`, `Memory.flags[genesis].newer`,
-`Memory.debug`. Shapes in [docs/memory-layout.md](docs/memory-layout.md).
+`Memory.spawns[name]` (spawn telemetry, `spawnload.ts`; read it with
+`spawnLoads()`), `Memory.debug`. Shapes in [docs/memory-layout.md](docs/memory-layout.md).
 
 ## Known traps (full list in docs/known-issues.md)
 

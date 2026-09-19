@@ -47,6 +47,17 @@ Legacy team eggs used `{ team: flagName, egg: { team, body, laid, spawn, priorit
 and are no longer created; `Mission.hatchEggs` treats any `nest !== "egg"` as
 a stuck egg and resets it.
 
+### `Memory.spawns[name]` (`spawnload.ts`)
+Spawn telemetry, integers only. `{ epoch, skip?, busy: Series, born: Series }`
+with `Series = { n, old: number[], ema? }`. `epoch` = `floor(Game.time / 500)`
+of the live window; `skip` = ticks of the entry's first window that passed
+before it existed (deleted at the first rollover). `busy.n` counts ticks with
+`spawn.spawning` set, `born.n` counts successful `spawnCreep` calls. `old` holds
+the last 3 closed 500-tick windows, oldest first; `ema` is the alpha-0.1 moving
+average of windows that aged out, stored x1 for `busy` and x100 for `born`.
+Entries for spawns that no longer exist are deleted every 500 ticks. Safe to
+delete by hand: it restarts from empty.
+
 ### `Memory.rooms[name]`
 | field | writer | live | shape |
 |---|---|---|---|
