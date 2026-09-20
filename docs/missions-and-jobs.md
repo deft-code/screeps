@@ -28,19 +28,21 @@ Process                      run(): Priority; kill()           (process.ts)
      │                                            spawn when she exists but is unspawned and the spawn cooldown has passed.
      │                                            Spawned: the Furiosa flag's child flags ("<prefix><n>_Furiosa", sorted by name)
      │                                            pick the behaviour; first known prefix wins, unknown ones are logged and skipped.
-     │                                            swipe -> MyPowerCreep.runSwipe(child flag room, Furiosa flag room), taking only what swipeworth.ts prices as worth it for the flag room; the child flag is removed once
-     │                                            runSwipe returns false (creep empty and the room has nothing left, judged at home after the last
+     │                                            swipe -> MyPowerCreep.questSwipe(child flag room, Furiosa flag room), going for the structure that holds the most valuable resource (buy-order price per unit) and taking its resources most valuable first, only what swipeworth.ts prices as worth it for the flag room; the child flag is removed once
+     │                                            questSwipe returns false (creep empty and the room has nothing left, judged at home after the last
      │                                            partial unload too), so the next child takes over without a trip back.
      │                                            No usable child flag: walk to within 5 of the Furiosa flag and wait. TTL < 300: runRenew
      │                                            at the home power spawn instead of any child behaviour.
      └─ Mission (abstract)   owns eggs/hatch/creeps lists in Memory.missions[name]
          ├─ GlobalRespawn    @register  (ms.globalrespawn.ts)  ACTIVE
+         ├─ Bulldoze         @register  (ms.bulldoze.ts)       "Bulldoze <target> <home>"; tile list in memory.doze fed by `bulldoze*` flags (flag = this tile next, flag removed) and by the breach plan
+         │                                                     (spawn -> first tile, cost round(log10(hits)*20) per blocked tile, replanned every 100 ticks); one Bulldozer while the list is not empty; asks the home labs for XZH2O while a dozer is an egg/hatch
          ├─ Hub              @register  (ms.hub.ts)            "Hub <room>"; GlobalRespawn for any owned room, without the startup creeps:
                                                               Reboot while the mission has no creeps, bsrc/asrc (ecap >= 550) or haulers (1 + one per 2k dropped energy over 1k, max 3), Worker, Ctrl, Hub once storage exists, Upgrader.want(room) upgraders (below RCL8: storage energy / 100k, from 100k, fractional),
                                                               all spawned "local"; idles (paced log) while the room is not ours or has no spawn of its own (status `no-spawn`). Distinct from the `Hub` job class (separate registries).
-         ├─ Swipe            @register  (ms.swipe.ts)          "Swipe <target> <home>"; Scout while the target is invisible, else one Swiper;
+         ├─ Swipe            @register  (ms.swipe.ts)          "Swipe <target> <home>"; Scout while the target is invisible, else two Swipers (kSwipers);
          │                                                     winds down once the target room has no swipe targets left (job.swiper swipeTargets)
-         │                                                     worth(res) (swipeworth.ts, shared with Furiosa's runSwipe): energy always; else market.getBuyOrderPrice(res) >= 2 x getSellOrderPrice(energy, home) (energy delivered to home);
+         │                                                     worth(res) (swipeworth.ts, shared with Furiosa's questSwipe): energy always; else market.getBuyOrderPrice(res) >= 2 x getSellOrderPrice(energy, home) (energy delivered to home);
          │                                                     unpriceable resources (under 10k units bid) are skipped; no market (season) or no energy price = take everything.
          │                                                     Swiper and the wind-down test both use it, so "clean" means nothing worth taking is left
          │                                                     sparkJoy(): every 1000 + random(100) ticks (Memory.missions[m].sparkjoy = next look) lists the home storage/terminal
@@ -112,7 +114,8 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.js for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
      │                       when empty); withdraws from the fullest rsrc container (sweeps dropped energy), unloads into the home storage
      │                       when more than half full; after() idleNom picks up adjacent energy
-     ├─ Konmari  @register   (job.konmari.ts) CARRY/MOVE pairs like Swiper; loads worthless resources from the home storage then terminal, walks towards the
+     ├─ Bulldozer @register  (job.bulldozer.ts) WORK/MOVE pairs; boosts XZH2O at home when a lab has it ready (never waits); planWalk over mission.dozePositions() at range 1, @task doze(xy, room) dismantles the tile (rampart first)
+     ├─ Konmari  @register   (job.konmari.ts) CARRY/MOVE pairs like Swiper; loads worthless resources (catalyzed boosts excepted) from the home storage then terminal, walks towards the
      │                       Swipe target and drops 20 units per tick while outside the home room; empty -> home for more; nothing worthless left -> suicide
      ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs from the spawns nearest home, sized to energy on hand (max 50 parts);
      │                       loots the Swipe target: @task withdrawFrom the cheapest-path non-own structure with anything in its store (Rewalker.planWalk over all candidates), one resource at a time in random order
@@ -126,6 +129,9 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ CtrlHauler @register priority -1 (job.ctrlhauler.ts) storage -> Meta_ctrl container shuttle; body 'hauler' (<= 1500 energy, local);
          │                                                 want(mission) = 1 only while storage energy >= 100k, the ctrl container exists and is empty,
          │                                                 and the mission's ctrl creep is empty (else 0); after() idleNom
+         ├─ Chemist @register              (job.chemist.ts) pure Task2 port of role.chemist.js (overrides start()); Hub mission only, Chemist.want(room) = 1 with a terminal and a lab;
+         │                                                 body 'chemist' (10C/5M, local). Empty: @task drain a lab whose mineralDrain() says so, fetch a lab's planType (labWant: up to 800, 2400 boosting)
+         │                                                 from terminal then storage, fetch lab energy from the richer depot (> 5k), fetch G for the nuker, @task gather stray non-energy (nearest pile/tombstone/ruin/container; sets memory.stray); loaded: @task fill the lab/nuker wanting it, else stash in terminal/storage (storage first for a gathered load)
          ├─ Upgrader @register priority -1 (job.upgrader.ts) port of role.upgrader.js; surplus sink: taskRecharge then goUpgradeController,
          │                                                 after() idleNom + idleRecharge; body 'upgrader' (2W/1C per level) via "local";
          │                                                 Upgrader.want(room) = 0 at RCL8, without storage, or below 100k, else storage energy / 100k (linear, fractional: 150k = 1.5)
@@ -178,7 +184,7 @@ scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that
 scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
 scheduleService('Once Paver W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down (Remote schedules these itself)
-scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown; under 25k terminal energy keeps one 10k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)
+scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown, skipping orders that pay less per unit than the shipping energy is worth (transfer rate x energy buy-order price); under 25k terminal energy keeps one 10k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)
 scheduleService('Furiosa')           // power creep Furiosa; picks a home power spawn room into Memory.furiosa.home
 ```
 

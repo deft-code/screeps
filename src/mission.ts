@@ -24,6 +24,8 @@ export interface MissionMemory {
     when?: { [role: string]: number }
     // Swipe: tick of the next sparkJoy look at the home stores.
     sparkjoy?: number
+    // Bulldoze: tiles to clear as [xy, roomName], the first is the destination.
+    doze?: [number, string][]
 }
 
 // Ensure missions is here on a clean memory first boot.

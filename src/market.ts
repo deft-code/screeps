@@ -84,11 +84,23 @@ export function tryGetSellOrderPrice(res: ResourceConstant, roomName?: string): 
   }
 }
 
-// Units of `res` anyone but us is bidding for right now; 0 off-market.
-export function bidUnits(res: ResourceConstant): number {
+// The short-horizon moving average (buy95, ~20 samples) of the buy-order
+// price, in credits. Prices the resource first (from the tick's cache when it
+// was already asked), which is what folds this tick's sample into the
+// averages; a tick without a price (thin book) adds no sample and the average
+// stands. -Infinity while the resource has never had a price.
+export function buyOrderPriceEma(res: ResourceConstant, roomName?: string): number {
+  tryGetBuyOrderPrice(res, roomName);
+  const avg = (Memory.market[res] || {}).buy95;
+  return avg === undefined ? -Infinity : avg / 1000;
+}
+
+// Units of `res` anyone but us is bidding `minPrice` or more for right now;
+// 0 off-market.
+export function bidUnits(res: ResourceConstant, minPrice = 0): number {
   if (marketDisabled()) return 0;
   return _.sum(getAllOrders({ type: ORDER_BUY, resourceType: res }),
-    o => Game.market.orders[o.id] ? 0 : Math.max(o.amount, 0));
+    o => Game.market.orders[o.id] || o.price < minPrice ? 0 : Math.max(o.amount, 0));
 }
 
 // Transfer energy per unit shipped between two rooms; distances never change.

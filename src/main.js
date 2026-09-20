@@ -54,6 +54,7 @@ import 'strat';
 
 import 'ms.globalrespawn';
 import 'ms.swipe';
+import 'ms.bulldoze';
 import 'ms.farm';
 import 'ms.reactor';
 import 'ms.remote';

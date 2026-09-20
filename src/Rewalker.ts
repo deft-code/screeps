@@ -349,6 +349,18 @@ interface MemState {
 
 export type WalkReturnCode = ScreepsReturnCode | DirectionConstant
 
+// Is the walk stored in the creep's memory one whose path search came back
+// incomplete (PathFinder gave up before reaching the goal, so the stored path
+// only leads part of the way)? With `dest`, only when the stored walk is
+// headed there. False when no walk is stored. Inside one room an incomplete
+// search means the goal is walled in; across rooms it may only mean the
+// search ran out of ops.
+export function walkIncomplete(c: Creep | PowerCreep, dest?: RoomPosition): boolean {
+    const walk = c.memory._walk as MemState | undefined
+    if (!walk || !walk[3]) return false
+    return !dest || (walk[0] === toXY(dest) && walk[1] === dest.roomName)
+}
+
 interface IsOwned {
     owner: {
         username: string

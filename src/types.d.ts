@@ -203,6 +203,9 @@ interface StructureFactory {
 
 interface StructureLab {
     planType: ResourceConstant
+    boost: ResourceConstant | null
+    mineralFill(): boolean
+    mineralDrain(): boolean
 }
 
 interface StructureLink {

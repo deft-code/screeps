@@ -5,14 +5,16 @@ import * as debug from "debug";
 import { Scout } from "job.scout";
 import { Swiper, swipeTargets } from "job.swiper";
 import { Konmari } from "job.konmari";
-import { minSwipePrice, worthlessIn, worthSwiping } from "swipeworth";
+import { junkIn, minSwipePrice, worthSwiping } from "swipeworth";
 
 // Ticks between sparkJoy looks, plus up to kSparkJoyJitter.
 const kSparkJoyPace = 1000;
 const kSparkJoyJitter = 100;
+// Swipers kept out at once.
+const kSwipers = 2;
 
 // Loot a room: "Swipe <target> <home>". A Scout while the target is not
-// visible, then one Swiper at a time until the room has nothing left worth
+// visible, then kSwipers Swipers at a time until the room has nothing left worth
 // taking, then wind down.
 //
 // Every kSparkJoyPace (+ random kSparkJoyJitter) ticks sparkJoy() looks
@@ -56,7 +58,7 @@ export class Swipe extends Mission {
         for (const store of [home.storage, home.terminal]) {
             if (!store || !store.my) continue;
             const s = store.store as unknown as { [res: string]: number };
-            for (const res of worthlessIn(store.store)) junk.push(`${res}x${s[res]}`);
+            for (const res of junkIn(store.store)) junk.push(`${res}x${s[res]}`);
         }
         if (!junk.length) {
             debug.log(this.name, "sparkjoy: nothing worthless in", home.name);
@@ -82,7 +84,7 @@ export class Swipe extends Mission {
             debug.log(this.name, this.roomName, "has nothing left worth", this.minPrice(), "a unit, winding down");
             this.windDown();
         } else {
-            this.nJobs(Swiper, 1);
+            this.nJobs(Swiper, kSwipers);
         }
         super.run();
         return "normal";

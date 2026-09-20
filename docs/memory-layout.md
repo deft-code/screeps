@@ -31,7 +31,8 @@ ours already standing for the room is adopted when the id is missing or stale.
 { "GlobalRespawn": { eggs: ["startup2"], hatch: ["hauler0"], creeps: ["startup0", "asrc0", ...],
                      windDown?: true, tombs?: { "asrc0": tick },      // set by windDown(); tick = expected tombstone decay
                      when?: { wolf: tick },                           // paceCreeps: tick the last paced egg was laid
-                     sparkjoy?: tick } }                              // Swipe: next sparkJoy look at the home stores
+                     sparkjoy?: tick,                                 // Swipe: next sparkJoy look at the home stores
+                     doze?: [[xy, roomName], ...] } }                 // Bulldoze: tiles to clear, the first is the destination
   "Remote W27S9 W26S8": { ..., metas?: { W27S9: ["rsrc_608", "rroad_W27S9_608"], W26S9: [...] },  // room -> metas the mission planned
                           planned?: tick,                             // present once planning was attempted; windDown removes the metas
                           pavers?: { W26S9: tick },                   // last tick a "Once Paver <room>" was scheduled per room
@@ -49,7 +50,7 @@ After spawn: `nest = spawnName`, `home = roomName`. Roles then add:
 `task` (legacy `{task, id?, flag?, first?, resource?, max?, spot?}`), `task2`
 (`{name, args, id?}`), `_walk` (Rewalker `[destXY, destRoom, [xy, room, dirs], incomplete?]`),
 `srcid/contid/linkid` (srcer), `struct` (ctrl), `repairid`, `spawnid`, `ecap` (room capacity at the first `idleImmortal`; renewing stops once the room exceeds it),
-`boosts[]`, `debug` (expiry tick), `spot`, `start`, `team`.
+`noboost` (Bulldozer: a lab refused it, stop asking), `stray` (Chemist: the load in hand was gathered off the floor and goes to the storage), `boosts[]`, `debug` (expiry tick), `spot`, `start`, `team`.
 Legacy team eggs used `{ team: flagName, egg: { team, body, laid, spawn, priority, ... } }`
 and are no longer created; `Mission.hatchEggs` treats any `nest !== "egg"` as
 a stuck egg and resets it.

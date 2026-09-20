@@ -14,8 +14,8 @@
 // Behaviour now belongs to services such as ms.furiosa.ts, built on the
 // wrappers below.
 import * as debug from "debug";
-import { defaultRewalker } from "Rewalker";
-import { anything, swipeWorth, worthless, Worth } from "swipeworth";
+import { defaultRewalker, walkIncomplete } from "Rewalker";
+import { anything, byValue, swipeWorth, unitValue, worthless, Worth } from "swipeworth";
 
 const rewalker = defaultRewalker();
 
@@ -332,8 +332,9 @@ export class MyPowerCreep extends TPowerCreep {
 
     // --- swipe: loot a room's structures and haul home (job.swiper.ts, for a power creep) ---
     //
-    // Fill up from the cheapest-path non-own structure with anything in its
-    // store (nukers and rampart-covered tiles excepted), then walk straight to
+    // Fill up from the non-own structure holding the most valuable resource
+    // (swipeworth.unitValue; nukers and rampart-covered tiles excepted), taking
+    // its resources most valuable first, then walk straight to
     // the home storage (terminal, else drop at the controller) and unload one
     // resource per tick. A room run dry sends the partial load home and is
     // remembered as dry. Returns a short status string for the caller's logs,
@@ -343,7 +344,7 @@ export class MyPowerCreep extends TPowerCreep {
     // homeRoom); unloading takes everything aboard.
     swipeWorth: Worth = anything;
 
-    runSwipe(targetRoom: string, homeRoom: string): string | false {
+    questSwipe(targetRoom: string, homeRoom: string): string | false {
         const ret = this.swipeStep(targetRoom, homeRoom);
         this.idleNom();
         return ret;
@@ -390,11 +391,10 @@ export class MyPowerCreep extends TPowerCreep {
             return "to target";
         }
 
-        let target = mem.target ? Game.getObjectById(mem.target) : null;
-        if (!target || !stocked(target.store, this.swipeWorth).length || (mem.skip?.[target.id] || 0) > Game.time) {
-            target = this.pickSwipeTarget(mem);
-            mem.target = target?.id;
-        }
+        // Picked afresh every tick: once the best resource of a structure is
+        // aboard, another structure may hold the most valuable one left.
+        const target = this.pickSwipeTarget(mem);
+        mem.target = target?.id;
         if (target) {
             delete mem.dry;
             return this.swipeFrom(target, mem);
@@ -408,8 +408,8 @@ export class MyPowerCreep extends TPowerCreep {
     }
 
     // Structures that are not ours, hold anything, have no rampart on top and
-    // have not refused us recently; the one with the cheapest path wins
-    // (Rewalker.planWalk stores that path, so walkTo follows it).
+    // have not refused us recently; the one holding the most valuable resource
+    // (per unit) wins, the nearer one on a tie.
     pickSwipeTarget(mem: SwipeMemory): AnyStoreStructure | null {
         const p = this.p;
         if (!p.room) return null;
@@ -423,19 +423,28 @@ export class MyPowerCreep extends TPowerCreep {
                 !_.any(st.pos.lookFor(LOOK_STRUCTURES), r => r.structureType === STRUCTURE_RAMPART),
         }) as AnyStoreStructure[];
         if (!targets.length) return null;
-        const i = rewalker.planWalk(p, targets.map(t => ({ pos: t.pos, range: 1 })));
-        if (i >= 0) return targets[i];
-        this.dlog("planWalk failed", i, "falling back to range");
-        return p.pos.findClosestByRange(targets);
+        const best = (t: AnyStoreStructure) => unitValue(_.first(byValue(t.store, this.swipeWorth))!);
+        const top = Math.max(...targets.map(best));
+        return p.pos.findClosestByRange(targets.filter(t => best(t) >= top));
     }
 
     swipeFrom(target: AnyStoreStructure, mem: SwipeMemory): string {
         const p = this.p;
         if (!p.pos.isNearTo(target)) {
-            this.walkTo(target.pos, 1);
+            const ret = this.walkTo(target.pos, 1);
+            // An incomplete search for a walk inside the target's own room is
+            // not a long trip cut short by maxOps: the structure is walled in.
+            if (ret === ERR_NO_PATH || walkIncomplete(p, target.pos)) {
+                const skip = mem.skip = mem.skip || {};
+                skip[target.id] = Game.time + kSwipeSkipTicks;
+                delete mem.target;
+                delete p.memory._walk;
+                this.log("no path to", target.structureType, "at", target.pos, "- skipping it for", kSwipeSkipTicks);
+                return "no path, retarget";
+            }
             return `to ${target.structureType}`;
         }
-        const res = _.first(stocked(target.store, this.swipeWorth))!;
+        const res = _.first(byValue(target.store, this.swipeWorth))!;
         const err = this.withdraw(target, res);
         if (err === OK) return `swiping ${res}`;
         if (err === ERR_NOT_OWNER) {

@@ -2,7 +2,7 @@ import { JobCreep } from "job.creep";
 import { register, task, Task2Ret } from "mycreep";
 import { closeSpawns } from "spawnold";
 import { energyDef } from "spawn";
-import { worthlessIn } from "swipeworth";
+import { junkIn } from "swipeworth";
 
 // Body budget: 25 CARRY + 25 MOVE is the 50-part cap.
 const kMaxBodyEnergy = 2500;
@@ -11,8 +11,8 @@ const kDropPerTick = 20;
 
 // Throw out what does not spark joy, for the Swipe mission ("Swipe <target>
 // <home>", laid by its sparkJoy check). Fills up in the home room with the
-// worthless resources (swipeworth.worthless: nobody bids for them) of the
-// storage and the terminal, then walks towards the mission room. Every tick it
+// junk (swipeworth.junkIn: worthless, nobody bids for it, and not a catalyzed
+// boost) of the storage and the terminal, then walks towards the mission room. Every tick it
 // stands outside the home room it drops kDropPerTick units, so the junk is
 // spread thin along the way and decays. Empty, it walks straight back to the
 // store that still holds junk for the next load; with nothing worthless left
@@ -40,7 +40,7 @@ export class Konmari extends JobCreep {
         const home = Game.rooms[this.homeName];
         if (!home) return null;
         for (const store of [home.storage, home.terminal]) {
-            if (store && store.my && worthlessIn(store.store).length) return store;
+            if (store && store.my && junkIn(store.store).length) return store;
         }
         return null;
     }
@@ -64,7 +64,7 @@ export class Konmari extends JobCreep {
     @task
     loadFrom(store: StructureStorage | StructureTerminal): Task2Ret {
         const c = this.c;
-        const res = _.first(worthlessIn(store.store));
+        const res = _.first(junkIn(store.store));
         if (!res || !c.store.getFreeCapacity()) return "start";
         if (!this.pos.isNearTo(store)) return this.moveTarget(store, 1);
         const err = c.withdraw(store, res);

@@ -1,6 +1,7 @@
 import { register, Priority, Service } from "process";
 import * as debug from "debug";
 import { marketDisabled } from "markethack";
+import { tryGetBuyOrderPrice } from "market";
 
 // Ticks a resource's buy-order list is reused before Game.market.getAllOrders
 // (CPU-heavy) is asked again.
@@ -97,6 +98,17 @@ function netPrice(order: Order, room: string): number {
     return rate < 1 ? order.price / (1 - rate) : Infinity;
 }
 
+// Is a buy order worth its shipping? We pay the transfer in energy, `rate`
+// energy per unit sold, and that energy would itself sell at the energy
+// buy-order price; an order paying less per unit than that burns more than it
+// earns. Nothing passes while energy has no buy-order price (-Infinity: the
+// book cannot be read), since the shipping cannot be valued then.
+function worthShipping(order: Order, room: string): boolean {
+    const energy = tryGetBuyOrderPrice(RESOURCE_ENERGY, room);
+    if (!(energy > 0)) return false;
+    return order.price >= transferRate(room, order.roomName!) * energy;
+}
+
 type SellResult = "sold" | "noEnergy" | false;
 
 // Sell a room's terminal stock (everything but energy) into market buy orders.
@@ -107,7 +119,8 @@ type SellResult = "sold" | "noEnergy" | false;
 // Kills itself (and deschedules) when the room is not ours or has no terminal.
 // Each tick the terminal is off cooldown: shuffle the terminal's non-energy
 // resources, and for each walk the cached buy orders (best price first) until
-// Game.market.deal succeeds. One deal per tick: deal() puts the
+// Game.market.deal succeeds, skipping any order that pays less per unit than
+// its shipping energy is worth (worthShipping). One deal per tick: deal() puts the
 // terminal on its TERMINAL_COOLDOWN (10 ticks) like send() does. The transfer
 // energy is paid by this terminal, so the amount is cut to what it can pay; when
 // even one unit does not fit, the tick's deal is instead buying energy from the
@@ -188,6 +201,8 @@ export class Selloff extends Service {
             // Used up by our earlier deals (the cached list is decremented as
             // we sell); not a shortage of energy.
             if (order.remainingAmount <= 0) continue;
+            // Best price first, but a lower bid next door can still pay.
+            if (!worthShipping(order, term.room.name)) continue;
             const amount = affordable(term, Math.min(have, order.remainingAmount), order.roomName!);
             if (amount <= 0) {
                 debug.log(this.name, "not enough energy to ship", res, "to", order.roomName);

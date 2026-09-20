@@ -37,11 +37,11 @@ declare global {
 // Once spawned, the Furiosa flag's child flags (named "<prefix><n>_Furiosa")
 // choose her behaviour: sorted by name, the first whose prefix (digits
 // stripped) is known runs; unknown prefixes are logged and skipped.
-//   swipe   MyPowerCreep.runSwipe(child room, Furiosa flag room); the child flag
-//           is removed once runSwipe reports the room empty (false)
+//   swipe   MyPowerCreep.questSwipe(child room, Furiosa flag room); the child flag
+//           is removed once questSwipe reports the room empty (false)
 // With no usable child flag she walks to within kIdleRange of the Furiosa flag.
 // Below kRenewBelow ticks to live she instead goes to the home power spawn to
-// renew (MyPowerCreep.runRenew); runSwipe also renews in passing (idleRenew).
+// renew (MyPowerCreep.runRenew); questSwipe also renews in passing (idleRenew).
 @register
 export class Furiosa extends Service {
     get memory(): FuriosaMemory {
@@ -95,7 +95,7 @@ export class Furiosa extends Service {
             const prefix = child.self.replace(/\d+$/, "").toLowerCase();
             switch (prefix) {
                 case "swipe": {
-                    const ret = pc.runSwipe(child.pos.roomName, flag.pos.roomName);
+                    const ret = pc.questSwipe(child.pos.roomName, flag.pos.roomName);
                     if (ret === false) {
                         // Nothing left there: drop the flag so the next child takes over.
                         debug.log(this.name, child.pos.roomName, "swiped clean, removing", child.name);

@@ -6,6 +6,7 @@ import { Hub as HubJob } from "job.hub";
 import { Reboot } from "job.reboot";
 import { Upgrader } from "job.upgrader";
 import { CtrlHauler } from "job.ctrlhauler";
+import { Chemist } from "job.chemist";
 import * as debug from "debug";
 
 // Ticks between "waiting" log lines while the room is not ours or has no spawn.
@@ -28,8 +29,9 @@ const kMaxHaulers = 3;
 // reaches 550 one bsrc then one asrc (job.srcer.ts; they need the room's
 // Meta_bsrc/Meta_asrc), otherwise nHaulers() haulers (1 + one per
 // kHaulerScale of dropped energy over kEnergyTolerance, max kMaxHaulers);
-// one Worker; one Ctrl; and one
-// Hub once the room has storage (Hub.spawn also waits for the 'hub' spot).
+// one Worker; one Ctrl; one
+// Hub once the room has storage (Hub.spawn also waits for the 'hub' spot);
+// and one Chemist (job.chemist.ts) while the room has a terminal and a lab.
 // Everything spawns "local", and nothing is laid until the room has a spawn
 // of its own: until then the Startup mission's pioneers (spawned elsewhere,
 // homed here) carry the room; both can run until Startup winds down at RCL4.
@@ -72,6 +74,7 @@ export class Hub extends Mission {
         room.storage && this.nJobs(HubJob, 1);
         this.nJobs(Upgrader, Upgrader.want(room));
         this.nJobs(CtrlHauler, CtrlHauler.want(this));
+        this.nJobs(Chemist, Chemist.want(room));
 
         super.run();
         return "critical";
