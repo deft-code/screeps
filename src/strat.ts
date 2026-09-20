@@ -6,7 +6,6 @@ import { runLinks } from "struct.link";
 import { theRadar } from "radar";
 import { updateIntel } from "intel";
 import { runFactory } from "struct.factory";
-import { theMarket } from "market";
 import { exec, Priority, Process } from "process";
 import { hasMetas } from "metastruct";
 
@@ -217,7 +216,6 @@ class ClaimedStrat extends NullStrat implements IStrat {
             const ob = _.first(this.room.findStructs(STRUCTURE_OBSERVER));
             if (ob) theRadar.register(ob);
         }
-        theMarket.registerRoom(this.room);
     }
     run(): Priority {
         runTowers(this.room);

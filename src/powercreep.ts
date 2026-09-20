@@ -15,6 +15,7 @@
 // wrappers below.
 import * as debug from "debug";
 import { defaultRewalker } from "Rewalker";
+import { anything, swipeWorth, Worth } from "swipeworth";
 
 const rewalker = defaultRewalker();
 
@@ -41,10 +42,11 @@ declare global {
     }
 }
 
-// Resources a store holds, in random order (same helper as job.swiper.ts).
-function stocked(store: StoreDefinition | Store<ResourceConstant, false>): ResourceConstant[] {
+// Resources a store holds that are `worth` taking, in random order (same
+// helper as job.swiper.ts).
+function stocked(store: StoreDefinition | Store<ResourceConstant, false>, worth: Worth = anything): ResourceConstant[] {
     const st = store as unknown as { [res: string]: number };
-    return _.shuffle(Object.keys(st).filter(res => st[res] > 0)) as ResourceConstant[];
+    return _.shuffle(Object.keys(st).filter(res => st[res] > 0 && worth(res as ResourceConstant))) as ResourceConstant[];
 }
 
 // ---------------------------------------------------------------------------
@@ -336,9 +338,14 @@ export class MyPowerCreep extends TPowerCreep {
     // resource per tick. A room run dry sends the partial load home and is
     // remembered as dry. Returns a short status string for the caller's logs,
     // or false once the creep is empty and the target room has nothing left,
-    // whether it stands there or has just unloaded at home.
+    // whether it stands there or has just unloaded at home. Only what is worth
+    // the trip is taken or counts as "left" (swipeworth.ts, priced for
+    // homeRoom); unloading takes everything aboard.
+    swipeWorth: Worth = anything;
+
     runSwipe(targetRoom: string, homeRoom: string): string | false {
         const p = this.p;
+        this.swipeWorth = swipeWorth(homeRoom);
         this.idleRenew();
         const mem = this.memory.swipe = this.memory.swipe || {};
         const holding = p.store.getUsedCapacity() > 0;
@@ -356,7 +363,7 @@ export class MyPowerCreep extends TPowerCreep {
         }
 
         let target = mem.target ? Game.getObjectById(mem.target) : null;
-        if (!target || !stocked(target.store).length || (mem.skip?.[target.id] || 0) > Game.time) {
+        if (!target || !stocked(target.store, this.swipeWorth).length || (mem.skip?.[target.id] || 0) > Game.time) {
             target = this.pickSwipeTarget(mem);
             mem.target = target?.id;
         }
@@ -383,7 +390,7 @@ export class MyPowerCreep extends TPowerCreep {
             filter: (st: AnyStructure) => !(st as OwnedStructure).my &&
                 !_.contains(kNoSwipe, st.structureType) &&
                 (st as AnyStoreStructure).store !== undefined &&
-                stocked((st as AnyStoreStructure).store).length > 0 &&
+                stocked((st as AnyStoreStructure).store, this.swipeWorth).length > 0 &&
                 !(skip[st.id] > Game.time) &&
                 !_.any(st.pos.lookFor(LOOK_STRUCTURES), r => r.structureType === STRUCTURE_RAMPART),
         }) as AnyStoreStructure[];
@@ -400,7 +407,7 @@ export class MyPowerCreep extends TPowerCreep {
             this.walkTo(target.pos, 1);
             return `to ${target.structureType}`;
         }
-        const res = _.first(stocked(target.store))!;
+        const res = _.first(stocked(target.store, this.swipeWorth))!;
         const err = this.withdraw(target, res);
         if (err === OK) return `swiping ${res}`;
         if (err === ERR_NOT_OWNER) {

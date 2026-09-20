@@ -99,7 +99,8 @@ Status legend:
 | `src/room.keeper.js` | DEAD | 2017 | Old construction planner. |
 | `src/intel.ts` | LIVE | 2020 | Room intel, `roomKind`, coordinates. |
 | `src/radar.ts` | LIVE (register) / DEAD (`run`) | 2020 | Observer scanning. |
-| `src/market.ts` | LIVE (register) / DEAD (`run`) | 2020 | Per-tick store totals; price EMAs dead. |
+| `src/market.ts` | REACHABLE (no caller yet) | 2020, rewritten 2026 | `getBuyOrderPrice`/`getSellOrderPrice` (+ `tryGet*`) tick prices over the best 10k units via `markethack`, energy by effective price, feeding the `Memory.market` averages. |
+| `src/swipeworth.ts` | REACHABLE (Swipe mission, Furiosa swipe) | 2026 | `worthSwiping(res, home)` / `minSwipePrice(home)`: a resource is worth looting when it sells for 2x what energy costs delivered to the home room; energy always; everything when there is no market. |
 | `src/deposit.ts` | DEAD | 2020 | Deposit team creation; `depositDist` used by dead team code. |
 
 ## Movement

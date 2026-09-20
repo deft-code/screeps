@@ -105,7 +105,7 @@ code; effectively unused.
 
 | key | writer | notes |
 |---|---|---|
-| `Memory.market` | `market.ts run()` (dead) | `{ [resource]: { buy, buy95, buy99, buy9500, buy9900, sell, sell95, sell99, sell9500, sell9900 } }`, read by terminal helpers |
+| `Memory.market` | `market.ts` `getBuyOrderPrice`/`getSellOrderPrice` (milli-credits; energy = effective price for the asking room) | `{ [resource]: { buy, buy95, buy99, buy9500, buy9900, sell, sell95, sell99, sell9500, sell9900 } }`, read by terminal helpers |
 | `Memory.evil`, `Memory.client`, `Memory.theMatrix`, `Memory.logo` | `main.js` hacks, `console.js`, `team.ts` | dead paths |
 | `Memory.servers` | `server.js` | orphan module |
 | `Memory.history` | `history.ts` | orphan module |

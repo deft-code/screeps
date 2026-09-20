@@ -18,7 +18,7 @@ room survives. `ClaimedStrat.evolve()` returns `null`.
 
 | | `NullStrat` | `ActiveStrat` | `ClaimedStrat` |
 |---|---|---|---|
-| `init()` (from `main`) | `legacyInit` (hostile lists + ratchets), `updateIntel` | same | same, plus `theRadar.register(observer)` at RCL8 and `theMarket.registerRoom` |
+| `init()` (from `main`) | `legacyInit` (hostile lists + ratchets), `updateIntel` | same | same, plus `theRadar.register(observer)` at RCL8 |
 | `run()` (process row) | no-op, `"low"` | every 10 ticks (random offset) `room.meta.runUnowned()`: container and road sites only; skipped without vision or in a room someone else owns; `"low"` | `runTowers`, `popSafeMode`, `runLabs`, `runLinks`, `room.meta.run()`, `drawMinerals`, `runFactory`; `"normal"` |
 | `spawnEnergy()` | `undefined` | `undefined` | `room.meta.spawnEnergy()` |
 | `maxHits(stype, xy)` | roads and containers `0` (left to decay); walls/ramparts fixed table by RCL | roads and containers from `room.meta.maxHits(..., 0)`: full when a meta claims the tile, else `0`; rest as `NullStrat` | `room.meta.maxHits(...)` with CPU accounting |
@@ -124,10 +124,18 @@ but `theRadar.run()` is only called after the dead `return` in `main.js`.
 
 ## Market (`src/market.ts`)
 
-`theMarket.registerRoom` sums terminal/storage/factory stores per RCL6+ room
-into a per-tick cache. `run()` on the class is empty; the module-level `run()`
-(record buy/sell EMAs into `Memory.market`) is dead. `Memory.market` is read by
-the terminal `safeBuy`/`buyOrder`/`sellOrder` helpers.
+Prices only (Sept 2026, no caller yet; the 2020 per-room store totals, the
+`run()` mineral rotation and `HistoryMean` were removed, nothing read them): `getBuyOrderPrice(res, room?)` is what selling
+into buy orders pays, `getSellOrderPrice(res, room?)` what buying from sell orders
+costs, in credits per unit: the average over the best 10k units on that side,
+our own orders left out, orders read through `markethack`. Computed once per
+tick and folded into the `Memory.market` moving averages (milli-credits). Under
+10k units on offer, or on `shardSeason`, they throw and record nothing;
+`tryGetBuyOrderPrice` / `tryGetSellOrderPrice` answer `-Infinity` / `Infinity` instead.
+Energy is ranked and priced by effective price for the asking room
+(`energyPrice`): `price / (1 - rate)` to buy, `price / (1 + rate)` to sell,
+since the dealer pays shipping in energy. `Memory.market` is also read by the
+(dead) terminal `safeBuy`/`buyOrder`/`sellOrder` helpers.
 
 ## Pace (`src/pace.ts`)
 

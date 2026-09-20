@@ -28,7 +28,7 @@ Process                      run(): Priority; kill()           (process.ts)
      │                                            spawn when she exists but is unspawned and the spawn cooldown has passed.
      │                                            Spawned: the Furiosa flag's child flags ("<prefix><n>_Furiosa", sorted by name)
      │                                            pick the behaviour; first known prefix wins, unknown ones are logged and skipped.
-     │                                            swipe -> MyPowerCreep.runSwipe(child flag room, Furiosa flag room); the child flag is removed once
+     │                                            swipe -> MyPowerCreep.runSwipe(child flag room, Furiosa flag room), taking only what swipeworth.ts prices as worth it for the flag room; the child flag is removed once
      │                                            runSwipe returns false (creep empty and the room has nothing left, judged at home after the last
      │                                            partial unload too), so the next child takes over without a trip back.
      │                                            No usable child flag: walk to within 5 of the Furiosa flag and wait. TTL < 300: runRenew
@@ -40,6 +40,9 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               all spawned "local"; idles (paced log) while the room is not ours or has no spawn of its own (status `no-spawn`). Distinct from the `Hub` job class (separate registries).
          ├─ Swipe            @register  (ms.swipe.ts)          "Swipe <target> <home>"; Scout while the target is invisible, else one Swiper;
          │                                                     winds down once the target room has no swipe targets left (job.swiper swipeTargets)
+         │                                                     worth(res) (swipeworth.ts, shared with Furiosa's runSwipe): energy always; else market.getBuyOrderPrice(res) >= 2 x getSellOrderPrice(energy, home) (energy delivered to home);
+         │                                                     unpriceable resources (under 10k units bid) are skipped; no market (season) or no energy price = take everything.
+         │                                                     Swiper and the wind-down test both use it, so "clean" means nothing worth taking is left
          ├─ Reactor          @register  (ms.reactor.ts)        "Reactor <room>"; mission room = sector core of <room>
          │                                                     (both coords rounded to x5); paceJobs(Scout, 1400) from <room> keeps the core
          │                                                     visible at all times; while visible logs

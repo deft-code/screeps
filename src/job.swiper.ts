@@ -4,6 +4,7 @@ import { closeSpawns } from "spawnold";
 import { energyDef } from "spawn";
 import { defaultRewalker } from "Rewalker";
 import { CreepRepair } from "creep.repair";
+import { anything, Worth } from "swipeworth";
 
 const rewalker = defaultRewalker();
 
@@ -14,24 +15,26 @@ const kMaxBodyEnergy = 2500;
 // Withdrawing from a nuker is bugged; everything else with a store is fair game.
 const kNoSwipe: StructureConstant[] = [STRUCTURE_NUKER];
 
-// Structures in `room` a swiper may loot: not ours, holding anything, no
-// rampart on top, not in `skip` (structure id -> tick until which it is left
-// alone). Shared with ms.swipe.ts, which winds the mission down when empty.
-export function swipeTargets(room: Room, skip: { [id: string]: number } = {}): AnyStoreStructure[] {
+// Structures in `room` a swiper may loot: not ours, holding anything `worth`
+// taking, no rampart on top, not in `skip` (structure id -> tick until which
+// it is left alone). Shared with ms.swipe.ts, which winds the mission down
+// when empty.
+export function swipeTargets(room: Room, skip: { [id: string]: number } = {}, worth: Worth = anything): AnyStoreStructure[] {
     return room.find(FIND_STRUCTURES, {
         filter: (s: AnyStructure) => !(s as OwnedStructure).my &&
             !_.contains(kNoSwipe, s.structureType) &&
             (s as AnyStoreStructure).store !== undefined &&
-            stocked((s as AnyStoreStructure).store).length > 0 &&
+            stocked((s as AnyStoreStructure).store, worth).length > 0 &&
             !(skip[s.id] > Game.time) &&
             !_.any(s.pos.lookFor(LOOK_STRUCTURES), r => r.structureType === STRUCTURE_RAMPART),
     }) as AnyStoreStructure[];
 }
 
-// Resources a store holds, in random order (so a loot run mixes what it takes).
-function stocked(store: StoreDefinition | Store<ResourceConstant, false>): ResourceConstant[] {
+// Resources a store holds that are `worth` taking, in random order (so a loot
+// run mixes what it takes).
+function stocked(store: StoreDefinition | Store<ResourceConstant, false>, worth: Worth = anything): ResourceConstant[] {
     const s = store as unknown as { [res: string]: number };
-    return _.shuffle(Object.keys(s).filter(res => s[res] > 0)) as ResourceConstant[];
+    return _.shuffle(Object.keys(s).filter(res => s[res] > 0 && worth(res as ResourceConstant))) as ResourceConstant[];
 }
 
 declare global {
@@ -89,7 +92,13 @@ export class Swiper extends JobCreep {
     // Structures that are not ours, hold anything, have no rampart on top and
     // have not refused us recently.
     findTargets(): AnyStoreStructure[] {
-        return swipeTargets(this.c.room, this.memory.skip);
+        return swipeTargets(this.c.room, this.memory.skip, this.worth);
+    }
+
+    // The mission's pricing (Swipe.worth); anything goes for a mission without.
+    get worth(): Worth {
+        const m = this.mission as unknown as { worth?: Worth };
+        return m.worth ? res => m.worth!(res) : anything;
     }
 
     // The candidate with the cheapest path: one PathFinder search over every
@@ -108,7 +117,7 @@ export class Swiper extends JobCreep {
     @task
     withdrawFrom(target: AnyStoreStructure): Task2Ret {
         const c = this.c;
-        const res = _.first(stocked(target.store));
+        const res = _.first(stocked(target.store, this.worth));
         if (!res || !c.store.getFreeCapacity()) return "start";
         if (!this.pos.isNearTo(target)) return this.moveTarget(target, 1);
         const err = c.withdraw(target, res);

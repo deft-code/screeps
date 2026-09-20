@@ -60,8 +60,8 @@ metas in memory, else `NullStrat`; `evolve()` swaps between them
   counters plus `*time` stamps (reset to 0 after 10 quiet ticks).
 - `updateIntel(room)`: writes `Memory.rooms[name].intel` (owner, RCL, invader
   core, highway deposits/power banks).
-- `ClaimedStrat` also registers RCL8 observers with `theRadar` and the room with
-  `theMarket` (both only fill per-tick caches; their `run()` methods are dead).
+- `ClaimedStrat` also registers RCL8 observers with `theRadar` (which only
+  fills a per-tick cache; its `run()` is dead).
 
 `shed.run` stops early if CPU used exceeds 300 or the bucket is low. A room whose
 `init()` was skipped has no `room.hostiles` array, and its strat `run()` will

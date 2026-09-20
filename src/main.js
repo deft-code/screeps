@@ -299,7 +299,6 @@ function doCrazy() {
 function doMarket() {
   Game.market.orders;
   const start = Game.cpu.getUsed();
-  //market.HistoryMean();
 
   const lookup = getRawMarket();
 
@@ -451,11 +450,9 @@ function main() {
 
   if (canRun(Game.cpu.getUsed(), 4500)) {
     powerHack();
-    market.run();
     theRadar.run();
     depositRun();
     hackAlloy();
-    market.theMarket.run();
   }
 
   // theRadar.scan("W24N14");
