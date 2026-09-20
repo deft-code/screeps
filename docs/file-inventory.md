@@ -100,7 +100,8 @@ Status legend:
 | `src/intel.ts` | LIVE | 2020 | Room intel, `roomKind`, coordinates. |
 | `src/radar.ts` | LIVE (register) / DEAD (`run`) | 2020 | Observer scanning. |
 | `src/market.ts` | REACHABLE (no caller yet) | 2020, rewritten 2026 | `getBuyOrderPrice`/`getSellOrderPrice` (+ `tryGet*`) tick prices over the best 10k units via `markethack`, energy by effective price, feeding the `Memory.market` averages. |
-| `src/swipeworth.ts` | REACHABLE (Swipe mission, Furiosa swipe) | 2026 | `worthSwiping(res, home)` / `minSwipePrice(home)`: a resource is worth looting when it sells for 2x what energy costs delivered to the home room; energy always; everything when there is no market. |
+| `src/swipeworth.ts` | REACHABLE (Swipe mission, Furiosa swipe) | 2026 | `worthSwiping(res, home)` / `minSwipePrice(home)`: a resource is worth looting when it sells for 2x what energy costs delivered to the home room; energy always; everything when there is no market. `worthless(res)`: no buy-order price and zero units bid (what Konmari throws out, what swipers and Furiosa will not pick up off the ground). |
+| `src/job.konmari.ts` | REACHABLE (Swipe mission sparkJoy) | 2026 | Carries worthless resources out of the home stores and drops them 20 a tick outside the home room. |
 | `src/deposit.ts` | DEAD | 2020 | Deposit team creation; `depositDist` used by dead team code. |
 
 ## Movement

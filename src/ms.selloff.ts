@@ -21,15 +21,16 @@ const kBuyMax = 10000;
 // is kept at kBidAmount units remaining, 1 credit over the best bid of anyone
 // else (sellers pay the transfer energy of a buy order, so it fills even when
 // the terminal is empty and cannot deal).
-const kBidBelow = 50000;
-const kBidAmount = 50000;
+const kBidBelow = 25000;
+const kBidAmount = 10000;
 const kBidStep = 1;
 // Never bid more than this per unit, whatever the top bid is: two bots each
 // outbidding the other by 1 would otherwise climb without limit.
 const kMaxBid = 150;
-// Ticks between looks at the bid; the same as the order cache, so every look
-// sees a fresh list.
-const kBidPace = kOrderCacheTicks;
+// Ticks between looks at the bid. Shorter than the order cache, so the bid
+// asks for an energy buy list no older than this: a sale every 10 ticks can
+// burn 4k energy each, faster than a slow look would refill.
+const kBidPace = 10;
 
 interface SelloffMemory {
     // Id of the energy buy order this room's Selloff manages.
@@ -50,10 +51,10 @@ const orderCache = new Map<string, OrderCache>();
 
 // Open orders of one type for `res`, best price for us first (highest buy,
 // lowest sell); cached per type and resource.
-function marketOrders(type: ORDER_BUY | ORDER_SELL, res: ResourceConstant): Order[] {
+function marketOrders(type: ORDER_BUY | ORDER_SELL, res: ResourceConstant, maxAge = kOrderCacheTicks): Order[] {
     const key = type + res;
     const hit = orderCache.get(key);
-    if (hit && Game.time - hit.tick < kOrderCacheTicks) return hit.orders;
+    if (hit && Game.time - hit.tick < maxAge) return hit.orders;
     const orders = _.sortBy(
         Game.market.getAllOrders({ type, resourceType: res }).filter(o => o.remainingAmount > 0 && o.price > 0),
         o => type === ORDER_BUY ? -o.price : o.price);
@@ -259,7 +260,7 @@ export class Selloff extends Service {
         this.nextBid = Game.time + kBidPace;
 
         const mine = this.myBid();
-        const top = _.first(marketOrders(ORDER_BUY, RESOURCE_ENERGY));
+        const top = _.first(marketOrders(ORDER_BUY, RESOURCE_ENERGY, kBidPace));
         const topIsOurs = !!top && !!Game.market.orders[top.id];
         // The price to be at: over the best foreign bid, else where we are.
         let want = mine ? mine.price : 0;

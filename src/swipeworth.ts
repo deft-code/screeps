@@ -1,4 +1,4 @@
-import { tryGetBuyOrderPrice, tryGetSellOrderPrice } from "market";
+import { bidUnits, tryGetBuyOrderPrice, tryGetSellOrderPrice } from "market";
 import { marketDisabled } from "markethack";
 
 // What is worth carrying home from a looted room; shared by the Swipe mission
@@ -43,6 +43,25 @@ export function worthSwiping(res: ResourceConstant, home?: string): boolean {
         memo.set(key, ok);
     }
     return ok;
+}
+
+// Nobody will buy it: the buy-order price is negative, which is how
+// tryGetBuyOrderPrice says "no price", and not one unit is bid for. The second
+// test is there because "no price" alone also covers a thin book (under 10k
+// units bid for), and what this verdict leads to is throwing the stuff away.
+// Never energy, never where there is no market, and never while energy itself
+// has no buy price: that means the order book cannot be read this tick, not
+// that everything we own is junk.
+export function worthless(res: ResourceConstant): boolean {
+    if (res === RESOURCE_ENERGY || marketDisabled()) return false;
+    if (!(tryGetBuyOrderPrice(RESOURCE_ENERGY) > 0)) return false;
+    return tryGetBuyOrderPrice(res) < 0 && bidUnits(res) <= 0;
+}
+
+// The worthless resources in a store.
+export function worthlessIn(store: StoreDefinition | Store<ResourceConstant, false>): ResourceConstant[] {
+    const s = store as unknown as { [res: string]: number };
+    return (Object.keys(s) as ResourceConstant[]).filter(res => s[res] > 0 && worthless(res));
 }
 
 export function swipeWorth(home?: string): Worth {

@@ -4,11 +4,21 @@ import { register, Priority } from "process";
 import * as debug from "debug";
 import { Scout } from "job.scout";
 import { Swiper, swipeTargets } from "job.swiper";
-import { minSwipePrice, worthSwiping } from "swipeworth";
+import { Konmari } from "job.konmari";
+import { minSwipePrice, worthlessIn, worthSwiping } from "swipeworth";
+
+// Ticks between sparkJoy looks, plus up to kSparkJoyJitter.
+const kSparkJoyPace = 1000;
+const kSparkJoyJitter = 100;
 
 // Loot a room: "Swipe <target> <home>". A Scout while the target is not
 // visible, then one Swiper at a time until the room has nothing left worth
 // taking, then wind down.
+//
+// Every kSparkJoyPace (+ random kSparkJoyJitter) ticks sparkJoy() looks
+// through the home room's storage and terminal for worthless resources (a
+// negative buy-order price: nobody bids for them) and, finding any, lays one
+// Konmari to carry them out and drop them (job.konmari.ts).
 //
 // Worth taking: see swipeworth.ts (energy always; else it must sell for twice
 // what energy costs delivered to the home room).
@@ -36,8 +46,32 @@ export class Swipe extends Mission {
         return worthSwiping(res, this.home);
     }
 
+    // Does anything in the home stores fail to spark joy? Then one Konmari.
+    sparkJoy() {
+        if (Game.time < (this.memory.sparkjoy || 0)) return;
+        this.memory.sparkjoy = Game.time + kSparkJoyPace + _.random(kSparkJoyJitter);
+        const home = this.home ? Game.rooms[this.home] : undefined;
+        if (!home) return;
+        const junk: string[] = [];
+        for (const store of [home.storage, home.terminal]) {
+            if (!store || !store.my) continue;
+            const s = store.store as unknown as { [res: string]: number };
+            for (const res of worthlessIn(store.store)) junk.push(`${res}x${s[res]}`);
+        }
+        if (!junk.length) {
+            debug.log(this.name, "sparkjoy: nothing worthless in", home.name);
+            return;
+        }
+        const role = Konmari.name.toLowerCase();
+        const busy = this.hasEgg(role) || this.hasRole(role);
+        debug.log(this.name, "sparkjoy: worthless in", home.name, junk.join(" "), busy ? "(konmari already out)" : "- laying a konmari");
+        if (!busy) this.layEgg(role);
+    }
+
     run(): Priority {
         if (this.windingDown) return super.run();
+
+        this.sparkJoy();
 
         debug.log("swipe mission! from", this.getRoomName(), "to", this.getRoomName("home"), this.room, "min price", this.minPrice());
 

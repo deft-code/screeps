@@ -84,6 +84,13 @@ export function tryGetSellOrderPrice(res: ResourceConstant, roomName?: string): 
   }
 }
 
+// Units of `res` anyone but us is bidding for right now; 0 off-market.
+export function bidUnits(res: ResourceConstant): number {
+  if (marketDisabled()) return 0;
+  return _.sum(getAllOrders({ type: ORDER_BUY, resourceType: res }),
+    o => Game.market.orders[o.id] ? 0 : Math.max(o.amount, 0));
+}
+
 // Transfer energy per unit shipped between two rooms; distances never change.
 const rates = new Map<string, number>();
 function transferRate(roomA: string, roomB: string): number {

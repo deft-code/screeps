@@ -30,7 +30,8 @@ ours already standing for the room is adopted when the id is missing or stale.
 ```
 { "GlobalRespawn": { eggs: ["startup2"], hatch: ["hauler0"], creeps: ["startup0", "asrc0", ...],
                      windDown?: true, tombs?: { "asrc0": tick },      // set by windDown(); tick = expected tombstone decay
-                     when?: { wolf: tick } } }                        // paceCreeps: tick the last paced egg was laid
+                     when?: { wolf: tick },                           // paceCreeps: tick the last paced egg was laid
+                     sparkjoy?: tick } }                              // Swipe: next sparkJoy look at the home stores
   "Remote W27S9 W26S8": { ..., metas?: { W27S9: ["rsrc_608", "rroad_W27S9_608"], W26S9: [...] },  // room -> metas the mission planned
                           planned?: tick,                             // present once planning was attempted; windDown removes the metas
                           pavers?: { W26S9: tick },                   // last tick a "Once Paver <room>" was scheduled per room

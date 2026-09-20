@@ -43,6 +43,9 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     worth(res) (swipeworth.ts, shared with Furiosa's runSwipe): energy always; else market.getBuyOrderPrice(res) >= 2 x getSellOrderPrice(energy, home) (energy delivered to home);
          │                                                     unpriceable resources (under 10k units bid) are skipped; no market (season) or no energy price = take everything.
          │                                                     Swiper and the wind-down test both use it, so "clean" means nothing worth taking is left
+         │                                                     sparkJoy(): every 1000 + random(100) ticks (Memory.missions[m].sparkjoy = next look) lists the home storage/terminal
+         │                                                     resources that are swipeworth.worthless (no buy-order price AND zero units bid; never energy; never without a market)
+         │                                                     and lays one Konmari when there are any and none is out
          ├─ Reactor          @register  (ms.reactor.ts)        "Reactor <room>"; mission room = sector core of <room>
          │                                                     (both coords rounded to x5); paceJobs(Scout, 1400) from <room> keeps the core
          │                                                     visible at all times; while visible logs
@@ -109,6 +112,8 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.js for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
      │                       when empty); withdraws from the fullest rsrc container (sweeps dropped energy), unloads into the home storage
      │                       when more than half full; after() idleNom picks up adjacent energy
+     ├─ Konmari  @register   (job.konmari.ts) CARRY/MOVE pairs like Swiper; loads worthless resources from the home storage then terminal, walks towards the
+     │                       Swipe target and drops 20 units per tick while outside the home room; empty -> home for more; nothing worthless left -> suicide
      ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs from the spawns nearest home, sized to energy on hand (max 50 parts);
      │                       loots the Swipe target: @task withdrawFrom the cheapest-path non-own structure with anything in its store (Rewalker.planWalk over all candidates), one resource at a time in random order
      │                       (nuker excluded; rampart-covered ones skipped 1500 ticks via memory.skip) until full, or until the room is empty and it holds anything,
@@ -173,7 +178,7 @@ scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that
 scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
 scheduleService('Once Paver W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down (Remote schedules these itself)
-scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown; under 50k terminal energy keeps one 50k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)
+scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown; under 25k terminal energy keeps one 10k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)
 scheduleService('Furiosa')           // power creep Furiosa; picks a home power spawn room into Memory.furiosa.home
 ```
 

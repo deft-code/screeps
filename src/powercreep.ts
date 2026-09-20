@@ -15,7 +15,7 @@
 // wrappers below.
 import * as debug from "debug";
 import { defaultRewalker } from "Rewalker";
-import { anything, swipeWorth, Worth } from "swipeworth";
+import { anything, swipeWorth, worthless, Worth } from "swipeworth";
 
 const rewalker = defaultRewalker();
 
@@ -344,6 +344,34 @@ export class MyPowerCreep extends TPowerCreep {
     swipeWorth: Worth = anything;
 
     runSwipe(targetRoom: string, homeRoom: string): string | false {
+        const ret = this.swipeStep(targetRoom, homeRoom);
+        this.idleNom();
+        return ret;
+    }
+
+    // Grab what lies within reach (a pile, then a tombstone, then a ruin)
+    // with whatever intents the tick has left, except the worthless: a
+    // Konmari drops that along the swipe roads. No movement.
+    idleNom(): boolean {
+        const p = this.p;
+        if (!p.room || !p.store.getFreeCapacity()) return false;
+        if (!this.intents.pickup) {
+            const pile = _.find(p.room.lookForAtRange(LOOK_RESOURCES, p.pos, 1, true),
+                spot => !worthless(spot[LOOK_RESOURCES].resourceType));
+            if (pile) return this.pickup(pile[LOOK_RESOURCES]) === OK;
+        }
+        if (this.intents.withdraw || this.intents.transfer) return false;
+        for (const look of [LOOK_TOMBSTONES, LOOK_RUINS] as (LOOK_TOMBSTONES | LOOK_RUINS)[]) {
+            for (const spot of p.room.lookForAtRange(look, p.pos, 1, true)) {
+                const holder = (spot as any)[look] as Tombstone | Ruin;
+                const res = _.first(stocked(holder.store, r => !worthless(r)));
+                if (res) return this.withdraw(holder, res) === OK;
+            }
+        }
+        return false;
+    }
+
+    swipeStep(targetRoom: string, homeRoom: string): string | false {
         const p = this.p;
         this.swipeWorth = swipeWorth(homeRoom);
         this.idleRenew();

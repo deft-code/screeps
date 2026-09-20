@@ -22,6 +22,8 @@ export interface MissionMemory {
     tombs?: { [name: string]: number }
     // role -> tick its last paced egg was laid (paceCreeps).
     when?: { [role: string]: number }
+    // Swipe: tick of the next sparkJoy look at the home stores.
+    sparkjoy?: number
 }
 
 // Ensure missions is here on a clean memory first boot.

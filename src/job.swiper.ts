@@ -4,7 +4,7 @@ import { closeSpawns } from "spawnold";
 import { energyDef } from "spawn";
 import { defaultRewalker } from "Rewalker";
 import { CreepRepair } from "creep.repair";
-import { anything, Worth } from "swipeworth";
+import { anything, worthless, Worth } from "swipeworth";
 
 const rewalker = defaultRewalker();
 
@@ -169,7 +169,25 @@ export class Swiper extends JobCreep {
         return this.c as CreepRepair;
     }
 
+    // Grab what lies within reach (a pile, then a tombstone, then a ruin),
+    // except the worthless: a Konmari drops that along this very road.
     after() {
-        this.cc.idleNom();
+        const c = this.cc;
+        if (!c.store.getFreeCapacity() || c.intents.pickup || c.intents.withdraw) return;
+        const pile = _.find(c.room.lookForAtRange(LOOK_RESOURCES, c.pos, 1, true),
+            spot => !worthless(spot[LOOK_RESOURCES].resourceType));
+        if (pile) {
+            c.goPickup(pile[LOOK_RESOURCES], false);
+            return;
+        }
+        for (const look of [LOOK_TOMBSTONES, LOOK_RUINS] as (LOOK_TOMBSTONES | LOOK_RUINS)[]) {
+            for (const spot of c.room.lookForAtRange(look, c.pos, 1, true)) {
+                const holder = (spot as any)[look] as Tombstone | Ruin;
+                const res = _.first(stocked(holder.store, r => !worthless(r)));
+                if (!res) continue;
+                c.goWithdraw(holder, res, false);
+                return;
+            }
+        }
     }
 }
