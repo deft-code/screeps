@@ -34,14 +34,16 @@ export class Wolf extends JobRole {
         if (this.shouldRetreat()) return this.retreat();
 
         // Armed hostiles first, then the invader core, then any other enemy
-        // creep (scouts, haulers), wherever we happen to be.
-        const hostile = this.pos.findClosestByRange(c.room.hostiles || []);
+        // creep (scouts, haulers), wherever we happen to be. Never Source
+        // Keepers: they stay by their lair, Rewalker paths around them, and a
+        // wolf that engages one on the way through an SK room never leaves it.
+        const hostile = this.pos.findClosestByRange(this.hostiles);
         if (hostile) return this.attack(hostile);
 
         const core = _.first(c.room.findStructs(STRUCTURE_INVADER_CORE));
         if (core) return this.attack(core);
 
-        const enemy = this.pos.findClosestByRange(c.room.enemies || []);
+        const enemy = this.pos.findClosestByRange(this.enemies);
         if (enemy) return this.attack(enemy);
 
         if (c.room.name !== this.mission.roomName) {
@@ -51,11 +53,22 @@ export class Wolf extends JobRole {
         return this.hold();
     }
 
+    // Enemy creeps worth a fight in the current room, Source Keepers excluded.
+    get enemies(): Creep[] {
+        return (this.cc.room.enemies || []).filter(e => !e.keeper);
+    }
+
+    get hostiles(): Creep[] {
+        return (this.cc.room.hostiles || []).filter(e => !e.keeper);
+    }
+
     // role.wolf.js idleRetreat(TOUGH): a wolf has no TOUGH, so it retreated
     // whenever it had lost 100 hits. Keep fighting while more than half alive
-    // and still armed.
+    // and still armed. A mission without a home room (Once) has nowhere to
+    // retreat to, so its wolf fights to the end.
     shouldRetreat(): boolean {
         const c = this.cc;
+        if (!this.homeName) return false;
         if (!c.melee) return true;
         return c.hurts >= 100 && c.hurts > c.hits;
     }
@@ -81,7 +94,7 @@ export class Wolf extends JobRole {
         if (target.pos.roomName !== this.pos.roomName) return "start";
         // Armed hostiles outrank everything else; retarget when one appears
         // while we are chewing on a core or an unarmed enemy.
-        if ((c.room.hostiles || []).length && !(target instanceof Creep && target.hostile)) return "start";
+        if (this.hostiles.length && !(target instanceof Creep && target.hostile)) return "start";
 
         const err = c.attack(target);
         if (err === OK) {
@@ -111,7 +124,7 @@ export class Wolf extends JobRole {
         if (!this.c) return;
         const c = this.cc;
         if (!c.intents.melee) {
-            const enemy = this.pos.findClosestByRange(c.room.enemies || []);
+            const enemy = this.pos.findClosestByRange(this.enemies);
             if (enemy && this.pos.isNearTo(enemy) && c.attack(enemy) === OK) {
                 c.intents.melee = enemy;
             }

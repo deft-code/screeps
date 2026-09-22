@@ -120,9 +120,11 @@ export function matrixAvoid(mat: CostMatrix, pos: RoomPosition, range: number, b
             if (x > 49 || y > 49) continue
             const tile = t.get(x, y);
             if (tile === TERRAIN_MASK_WALL) continue
-            if (_.find(pos.lookFor(LOOK_STRUCTURES) as StructureRampart[],
+            if (_.find(new RoomPosition(x, y, pos.roomName).lookFor(LOOK_STRUCTURES) as StructureRampart[],
                 s => s.structureType === STRUCTURE_RAMPART && s.my)) continue
             let w = mat.get(x, y)
+            // Impassable stays impassable; the clamp below must not lower it.
+            if (w === 0xff) continue
             if (w === 0) w = (tile === TERRAIN_MASK_SWAMP ? 10 : 2)
             const d = Math.max(Math.abs(dx), Math.abs(dy))
             w += base + (range - d) * step
@@ -341,8 +343,8 @@ declare global {
 }
 
 interface MemState {
-    0: number // prev xy
-    1: string // prev room
+    0: number // dest xy (the walk's destination as of the last store; Step.prev)
+    1: string // dest room
     2: MemPath // path
     3?: number // incompleteness
 }
@@ -397,6 +399,10 @@ const kDetourMargin = 2
 // Step.bump() pushes our own blockers aside, so a parked harvester should
 // nudge paths around it, not wall off a corridor. 50 is 25 plain tiles.
 const kMyStuckCap = 50
+
+// getRouteDist for a room findRoute cannot reach: beyond any real route, so
+// distance gates fail and restrictedRoomCallback confines the search.
+const kNoRouteDist = 100
 
 let _rewalker: Rewalker | null = null
 export function defaultRewalker() {
@@ -555,8 +561,11 @@ export class Rewalker {
         if (roomName.includes('0')) return ROUTE_HIGHWAY
         const parsed = /^[WE]\d?(\d)[NS]\d?(\d)$/.exec(roomName)
         if (parsed) {
-            const col = parsed![0]
-            const row = parsed![1]
+            // Group 1 is the last x digit, group 2 the last y digit. (This
+            // read parsed[0], the whole name, until Sept 2026, so unseen SK
+            // rooms were guessed at ROUTE_NORMAL and routed through.)
+            const col = parsed[1]
+            const row = parsed[2]
             if (col === '5' && row === '5') return ROUTE_HIGHWAY
 
             if ('456'.includes(row) && '456'.includes(col)) return ROUTE_SK
@@ -635,11 +644,11 @@ export class Rewalker {
     getRoute(fromRoom: string, destRoom: string): Array<string> {
         if (fromRoom === destRoom) return [fromRoom]
         const [route, flip] = this._rawRoute(fromRoom, destRoom)
-        const ret = [fromRoom].concat(route, [destRoom])
-        if (!flip) {
-            ret.reverse()
-        }
-        return ret
+        // _rawRoute searches from the lower-sorting name, so a flipped route
+        // lists the rooms dest-side first. Copy before reversing: the cache
+        // holds that array.
+        const inner = flip ? route.slice().reverse() : route
+        return [fromRoom].concat(inner, [destRoom])
     }
 
     getRouteSet(fromRoom: string, destRoom: string): Set<string> {
@@ -657,14 +666,18 @@ export class Rewalker {
         if (dist === 0) return 1
         if (dist >= 23) return dist
 
-        const [route, flip] = this._rawRoute(fromRoom, destRoom)
+        const [route, flip, noPath] = this._rawRoute(fromRoom, destRoom)
+        if (noPath) return kNoRouteDist
         return route.length + 2
     }
 
     _routesUpdated = 0
-    _routes = new Map<string, { when: number, route: Array<string> }>()
-    _rawRoute(fromRoom: string, destRoom: string): [Array<string>, boolean] {
-        if (fromRoom === destRoom) return [[fromRoom], false]
+    _routes = new Map<string, { when: number, route: Array<string>, noPath?: boolean }>()
+    // [inner rooms from the lower-sorting name, flipped?, unreachable?]. An
+    // adjacent pair and an unreachable one both have no inner rooms; the
+    // third element tells them apart.
+    _rawRoute(fromRoom: string, destRoom: string): [Array<string>, boolean, boolean] {
+        if (fromRoom === destRoom) return [[fromRoom], false, false]
         let start = fromRoom
         let end = destRoom
         let flip = false
@@ -679,8 +692,8 @@ export class Rewalker {
             this._routesUpdated = Game.time
             const ret = Game.map.findRoute(start, end, { routeCallback: this.routeCallback })
             if (ret === ERR_NO_PATH) {
-                this._routes.set(key, { when: Game.time, route: [] })
-                return [[], false]
+                this._routes.set(key, { when: Game.time, route: [], noPath: true })
+                return [[], false, true]
             }
             let route = _.map(ret, e => e.room)
             route.pop()
@@ -689,9 +702,9 @@ export class Rewalker {
                 route,
             }
             this._routes.set(key, newEntry)
-            return [route, flip]
+            return [route, flip, false]
         }
-        return [entry.route, flip]
+        return [entry.route, flip, !!entry.noPath]
     }
 
     _getRoomCost(roomName: string): number {

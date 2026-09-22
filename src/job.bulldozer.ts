@@ -6,8 +6,13 @@ import { defaultRewalker, fromXY } from "Rewalker";
 
 const rewalker = defaultRewalker();
 
-// Body budget: 25 WORK + 25 MOVE is the 50-part cap.
-const kMaxBodyEnergy = 25 * (BODYPART_COST[WORK] + BODYPART_COST[MOVE]);
+// Two WORK per MOVE: 2 ticks a tile on plains, 1 on roads, 10 in swamp.
+// Moving then dismantling for the rest of its life, that out-works 1:1 up to
+// ~270 plains tiles from the spawn, and 3:1 only beats it under ~136 (by 7%
+// at 70), at half again the time on the road.
+const kWorkPerMove = 2;
+// Body budget: 33 WORK + 17 MOVE is the 50-part cap.
+const kMaxBodyEnergy = 33 * BODYPART_COST[WORK] + 17 * BODYPART_COST[MOVE];
 // The dismantle boost.
 export const kDozerBoost = RESOURCE_CATALYZED_ZYNTHIUM_ACID;
 
@@ -59,13 +64,13 @@ export function dozeable(pos: RoomPosition): Structure[] {
 // waits for a boost that is not there.
 @register
 export class Bulldozer extends JobCreep {
-    // From the spawns nearest home, one MOVE per WORK.
+    // From the spawns nearest home, one MOVE per kWorkPerMove WORK.
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         const close = closeSpawns(spawns, this.homeName) as StructureSpawn[];
         const spawn = _.find(close, s => !s.spawning) || _.first(close);
         if (!spawn) return [null, []];
         const energy = Math.min(spawn.room.energyAvailable, kMaxBodyEnergy);
-        return [spawn, energyDef({ move: 1, per: [WORK], energy } as any)];
+        return [spawn, energyDef({ move: kWorkPerMove, per: [WORK], energy } as any)];
     }
 
     get homeName(): string {

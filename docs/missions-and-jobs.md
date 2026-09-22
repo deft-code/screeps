@@ -114,7 +114,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.js for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
      │                       when empty); withdraws from the fullest rsrc container (sweeps dropped energy), unloads into the home storage
      │                       when more than half full; after() idleNom picks up adjacent energy
-     ├─ Bulldozer @register  (job.bulldozer.ts) WORK/MOVE pairs; boosts XZH2O at home when a lab has it ready (never waits); planWalk over mission.dozePositions() at range 1, @task doze(xy, room) dismantles the tile (rampart first)
+     ├─ Bulldozer @register  (job.bulldozer.ts) 2 WORK per MOVE (33W/17M at full energy); boosts XZH2O at home when a lab has it ready (never waits); planWalk over mission.dozePositions() at range 1, @task doze(xy, room) dismantles the tile (rampart first)
      ├─ Konmari  @register   (job.konmari.ts) CARRY/MOVE pairs like Swiper; loads worthless resources (catalyzed boosts excepted) from the home storage then terminal, walks towards the
      │                       Swipe target and drops 20 units per tick while outside the home room; empty -> home for more; nothing worthless left -> suicide
      ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs from the spawns nearest home, sized to energy on hand (max 50 parts);
