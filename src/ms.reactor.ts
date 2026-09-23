@@ -5,8 +5,10 @@ import { Scout } from "job.scout";
 import { Immortan } from "job.immortan";
 import { Guard } from "job.guard";
 import { Warboy } from "job.warboy";
+import { Warrunner } from "job.warrunner";
 import { sectorCore, findReactors, thoriumMineral } from "reactor";
 import { RoomIntel } from "intel";
+import { MyCreep } from "mycreep";
 
 // Ticks of one warboy round trip: ~250 harvesting (rate per WORK cancels
 // against carry per CARRY), plus the walk both ways. Tune from observation.
@@ -34,32 +36,48 @@ const kScoutPace = 1400;
 // the scout, probes the core again; dying to it renews the pause.
 const kCorePause = 1500;
 
-interface ReactorMemory extends MissionMemory {
+export interface ReactorMemory extends MissionMemory {
     // Lay nothing until this tick.
     pauseUntil?: number
     // creep name -> room it was last seen in, for creepDied.
     seen?: { [name: string]: string }
 }
 
-// Thorium on its way to the reactor from every Reactor mission: what each
-// living warboy carries (a full load if it is still at home filling up) and a
-// full load for each egg. Missions share one reactor, so this must look past
-// the calling mission.
-function inboundThorium(): number {
+// A job class that carries thorium to the reactor (Warboy, Warrunner).
+export interface RunnerClass {
+    new(name: string): MyCreep
+    readonly name: string
+    readonly tripLoad: number
+}
+
+// Thorium a runner of role `role` carries per trip, 0 for any other role.
+function tripLoadOf(role: string): number {
+    for (const klass of [Warboy, Warrunner]) {
+        if (role.startsWith(klass.name.toLowerCase())) return klass.tripLoad;
+    }
+    return 0;
+}
+
+// Thorium on its way to the reactor from every Reactor and ReactorDepot
+// mission: what each living runner carries (a full load if it is still at
+// home filling up) and a full load for each egg. Missions share one reactor,
+// so this must look past the calling mission.
+export function inboundThorium(): number {
     let total = 0;
     for (const name in Memory.missions) {
-        if (!name.startsWith("Reactor ")) continue;
+        if (!name.startsWith("Reactor ") && !name.startsWith("ReactorDepot ")) continue;
         const home = name.split(" ")[1];
         const mem = Memory.missions[name];
         for (const list of [mem.eggs, mem.hatch]) {
-            total += list.filter(n => n.startsWith("warboy")).length * Warboy.tripLoad;
+            total += _.sum(list, n => tripLoadOf(n));
         }
         for (const cname of mem.creeps) {
-            if (!cname.startsWith("warboy")) continue;
+            const load = tripLoadOf(cname);
+            if (!load) continue;
             const c = Game.creeps[cname];
             if (!c) continue;
             const carried = RESOURCE_THORIUM && c.store[RESOURCE_THORIUM] || 0;
-            total += c.pos.roomName === home ? Math.max(carried, Warboy.tripLoad) : carried;
+            total += c.pos.roomName === home ? Math.max(carried, load) : carried;
         }
     }
     return total;
@@ -100,8 +118,10 @@ export class Reactor extends Mission {
     run(): Priority {
         if (this.windingDown) return super.run();
         this.noteRooms();
+        this.watch();
         if (this.paused) {
-            // Shepherd the living, lay nothing.
+            // Shepherd the living, lay nothing (but what whilePaused allows).
+            this.whilePaused();
             super.run();
             return "normal";
         }
@@ -118,6 +138,12 @@ export class Reactor extends Mission {
         super.run();
         return "normal";
     }
+
+    // Hooks for subclasses: something to check every tick before the pause
+    // gate (ReactorDepot watches the SK rooms on its route), and what may
+    // still be laid while paused (nothing here).
+    watch() { }
+    whilePaused() { }
 
     // Remember where each living creep is, so creepDied knows where it fell.
     noteRooms() {
@@ -174,28 +200,46 @@ export class Reactor extends Mission {
         return this.nJobs(Immortan, 1);
     }
 
-    // Optional cap on warboys from the schedule command; Infinity when absent.
-    get maxWarboysArg() {
+    // Optional cap on runners from the schedule command; Infinity when absent.
+    get maxRunnersArg() {
         return Number(this.args[2]) || Infinity;
     }
 
-    // Enough warboys in flight to deliver 1 thorium per tick, the reactor's
-    // burn rate: each delivers tripLoad per kWarboyCycle ticks. Only while the
-    // home room can actually mine thorium (a thorium mineral with an extractor
-    // and thorium left), the core is visible (the scout's job) with no armed
-    // hostile in it (an enemy scout only draws the guard), and the reactor
-    // will have room for another full load when it lands.
+    // Hooks for ReactorDepot: which job carries the thorium, how long one of
+    // its round trips takes, how long a fresh egg takes to land, and whether
+    // the home room has thorium for it to carry.
+    get runnerClass(): RunnerClass {
+        return Warboy;
+    }
+    get runnerCycle(): number {
+        return kWarboyCycle;
+    }
+    get leadTicks(): number {
+        return kLeadTicks;
+    }
+    // Warboys mine: a thorium mineral with an extractor and thorium left.
+    homeHasThorium(home: Room): boolean {
+        return !!thoriumMineral(home);
+    }
+
+    // Enough runners in flight to deliver 1 thorium per tick, the reactor's
+    // burn rate: each delivers tripLoad per runnerCycle ticks. Only while the
+    // home room has thorium for them (homeHasThorium), the core is visible
+    // (the scout's job) with no armed hostile in it (an enemy scout only draws
+    // the guard), and the reactor will have room for another full load when
+    // it lands.
     fuel() {
         const home = this.getRoom("home");
-        if (!home || !thoriumMineral(home)) return null;
+        if (!home || !this.homeHasThorium(home)) return null;
         const reactor = this.reactors[0];
         if (!reactor) return null;
         if (this.hostiles.length) return null;
+        const runner = this.runnerClass;
         const stored = RESOURCE_THORIUM && reactor.store[RESOURCE_THORIUM] || 0;
-        const atLanding = stored - kLeadTicks + inboundThorium();
-        if (atLanding + Warboy.tripLoad > kReactorCapacity) return null;
-        const n = Math.min(this.maxWarboysArg, kWarboyCycle / Warboy.tripLoad);
-        return this.nJobs(Warboy, n);
+        const atLanding = stored - this.leadTicks + inboundThorium();
+        if (atLanding + runner.tripLoad > kReactorCapacity) return null;
+        const n = Math.min(this.maxRunnersArg, this.runnerCycle / runner.tripLoad);
+        return this.nJobs(runner as unknown as typeof MyCreep, n);
     }
 
     // Reactors in the core room; the seasonal server should have exactly one.

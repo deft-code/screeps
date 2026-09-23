@@ -21,6 +21,8 @@ const kReserveStopAt = 1000;
 // Reservers stand next to the controller, so never pace them faster than the
 // free tiles around it can absorb: at least kReserveSpotPace / spots ticks apart.
 const kReserveSpotPace = 500;
+// Ticks between "waiting" log lines while the spawn room has no spawn.
+const kLogPace = 100;
 // Ticks between "Once Paver <room>" schedules for the same room.
 const kPaverPace = 1500;
 // Walking allowance per room of route distance when pacing civilians.
@@ -55,7 +57,9 @@ interface RemoteMemory extends MissionMemory {
 // only contested.
 //
 // Schedule from the console:
-//   scheduleService('Remote W5N8 W6N8')   // args[1]=remote room, args[2]=home room
+//   scheduleService('Remote W5N8 W6N8')        // args[1]=remote room, args[2]=home room
+//   scheduleService('Remote W5N8 W6N8 W7N8')   // optional args[3]=the only room its creeps spawn from
+//                                              // (as Farm; the roads still run from the home room)
 // Retire with windDown(), not kill(): windDown removes the planned metas.
 // evolve(cmd) also removes them before handing the creeps over.
 @register
@@ -70,15 +74,20 @@ export class Remote extends Farm {
         return true;
     }
 
-    // Farm's designated spawn room (args[3]) is not ported either: harvesters
-    // and truckers pick their own spawns and would ignore it.
-    getRoomName(alias = "") {
-        if (alias === "spawn") return null;
-        return super.getRoomName(alias);
-    }
+    // Farm's designated spawn room (args[3]) applies here too: Farm.getRoomName
+    // answers "spawn" with it, JobRole.stratSpawn and Scout.spawn pin the
+    // offroad jobs to it, and Harvester/Trucker.spawn take it over their own
+    // home-first / nearest-first pools.
 
     run(): Priority {
         if (this.windingDown) return Mission.prototype.run.call(this);
+
+        // Eggs for a designated spawn room with no spawn would never hatch.
+        if (!this.spawnReady()) {
+            if (Game.time % kLogPace === 0) debug.log(this.name, "waiting: spawn room has no spawn");
+            Mission.prototype.run.call(this);
+            return "normal";
+        }
 
         if (!this.room) {
             // No visibility: a scout parks in the room until a reserver arrives.

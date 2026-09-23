@@ -60,6 +60,29 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     nJobs(Warboy, min(args[2], 700 / tripLoad)) once the home room has an
          │                                                     extractor on a thorium mineral with thorium left, the core is visible with a reactor in it and no armed hostile (room.hostiles),
          │                                                     and a full load will still fit when it lands: store - 600 (lead ticks) + thorium inbound from every Reactor mission's warboys and eggs + 450 <= 1000
+         │   └─ ReactorDepot @register  (ms.reactordepot.ts)  "ReactorDepot <room> [cap]"; Reactor with the runner hooks overridden: runnerClass Warrunner
+         │                                                     (loads from the home terminal instead of mining), runnerCycle 300, leadTicks 300, and homeHasThorium =
+         │                                                     the home terminal holds > 1000 thorium (status `depot:<n>`). Scout, probe, guard, immortan and the
+         │                                                     invader-core pause are inherited; inboundThorium counts both missions' runners against the reactor.
+         │                                                     Keeps Rewalker.getRoute(home, core) in memory.route (refreshed every 500 ticks) with its SK rooms in
+         │                                                     memory.skRooms (status `route:.. sk:..`); watch() checks every visible SK room on the route each tick for an
+         │                                                     invader core with a level, and one found (or a creep dying in such a room whose intel shows a core) sets
+         │                                                     pauseUntil = now + 2500 and purges every egg but scouts (Mission.purgeEggs keep-list); while paused
+         │                                                     paceJobs(Scout, 1400) still runs (Reactor.whilePaused hook), so passing scouts renew the pause until the core is gone
+         ├─ Thormine         @register  (ms.thormine.ts)       "Thormine <room> [dest]"; mines <room>'s thorium into its terminal and ships it to [dest] (default W25S7).
+         │                                                     With the room visible: nJobs(Thoreater, spots), spots = walkable tiles beside the thorium mineral
+         │                                                     (spots.ts terrain minus obstacle structures), only while the mineral has thorium left, an extractor
+         │                                                     stands on it and the room has a terminal of ours (status shows `closed:<reason>` otherwise, log every 500 ticks);
+         │                                                     ship(): terminal off cooldown with >= TERMINAL_MIN_SEND (100) thorium -> terminal.send to [dest] (must be another
+         │                                                     room with a visible terminal of ours), the amount halved until this terminal's energy covers calcTransactionCost.
+         │                                                     Teardown (memory.teardown.phase, status `TEARDOWN:<phase>(<ticks>)`), begun when the mineral reads 0, the terminal
+         │                                                     holds no thorium and no thoreater is left; abortTeardown() from the console undoes phases 1-2 only:
+         │                                                     missions: windDown() every other Mission whose "home" alias is this room, or whose roomName is with no home (Hub, Startup);
+         │                                                     clear the room's metas (MetaManager.save), remove every flag in the room, cancel construction sites (repeated each tick);
+         │                                                     cleanup: nJobs(Cleanup, energy outside the terminal / 2000, 1..4) while the spawn energy covers the 150 body;
+         │                                                     ends under 50 energy outside the terminal, no cleanup alive/queued, terminal < 100 energy;
+         │                                                     destroy: up to 10 structures a tick, everything but roads/spawn/terminal first, then roads, then spawn and terminal,
+         │                                                     then controller.unclaim(); done: kill + drop memory. Throughout: shipAll() sends every terminal resource to [dest], energy last
          ├─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [spawn]"; idles (no eggs, paced log, status `home-not-ready`) until <home> is ours and has a spawn or a
                                                               spawn construction site (`homeReady`; Remote overrides it to true); with [spawn] every creep comes from that room only
                                                               (`getRoomName("spawn")`, read by `JobRole.stratSpawn` and `Scout.spawn`; idles `spawn-not-ready` while it has no spawn; Remote nulls it); paceNJobs(Farmer, n), n = source capacity / (2*avg farmer store), max 2 per spot;
@@ -72,8 +95,9 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               paceJobs(Reserver, 550/ctrl spots) while someone else holds the reservation, no hostiles,
                                                               and living reservers' ttl*CLAIM < ticks left;
                                                               no farmers while that reservation has > 100 ticks left
-         │   └─ Remote       @register  (ms.remote.ts)         "Remote <remote> <home>"; port of team.ts teamRemote, phase 1. Extends Farm for
+         │   └─ Remote       @register  (ms.remote.ts)         "Remote <remote> <home> [spawn]"; port of team.ts teamRemote, phase 1. Extends Farm for
                                                               the suppress* rules but replaces run() and reserve():
+                                                              [spawn] as Farm: the only room its creeps spawn from (Harvester/Trucker.spawn honour it too); idles `spawn-not-ready` without a spawn there;
                                                               Scout while invisible; Mini/Guard/Wolf against enemies, hostiles, an invader core; reserve() is team.ts reserve():
                                                               paceJobs(Reserver, 225), 450 once our reservation > 450 ticks, none above 1000, never faster than 500 / free tiles around the controller,
                                                               none while hostiles are present or the controller is owned (the Reserver job attacks
@@ -154,6 +178,19 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                gathers until full, or ticksToLive < 3 x (planned walk to the reactor + 50), or the visible reactor's fuel has fallen to that walk time (within 25 ticks; further below it cannot land in time so it keeps filling), the walk PathFinder-planned from the harvest tile (memoized per tile) and 3 the aging rate of a loaded creep: @task scavenge dropped/tombstone/ruin thorium in its room first,
          │                                                then @task harvest (home thorium mineral); then deliver (transfers whatever fits each tick, only while reactor.my, waits otherwise)
          │                                                and back to gathering; a partial load is delivered when nothing is left to gather; never suicides
+         │   └─ Warrunner @register        (job.warrunner.ts) Warboy without WORK: 9 CARRY / 9 MOVE (900 energy, the same 450 load) from a "home" spawn; @task load withdraws
+         │                                                what fits from the home terminal (planTravel from beside it), then Warboy's deliver/scavenge/leave-early rules;
+         │                                                a partial load goes when the terminal runs dry; empty with an empty terminal it waits within 2 of the terminal
+         ├─ Cleanup   @register            (job.cleanup.ts)  Thormine teardown sweeper, [CARRY, CARRY, MOVE] from the mission room's spawn (>= 150 energy); moves energy into the
+         │                                                terminal from the first non-empty tier: dropped -> tombstones/ruins -> storage/container/link -> towers (only while the room's
+         │                                                spawn energy < 150) -> extensions and the spawn (spawn counts as empty under 50: it trickles 1/tick); nothing left: recycleCreep at
+         │                                                the spawn, suicide without one. looseEnergy(room) (same tiers) is what the mission sizes and ends the phase by
+         ├─ Thoreater @register            (job.thoreater.ts) Season 11 thorium miner for Thormine; energyDef body 2 WORK : 1 CARRY, one MOVE per two parts, from a spawn in the
+         │                                                mission room with >= 650 energy (RCL6: 14 WORK / 7 CARRY / 11 MOVE); @task harvest the room's thorium mineral only while
+         │                                                the next intent (active WORK x HARVEST_MINERAL_POWER) fits in the store, so nothing spills on the tile; @task deposit into the
+         │                                                room terminal when full for the next intent or ticksToLive < 3 x (PathFinder walk from the harvest tile to the terminal + 20),
+         │                                                3 the aging of a creep carrying 100+ thorium; the walk is memoized per tile in memory.travel;
+         │                                                too old for another loaded walk and empty it waits within 2 of the terminal; after(): idleNomType(thorium) while it fits
          └─ Srcer   @registerAs("asrc"), @registerAs("bsrc")  priority 8, body 'srcer' (job.srcer.ts)
 ```
 
@@ -182,7 +219,12 @@ scheduleService('Farm W5N8 W6N8')    // args[1]=farm room, args[2]=home (drop) r
 scheduleService('Farm W5N8 W6N8 W7N8')  // optional args[3]=the only room its creeps spawn from (no fallback; eggs wait)
 scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that sector's core (W5N5)
 scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
+scheduleService('ReactorDepot W25S7')  // args[1]=home room; Reactor fed by warrunners from the home terminal while it holds > 1000 thorium
+scheduleService('ReactorDepot W25S7 2')  // optional args[2]=cap on warrunners
+scheduleService('Thormine W26S8')    // args[1]=owned room with thorium, extractor and terminal; miners fill the terminal, terminal ships to W25S7
+scheduleService('Thormine W26S8 W22S7')  // optional args[2]=room to ship the thorium to instead
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
+scheduleService('Remote W5N8 W6N8 W7N8')  // optional args[3]=the only room its creeps spawn from (as Farm; idles `spawn-not-ready` while it has no spawn)
 scheduleService('Once Paver W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down (Remote schedules these itself)
 scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown, skipping orders that pay less per unit than the shipping energy is worth (transfer rate x energy buy-order price); under 25k terminal energy keeps one 10k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)
 scheduleService('Furiosa')           // power creep Furiosa; picks a home power spawn room into Memory.furiosa.home

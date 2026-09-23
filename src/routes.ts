@@ -31,7 +31,10 @@ export function dist(from: string, dest: string): number {
   if (dists.has(key)) {
     return dists.get(key)!;
   }
-  const cache = Memory.dists = Memory.dists || {};
+  // Sept 2026: shard2 had Memory.dists === "undefined" (the string), which
+  // made `key in cache` throw and took the SpawnDaemon down every tick.
+  if (typeof Memory.dists !== 'object' || Memory.dists === null) Memory.dists = {};
+  const cache = Memory.dists;
   if (key in cache) {
     return cache[key];
   }

@@ -57,6 +57,8 @@ import 'ms.swipe';
 import 'ms.bulldoze';
 import 'ms.farm';
 import 'ms.reactor';
+import 'ms.thormine';
+import 'ms.reactordepot';
 import 'ms.remote';
 import 'ms.once';
 import 'ms.startup';

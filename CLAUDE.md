@@ -27,8 +27,10 @@ return                                 # lines 356-439 are dead
 |---|---|---|
 | `Hub <room>` missions (3: W26S8, W25S7, W22S7) | `scheduleService('Hub W25S7')`, then `Memory.scheduler.services`, replayed by `Service.boot()` at every global reset; **never constructed in code** | lays eggs for asrc/bsrc/hauler (1-3 by dropped energy)/worker/ctrl/hub/upgrader/ctrlhauler from the room's own spawns and runs those creeps |
 | `GlobalRespawn` mission | **not scheduled** since Sept 2026 (evolved into `Hub W26S8`); schedule it by hand after a respawn | the Hub loop plus `max(1, 6-rcl)` startups and a fixed 2 haulers, in `Game.spawns.Home`'s room; `evolve('Hub <room>')` it once the room stands |
-| `Remote <farm> <home>` missions (5) | scheduled, same way | remote sources: harvester/trucker/reserver/scout, plus guard/mini/wolf against hostiles and invader cores |
-| `Reactor <home>` missions (2) | scheduled, same way | Season 11 scoring: scout, warboys (thorium runners), immortan (reactor claimer), guard at the sector core |
+| `Remote <farm> <home> [spawn]` missions (5) | scheduled, same way | remote sources: harvester/trucker/reserver/scout, plus guard/mini/wolf against hostiles and invader cores |
+| `Reactor <home>` missions | not scheduled as of 22 Sept 2026 (replaced by `ReactorDepot W25S7`); `scheduleService('Reactor W26S8')` brings one back | Season 11 scoring: scout, warboys (thorium runners), immortan (reactor claimer), guard at the sector core |
+| `ReactorDepot <home> [cap]` mission | scheduled (`ReactorDepot W25S7`, since 22 Sept 2026), same way | `Reactor` with warrunners in place of warboys: they load thorium from the home terminal (laid only while it holds over 1000) and carry it to the reactor; scout, guard, immortan and the core pause are inherited |
+| `Thormine <room> [dest]` mission | scheduled (`Thormine W22S7`, since 22 Sept 2026), same way | one thoreater per walkable tile beside the room's thorium (only with thorium left, an extractor on it and a terminal); they mine into the terminal, which ships to `dest` (default W25S7) every cooldown. Once the thorium is exhausted and the terminal empty it **tears the room down**: winds down every mission homed there, drains all energy into the terminal with `cleanup` creeps, ships it, destroys every structure and unclaims (`abortTeardown()` works until destruction starts) |
 | `Startup W22S7` mission | scheduled, same way | claiming a third room: scout, claimer, pioneers, guard until it has a tower |
 | `ClaimedStrat` per owned room | `room.strat` constructor `exec`s itself | towers, safe mode, labs, links, metastruct construction, factory |
 | `FlagService` daemon | `@daemon` at import | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
@@ -81,7 +83,7 @@ storage >= 100k energy), `ctrlhauler` (`job.ctrlhauler.ts`, storage -> ctrl cont
 while storage >= 100k and container + ctrl creep are empty). Those are the
 base-room roles from `GlobalRespawn`/`Hub`. The scheduled missions add pure
 job-layer creeps (no `roleXxx` method): `harvester`, `trucker`, `reserver`
-(`Remote`); `warboy`, `immortan` (`Reactor`); `claimer`, `pioneer` (`Startup`);
+(`Remote`); `warboy`, `immortan` (`Reactor`); `warrunner` (`ReactorDepot`); `thoreater`, `cleanup` (`Thormine`); `claimer`, `pioneer` (`Startup`);
 and `scout`, `guard`, `mini`, `wolf` wherever a mission wants vision or a
 fight. Everything else with a `roleXxx` method is loaded but no job spawns it.
 Table and task conventions in [docs/creep-roles.md](docs/creep-roles.md).
@@ -225,8 +227,10 @@ destructive `wipe`/`worldWipe`/`scalp`/`purgeWalls` helpers.
 
 - Owned rooms, both RCL6: `W26S8` (spawn `Home`, genesis flag `Noon`) and
   `W25S7` (genesis `Port`). Their sector core is `W25S5` (an x5y5 room is
-  `Kind.Portal` in `intel.ts`). `Reactor W26S8` and `Reactor W25S7` are
-  scheduled; the walk to the reactor is ~240 ticks from W26S8, ~120 from W25S7.
+  `Kind.Portal` in `intel.ts`). Since 22 Sept 2026 the reactor is fed by
+  `ReactorDepot W25S7` (warrunners from the W25S7 terminal, which `Thormine
+  W22S7` fills); neither `Reactor` mission is scheduled. The walk to the
+  reactor is ~240 ticks from W26S8, ~120 from W25S7.
 - Rooms hold two minerals, an ordinary one and thorium (`RESOURCE_THORIUM` =
   `"T"`), but `CONTROLLER_STRUCTURES.extractor` is 1 at every RCL. Extractors
   are planned structs now: `Meta_reactor` (thorium, priority 10) outranks

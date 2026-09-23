@@ -15,8 +15,13 @@ export class Trucker extends JobRole {
     // Hauling remote energy yields to every other egg; the containers buffer it.
     priority = -1;
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        const close = closeSpawns(spawns, this.mission.roomName) as StructureSpawn[];
-        const spawn = _.find(close, s => !s.spawning) || _.first(close);
+        // A mission's designated spawn room (Farm/Remote args[3]) overrides
+        // the nearest-first pool: those spawns and no others.
+        const spawnName = this.mission.getRoomName("spawn");
+        const pool = spawnName
+            ? spawns.filter(s => s.room.name === spawnName)
+            : closeSpawns(spawns, this.mission.roomName) as StructureSpawn[];
+        const spawn = _.find(pool, s => !s.spawning) || _.first(pool);
         if (!spawn) return [null, []];
         return [spawn, Trucker.body(spawn.room.energyCapacityAvailable)];
     }

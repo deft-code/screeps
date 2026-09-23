@@ -27,9 +27,17 @@ export class Harvester extends JobRole {
         // and uses closeSpawn.
         // TODO: lift this into a JobRole.homeSpawn that takes a TS body builder
         // once another job needs home-preferring spawns with a custom body.
+        // A mission's designated spawn room (Farm/Remote args[3]) overrides
+        // both: those spawns and no others.
+        const spawnName = this.mission.getRoomName("spawn");
         const homeName = this.mission.getRoomName("home");
-        let pool = homeName ? spawns.filter(s => s.room.name === homeName) : [];
-        if (!pool.length) pool = findSpawns(spawns, this.mission.roomName, { spawn: "local" }) as StructureSpawn[];
+        let pool: StructureSpawn[];
+        if (spawnName) {
+            pool = spawns.filter(s => s.room.name === spawnName);
+        } else {
+            pool = homeName ? spawns.filter(s => s.room.name === homeName) : [];
+            if (!pool.length) pool = findSpawns(spawns, this.mission.roomName, { spawn: "local" }) as StructureSpawn[];
+        }
         const spawn = _.find(pool, s => !s.spawning) || _.first(pool);
         if (!spawn) return [null, []];
         return [spawn, Harvester.body(spawn.room.energyCapacityAvailable)];

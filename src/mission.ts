@@ -193,19 +193,25 @@ export abstract class Mission extends Service {
     }
 
     // Subclasses may lay eggs before calling super.run(); drop anything that
-    // has not spawned yet so the SpawnDaemon never sees it.
-    purgeEggs() {
+    // has not spawned yet so the SpawnDaemon never sees it. Eggs of a role in
+    // `keep` stay.
+    purgeEggs(keep: string[] = []) {
+        const kept: string[] = [];
         for (const name of this.memory.eggs) {
             if (Game.creeps[name]) {
                 // Already spawning; let it hatch and be shepherded to death.
                 this.memory.hatch.push(name);
                 continue;
             }
+            if (_.contains(keep, getMyCreep(name).role)) {
+                kept.push(name);
+                continue;
+            }
             debug.log(this.name, "purging egg", name);
             delete Memory.creeps[name];
             unget(name);
         }
-        this.memory.eggs = [];
+        this.memory.eggs = kept;
     }
 
     // Record when each living creep's tombstone would decay if it died now.
