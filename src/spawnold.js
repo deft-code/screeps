@@ -398,9 +398,12 @@ export function buildBody(spawns, eggMem, { maxRCL }) {
       if (spawn.room.energyAvailable < 550) {
         eggMem.energy = spawn.room.energyAvailable
       }
+      // CARRY, CARRY, MOVE repeated: a hauler losing parts from the front
+      // loses weight and speed together.
       body = energyDef(_.defaults({}, eggMem, {
         move: 2,
-        per: [CARRY]
+        per: [CARRY],
+        interleave: true
       }))
       break
     case 'hub':
@@ -639,7 +642,28 @@ const defCost = (def) => {
   return cost + BODYPART_COST[MOVE] * nmove
 }
 
+// Interleaved layout (def.interleave): after every `move` parts of `per` one
+// MOVE, the last group's MOVE covering the remainder, so the MOVE count
+// matches defCost. Non-MOVE base parts lead, MOVE base parts trail. Damage
+// then strips MOVEs and the parts they carry in step. Same as spawn.ts.
+const defBodyInterleaved = (def) => {
+  let per = []
+  for (let i = 0; i < def.level; i++) {
+    per = per.concat(def.per)
+  }
+  const body = []
+  const base = def.base || []
+  body.push(...base.filter(part => part !== MOVE).sort(orderParts))
+  per.forEach((part, i) => {
+    body.push(part)
+    if (def.move && ((i + 1) % def.move === 0 || i === per.length - 1)) body.push(MOVE)
+  })
+  body.push(...base.filter(part => part === MOVE))
+  return body
+}
+
 const defBody = (def) => {
+  if (def.interleave) return defBodyInterleaved(def)
   let parts = []
   for (let i = 0; i < def.level; i++) {
     parts = parts.concat(def.per)

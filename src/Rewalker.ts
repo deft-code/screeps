@@ -182,7 +182,7 @@ export function hasActivePart(c: Creep, ...partTypes: BodyPartConstant[]): boole
     return false
 }
 
-interface MemPath {
+export interface MemPath {
     0: number
     1: string
     2: string

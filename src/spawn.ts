@@ -49,6 +49,11 @@ interface BodyDef {
   move: number,
   base?: BodyPartConstant[]
   per: BodyPartConstant[]
+  // Lay the MOVEs out between the `per` groups (CARRY, CARRY, MOVE, CARRY,
+  // CARRY, MOVE, ...) instead of sorting them together: damage then strips
+  // MOVEs and the parts they carry in step, so the creep stays at speed as
+  // it loses weight. Non-MOVE `base` parts lead, MOVE `base` parts trail.
+  interleave?: boolean
 }
 
 interface LevelBodyDef extends BodyDef {
@@ -79,7 +84,26 @@ function defCost(def: LevelBodyDef) {
   return cost + BODYPART_COST[MOVE] * nmove;
 }
 
+// Interleaved layout: after every `move` parts of `per` one MOVE, the last
+// group's MOVE covering the remainder, so the MOVE count matches defCost.
+function defBodyInterleaved(def: LevelBodyDef): BodyPartConstant[] {
+  let per: BodyPartConstant[] = [];
+  for (let i = 0; i < def.level; i++) {
+    per = per.concat(def.per);
+  }
+  const body: BodyPartConstant[] = [];
+  const base = def.base || [];
+  body.push(...base.filter(part => part !== MOVE).sort(orderParts));
+  per.forEach((part, i) => {
+    body.push(part);
+    if (def.move && ((i + 1) % def.move === 0 || i === per.length - 1)) body.push(MOVE);
+  });
+  body.push(...base.filter(part => part === MOVE));
+  return body;
+}
+
 function defBody(def: LevelBodyDef): BodyPartConstant[] {
+  if (def.interleave) return defBodyInterleaved(def);
   let parts: DefPart[] = [];
   for (let i = 0; i < def.level; i++) {
     parts = parts.concat(def.per);

@@ -3,6 +3,7 @@ import { CreepCarry } from "creep.carry";
 import { register, task, Task2Ret } from "mycreep";
 import { energyDef } from "spawn";
 import { thoriumMineral } from "reactor";
+import type { Thormine } from "ms.thormine";
 
 // Season 11 thorium miner for the Thormine mission (ms.thormine.ts). Spawned
 // in the mission room, it harvests that room's thorium mineral (an extractor
@@ -16,6 +17,9 @@ import { thoriumMineral } from "reactor";
 //     walk at kLoadedAging ticks of life per tick, the walk PathFinder-planned
 //     from the harvest tile (memoized per tile) plus kTravelBuffer.
 // Empty and too old for another loaded walk it waits beside the terminal.
+// Once the mineral is mined out (mineralAmount 0, whatever the extractor)
+// and its store is empty it walks to a spawn in the room and is recycled,
+// so the body's energy comes back instead of aging away.
 
 const kTravelBuffer = 20;
 const kLoadedAging = 3;
@@ -99,6 +103,14 @@ export class Thoreater extends JobCreep {
         return this.mission.room?.terminal || null;
     }
 
+    // The room's thorium is mined out: the mission saw it once and now it is
+    // gone (a mined-out thorium mineral vanishes) or empty. False without
+    // vision, and for a mission that is not a Thormine.
+    get depleted(): boolean {
+        const mission = this.mission as Partial<Thormine>;
+        return !!mission.minedOut;
+    }
+
     // Plan the walk to the terminal from the tile we harvest on; cheap after
     // the first call on a tile, so it runs every harvest tick.
     planTravel(terminal: StructureTerminal) {
@@ -116,6 +128,9 @@ export class Thoreater extends JobCreep {
 
         if (this.shouldDeposit) return this.deposit();
 
+        // Mined out and carrying nothing: give the body back.
+        if (this.depleted && !this.c.store.getUsedCapacity()) return this.recycle();
+
         const terminal = this.terminal;
         if (!terminal) {
             this.dlog("no terminal");
@@ -131,9 +146,30 @@ export class Thoreater extends JobCreep {
         const mineral = thoriumMineral(this.c.room);
         if (mineral) return this.harvest(mineral);
 
-        // Mined out, or the extractor is gone: bank a partial load, then wait.
+        // The extractor is gone (a mined-out mineral recycled above): bank a
+        // partial load, then wait.
         if (this.thorium > 0) return this.deposit();
         this.dlog("no thorium to mine");
+        return "wait";
+    }
+
+    // Mined out and empty: hand the body back at the nearest spawn in the
+    // room, or suicide when the room has none left.
+    @task
+    recycle(): Task2Ret {
+        if (this.c.store.getUsedCapacity()) return "start";
+        const spawn = this.pos.findClosestByRange(this.c.room.findStructs(STRUCTURE_SPAWN) as StructureSpawn[]);
+        if (!spawn) {
+            this.log("mined out, no spawn to recycle at, suiciding");
+            this.c.suicide();
+            return "wait";
+        }
+        if (!this.pos.isNearTo(spawn)) {
+            this.moveTarget(spawn, 1);
+            return "wait";
+        }
+        const err = spawn.recycleCreep(this.c);
+        if (err !== OK) this.log("recycle failed", err, spawn);
         return "wait";
     }
 

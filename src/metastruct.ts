@@ -1822,6 +1822,15 @@ function nearWall(t: RoomTerrain, x: number, y: number): boolean {
 }
 
 
+// A barrier line through the flag: east and west of it along its row, or,
+// with the flag coloured RED, north and south along its column. Each way it
+// runs until terrain wall or the room edge. The flag tile, every tile beside
+// terrain wall and every other tile in between are ramparts; the rest are
+// constructed walls. A road parallel to the line (both ways, from the first
+// step of the flag's path to the storage that is more than 2 tiles out) and
+// an on-ramp (road + rampart) from every rampart to it let our creeps cross.
+// Needs the saved storage site. With the storage right beside the flag
+// there is no room for the road, so only the line is planned.
 @registerMeta
 class Meta_wall extends MetaStructure {
     static plan(f: Flag, man: MetaManager) {
@@ -1834,34 +1843,53 @@ class Meta_wall extends MetaStructure {
 
         const cm = man.getMatrix([f.self]);
 
+        const vertical = f.color === COLOR_RED;
+        // The tile `d` steps along the line from `from`.
+        const along = (from: { x: number, y: number }, d: number): [number, number] =>
+            vertical ? [from.x, from.y + d] : [from.x + d, from.y];
+        const inRoom = (x: number, y: number) => x >= 1 && x <= 48 && y >= 1 && y <= 48;
+
         addMemStruct(mem, STRUCTURE_RAMPART, 3, f.pos.xy);
+        cm.set(f.pos.x, f.pos.y, 100);
         const ramps = [f.pos];
 
-        for (let dx = 1; dx < 50; dx++) {
-            const [x, y] = [f.pos.x + dx, f.pos.y];
-            if (t.get(x, y) & TERRAIN_MASK_WALL) break;
-            if (x < 1 || x > 48) break;
-            cm.set(x, y, 100);
-            if (nearWall(t, x, y) || ((f.pos.x % 2) === (x % 2) && (f.pos.y % 2 === y % 2))) {
-                addMemStruct(mem, STRUCTURE_RAMPART, 3, coordsToXY(x, y));
-                ramps.push(new RoomPosition(x, y, f.pos.roomName));
-            } else {
-                addMemStruct(mem, STRUCTURE_WALL, 3, coordsToXY(x, y));
+        for (const dir of [1, -1]) {
+            for (let d = 1; d < 50; d++) {
+                const [x, y] = along(f.pos, dir * d);
+                if (!inRoom(x, y)) break;
+                if (t.get(x, y) & TERRAIN_MASK_WALL) break;
+                cm.set(x, y, 100);
+                if (nearWall(t, x, y) || d % 2 === 0) {
+                    addMemStruct(mem, STRUCTURE_RAMPART, 3, coordsToXY(x, y));
+                    ramps.push(new RoomPosition(x, y, f.pos.roomName));
+                } else {
+                    addMemStruct(mem, STRUCTURE_WALL, 3, coordsToXY(x, y));
+                }
             }
         }
 
         const roadWeight = Math.floor(kPathRoad / 2);
 
-        const roads = [];
+        // The road runs parallel to the line, through the first step toward
+        // the storage that clears the line by more than 2 tiles. With the
+        // storage that close there is no room for one: plan the line alone.
+        const roads: RoomPosition[] = [];
         const ret = man.path(cm, f.pos, [{ pos: spos, range: 1 }]);
-        const dpos = _.find(ret.path, p => p.getRangeTo(f) > 2)!;
-        for (let dx = 1; dx < 50; dx++) {
-            const [x, y] = [dpos.x + dx, dpos.y];
-            if (t.get(x, y) & TERRAIN_MASK_WALL) break;
-            if (x < 1 || x > 48) break;
-            addMemStruct(mem, STRUCTURE_ROAD, 3, coordsToXY(x, y));
-            roads.push(new RoomPosition(x, y, f.pos.roomName));
-            cm.set(x, y, roadWeight);
+        const dpos = _.find(ret.path, p => p.getRangeTo(f) > 2);
+        if (!dpos) {
+            f.log("wall: storage too close for a parallel road, line only");
+            cleanMem(mem);
+            return new this(mem, man);
+        }
+        for (const dir of [1, -1]) {
+            for (let d = dir > 0 ? 0 : 1; d < 50; d++) {
+                const [x, y] = along(dpos, dir * d);
+                if (!inRoom(x, y)) break;
+                if (t.get(x, y) & TERRAIN_MASK_WALL) break;
+                addMemStruct(mem, STRUCTURE_ROAD, 3, coordsToXY(x, y));
+                roads.push(new RoomPosition(x, y, f.pos.roomName));
+                cm.set(x, y, roadWeight);
+            }
         }
         mem.onramps = [];
         for (const rpos of ramps) {
@@ -1889,6 +1917,75 @@ class Meta_wall extends MetaStructure {
 
     dests(): [number, number][] {
         return [[this.mem.xy, 0]];
+    }
+}
+
+// Ramparts sealing a gap off from the base. The gap is the flag's row from
+// terrain wall to terrain wall through the flag (the tiles under it, left
+// and right). Every gap tile is a range-2 goal in one PathFinder search from
+// the parent (genesis) flag, one room only, on a terrain-only matrix. A path
+// ends the moment it enters that range-2 band, so it never crosses the gap;
+// the tile it reaches gets a rampart and is made impassable, and the search
+// repeats until no path is left. The ramparts end up as a shell at range 2
+// on the base's side of the gap that our creeps can cross and nothing else
+// can. Bounded by kShieldMaxRamparts and the CPU gate (shed.canRun); an
+// incomplete search counts as no path, so it never places a rampart short
+// of the gap.
+const kShieldMaxRamparts = 80;
+const kShieldOps = 4000;
+
+@registerMeta
+class Meta_shield extends MetaStructure {
+    static plan(f: FlagExtra, man: MetaManager) {
+        const parent = f.parent;
+        if (!parent || parent.pos.roomName !== f.pos.roomName) {
+            f.log("shield: needs its parent flag in the room");
+            return null;
+        }
+        const roomName = f.pos.roomName;
+        const t = Game.map.getRoomTerrain(roomName);
+
+        // We don't care about anything other than terrain
+        const cm = new PathFinder.CostMatrix();
+
+        // The gap: the flag's row out to terrain wall each way, flag included.
+        // The range 2 addition prevents any path from getting within 2 of any part of the gap.
+        // This prevent cutting across the exit tiles.
+        const gap: Goal[] = [{ pos: f.pos, range: 2 }];
+        for (const dir of [1, -1]) {
+            for (let d = 1; d < 50; d++) {
+                const x = f.pos.x + dir * d;
+                if (x < 0 || x > 49) break;
+                if (t.get(x, f.pos.y) & TERRAIN_MASK_WALL) break;
+                gap.push({pos: new RoomPosition(x, f.pos.y, roomName), range: 2});
+            }
+        }
+
+        const mem = MetaStructure.makeMem(f);
+        let n = 0;
+        while (n < kShieldMaxRamparts && canRun(Game.cpu.getUsed(), 9000)) {
+            const ret = PathFinder.search(parent.pos, gap, {
+                plainCost: 1,
+                swampCost: 1,
+                maxRooms: 1,
+                maxOps: kShieldOps,
+                roomCallback: name => name === roomName ? cm : false,
+            });
+            if (ret.incomplete || !ret.path.length) break;
+            const end = _.last(ret.path);
+            cm.set(end.x, end.y, 0xFF);
+            addMemStruct(mem, STRUCTURE_RAMPART, 3, end.xy);
+            n++;
+        }
+        f.log("shield:", n, "ramparts across a gap of", gap.length, "tiles");
+        if (!n) return null;
+
+        cleanMem(mem);
+        return new this(mem, man);
+    }
+
+    maxHits(stype: BuildableStructureConstant, xy: number, rcl: number): MAXHITS {
+        return this.calcRampWallHits(stype, xy, rcl);
     }
 }
 

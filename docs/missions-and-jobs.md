@@ -121,6 +121,18 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               spawned outside the room; at RCL4 windDown(): pioneers live
                                                               out their lives, then the mission kills and deschedules itself. Distinct from
                                                               the `Startup` job class (separate registries).
+                                                              "Startup <room> [home]": while not ours and GCL is full (owned rooms >= gcl.level) no
+                                                              claimer; instead `planRoad`: PathFinder controller -> home spawn (home = args[2], else the
+                                                              nearest outside spawn's room) through `Rewalker.restrictedRoomCallback` (its route and cost
+                                                              matrices, so keeper lairs and hostile rooms are avoided), plainCost 2 / swampCost 10, kept in
+                                                              memory.road as a Rewalker `Path`, replanned every 500 ticks and drawn (yellow dashed) every
+                                                              tick it exists; `replanRoad()` drops it; status adds `gcl:` and `road:<tiles> via:<rooms>`.
+                                                              The tiles (exits left out) become one `Meta_rroad` per room named `rroad_<room>_startup`
+                                                              (tracked in memory.roadMetas, status `metas:<rooms>`), so ActiveStrat/ClaimedStrat place the
+                                                              sites; a changed replan replaces them, windDown() and `removeRoad()` delete them and our road
+                                                              sites. Unowned road rooms with our sites in view get "Once Paver <room>" every 1500 ticks
+                                                              (`schedulePavers`, as Remote). Our road metas do not make `canPioneerEarly` true. An invader
+                                                              core in the mission room draws paceJobs(Wolf, 1500) (`suppressInvaderCore`, status `core!`).
 MyCreep                      wrapper object per creep *name* (mycreep.ts); not a prototype extension
  └─ JobCreep                 knows its Mission; Rewalker movement helpers (job.creep.ts)
      ├─ Startup  @register   body table keyed by energyCapacity      (job.startup.ts)
@@ -129,8 +141,12 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       init() sets memory.home to the mission room so roleBootstrap works there (rolePioneer in role.bootstrap.js)
      ├─ Reboot   @register   priority 10, body from energyAvailable   (job.reboot.ts)
      ├─ Scout    @register   [MOVE] from the "home" room if any, walks to the mission room (job.scout.ts)
-     ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "remote" spawn strategy; harvests in the
-     │                       mission room when empty, taskBuildAny, then taskRepairRemote (roads/containers); after(): idleNom + idleBuild|idleRepairAny; spawned by Once
+     ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "remote" spawn strategy; three modes in memory.pmode:
+     │                       work (walk to the mission room, taskBuildAny, then taskRepairRemote on roads/containers; empty -> gather or forage),
+     │                       gather (mission room is not SK and has a source: taskRechargeHarvest there until full), forage (SK room or no source:
+     │                       walk the Rewalker route toward memory.home taking the nearest piles >= 50, tombstones, ruins, our stores or a
+     │                       non-SK source in each room, nothing within 5 of a lair; taskRechargeHarvest at home as last resort; full -> work);
+     │                       after(): idleNom + idleBuild|idleRepairAny; spawned by Once
      ├─ Harvester @register  (job.harvester.ts) port of role.harvester.js for Remote; 6W/1C/3M from "home" (falls back to the nearest spawns) (floor 3W/1C/2M); claims an rsrc meta
      │                       (memory.rsrc; if all are claimed it shadows the harvester with the fewest ticks to live), stands on the
      │                       container tile drop-mining; builds the container site and repairs the container, withdrawing from it for that;
@@ -190,7 +206,8 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                the next intent (active WORK x HARVEST_MINERAL_POWER) fits in the store, so nothing spills on the tile; @task deposit into the
          │                                                room terminal when full for the next intent or ticksToLive < 3 x (PathFinder walk from the harvest tile to the terminal + 20),
          │                                                3 the aging of a creep carrying 100+ thorium; the walk is memoized per tile in memory.travel;
-         │                                                too old for another loaded walk and empty it waits within 2 of the terminal; after(): idleNomType(thorium) while it fits
+         │                                                too old for another loaded walk and empty it waits within 2 of the terminal; mineral mined out (mineralAmount 0)
+         │                                                and store empty: @task recycle at the nearest spawn in the room (suicide with none); after(): idleNomType(thorium) while it fits
          └─ Srcer   @registerAs("asrc"), @registerAs("bsrc")  priority 8, body 'srcer' (job.srcer.ts)
 ```
 

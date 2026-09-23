@@ -27,9 +27,11 @@ export class Trucker extends JobRole {
     }
 
     // 2 CARRY per MOVE (full speed on roads when loaded), sized to the spawn
-    // room's energy capacity, at most 50 parts.
+    // room's energy capacity, at most 50 parts, laid out CARRY, CARRY, MOVE,
+    // CARRY, CARRY, MOVE, ... so a trucker under fire loses weight and speed
+    // together instead of all its CARRY before any MOVE.
     static body(ecap: number): BodyPartConstant[] {
-        return energyDef({ move: 2, per: [CARRY], energy: Math.min(ecap, 2500), max: 32 } as any);
+        return energyDef({ move: 2, per: [CARRY], energy: Math.min(ecap, 2500), max: 32, interleave: true } as any);
     }
 
     get cc(): CreepRepair {

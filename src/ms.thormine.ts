@@ -27,6 +27,10 @@ const kDestroyPerTick = 10;
 type Phase = "missions" | "cleanup" | "destroy" | "done";
 
 interface ThormineMemory extends MissionMemory {
+    // Set the first time the room's thorium is seen with any amount left. A
+    // mined-out thorium mineral vanishes from the room (Season 11), so this
+    // is how "mined out" is told apart from "never had thorium".
+    thoriumSeen?: boolean
     // Set once teardown begins; only ever moves forward.
     teardown?: {
         phase: Phase
@@ -99,6 +103,11 @@ export class Thormine extends Mission {
             if (this.phase) {
                 this.teardown(room);
             } else {
+                const mineral = this.mineral;
+                if (mineral && mineral.mineralAmount > 0 && !this.mem.thoriumSeen) {
+                    this.mem.thoriumSeen = true;
+                    debug.log(this.name, "thorium seen:", mineral.mineralAmount, "at", mineral.pos);
+                }
                 this.mine(room);
                 this.ship(room);
                 if (this.exhausted(room)) this.beginTeardown();
@@ -122,8 +131,18 @@ export class Thormine extends Mission {
             .find(s => s.structureType === STRUCTURE_EXTRACTOR) as StructureExtractor | undefined || null;
     }
 
+    // The room's thorium was seen and is now gone or empty. A mined-out
+    // thorium mineral disappears from the room, so "no mineral" after one
+    // was seen counts. False without vision.
+    get minedOut(): boolean {
+        if (!this.room || !this.mem.thoriumSeen) return false;
+        const mineral = this.mineral;
+        return !mineral || mineral.mineralAmount <= 0;
+    }
+
     // Why no miner may be laid, or null when all three gates are open.
     get closed(): string | null {
+        if (this.minedOut) return "thorium mined out";
         const mineral = this.mineral;
         if (!mineral) return "no thorium mineral";
         if (mineral.mineralAmount <= 0) return "thorium mined out";
@@ -223,10 +242,9 @@ export class Thormine extends Mission {
 
     // ---- teardown ----
 
-    // Mined out, nothing banked, nobody still carrying.
+    // Mined out (seen, now gone or empty), nothing banked, nobody still carrying.
     exhausted(room: Room): boolean {
-        const mineral = this.mineral;
-        if (!mineral || mineral.mineralAmount > 0) return false;
+        if (!this.minedOut) return false;
         if (this.stock > 0) return false;
         const mem = this.memory;
         return !mem.eggs.length && !mem.hatch.length && !mem.creeps.length;

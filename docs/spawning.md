@@ -37,6 +37,14 @@ by `partsOrdered`:
 the MOVEs are placed early (`premove`) so damage strips them before WORK/CARRY.
 `base` is appended (and sorted) as well.
 
+With `interleave: true` the sort is skipped and the MOVEs sit between the
+`per` groups instead: one MOVE after every `move` parts of `per`, the last one
+covering any remainder (so the count is still `ceil(parts / move)`), non-MOVE
+`base` parts first and MOVE `base` parts last. `{move: 2, per: [CARRY],
+interleave: true}` gives `C C M C C M ...`: damage taken from the front strips
+CARRY and its MOVE together, so the creep keeps its speed as it loses weight.
+`trucker` (`Trucker.body`) and `hauler` (the `buildBody` case) use it.
+
 How the scaling plays out, since it is easy to misread:
 
 - **Two energy numbers.** The `buildBody` cases pair `energyDef` with
@@ -114,7 +122,7 @@ passes `body: "srcer"`). Live keys are marked.
 | `worker` | yes | `energyDef({move:2, base:[M,C], per:[W,C]})`, spawn with capacity >= 300 |
 | `ctrl` | yes | `buildCtrl`: RCL8 fixed 8M/15W/3C at >= 2050 energy; RCL7 15M/30W/5C at >= 4200; else `energyDef({move:2, per:[W], base:[C](+C above RCL4), energy: eggMem.ecap})` |
 | `hub` | yes | `9x CARRY + MOVE`, spawn with >= 500 available |
-| `hauler` | yes | `energyDef({move:2, per:[C], energy: eggMem.energy})`, spawn with >= `eggMem.energy` available (energy drops to available if under 550) |
+| `hauler` | yes | `energyDef({move:2, per:[C], interleave: true, energy: eggMem.energy})`, spawn with >= `eggMem.energy` available (energy drops to available if under 550) |
 | `srcer` | yes | `srcerBody`: `harvesterBody(eggMem.lvl)` (6 to 15 WORK by source regen level) plus extra CARRY at RCL7/8, trimmed to the room's `energyCapacityAvailable` (floor `[W,W,M]`); the daemon waits for the energy |
 | `startup`, `reboot` | via `Startup`/`Reboot` classes instead | tables shown above; `reboot` case here is `[W,C,M]` |
 | `wolf` | `Farm`/`Remote` (`Wolf`) | `energyDef({move:1, per:[ATTACK]})` sized from `energyAvailable`, spawn with capacity >= 700 |
