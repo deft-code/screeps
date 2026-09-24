@@ -144,6 +144,7 @@ export function runGenesis(f: FlagExtra) {
     const newer = f.memory.newer = f.memory.newer || {};
     const room = f.room;
     if (!room) return;
+    room.meta.memory.name = f.name;
     if (f.secondaryColor === COLOR_GREY) {
         let created = false;
         for (const meta of room.meta.metas) {
@@ -319,6 +320,9 @@ function cleanMem(mem: MetaMem) {
 
 interface ManagerMem {
     metas: MetaMem[]
+    // The room's name for itself: the genesis flag's name, stamped by
+    // runGenesis. New spawns are named after it (MetaManager.spawnNames).
+    name?: string
     keep?: number[]
     drop?: number[]
     roadkeep?: number[]
@@ -579,6 +583,30 @@ export class MetaManager {
         return dests;
     }
 
+    // The names offered to a new spawn, from the room's meta name (the
+    // genesis flag's name): "Noon", "Nooner", "Noonest". Empty before a
+    // genesis pass has stamped the name.
+    spawnNames(): string[] {
+        const base = this.memory.name;
+        if (!base) return [];
+        return [base, base + "er", base + "est"];
+    }
+
+    // createConstructionSite that names a spawn after the room when it can.
+    // Each name in spawnNames() is tried in turn (a name already used by a
+    // spawn or spawn site anywhere is ERR_INVALID_ARGS); with all of them
+    // taken the game picks its own name.
+    createSite(pos: RoomPosition, stype: BuildableStructureConstant): ScreepsReturnCode {
+        if (stype === STRUCTURE_SPAWN) {
+            for (const name of this.spawnNames()) {
+                if (Game.spawns[name]) continue;
+                const ret = pos.createConstructionSite(stype, name);
+                if (ret !== ERR_INVALID_ARGS) return ret;
+            }
+        }
+        return pos.createConstructionSite(stype);
+    }
+
     makeSite(stype: BuildableStructureConstant): boolean {
         const room = Game.rooms[this.name];
         if (!room) return false;
@@ -586,7 +614,7 @@ export class MetaManager {
         for (const meta of this.metas) {
             const [free, newblocker] = meta.findSite(stype, room);
             if (free) {
-                const ret = free.createConstructionSite(stype);
+                const ret = this.createSite(free, stype);
                 if (ret === OK) return true;
                 // Never purge in a room we do not own: the RCL error there
                 // means the room is someone else's, not that we are over a limit.
@@ -608,7 +636,7 @@ export class MetaManager {
         for (const meta of this.metas) {
             const [free, newblocker] = meta.findOptional(stype, room);
             if (free) {
-                const ret = free.createConstructionSite(stype);
+                const ret = this.createSite(free, stype);
                 if (ret === OK) return true;
                 if (ret === ERR_RCL_NOT_ENOUGH) return roomLevel(room) ? this.purge(stype) : false;
                 room.errlog(ret, "Failed to create site", stype);

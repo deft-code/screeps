@@ -17,8 +17,11 @@ const kEnergyPerCleanup = 2000;
 const kCleanupMin = 1;
 const kCleanupMax = 4;
 // The room counts as drained of energy under this much outside the terminal
-// (a recycled cleanup leaves ~30 in its tombstone) and under this much in
-// the terminal (below TERMINAL_MIN_SEND nothing more can be shipped).
+// and under this much in the terminal, or when the terminal can no longer
+// afford any send at all (TERMINAL_MIN_SEND plus its cost): that residue is
+// lost with the terminal. A recycled cleanup drops its refund beside the
+// spawn; job.cleanup.ts suicides instead when the refund is small, so the
+// last sweeper does not seed a pile that calls for another sweeper.
 const kEnergyEmpty = 50;
 const kTerminalEmpty = 100;
 // Structures destroyed per tick in phase 3.
@@ -67,7 +70,8 @@ interface ThormineMemory extends MissionMemory {
 //             this room's spawn while its spawn energy covers the body; they
 //             move every bit of energy into the terminal (job.cleanup.ts).
 //             Next phase once under 50 energy is left outside the terminal,
-//             no cleanup is alive or queued and the terminal holds under 100.
+//             no cleanup is alive or queued and the terminal holds under 100
+//             or too little to afford one more send.
 //   destroy   up to 10 structures a tick: everything but roads, the terminal
 //             and the spawn first (walls and ramparts included), then roads,
 //             then the spawn and terminal. Construction sites keep being
@@ -189,11 +193,20 @@ export class Thormine extends Mission {
     // `dest` with its energy, at least TERMINAL_MIN_SEND; 0 when none.
     affordable(terminal: StructureTerminal, res: ResourceConstant, have: number, dest: string): number {
         const room = terminal.room.name;
+        const energy = terminal.store.energy;
+        const cost = (n: number) => Game.market.calcTransactionCost(n, room, dest);
         let amount = have;
-        const budget = (cost: number) => res === RESOURCE_ENERGY ? amount + cost : cost;
-        while (amount >= TERMINAL_MIN_SEND &&
-            budget(Game.market.calcTransactionCost(amount, room, dest)) > terminal.store.energy) {
-            amount = Math.floor(amount / 2);
+        if (res === RESOURCE_ENERGY) {
+            // The send and its fee both come out of the same store: the most
+            // that fits is amount + cost(amount) <= energy. The cost falls
+            // with the amount, so a few passes settle it.
+            for (let i = 0; i < 8 && amount >= TERMINAL_MIN_SEND && amount + cost(amount) > energy; i++) {
+                amount = Math.min(amount, energy - cost(amount));
+            }
+        } else {
+            while (amount >= TERMINAL_MIN_SEND && cost(amount) > energy) {
+                amount = Math.floor(amount / 2);
+            }
         }
         return amount >= TERMINAL_MIN_SEND ? amount : 0;
     }
@@ -339,8 +352,14 @@ export class Thormine extends Mission {
         const loose = looseEnergy(room);
         const mem = this.memory;
         const busy = mem.eggs.length + mem.hatch.length + mem.creeps.length;
-        const termEnergy = room.terminal?.store.energy || 0;
-        if (loose < kEnergyEmpty && !busy && termEnergy < kTerminalEmpty) return true;
+        const terminal = room.terminal;
+        const termEnergy = terminal?.store.energy || 0;
+        // Drained: under kTerminalEmpty, or nothing more can be sent (only
+        // energy is left and it cannot cover a minimum send plus its fee).
+        const termDone = !terminal || termEnergy < kTerminalEmpty ||
+            (terminal.store.getUsedCapacity() === termEnergy &&
+                !this.affordable(terminal, RESOURCE_ENERGY, termEnergy, this.destName));
+        if (loose < kEnergyEmpty && !busy && termDone) return true;
         if (loose < kEnergyEmpty && !busy && Game.time % kLogPace === 0) {
             debug.log(this.name, "TEARDOWN: room drained, waiting for the terminal to ship", termEnergy, "energy");
         }

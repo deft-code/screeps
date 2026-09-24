@@ -5,6 +5,9 @@ import { Scout } from "job.scout";
 import { Claimer } from "job.claimer";
 import { Guard } from "job.guard";
 import { Wolf } from "job.wolf";
+import { Reserver } from "job.reserver";
+import { whoami } from "Rewalker";
+import { getSpots } from "spots";
 import { getMetaManager } from "metastruct";
 import { Meta_rroad } from "metaremote";
 import { remoteSpawns } from "spawnold";
@@ -35,6 +38,9 @@ const kPaverPace = 1500;
 // One wolf per this many ticks while an invader core stands in the room
 // (Farm.suppressInvaderCore).
 const kCorePace = 1500;
+// Reservers against a foreign reservation are paced per controller spot over
+// a CLAIM lifetime (Farm.reserverRate).
+const kReserverLife = CREEP_CLAIM_LIFE_TIME;
 
 const kRoadStyle: PolyStyle = { stroke: "yellow", lineStyle: "dashed", strokeWidth: 0.15, opacity: 0.5 };
 
@@ -90,7 +96,13 @@ const rewalker = defaultRewalker();
 // Paver <room>" at most every kPaverPace ticks, as Remote does.
 //
 // An invader core in the mission room draws one Wolf (job.wolf.ts) per
-// kCorePace ticks until it is gone (Farm.suppressInvaderCore).
+// kCorePace ticks until it is gone (Farm.suppressInvaderCore). While GCL is
+// full and someone else's reservation stands on the controller (the one an
+// invader core leaves behind blocks our construction sites, so the road
+// never starts), Reservers (job.reserver.ts) are paced against it the Farm
+// way: one per controller spot per CLAIM lifetime, skipped while the
+// reservers alive can already strip it and while armed hostiles are in the
+// room. With GCL free the claimer handles it instead.
 @register
 export class Startup extends Mission {
     get roomName(): string {
@@ -125,6 +137,7 @@ export class Startup extends Mission {
         } else if (!controller.my) {
             this.suppressInvaderCore(room);
             if (this.gclFull) {
+                this.reserve(room, controller);
                 this.planRoad(controller);
                 this.schedulePavers();
             } else {
@@ -168,6 +181,38 @@ export class Startup extends Mission {
     // role.claimer.js did.
     claim() {
         return this.nJobs(Claimer, 1, CREEP_CLAIM_LIFE_TIME);
+    }
+
+    // Someone else's reservation on the controller, or null.
+    foreignReservation(controller: StructureController): ReservationDefinition | null {
+        if (controller.owner) return null;
+        const res = controller.reservation;
+        if (!res || res.username === whoami()) return null;
+        return res;
+    }
+
+    // Farm.reserve: strip a foreign reservation with reservers, unless the
+    // ones alive suffice or armed hostiles hold the room.
+    reserve(room: Room, controller: StructureController) {
+        if (room.hostiles.length) return null;
+        const res = this.foreignReservation(controller);
+        if (!res) return null;
+        // attackController strips 1 reservation tick per CLAIM part per tick.
+        if (this.reservePower() >= res.ticksToEnd) return null;
+        const nspots = getSpots(controller.pos).length || 1;
+        return this.paceJobs(Reserver, Math.floor(kReserverLife / nspots));
+    }
+
+    // Remaining attack power of the mission's reservers (spawning ones
+    // included): ticks to live times CLAIM parts, summed.
+    reservePower(): number {
+        const reservers = [...this.roleCreeps("reserver"), ...this.roleHatches("reserver")];
+        return _.sum(reservers, r => {
+            const c = r.c;
+            if (!c) return 0;
+            const ttl = c.ticksToLive ?? CREEP_CLAIM_LIFE_TIME;
+            return ttl * c.getActiveBodyparts(CLAIM);
+        });
     }
 
     // One wolf per kCorePace ticks while an invader core stands in the room.
@@ -330,6 +375,8 @@ export class Startup extends Mission {
             : "";
         const metas = mem.roadMetas ? ` metas:${_.keys(mem.roadMetas).length}` : "";
         const core = ctrl && !ctrl.my && this.room!.findStructs(STRUCTURE_INVADER_CORE).length ? " core!" : "";
-        return super.status() + ` rcl:${lvl === undefined ? "?" : lvl}/${kDoneRCL}${early}${gcl}${road}${metas}${core}`;
+        const res = ctrl && !ctrl.my ? this.foreignReservation(ctrl) : null;
+        const reserved = res ? ` reserved:${res.username}/${res.ticksToEnd}` : "";
+        return super.status() + ` rcl:${lvl === undefined ? "?" : lvl}/${kDoneRCL}${early}${gcl}${road}${metas}${core}${reserved}`;
     }
 }

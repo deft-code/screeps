@@ -64,6 +64,14 @@ retry. The processes
 are transient and the set is in-memory, so both rebuild from the flags after a
 global reset; a purple flag naming an already-live scheduled service is left alone.
 
+Every `runGenesis` pass first stamps the flag's name into the room's meta
+memory (`Memory.rooms[x].meta.name`). `makeSite` names spawn sites from it:
+`<name>`, then `<name>er`, then `<name>est` (a genesis `Noon` gives `Noon`,
+`Nooner`, `Noonest`); a name already used by any of our spawns or spawn sites
+is skipped, and with all three taken the game picks its own name
+(`MetaManager.spawnNames` / `createSite`). Rooms whose genesis flag has not
+run since this was added have no name and get game-picked spawn names.
+
 A **genesis flag** is any flag with primary `COLOR_ORANGE`. Its secondary colour
 is a command; after acting it usually resets itself to `COLOR_CYAN` (idle):
 

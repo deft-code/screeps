@@ -79,7 +79,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     holds no thorium and no thoreater is left; abortTeardown() from the console undoes phases 1-2 only:
          │                                                     missions: windDown() every other Mission whose "home" alias is this room, or whose roomName is with no home (Hub, Startup);
          │                                                     clear the room's metas (MetaManager.save), remove every flag in the room, cancel construction sites (repeated each tick);
-         │                                                     cleanup: nJobs(Cleanup, energy outside the terminal / 2000, 1..4) while the spawn energy covers the 150 body;
+         │                                                     cleanup: nJobs(Cleanup, energy outside the terminal / 2000, 1..4) while the spawn energy covers the 150 body; done under 50 loose, no sweeper, terminal < 100 or unable to afford a send;
          │                                                     ends under 50 energy outside the terminal, no cleanup alive/queued, terminal < 100 energy;
          │                                                     destroy: up to 10 structures a tick, everything but roads/spawn/terminal first, then roads, then spawn and terminal,
          │                                                     then controller.unclaim(); done: kill + drop memory. Throughout: shipAll() sends every terminal resource to [dest], energy last
@@ -133,6 +133,9 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               sites. Unowned road rooms with our sites in view get "Once Paver <room>" every 1500 ticks
                                                               (`schedulePavers`, as Remote). Our road metas do not make `canPioneerEarly` true. An invader
                                                               core in the mission room draws paceJobs(Wolf, 1500) (`suppressInvaderCore`, status `core!`).
+                                                              With GCL full and a foreign reservation on the controller (status `reserved:<user>/<ticks>`),
+                                                              `reserve()` paces Reservers as Farm does (one per controller spot per CLAIM lifetime, none
+                                                              while the live reservers' CLAIM x ttl covers it or armed hostiles are in the room).
 MyCreep                      wrapper object per creep *name* (mycreep.ts); not a prototype extension
  └─ JobCreep                 knows its Mission; Rewalker movement helpers (job.creep.ts)
      ├─ Startup  @register   body table keyed by energyCapacity      (job.startup.ts)
@@ -197,10 +200,10 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │   └─ Warrunner @register        (job.warrunner.ts) Warboy without WORK: 9 CARRY / 9 MOVE (900 energy, the same 450 load) from a "home" spawn; @task load withdraws
          │                                                what fits from the home terminal (planTravel from beside it), then Warboy's deliver/scavenge/leave-early rules;
          │                                                a partial load goes when the terminal runs dry; empty with an empty terminal it waits within 2 of the terminal
-         ├─ Cleanup   @register            (job.cleanup.ts)  Thormine teardown sweeper, [CARRY, CARRY, MOVE] from the mission room's spawn (>= 150 energy); moves energy into the
+         ├─ Cleanup   @register            (job.cleanup.ts)  Thormine teardown sweeper, `cleanupBody(energyAvailable)` = energyDef CARRY,CARRY,MOVE interleaved up to 50 parts from the mission room's spawn (>= 150 energy); moves energy into the
          │                                                terminal from the first non-empty tier: dropped -> tombstones/ruins -> storage/container/link -> towers (only while the room's
-         │                                                spawn energy < 150) -> extensions and the spawn (spawn counts as empty under 50: it trickles 1/tick); nothing left: recycleCreep at
-         │                                                the spawn, suicide without one. looseEnergy(room) (same tiers) is what the mission sizes and ends the phase by
+         │                                                spawn energy < 150) -> extensions (never the spawn: its 1/tick trickle would keep the sweep going for ever); nothing left: recycleCreep at
+         │                                                the spawn when the refund (body cost x life left) is >= 300, else suicide (a dropped refund pile would restart the sweep). looseEnergy(room) (same tiers) is what the mission sizes and ends the phase by
          ├─ Thoreater @register            (job.thoreater.ts) Season 11 thorium miner for Thormine; energyDef body 2 WORK : 1 CARRY, one MOVE per two parts, from a spawn in the
          │                                                mission room with >= 650 energy (RCL6: 14 WORK / 7 CARRY / 11 MOVE); @task harvest the room's thorium mineral only while
          │                                                the next intent (active WORK x HARVEST_MINERAL_POWER) fits in the store, so nothing spills on the tile; @task deposit into the
