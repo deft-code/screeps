@@ -28,7 +28,7 @@ return                                 # lines 356-439 are dead
 | `Hub <room>` missions (W26S8, W25S7, and `Hub W27S5` scheduled 23 Sept 2026 ahead of its claim; `Hub W22S7` wound down by the W22S7 teardown) | `scheduleService('Hub W25S7')`, then `Memory.scheduler.services`, replayed by `Service.boot()` at every global reset; **never constructed in code** | lays eggs for asrc/bsrc/hauler (1-3 by dropped energy)/worker/ctrl/hub/upgrader/ctrlhauler from the room's own spawns and runs those creeps |
 | `GlobalRespawn` mission | **not scheduled** since Sept 2026 (evolved into `Hub W26S8`); schedule it by hand after a respawn | the Hub loop plus `max(1, 6-rcl)` startups and a fixed 2 haulers, in `Game.spawns.Home`'s room; `evolve('Hub <room>')` it once the room stands |
 | `Remote <farm> <home> [spawn]` missions (5) | scheduled, same way | remote sources: harvester/trucker/reserver/scout, plus guard/mini/wolf against hostiles and invader cores |
-| `Reactor <home>` missions | not scheduled as of 22 Sept 2026 (replaced by `ReactorDepot W25S7`); `scheduleService('Reactor W26S8')` brings one back | Season 11 scoring: scout, warboys (thorium runners), immortan (reactor claimer), guard at the sector core |
+| `Reactor <home>` missions | not scheduled as of 22 Sept 2026 (replaced by `ReactorDepot W25S7`); `scheduleService('Reactor W26S8')` brings one back | Season 11 scoring: scout, warboys (thorium runners), immortan (reactor claimer), guard at the sector core, plus one toxic (bait-and-trap mini) per lifetime while an armed enemy without HEAL is there |
 | `ReactorDepot <home> [cap]` mission | scheduled (`ReactorDepot W25S7`, since 22 Sept 2026), same way | `Reactor` with warrunners in place of warboys: they load thorium from the home terminal (laid only while it holds over 1000) and carry it to the reactor; scout, guard, immortan and the core pause are inherited |
 | `Thormine <room> [dest]` mission | scheduled (`Thormine W22S7`, since 22 Sept 2026; its thorium ran out and the **teardown of W22S7 began 23 Sept 2026**), same way | one thoreater per walkable tile beside the room's thorium (only with thorium left, an extractor on it and a terminal); they mine into the terminal, which ships to `dest` (default W25S7) every cooldown. Once the thorium is exhausted and the terminal empty it **tears the room down**: winds down every mission homed there, drains all energy into the terminal with `cleanup` creeps, ships it, destroys every structure and unclaims (`abortTeardown()` works until destruction starts) |
 | `Startup <room> [home]` mission | scheduled (`Startup W27S5`, since 22 Sept 2026; `Startup W22S7` wound down at RCL4), same way | claiming a third room: scout, claimer, pioneers, guard until it has a tower. With GCL full it plans (and draws, yellow dashed) a Rewalker-costed road from the controller to the home spawn instead of laying a claimer, saves it as `rroad_<room>_startup` metas per room, and sends pavers to unowned rooms with sites; a foreign reservation draws reservers while GCL is full; an invader core in the room draws a wolf every 1500 ticks |
@@ -39,8 +39,8 @@ return                                 # lines 356-439 are dead
 
 Consequences: no market automation, radar scanning, deposit farming, or flag
 "teams" run on this build even though their code loads. The only
-flags in the game are metastruct genesis/child flags (genesis `Noon` W26S8,
-`Port` W25S7, `Three` W22S7) and purple service flags. Missions exist only
+flags in the game are metastruct genesis/child flags (genesis `Home` W26S8,
+`Port` W25S7, `Forth` W27S5; `Three` W22S7 went with that room) and purple service flags. Missions exist only
 while scheduled: the table is `Memory.scheduler.services` as of Sept 2026, so
 read that key rather than trusting this list. `Farm`, `Once`, `Swipe` and the
 `Selloff <room>` terminal-selling service are not scheduled and run only by
@@ -85,7 +85,7 @@ base-room roles from `GlobalRespawn`/`Hub`. The scheduled missions add pure
 job-layer creeps (no `roleXxx` method): `harvester`, `trucker`, `reserver`
 (`Remote`); `warboy`, `immortan` (`Reactor`); `warrunner` (`ReactorDepot`); `thoreater`, `cleanup` (`Thormine`); `claimer`, `pioneer` (`Startup`);
 and `scout`, `guard`, `mini`, `wolf` wherever a mission wants vision or a
-fight. Everything else with a `roleXxx` method is loaded but no job spawns it.
+fight; `toxic` (`job.toxic.ts`, bait-and-trap mini) only by `Once Toxic <room> [count]`. Everything else with a `roleXxx` method is loaded but no job spawns it.
 Table and task conventions in [docs/creep-roles.md](docs/creep-roles.md).
 
 ## Conventions that code depends on
@@ -132,6 +132,7 @@ npx gulp console --cmd "Game.time"                  # send one expression, print
 echo 'JSON.stringify(Memory.missions)' | npx gulp console    # expression on stdin (no quoting fights)
 npx gulp consoleTail                                # stream to stdout + logs/console-season.log until Ctrl+C
 SCREEPS_CONSOLE_SECONDS=30 npx gulp consoleTail     # ...or stop after 30 s
+npx gulp room --room W25S5                          # every object in a room, vision or not (--json for the raw response)
 ```
 
 How to read the output:
@@ -225,7 +226,7 @@ destructive `wipe`/`worldWipe`/`scalp`/`purgeWalls` helpers.
 
 ## Season 11 state and rules (measured live, Sept 2026)
 
-- Owned rooms, both RCL6: `W26S8` (spawn `Home`, genesis flag `Noon`) and
+- Owned rooms, both RCL6: `W26S8` (spawn `Home`, genesis flag `Home`) and
   `W25S7` (genesis `Port`). Their sector core is `W25S5` (an x5y5 room is
   `Kind.Portal` in `intel.ts`). Since 22 Sept 2026 the reactor is fed by
   `ReactorDepot W25S7` (warrunners from the W25S7 terminal, which `Thormine

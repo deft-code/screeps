@@ -325,6 +325,85 @@ async function runCommand(credentials, expression, { timeoutMs = 30000, graceMs 
   }
 }
 
+// ---------------------------------------------------------------------------
+// Room contents without vision
+
+// GET /api/game/room-objects: every object in a room, vision or not (it is
+// what the web client draws rooms from). Prints a summary (creeps grouped by
+// owner with body and position, then owned or notable structures) or, with
+// json, the raw response.
+const BODY_LETTERS = {
+  move: 'M', work: 'W', carry: 'C', attack: 'A', ranged_attack: 'R', heal: 'H', tough: 'T', claim: 'L',
+}
+const NOTABLE_TYPES = new Set([
+  'reactor', 'invaderCore', 'controller', 'tombstone', 'ruin', 'energy', 'keeperLair',
+  'portal', 'nuke', 'powerBank', 'deposit',
+])
+
+async function roomObjects(credentials, room, { json = false } = {}) {
+  const world = worldFromEnv()
+  const shard = shardFor(world)
+  const api = makeClient(credentials, world)
+  const res = await api.gameRoomObjects(room, shard)
+  if (!res || !res.ok) {
+    console.error(`# room-objects failed for ${room} on ${shard}: ${JSON.stringify(res).slice(0, 300)}`)
+    process.exitCode = 1
+    return
+  }
+  if (json) {
+    console.log(JSON.stringify(res, null, 1))
+    return
+  }
+  const users = {}
+  for (const [id, u] of Object.entries(res.users || {})) users[id] = u.username
+  const who = (id) => (id === undefined ? '-' : users[id] || id)
+  const objects = res.objects || []
+
+  const counts = {}
+  for (const o of objects) counts[o.type] = (counts[o.type] || 0) + 1
+  console.log(`${room} ${shard}: ${objects.length} objects ${JSON.stringify(counts)}`)
+
+  const byOwner = {}
+  for (const c of objects.filter((o) => o.type === 'creep')) {
+    const body = {}
+    for (const b of c.body || []) body[b.type] = (body[b.type] || 0) + 1
+    const parts = Object.entries(body).map(([t, n]) => `${n}${BODY_LETTERS[t] || t}`).join(' ')
+    const store = Object.entries(c.store || {}).filter(([, n]) => n).map(([r, n]) => `${r}:${n}`).join(',')
+    const line = `  ${c.name} @${c.x},${c.y} [${parts}]${store ? ' ' + store : ''}${c.hits < c.hitsMax ? ` hits ${c.hits}/${c.hitsMax}` : ''}`
+    ;(byOwner[who(c.user)] = byOwner[who(c.user)] || []).push(line)
+  }
+  for (const [owner, lines] of Object.entries(byOwner)) {
+    console.log(`creeps of ${owner}:`)
+    for (const l of lines) console.log(l)
+  }
+
+  for (const o of objects) {
+    if (o.type === 'creep') continue
+    if (!NOTABLE_TYPES.has(o.type) && o.user === undefined) continue
+    const bits = [o.type, `@${o.x},${o.y}`]
+    if (o.user !== undefined) bits.push(`owner ${who(o.user)}`)
+    if (o.structureType) bits.push(o.structureType)
+    if (o.level !== undefined) bits.push(`lvl ${o.level}`)
+    if (o.progress !== undefined) bits.push(`progress ${o.progress}/${o.progressTotal}`)
+    if (o.hits !== undefined) bits.push(`hits ${o.hits}`)
+    if (o.store) {
+      const s = Object.entries(o.store).filter(([, n]) => n).map(([r, n]) => `${r}:${n}`).join(',')
+      if (s) bits.push(`store ${s}`)
+    }
+    if (o.reservation) bits.push(`reserved ${who(o.reservation.user)} until ${o.reservation.endTime}`)
+    if (o.continuousWork !== undefined) bits.push(`work ${o.continuousWork}`)
+    if (o.ticksToDeploy !== undefined) bits.push(`deploy ${o.ticksToDeploy}`)
+    if (o.decayTime !== undefined) bits.push(`decay ${o.decayTime}`)
+    console.log(bits.join(' '))
+  }
+}
+
+// `--room <name>` from argv.
+function roomFromArgs(argv = process.argv) {
+  const i = argv.indexOf('--room')
+  return i !== -1 ? argv[i + 1] : undefined
+}
+
 // `--cmd <expr>` from argv, else the whole of stdin when it is piped.
 function expressionFromArgs(argv = process.argv) {
   const i = argv.indexOf('--cmd')
@@ -352,5 +431,7 @@ module.exports = {
   tail,
   runCommand,
   expressionFromArgs,
+  roomObjects,
+  roomFromArgs,
   envInt,
 }

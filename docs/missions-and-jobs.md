@@ -56,6 +56,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     for 1500 ticks (Mission.creepDied hook; queued eggs purged) so the survivors die off and the
          │                                                     next scout re-probes the core, dying to it again renewing the pause;
          │                                                     nJobs(Guard, 1) while any enemy creep (room.enemies) is in the core;
+         │                                                     paceNJobs(Toxic, 1) while an armed enemy (room.hostiles) with no active HEAL part is in the core;
          │                                                     nJobs(Immortan, 1) while the reactor is visible and either not `my` or `my` with over 100 thorium aboard (CLAIM creeps are costly);
          │                                                     nJobs(Warboy, min(args[2], 700 / tripLoad)) once the home room has an
          │                                                     extractor on a thorium mineral with thorium left, the core is visible with a reactor in it and no armed hostile (room.hostiles),
@@ -111,7 +112,8 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               not foreign-reserved (civilians in remotes are paced, never replaced).
                                                               truck(): paceJobs(Trucker, min(1500, 1500 / (5*sum(src cap) / (avg carry * 1500 / (2*legSteps+10))))) only once a container stands on an rsrc tile;
                                                               same gates; 1500 while no trucker is alive; legSteps = longest source leg from planning
-         ├─ Once             @register  (ms.once.ts)           "Once <Job> <room>"; lays one egg of the job, winds down once it has spawned,
+         ├─ Once             @register  (ms.once.ts)           "Once <Job> <room> [count]"; lays an egg of the job whenever none is alive until count
+                                                              (args[3], default 1) have been laid (memory.laid), winds down once the last has spawned,
                                                               kills and deschedules itself when the creep and its tombstone are gone
          └─ Startup          @register  (ms.startup.ts)        "Startup <room>"; claims and boots a room: nJobs(Scout, 1) while the room is invisible;
                                                               nJobs(Claimer, 1, 600) while the controller is not ours and owned rooms < GCL, and meanwhile
@@ -131,7 +133,10 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               (tracked in memory.roadMetas, status `metas:<rooms>`), so ActiveStrat/ClaimedStrat place the
                                                               sites; a changed replan replaces them, windDown() and `removeRoad()` delete them and our road
                                                               sites. Unowned road rooms with our sites in view get "Once Paver <room>" every 1500 ticks
-                                                              (`schedulePavers`, as Remote). Our road metas do not make `canPioneerEarly` true. An invader
+                                                              (`schedulePavers`, as Remote). The plan lays every room's other metas over the
+                                                              Rewalker matrix (`metaCosts`: planned structures and spots impassable, planned roads
+                                                              cost 1) so it never crosses the base plan; `replanRoad()` redoes it at once, owned
+                                                              room or not. Our road metas do not make `canPioneerEarly` true. An invader
                                                               core in the mission room draws paceJobs(Wolf, 1500) (`suppressInvaderCore`, status `core!`).
                                                               With GCL full and a foreign reservation on the controller (status `reserved:<user>/<ticks>`),
                                                               `reserve()` paces Reservers as Farm does (one per controller spot per CLAIM lifetime, none
@@ -181,8 +186,19 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
          ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' via "close"
          ├─ Guard   @register              (job.guard.ts)  port of role.guard.js; Task2 @task hunt/duel/healCreep/retreat, kites melees via idleFlee;
+         │                                                 engage() shoots and closes to range 2 (3 on a melee target, since kite backs off at 2);
+         │                                                 with nothing to do hold() drifts to within 3 of spots.roomCentroid, but only after 3 idle ticks
+         │                                                 (memory.gidle) so a friendly flickering on an exit draws it over instead of resetting it;
          │                                                 body 'guard' via "remote": room capacity >= 550, energyDef scales T/RA pairs to energy available (spawning.md)
          │   └─ Mini @register             (job.mini.ts)   Guard on the fixed 'mini' body [RANGED_ATTACK, MOVE, MOVE, HEAL], still via "close"
+         │   └─ Toxic @register            (job.toxic.ts)  bait-and-trap skirmisher on the 'mini' body via "close", spawned by Once; mode machine in
+         │                                                 memory.tmode: travel (start) -> bait (hold range 5 from the nearest hostile, idleFlee when
+         │                                                 closer; memory.tstill counts ticks at full health with no flee or damage while the nearest hostile
+         │                                                 holds its tile (memory.tfoe), 10 closes to 4, 20 to 3) -> trap (within 2 of an exit with a hostile within 5: stand on the tile just inside
+         │                                                 the nearest exit and shoot; back to bait past range 7) ; heal once every RANGED_ATTACK is gone (out by the nearest exit, then idleFlee to
+         │                                                 range 5 from every exit tile and hostile, sit until full, then travel); harass with no hostiles (engage assaulters, heal friendlies,
+         │                                                 hold within 5 of spots.roomCentroid, cached in Memory.rooms[x].centroid). Guard.after() fires
+         │                                                 and heals opportunistically in every mode
          ├─ Reserver @register             (job.reserver.ts) port of role.reserver.js; @task reserve, body 'reserver' via "close"
          ├─ Claimer  @register             (job.claimer.ts) port of role.claimer.js for Startup; body 'claimer' ([MOVE, CLAIM]) via "remote";
          │                                                 @task claim: claimController, or attackController when someone else owns it; idles once `my`
@@ -246,6 +262,7 @@ scheduleService('Thormine W26S8 W22S7')  // optional args[2]=room to ship the th
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
 scheduleService('Remote W5N8 W6N8 W7N8')  // optional args[3]=the only room its creeps spawn from (as Farm; idles `spawn-not-ready` while it has no spawn)
 scheduleService('Once Paver W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down (Remote schedules these itself)
+scheduleService('Once Toxic W25S5 3')  // optional args[3]=count: that many creeps one after another (memory.laid), then winds down
 scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown, skipping orders that pay less per unit than the shipping energy is worth (transfer rate x energy buy-order price); under 25k terminal energy keeps one 10k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)
 scheduleService('Furiosa')           // power creep Furiosa; picks a home power spawn room into Memory.furiosa.home
 ```

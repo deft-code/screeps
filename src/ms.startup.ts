@@ -33,6 +33,9 @@ const kRoadSwampCost = kRoadPlainCost * CONSTRUCTION_COST_ROAD_SWAMP_RATIO;
 
 // Leg name of the road metas: rroad_<mission room>_startup in every room.
 const kRoadLeg = "startup";
+// Cost of a tile another meta already plans a road on: below kRoadPlainCost
+// so the startup road rides planned roads instead of laying its own beside.
+const kRoadPlannedRoadCost = 1;
 // Ticks between "Once Paver <room>" schedules for the same road room.
 const kPaverPace = 1500;
 // One wolf per this many ticks while an invader core stands in the room
@@ -238,12 +241,17 @@ export class Startup extends Mission {
         }
         mem.roadAt = Game.time;
         const goal = { pos: spawn.pos, range: 1 };
+        const base = rewalker.restrictedRoomCallback(controller.pos, [goal]);
         const ret = PathFinder.search(controller.pos, goal, {
             plainCost: kRoadPlainCost,
             swampCost: kRoadSwampCost,
             maxOps: kRoadMaxOps,
             maxRooms: kRoadMaxRooms,
-            roomCallback: rewalker.restrictedRoomCallback(controller.pos, [goal]),
+            roomCallback: roomName => {
+                const cm = base(roomName);
+                if (cm === false) return false;
+                return this.metaCosts(roomName, cm === true ? null : cm);
+            },
         });
         if (!ret.path.length) {
             debug.log(this.name, "road plan found nothing", controller.pos, "->", spawn.pos, "ops", ret.ops);
@@ -259,6 +267,31 @@ export class Startup extends Mission {
             "cost", ret.cost, "ops", ret.ops, ret.incomplete ? "INCOMPLETE" : "");
         this.removeRoadMetas();
         this.saveRoadMetas(ret.path);
+    }
+
+    // The Rewalker matrix for a room with every other meta's plan laid over
+    // it: planned structures and standing spots impassable, planned roads
+    // cheap. Our own road metas are left out so a replan is free to move.
+    // Without this the road ran over the hub's planned extensions in the
+    // mission room and the two plans churned sites on the shared tiles.
+    metaCosts(roomName: string, base: CostMatrix | null): CostMatrix {
+        const man = getMetaManager(roomName);
+        if (!man.metas.length) return base || new PathFinder.CostMatrix();
+        const ours = this.smem.roadMetas?.[roomName] || [];
+        const metas = man.getMatrix(ours);
+        const cm = base ? base.clone() : new PathFinder.CostMatrix();
+        for (let x = 0; x < 50; x++) {
+            for (let y = 0; y < 50; y++) {
+                const m = metas.get(x, y);
+                if (!m) continue;
+                if (m >= 0xFE) {
+                    cm.set(x, y, 0xFF);
+                } else if (cm.get(x, y) < 0xFE) {
+                    cm.set(x, y, kRoadPlannedRoadCost);
+                }
+            }
+        }
+        return cm;
     }
 
     // One Meta_rroad per room from the planned tiles, exits left out, saved
@@ -354,14 +387,19 @@ export class Startup extends Mission {
         if (road) road.draw(kRoadStyle);
     }
 
-    // Drop the plan (the metas stay until the replan replaces them); the
-    // next tick with GCL full plans afresh.
+    // Drop the plan (the metas stay until the replan replaces them) and plan
+    // afresh at once while the controller is in view; otherwise the next
+    // tick with GCL full does. Works in an owned room too, where run() no
+    // longer plans, so a road laid before the claim can be redone around
+    // the base plan.
     replanRoad() {
         const mem = this.smem;
         delete mem.road;
         delete mem.roadAt;
         delete mem.roadRooms;
         delete mem.roadIncomplete;
+        const controller = this.room?.controller;
+        if (controller) this.planRoad(controller);
     }
 
     status(): string {

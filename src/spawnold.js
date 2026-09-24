@@ -427,10 +427,13 @@ export function buildBody(spawns, eggMem, { maxRCL }) {
     case 'guard':
       spawn = energySpawn(spawns, 550)
       if (!spawn) break
+      // movesFirst: every MOVE ahead of the weapons (after TOUGH), so the
+      // guard keeps its speed until its weapons are gone (docs/spawning.md).
       body = energyDef(_.defaults({}, eggMem, {
         move: 1,
         base: [MOVE, HEAL],
         per: [TOUGH, RANGED_ATTACK],
+        movesFirst: true,
         energy: spawn.room.energyAvailable
       }))
       break
@@ -668,9 +671,12 @@ const defBody = (def) => {
   for (let i = 0; i < def.level; i++) {
     parts = parts.concat(def.per)
   }
+  // Half the MOVEs sort early ('premove'); with def.movesFirst all of them
+  // do, base MOVEs included, so only TOUGH stands ahead of them. Same as
+  // spawn.ts.
   const move = def.move && Math.ceil(parts.length / def.move)
   for (let i = 0; i < move; i++) {
-    if (i < move / 2) {
+    if (def.movesFirst || i < move / 2) {
       parts.push('premove')
     } else {
       parts.push(MOVE)
@@ -678,7 +684,7 @@ const defBody = (def) => {
   }
 
   if (def.base) {
-    parts = parts.concat(def.base)
+    parts = parts.concat(def.movesFirst ? def.base.map(part => part === MOVE ? 'premove' : part) : def.base)
   }
 
   parts.sort(orderParts)

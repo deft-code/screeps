@@ -73,6 +73,7 @@ delete by hand: it restarts from empty.
 | `meta` | `metastruct.ts` | yes | `{ name?: string, metas: MetaMem[], keep?, drop?, roadkeep?, roaddrop?: xy[], rampart?, constructedWall?: {xy: MAXHITS} }`; `name` is the genesis flag's name (stamped by every `runGenesis` pass) and names the room's spawns; `MetaMem.retire?: {xy: rcl}` retires a tile from that RCL; see [metastruct.md](metastruct.md) |
 | `links` | `struct.link.ts` | yes | `{ [xy]: { mode: "^"|"+"|"-"|"="|"x" } }` (old entries may still say `"src"`/`"sink"`) |
 | `labs` | `struct.lab.js` | yes | `{ current?: resource, order?: labId[], [labId]: { note, planType?, boost?, boostTime? } }` |
+| `centroid` | `spots.ts` | yes | packed xy of the mean non-wall tile (`roomCentroid`), never expires |
 | `spots` | `room.ts` | yes (read) | `{ [name]: xy }` manual standing spots; metastruct points are the usual source |
 | `containers` | `struct.container.js` | yes | `{ [id]: { v: 2, mode: "src"|"sink"|"hub" } }` |
 | `nstructs`, `thostiles`, `tassaulters`, `tenemies`, `hostilestime`, `assaulterstime`, `enemiestime` | `strat.ts` | yes | hostile presence ratchets |

@@ -4,6 +4,7 @@ import * as debug from "debug";
 import { Scout } from "job.scout";
 import { Immortan } from "job.immortan";
 import { Guard } from "job.guard";
+import { Toxic } from "job.toxic";
 import { Warboy } from "job.warboy";
 import { Warrunner } from "job.warrunner";
 import { sectorCore, findReactors, thoriumMineral } from "reactor";
@@ -132,6 +133,7 @@ export class Reactor extends Mission {
         if (this.room) {
             this.probe();
             this.guard();
+            this.toxic();
             this.hold();
             this.fuel();
         }
@@ -175,6 +177,14 @@ export class Reactor extends Mission {
     guard() {
         if (!this.enemies.length) return null;
         return this.nJobs(Guard, 1);
+    }
+
+    // An armed enemy with no HEAL part cannot outlast a bait: keep one Toxic
+    // (job.toxic.ts, bait-and-trap mini) per lifetime while one is in the core.
+    // Healers are left to the guard.
+    toxic() {
+        if (!_.any(this.hostiles, h => !h.getActiveBodyparts(HEAL))) return null;
+        return this.paceNJobs(Toxic, 1);
     }
 
     // Enemy creeps in the core this tick; empty without vision.

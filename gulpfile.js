@@ -252,6 +252,20 @@ gulp.task('console', function () {
   })
 })
 
+// Print every object in a room, vision or not (the web client's room-objects
+// endpoint): creeps by owner with bodies, then owned and notable structures.
+// Usage: npx gulp room --room W25S5        --json dumps the raw response.
+// Same SCREEPS_WORLD / SCREEPS_SHARD selection as console.
+gulp.task('room', function () {
+  const room = consoleTools.roomFromArgs()
+  if (!room) {
+    console.error('Usage: npx gulp room --room <name> [--json]')
+    process.exitCode = 1
+    return Promise.resolve()
+  }
+  return consoleTools.roomObjects(credentials, room, { json: process.argv.includes('--json') })
+})
+
 // Decodes Screeps stack trace tokens (module:line:col) back to original TS source
 // locations using the sourcemaps produced by `compile`.
 // Usage: npx gulp decodeStack --stack "process:60:50 job.hub:12:3"

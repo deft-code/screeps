@@ -1,6 +1,7 @@
 import { JobRole } from "job.role";
 import { register, task, Task2Ret } from "mycreep";
 import { CreepMove } from "creep.move";
+import { roomCentroid } from "spots";
 
 // Port of role.guard.js (2017 flag-team era) to the 2022 mission/job system.
 // A ranged skirmisher with a heal part, spawned in the mission's "home" room.
@@ -16,6 +17,23 @@ import { CreepMove } from "creep.move";
 const kRetreatHurts = 100;
 // idleFlee range when kiting a melee enemy.
 const kKiteRange = 5;
+// hold(): ticks with nothing to do before drifting to the room centroid. A
+// friendly flickering across an exit (in view one tick, gone the next) keeps
+// resetting the count, so the guard stays put and nudges toward it instead of
+// pacing back to the middle every other tick.
+const kHoldIdle = 3;
+const kHoldRange = 3;
+// engage(): close to this range on a target. Melee targets are kept at 3
+// because kite() backs off at 2, and closing to 2 would fight it.
+const kEngageRange = 2;
+const kEngageMeleeRange = 3;
+
+declare global {
+    interface CreepMemory {
+        // Guard.hold(): consecutive ticks spent holding.
+        gidle?: number
+    }
+}
 
 @register
 export class Guard extends JobRole {
@@ -23,12 +41,13 @@ export class Guard extends JobRole {
         // body key "guard" in spawnold.buildBody. energySpawn picks the first
         // close spawn whose room *capacity* is >= 550; energyDef then scales the
         // body to that room's energy *available* right now (docs/spawning.md):
-        //   base [MOVE, HEAL] (300) + per level [TOUGH, RANGED_ATTACK] + 1 MOVE (260)
-        //   level 1:  T RA M M H            5 parts,  510 energy (the floor)
-        //   level 2:  2T 2RA 3M H           8 parts,  820
-        //   level n:  nT nRA (n+1)M H       300 + 260n, up to
-        //   level 12: 12T 12RA 13M H       50 parts, 3420 (the part cap)
-        // Sorted TOUGH first, half the MOVEs next, RANGED_ATTACK, MOVE, HEAL last.
+        //   base [MOVE, HEAL] (300) + per level [TOUGH, RANGED_ATTACK] + 2 MOVE (260)
+        //   level 1:  T 3M RA H             6 parts,  560 energy (the floor)
+        //   level 2:  2T 5M 2RA H          10 parts,  820
+        //   level n:  nT (2n+1)M nRA H      300 + 260n, up to
+        //   level 12: 12T 25M 12RA H       50 parts, 3420 (the part cap)
+        // Sorted TOUGH first, then every MOVE (movesFirst), RANGED_ATTACK, HEAL
+        // last: damage costs speed only once the weapons are already gone.
         return this.remoteSpawn(spawns, { body: "guard" });
     }
 
@@ -42,7 +61,17 @@ export class Guard extends JobRole {
         return this.c as CreepMove;
     }
 
+    // Whether decide() ended in hold() this tick; anything else resets gidle.
+    holding = false;
+
     start(): Task2Ret {
+        this.holding = false;
+        const ret = this.decide();
+        if (!this.holding) delete this.memory.gidle;
+        return ret;
+    }
+
+    decide(): Task2Ret {
         const c = this.cc;
         if (this.shouldRetreat()) return this.retreat();
 
@@ -135,14 +164,13 @@ export class Guard extends JobRole {
         return this.engage(target);
     }
 
-    // Shoot the target and step to range 3 when out of reach.
+    // Shoot the target and close to kEngageRange (a melee target: 3, see
+    // kite); every tick both, so it keeps closing while it fires.
     engage(target: Creep): Task2Ret {
         const range = this.pos.getRangeTo(target);
-        if (range > 3) {
-            this.moveTarget(target, 3);
-            return "wait";
-        }
-        this.shoot(target, range);
+        const hold = target.melee ? kEngageMeleeRange : kEngageRange;
+        if (range <= 3) this.shoot(target, range);
+        if (range > hold) this.moveTarget(target, hold);
         return "wait";
     }
 
@@ -171,10 +199,16 @@ export class Guard extends JobRole {
         return "wait";
     }
 
-    hold(): Task2Ret {
-        const center = new RoomPosition(25, 25, this.pos.roomName);
-        if (this.pos.inRangeTo(center, 3)) return "wait";
-        this.movePos(center, 3);
+    // Nothing to do: after kHoldIdle idle ticks, drift to within range of the
+    // room centroid (spots.roomCentroid).
+    hold(range = kHoldRange): Task2Ret {
+        this.holding = true;
+        const idle = (this.memory.gidle || 0) + 1;
+        this.memory.gidle = idle;
+        if (idle < kHoldIdle) return "wait";
+        const center = roomCentroid(this.pos.roomName);
+        if (this.pos.inRangeTo(center, range)) return "wait";
+        this.movePos(center, range);
         return "wait";
     }
 

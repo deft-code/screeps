@@ -3,15 +3,23 @@ import { register, Priority } from "process";
 import { getRoleClass } from "mycreep";
 import * as debug from "debug";
 
-// Spawn exactly one creep of a job and shepherd it until it is gone.
+// Spawn a job's creep a set number of times, one at a time, and shepherd
+// each until it is gone.
 //
-//   scheduleService('Once Paver W27S9')   // args[1]=job class name, args[2]=mission room
+//   scheduleService('Once Paver W27S9')     // args[1]=job class name, args[2]=mission room
+//   scheduleService('Once Toxic W25S5 3')   // optional args[3]=how many in turn (default 1)
 //
-// The egg is laid on the first run; once it has spawned (eggs and hatch
-// empty, one creep) the mission winds down, which stops laying, shepherds the
-// creep, and kills and deschedules the mission after the creep's tombstone is
-// gone. Winding down earlier would purge the unhatched egg. Service.schedule
-// is idempotent, so a scheduler may call it every tick while it sees work.
+// An egg is laid whenever nothing of the job is alive (egg, hatchling or
+// creep) and fewer than count have been laid (memory.laid). Once the last one
+// has spawned (eggs and hatch empty, one creep) the mission winds down, which
+// stops laying, shepherds the creep, and kills and deschedules the mission
+// after the creep's tombstone is gone. Winding down earlier would purge the
+// unhatched egg. Service.schedule is idempotent, so a scheduler may call it
+// every tick while it sees work.
+interface OnceMemory {
+    laid?: number
+}
+
 @register
 export class Once extends Mission {
     get jobName() {
@@ -20,6 +28,14 @@ export class Once extends Mission {
 
     get roomName() {
         return this.args[2];
+    }
+
+    get count(): number {
+        return Math.max(1, Number(this.args[3]) || 1);
+    }
+
+    get omem(): OnceMemory {
+        return this.memory as unknown as OnceMemory;
     }
 
     run(): Priority {
@@ -33,10 +49,14 @@ export class Once extends Mission {
         }
 
         const mem = this.memory;
+        const omem = this.omem;
         const alive = mem.eggs.length + mem.hatch.length + mem.creeps.length;
-        if (!alive) {
+        // Missions from before the count existed: whatever is alive was laid.
+        if (omem.laid === undefined) omem.laid = alive ? 1 : 0;
+        if (!alive && omem.laid < this.count) {
             this.layEgg(role);
-        } else if (mem.creeps.length && !mem.eggs.length && !mem.hatch.length) {
+            omem.laid++;
+        } else if (omem.laid >= this.count && mem.creeps.length && !mem.eggs.length && !mem.hatch.length) {
             this.windDown();
         }
         super.run();
@@ -44,6 +64,6 @@ export class Once extends Mission {
     }
 
     status(): string {
-        return super.status() + ` job:${this.jobName}`;
+        return super.status() + ` job:${this.jobName} laid:${this.omem.laid || 0}/${this.count}`;
     }
 }

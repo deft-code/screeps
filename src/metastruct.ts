@@ -1005,7 +1005,10 @@ export class MetaStructure {
                 _.forEach(xys!, xy => {
                     const [x, y] = coordsFromXY(xy);
                     if (stype === STRUCTURE_ROAD) {
-                        cm.set(x, y, 10);
+                        // Never cheapen a tile another meta (filled earlier)
+                        // blocks: a road planned over its extension is that
+                        // plan's error, not a way through.
+                        if (cm.get(x, y) < 0xFE) cm.set(x, y, 10);
                         return;
                     }
 
@@ -1461,6 +1464,11 @@ function calcWeight(x: number, y: number, t: RoomTerrain): number {
 // RCL2 field: makeSite walks metas by priority (asrc/bsrc 103 > cap 101) but
 // only over levels the room has reached.
 const kSrcExtensionLevel: PlanLevel = 2;
+// The source container is offered from RCL2, but findSite holds it back
+// below RCL3 until a spawn stands in the room: in a room being booted the
+// spawn is what the first energy must go into, not a container.
+const kSrcContainerLevel: PlanLevel = 2;
+const kSrcContainerFreeLevel = 3;
 
 @registerMeta
 class Meta_asrc extends MetaStructure {
@@ -1487,7 +1495,7 @@ class Meta_asrc extends MetaStructure {
         // Best spot is the first step toward storage. RED picks the second
         // best, PURPLE the third, ranked by the same weighted path cost.
         const self = Meta_asrc.pickSpot(f, man, cm, t, ret.path[0], storep);
-        addMemStruct(mem, STRUCTURE_CONTAINER, 3, self.xy);
+        addMemStruct(mem, STRUCTURE_CONTAINER, kSrcContainerLevel, self.xy);
 
         // easy travel near source, but hard were extns will be.
         for (let dx = -1; dx <= 1; dx++) {
@@ -1541,14 +1549,26 @@ class Meta_asrc extends MetaStructure {
         return meta;
     }
 
-    // Metas planned before Sept 2026 had their extensions at RCL3, which let
-    // the cap field's RCL2 extensions build first despite the lower priority.
+    // Metas planned before Sept 2026 had their extensions and container at
+    // RCL3, which let the cap field's RCL2 extensions build first despite the
+    // lower priority; both move down to their current levels.
     migrate(): boolean {
-        const ext = this.mem.structs[STRUCTURE_EXTENSION];
-        if (!ext || !ext[3]) return false;
-        ext[kSrcExtensionLevel] = [...(ext[kSrcExtensionLevel] || []), ...ext[3]];
-        delete ext[3];
-        return true;
+        let changed = false;
+        for (const [stype, lvl] of [[STRUCTURE_EXTENSION, kSrcExtensionLevel], [STRUCTURE_CONTAINER, kSrcContainerLevel]] as [BuildableStructureConstant, PlanLevel][]) {
+            const lvls = this.mem.structs[stype];
+            if (!lvls || !lvls[3]) continue;
+            lvls[lvl] = [...(lvls[lvl] || []), ...lvls[3]];
+            delete lvls[3];
+            changed = true;
+        }
+        return changed;
+    }
+
+    // The container waits for a spawn below kSrcContainerFreeLevel.
+    findSite(stype: BuildableStructureConstant, room: Room): [RoomPosition | null, Structure | ConstructionSite | null] {
+        if (stype === STRUCTURE_CONTAINER && roomLevel(room) < kSrcContainerFreeLevel &&
+            !room.findStructs(STRUCTURE_SPAWN).length) return [null, null];
+        return super.findSite(stype, room);
     }
     static pickSpot(f: FlagExtra, man: MetaManager, cm: CostMatrix, t: RoomTerrain, best: RoomPosition, storep: RoomPosition): RoomPosition {
         let rank = 0;

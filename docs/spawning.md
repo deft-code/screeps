@@ -35,7 +35,11 @@ ratio (2 = one MOVE per two other parts; 1 = one MOVE each). Parts are sorted
 by `partsOrdered`:
 `TOUGH, WORK, CARRY, premove, ATTACK, RANGED_ATTACK, MOVE, CLAIM, HEAL`; half
 the MOVEs are placed early (`premove`) so damage strips them before WORK/CARRY.
-`base` is appended (and sorted) as well.
+`base` is appended (and sorted) as well. With `movesFirst: true` every MOVE,
+`base` ones included, is `premove`, so only TOUGH stands ahead of them: a
+fighter then loses its weapons before any speed. (Dead non-CARRY parts still
+weigh in the engine's fatigue count, so MOVEs placed behind weapons are lost
+while the weapons still fire.)
 
 With `interleave: true` the sort is skipped and the MOVEs sit between the
 `per` groups instead: one MOVE after every `move` parts of `per`, the last one
@@ -63,17 +67,20 @@ How the scaling plays out, since it is easy to misread:
   energy. `max` caps `level` directly when a job wants a smaller creep.
 
 Worked example, the `guard` case (`base: [MOVE, HEAL]`, `per: [TOUGH,
-RANGED_ATTACK]`, `move: 1`, room capacity >= 550):
+RANGED_ATTACK]`, `move: 1`, `movesFirst`, room capacity >= 550):
 
 | level | body | parts | cost |
 |---|---|---|---|
-| 1 | `T RA M M H` | 5 | 510 |
-| 2 | `2T 2RA 3M H` | 8 | 820 |
-| n | `nT nRA (n+1)M H` | 4n + 2 | 300 + 260n |
-| 12 | `12T 12RA 13M H` | 50 | 3420 |
+| 1 | `T 3M RA H` | 6 | 560 |
+| 2 | `2T 5M 2RA H` | 10 | 820 |
+| n | `nT (2n+1)M nRA H` | 4n + 2 | 300 + 260n |
+| 12 | `12T 25M 12RA H` | 50 | 3420 |
 
-So a 550-capacity room (RCL 2) always gets the level-1 guard, a full RCL 4 room
-(1300) level 3, and RCL 7 and 8 rooms the 50-part cap. `wolf` (`per: [ATTACK]`,
+(`move: 1` is one MOVE per `per` part, so 2n of them plus the base MOVE.
+Checked by running `distjs/spawnold.js` under node with stubbed constants.)
+A room needs 560 energy available for the level-1 guard, although the spawn
+gate is capacity >= 550; a full RCL 4 room (1300) gets level 3, and RCL 7 and 8
+rooms the 50-part cap. `wolf` (`per: [ATTACK]`,
 `move: 1`, no base, capacity >= 700) runs 130 energy per level from level 1
 (260) to level 25 (3250, 50 parts).
 
@@ -126,7 +133,7 @@ passes `body: "srcer"`). Live keys are marked.
 | `srcer` | yes | `srcerBody`: `harvesterBody(eggMem.lvl)` (6 to 15 WORK by source regen level) plus extra CARRY at RCL7/8, trimmed to the room's `energyCapacityAvailable` (floor `[W,W,M]`); the daemon waits for the energy |
 | `startup`, `reboot` | via `Startup`/`Reboot` classes instead | tables shown above; `reboot` case here is `[W,C,M]` |
 | `wolf` | `Farm`/`Remote` (`Wolf`) | `energyDef({move:1, per:[ATTACK]})` sized from `energyAvailable`, spawn with capacity >= 700 |
-| `guard` | `Farm`/`Remote` (`Guard`) | `energyDef({move:1, base:[M,H], per:[TOUGH,RA]})` sized from `energyAvailable`, spawn with capacity >= 550; worked example above |
+| `guard` | `Farm`/`Remote` (`Guard`) | `energyDef({move:1, base:[M,H], per:[TOUGH,RA], movesFirst})` sized from `energyAvailable`, spawn with capacity >= 550; worked example above |
 | `mini` | `Farm`/`Remote` (`Mini`) | fixed `[RA, M, M, H]` (400), first spawn with that much available; does not scale |
 | `bootstrap`, `bulldozer`, `cart`, `chemist`, `claimer`, `cap`, `cleaner`, `collector`, `coresrc`, `declaimer`, `defender`, `depositfarmer`, `farmer`, `immortan`, `mason`, `micro`, `minecart`, `miner`, `mineral`, `rambo`, `reserver`, `scout`, `shunt`, `tower` | no | see `src/spawnold.js:271-586` |
 

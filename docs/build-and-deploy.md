@@ -32,6 +32,7 @@ tasks are implemented in `console-tools.js`.
 | `npx gulp consoleTail` | Stream live console output to stdout and append it to `logs/console-<world>.log` until Ctrl+C (or `SCREEPS_CONSOLE_SECONDS`). Rotates to `.1.log` ... `.<keep>.log` past `SCREEPS_LOG_MAX_BYTES` (default 5 MiB), keeping `SCREEPS_LOG_KEEP` (default 5) old files. Screeps has no console history API, so this is the only way to capture output. |
 | `npx gulp consoleLog` | Legacy name for `consoleTail` with a 60 s default duration. |
 | `npx gulp decodeStack --stack "process:60:50 job.hub:12:3"` | Map Screeps stack tokens (`module:line:col`) back to `.ts` locations using `sourcemaps/`. The console tasks do this on every line automatically, including the `module:line#func` prefix from `debug.ts`; `SCREEPS_CONSOLE_RAW=1` turns it (and HTML stripping) off. |
+| `npx gulp room --room W25S5` | Print every object in a room, vision or not, from the `game/room-objects` endpoint the web client draws rooms from: creeps grouped by owner with body counts, position and cargo, then owned or notable structures (reactor, invader core, controller, sites, tombstones). `--json` dumps the raw response. Same `SCREEPS_WORLD`/`SCREEPS_SHARD` selection as `console`. |
 
 All console tasks read `SCREEPS_WORLD` (`season`/`ptr`/`mmo`, default `season`)
 and `SCREEPS_SHARD` (default `shardSeason`/`shard0`/`shard2` per world) and

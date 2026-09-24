@@ -70,6 +70,7 @@ import "service.flag";
 import "job.hauler";
 import "job.scout";
 import "job.paver";
+import "job.toxic";
 import "job.harvester";
 import "job.trucker";
 import "job.srcer";

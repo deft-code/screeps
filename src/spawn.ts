@@ -54,6 +54,10 @@ interface BodyDef {
   // MOVEs and the parts they carry in step, so the creep stays at speed as
   // it loses weight. Non-MOVE `base` parts lead, MOVE `base` parts trail.
   interleave?: boolean
+  // Sort every MOVE (base ones too) ahead of the weapons, right after TOUGH,
+  // instead of only half: a fighter then keeps its speed until its weapons
+  // are gone, since dead weapon parts still weigh (engine movement.js).
+  movesFirst?: boolean
 }
 
 interface LevelBodyDef extends BodyDef {
@@ -110,7 +114,7 @@ function defBody(def: LevelBodyDef): BodyPartConstant[] {
   }
   const move = def.move && Math.ceil(parts.length / def.move);
   for (let i = 0; i < move; i++) {
-    if (i < move / 2) {
+    if (def.movesFirst || i < move / 2) {
       parts.push('premove');
     } else {
       parts.push(MOVE);
@@ -118,7 +122,7 @@ function defBody(def: LevelBodyDef): BodyPartConstant[] {
   }
 
   if (def.base) {
-    parts = parts.concat(def.base);
+    parts = parts.concat(def.movesFirst ? def.base.map(part => part === MOVE ? 'premove' : part) : def.base);
   }
 
   parts.sort(orderParts)

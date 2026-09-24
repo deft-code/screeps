@@ -40,7 +40,7 @@ The flags described here are the only flags that exist in the game today.
 | `cap` | 101 | 5x5 extension cluster with a centre container (RCL2-4). Link mode `sink`. |
 | `lab` | 0 | 10 labs (RCL6-8), 2 spawns, observer, nuker. Its spawn energies are filled last. |
 | `extna` / `extnb` / `extnc` | 0 | Optional (level 9) extension fields, 3x3 / 5x5 / 7x7 checkerboards with roads at RCL5. Tiles are stored nearest the `hub` spot first (`Meta_extn.orderByHub`; storage site, then the anchor, without a hub), which is the build order; `migrate()` re-sorts fields planned earlier. |
-| `asrc` / `bsrc` | 103 | Source cluster: container on the path step nearest storage (the parent flag stands in for storage while no storage meta is saved), road, link(5) at the adjacent tile nearest storage, extensions(2) on the other free neighbours (RCL2 so they outrank `cap`'s RCL2 field by priority; `migrate()` moves older RCL3 entries). `myspot` = container tile; `targetid()` = the source. Link mode `src`. The child flag's secondary colour overrides the container tile: RED takes the second-best neighbour, PURPLE the third-best (ranked by weighted path cost to storage, `Meta_asrc.pickSpot`); any other colour keeps the best. |
+| `asrc` / `bsrc` | 103 | Source cluster: container(2, but held back below RCL3 until a spawn stands in the room; `migrate()` moves older RCL3 entries) on the path step nearest storage (the parent flag stands in for storage while no storage meta is saved), road, link(5) at the adjacent tile nearest storage, extensions(2) on the other free neighbours (RCL2 so they outrank `cap`'s RCL2 field by priority; `migrate()` moves older RCL3 entries). `myspot` = container tile; `targetid()` = the source. Link mode `src`. The child flag's secondary colour overrides the container tile: RED takes the second-best neighbour, PURPLE the third-best (ranked by weighted path cost to storage, `Meta_asrc.pickSpot`); any other colour keeps the best. |
 | `min` | 0 | Flag beside an ordinary (non-thorium) mineral: extractor(6) on the mineral, container(6) on the flag tile, point `mineral` there. Needs vision to plan; refuses a flag sitting on the mineral. |
 | `reactor` | 10 | Season 11: extractor(6) over the thorium mineral on or beside the flag, nothing else (warboys carry thorium straight to the sector core). Outranks `min` because `CONTROLLER_STRUCTURES.extractor` is 1 at every RCL and `makeSite` spends it in priority order. |
 | `ctrl` | 0 | Path from flag to storage (parent flag without a storage meta). Flag on the controller: point `ctrl` at step 2, link(6) at step 3. Flag anywhere else: point `ctrl` on the flag tile itself, link(6) at step 1 (warns if the tile is beyond upgrade range 3). Container(2) on the `ctrl` point, retired at the link's level (6; the two RCL5 links belong to asrc/bsrc) and left to decay (`Meta_ctrl.addContainer`; `migrate()` adds it to metas planned before Sept 2026). Link mode `sink`. |
@@ -66,8 +66,8 @@ global reset; a purple flag naming an already-live scheduled service is left alo
 
 Every `runGenesis` pass first stamps the flag's name into the room's meta
 memory (`Memory.rooms[x].meta.name`). `makeSite` names spawn sites from it:
-`<name>`, then `<name>er`, then `<name>est` (a genesis `Noon` gives `Noon`,
-`Nooner`, `Noonest`); a name already used by any of our spawns or spawn sites
+`<name>`, then `<name>er`, then `<name>est` (a genesis `Port` gives `Port`,
+`Porter`, `Portest`); a name already used by any of our spawns or spawn sites
 is skipped, and with all three taken the game picks its own name
 (`MetaManager.spawnNames` / `createSite`). Rooms whose genesis flag has not
 run since this was added have no name and get game-picked spawn names.
