@@ -2,6 +2,15 @@ import { CreepHarvest } from "creep.harvest"
 import { injecter } from "roomobj"
 import { TaskRet } from "Tasker"
 
+// Range to build a site from: 3 normally, 2 when the site is within 3 tiles
+// of the room edge, 1 when within 2.
+export function buildRange(pos: RoomPosition): number {
+  const edge = Math.min(pos.x, pos.y, 49 - pos.x, 49 - pos.y);
+  if (edge <= 2) return 1;
+  if (edge <= 3) return 2;
+  return 3;
+}
+
 @injecter(Creep)
 export class CreepBuild extends CreepHarvest {
   idleBuild() {
@@ -66,13 +75,16 @@ export class CreepBuild extends CreepHarvest {
   goBuild(site: ConstructionSite | null, move = true): TaskRet {
     if(!site) return false;
     const err = this.build(site!);
+    let ret : TaskRet = false;
     if (err === OK) {
       this.intents.melee = this.intents.range = site;
-      return "building";
+      ret = "building";
     }
-    if (move && err === ERR_NOT_IN_RANGE) {
-      return this.moveRange(site);
+    const range = buildRange(site.pos);
+    if (move && (err === ERR_NOT_IN_RANGE || !this.pos.inRangeTo(site, range))) {
+      return this.moveRange(site, {range});
     }
-    return false;
+
+    return ret;
   }
 }

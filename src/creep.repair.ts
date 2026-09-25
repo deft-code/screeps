@@ -1,4 +1,4 @@
-import { CreepBuild } from "creep.build";
+import { CreepBuild, buildRange } from "creep.build";
 import { injecter } from "roomobj";
 import { TaskRet } from "Tasker";
 
@@ -114,13 +114,17 @@ export class CreepRepair extends CreepBuild {
     goRepair(struct: Structure, move = true): TaskRet {
         const err = this.repair(struct);
         this.dlog(`gorepair ${err}`);
+        let ret: TaskRet = false;
         if (err === OK) {
             this.intents.melee = this.intents.range = struct;
-            return 'repaired';
+            ret = 'repaired';
         }
-        if (move && err === ERR_NOT_IN_RANGE) {
-            return this.moveRange(struct);
+        // Same edge rule as goBuild: repair from closer in near exits so the
+        // creep never settles on an exit tile.
+        const range = buildRange(struct.pos);
+        if (move && (err === ERR_NOT_IN_RANGE || !this.pos.inRangeTo(struct, range))) {
+            return this.moveRange(struct, { range });
         }
-        return false;
+        return ret;
     }
 }
