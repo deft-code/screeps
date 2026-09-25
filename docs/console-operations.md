@@ -93,11 +93,17 @@ Memory.rooms.W5N8.meta                         // persisted plans
 Game.flags.genesis.setColor(COLOR_ORANGE, COLOR_YELLOW)   // plan children
 Game.flags.genesis.setColor(COLOR_ORANGE, COLOR_GREEN)    // commit
 Game.flags.genesis.setColor(COLOR_ORANGE, COLOR_GREY)     // recreate child flags from memory
+Game.rooms.W5N8.meta.trafficStatus()          // roads by level, entries, stale?, failed entries
+Game.rooms.W5N8.meta.getTraffic()             // every declared traffic entry {src, dest, range, rcl, swamp}
+Game.rooms.W5N8.meta.replanTraffic()          // replan the roads now (bucket and vision permitting)
+Memory.rooms.W5N8.meta.traffic                // the road plan (structs.road by level, sig, at, fail)
 ```
 
 Flag protocol details in [metastruct.md](metastruct.md). Draw the current plan
 without changing anything: set YELLOW and then back to CYAN; planned-but-
-uncommitted metas sit in `Memory.flags.genesis.newer`.
+uncommitted metas sit in `Memory.flags.genesis.newer`. A `traffic_genesis`
+child flag keeps the road plan drawn every tick. The roads replan by
+themselves a tick or so after any saved change (GREEN, BROWN, a mission plan).
 
 ## Links, labs, spots
 

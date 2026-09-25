@@ -11,6 +11,7 @@ The flags described here are the only flags that exist in the game today.
   loads `Memory.rooms[name].meta.metas` into `MetaStructure` instances sorted
   by priority desc then name, and exposes `run()`, `runUnowned()`, `getSpot`,
   `getSite(s)`, `getMatrix`, `path`, `spawnEnergy`, `maxHits`, `getLinkMode`.
+  It also owns the room's **traffic** (roads; see Traffic below).
   Never construct a second manager for a room: each `save()` overwrites the
   room's meta list with that instance's view. `hasMetas(roomName)` answers
   from raw memory without allocating anything.
@@ -21,7 +22,8 @@ The flags described here are the only flags that exist in the game today.
     points: { hub: xy, shovel: xy },            // named standing spots
     structs: { extension: { 2: [xy...], 3: [xy...], 9: [xy...] }, ... }, // by RCL
     onramps?: xy[],                             // Meta_wall only
-    retire?: { [xy]: rcl } }                    // tile retired from this RCL on (see Retiring structures)
+    retire?: { [xy]: rcl },                     // tile retired from this RCL on (see Retiring structures)
+    traffic?: TrafficMem[] }                    // stored traffic entries (Meta_rroad); see Traffic
   ```
 
   Level `9` (`kAllLvls`) means *optional*: offered at every RCL but only by
@@ -46,9 +48,104 @@ The flags described here are the only flags that exist in the game today.
 | `ctrl` | 0 | Path from flag to storage (parent flag without a storage meta). Flag on the controller: point `ctrl` at step 2, link(6) at step 3. Flag anywhere else: point `ctrl` on the flag tile itself, link(6) at step 1 (warns if the tile is beyond upgrade range 3). Container(2) on the `ctrl` point, retired at the link's level (6; the two RCL5 links belong to asrc/bsrc) and left to decay (`Meta_ctrl.addContainer`; `migrate()` adds it to metas planned before Sept 2026). Link mode `sink`. |
 | `tripod` | 0 | Three towers around a point (`parkedLayout`); deployed layout with link and roads exists but is not used. |
 | `shield` | 0 | Rampart shell sealing a gap: the flag's row out to terrain wall each way is the gap. Every gap tile is a range-2 goal in one PathFinder search from the parent (genesis) flag, restricted to the room, on a terrain-only matrix; a path ends on entering that band so it never crosses the gap. The tile reached gets a rampart (level 3) and is blocked, repeated until no complete path remains (at most 80 ramparts, CPU-gated). Needs the parent flag in the room. Ramparts repair at the RCL table. |
-| `traffic` | 0 | Roads: ring around storage/terminal/spawns, then repeated `PathFinder` runs from storage and terminal to every other meta's `dests()` until CPU says stop. Rings whatever storage/terminal/spawns are saved at plan time and needs at least one saved `dests()`; without a storage meta it runs from the parent flag. Only saved metas count. `mem.sig` (`Meta_traffic.signature`) records those inputs (storage/terminal/spawn sites plus every `dests()`), and `check()` fails when it no longer matches, so saving, moving or deleting any other meta makes the genesis pass re-plan traffic into `newer` by itself: a GREEN that saves other metas stays GREEN one more round and saves the new roads too; after a BROWN delete the new plan is drawn and waits for a GREEN. No meta is required, so a room capped below RCL7 can leave out `lab`. Sites already placed for roads the new plan dropped are not removed. `migrate()` stamps the current signature on metas saved before it existed. |
 | `wall` | 0 | Rampart/wall line through the flag, east and west along its row, or north and south along its column when the flag's primary colour is RED; each way runs to terrain wall or the room edge. The flag tile, tiles beside terrain wall and every other tile are ramparts, the rest constructed walls. A parallel road both ways through the first step of the flag-to-storage path more than 2 tiles out, and on-ramps (road + rampart, `mem.onramps`, repaired at `rcl-3`) from each rampart to it. Needs the saved storage site; with the storage within 2 tiles of the flag only the line is planned (no road, no on-ramps). |
 | `nuke` | 200 | Auto-created by `checkNukes(room)` (never called): ramparts over blast tiles with hits scaled by expected damage. |
+
+`traffic` is no longer a meta role (Sept 2026): the manager plans the roads
+(next section). A `traffic` meta saved by older code is moved into the manager
+when it loads.
+
+## Traffic (`MetaManager` + `src/metatraffic.ts`)
+
+Design and migration notes: [traffic-design.md](traffic-design.md).
+
+A meta declares the roads it wants as **traffic entries** by overriding
+`traffic(): TrafficMem[]` (default: `mem.traffic`, entries stored at plan
+time, used by the mission metas):
+
+```
+{ src: xy | kOrigin, dest: xy, range?: n (default 0), rcl: level, swamp?: level (default rcl), swampCost?: n }
+```
+
+Both tiles are in the meta's room. Plain tiles of the road are built from plan
+level `rcl`, swamp tiles from `swamp`; `kNoRoad` (10, above every level) means
+never, so `{rcl: kNoRoad, swamp: 0}` is a road built on swamp only. Where
+entries share a tile the lowest level wins. `src: kOrigin` (-1) starts at the
+room's traffic origin, resolved when the traffic is planned. `swampCost` is what
+an unroaded swamp tile costs that entry's search (default 12; Startup uses
+`kSwampAverse`, 55, five times plain, as its own search does).
+
+| meta | entry (`rcl = swamp = 3`, `kTrafficLevel`) |
+|---|---|
+| hub | origin -> terminal, range 1 |
+| cap / lab | origin -> anchor, range 2 / 1 |
+| extna / extnb / extnc | origin -> anchor, range 1 / 2 / 3 |
+| asrc / bsrc / ctrl | origin -> the meta's spot (container / ctrl spot), range 1 |
+| min | origin -> anchor (container), range 1 |
+| wall | origin -> the flag's rampart, range 0 |
+| rroad (missions) | stored entries, levels 0 (see Mission-planned metas) |
+
+All base entries start at `kOrigin`. The **origin** (`trafficOrigin()`) is the
+planned storage site, else the genesis flag (`memory.name`) while it is in the
+room: the rule `storageOrParent` applies at plan time, applied at traffic time,
+so a moved storage moves every road (a mission leg's home-room entry too).
+Entries whose origin is missing are left out; with only the flag, its tile is
+kept free of roads for the storage.
+
+The **plan** is `Memory.rooms[x].meta.traffic`, a `MetaMem` named `traffic`
+holding only roads by level plus `sig` (input hash), `at` (tick planned) and
+`fail`. It is not in `meta.metas`: at runtime it is a `TrafficPlan` held by the
+manager (`man.traffic`), and `makeSite`, `purge`, `maxHitsInner` and
+`getMatrix` walk `man.planned()` (metas plus the plan, in `metaOrder`; the plan
+sorts at priority 0 under the name `traffic`, where the old meta sorted).
+`getMatrix()` includes the plan's roads; the planner itself uses
+`getMatrix(['traffic'])`.
+
+**Planning** (`trafficMatrix` + `planTraffic`):
+
+1. The matrix: the metas' own (standing spots `0xFE`, structures `0xFF`,
+   roads 10), then with vision every structure a road cannot share a tile with
+   (containers too) and every source, mineral and deposit `0xFF`, and every
+   site but our own road and rampart sites `0xFF`. Roads go on a ladder below
+   plain: a built road some plan holds (another meta's, or the traffic plan
+   being replaced) 7, a built road no plan holds 8, a planned road not yet
+   built 10; plain 11, swamp 12. Rooms we do not own get `0xF0` beside every
+   source and the controller. Exit tiles cost `0xFE` (only an entry's own end
+   uses one). Terrain walls never get a walkable cost, except built tunnels.
+2. Rings: level 3 roads on the free neighbours of every planned storage,
+   terminal and spawn.
+3. Entries grouped by `(src, rcl, swamp, swampCost)` in order (metas by
+   priority then name). Per group, as the old `Meta_traffic` did: multi-goal
+   searches from `src` to every open entry's dest (single room, heuristic
+   weight 7), closing the entries the path ends in range of; each path is laid
+   at the group's levels and stamped 7, so later paths coalesce onto it. The
+   `src` tile is laid with the first path when a road can stand there (a
+   storage or spawn src is blocked, a border src is an exit). A search that
+   reaches no goal closes the nearest open entry as failed (`fail`); its partial
+   path is laid only if it ends within range + 1 of the dest.
+4. Lay order is build order: in our rooms each path from its src outward, in
+   rooms we do not own from its dest back (a remote's first sites sit by the
+   containers, where the harvesters build them).
+5. Out of CPU (`canRun`, bucket 8000) the whole plan is discarded and retried
+   50 ticks later; a plan starts only with the bucket at 9000.
+
+**When** (`updateTraffic()`, first thing in `run()` and `runUnowned()`):
+`setMeta`, `deleteMeta` and `save()` mark the traffic dirty; the next upkeep
+pass with vision compares `trafficSig` (hash of the resolved entries and of
+every meta's name, priority, anchor, colour, structs and points) with the
+plan's and replans if they differ, so any saved change (a field moved or
+rotated, a meta added or deleted, the storage moved) replans. One room per tick,
+not in a manager's first 10-60 ticks after a global reset, and that pass places
+no site. A room whose metas stop declaring traffic has its plan dropped a tick
+later unless traffic is back by then (Startup and Remote remove and re-save
+their road metas in one tick). Committing or dropping a plan removes our road
+sites on the tiles it no longer holds (unless another meta plans a road there),
+through `Game.constructionSites`, so without vision too; dropped built roads
+decay, as retired ones do. BLUE clears the plan's stored signature. Bump
+`kTrafficVersion` to replan every room after changing the planner.
+
+Console: `Game.rooms.X.meta.trafficStatus()`, `.replanTraffic()` (now, bucket
+and vision permitting), `.getTraffic()`, `Memory.rooms.X.meta.traffic`.
 
 ## Flag protocol (`runGenesis`, driven by `FlagService`)
 
@@ -82,8 +179,15 @@ is a command; after acting it usually resets itself to `COLOR_CYAN` (idle):
 | BROWN | Delete metas whose child flag is also BROWN, then save. |
 | YELLOW | Plan (`Meta_<role>.plan`) for children that have no meta yet; draw the result. |
 | GREEN | Save all newly planned/changed metas into room memory (`setMeta` + `save`). |
-| BLUE | Force re-planning of every child even if its meta still matches. |
+| BLUE | Force re-planning of every child even if its meta still matches, and of the traffic. |
 | CYAN | Idle. |
+
+Traffic is not a child: GREEN and BROWN save, and the manager replans the
+roads on its next upkeep pass. A `traffic_<genesis>` child flag is only a
+display toggle (the plan is drawn every tick while it exists, and on every
+non-CYAN pass anyway); BROWN on a BROWN traffic child just removes the flag.
+Every pass also checks the traffic origin, so moving the genesis flag while
+no storage is planned replans the roads.
 
 **Child flags** are named `<self>_<parentName>` (`FlagExtra.childName`), e.g.
 `asrc_genesis`, `hub_genesis`, `extna1_genesis`. `self` is the part before `_`
@@ -96,13 +200,14 @@ Planned-but-unsaved metas are parked in the genesis flag's `memory.newer[self]`.
 Manual workflow: place `genesis` (orange/cyan) in the room; add child flags
 (`hub_genesis`, `cap_genesis`, `asrc_genesis` on source A, `bsrc_genesis` on
 source B, `ctrl_genesis` near the controller, `lab_genesis`, `extn*_genesis`,
-`traffic_genesis`, `wall_genesis`, `min_genesis` on the mineral); set genesis
-secondary to YELLOW to plan and inspect the visuals; set GREEN to commit.
-`asrc`/`bsrc`, `ctrl` and `traffic` path to the saved storage site; with no
-storage meta saved they path to their parent (genesis) flag instead
-(`storageOrParent`), so put the genesis flag where the storage will be or
-re-plan them with BLUE once the hub is saved (an unsaved hub in `newer` does
-not count). `wall` still needs the saved storage site.
+`wall_genesis`, `min_genesis` on the mineral, and `traffic_genesis` anywhere
+to keep the roads drawn); set genesis secondary to YELLOW to plan and inspect
+the visuals; set GREEN to commit, and the roads follow a tick or so later.
+`asrc`/`bsrc` and `ctrl` path to the saved storage site; with no storage meta
+saved they path to their parent (genesis) flag instead (`storageOrParent`),
+so put the genesis flag where the storage will be or re-plan them with BLUE
+once the hub is saved (an unsaved hub in `newer` does not count). The traffic
+follows the saved storage by itself. `wall` still needs the saved storage site.
 
 ## Mission-planned metas (`src/metaremote.ts`)
 
@@ -112,7 +217,7 @@ without flags through `RemotePlanner(home, remote)`:
 | role | what it holds |
 |---|---|
 | `rsrc` (`rsrc_<source xy>`, priority 1) | container (level 0) on the container tile, point `rsrc` on it, `targetid()` = the source. The tile is chosen the `Meta_asrc` way: the source's neighbours are weighted by openness and the first step of a path to the home storage wins. Sources are planned most-cramped first and a tile touching two sources is never a candidate. |
-| `rroad` (`rroad_<remote>_<leg>`, priority 0) | the road tiles of one leg inside one room, level 0. A leg is one multi-room `PathFinder` search to the home storage at range 1. Source legs are paved on every tile through every room they cross (one `rroad` per room); the controller leg is paved only on swamp and only inside the remote room, so it just joins the source corridors. |
+| `rroad` (`rroad_<remote>_<leg>`, priority 0) | the traffic entries of one leg inside one room (`mem.traffic`, no structs); each room's manager plans the roads with its other traffic. A leg is one multi-room `PathFinder` search to the home storage at range 1, cut into its stay in each room (`pathTraffic`): in the home room its storage (`kOrigin`, so the leg follows a moved storage) -> the border tile it enters by, in rooms between border -> border, in the remote room the border it leaves by -> beside the container (range 1), all level 0. The controller leg keeps only its remote-room entry, border -> controller (range 1) with `rcl kNoRoad, swamp 0`: roads on swamp only. Legs planned before Sept 2026 held their road tiles; `migrate()` turns them into one entry between the leg's two ends and adopts the tiles into the room's plan until it replans. |
 
 Both classes have `static plan = noPlan`, so genesis flags cannot re-plan them
 (a BROWN genesis pass can still delete them). The planner paths with the
@@ -121,9 +226,10 @@ metastruct costs (road 7, plain 11, swamp 12), restricts rooms to the
 is not a road or rampart `0xFF` in every room (so the upkeep never finds a
 "blocker" to destroy), stamps a ring of `0xF0` around the remote's sources and
 controller, blocks each chosen container tile for later legs, and stamps
-earlier legs (roads 7, plains 10) so legs share corridors. Rooms without vision
-use Rewalker's remembered matrix. Exit tiles never get roads. All structures
-are level 0 because an unowned room's `roomLevel` is 0.
+earlier legs (roads 7, plains 10) so legs share corridors and room crossings.
+Rooms without vision use Rewalker's remembered matrix. Everything is level 0
+because an unowned room's `roomLevel` is 0. The `Startup` mission makes
+`rroad_<room>_startup` legs the same way (see missions-and-jobs.md).
 
 `MetaStructure.draw(v)` works for rooms without vision (it then draws every
 planned structure instead of hiding built ones).
@@ -132,7 +238,8 @@ planned structure instead of hiding built ones).
 
 `runUnowned()` keeps the two-site gate and only calls `makeSite` for
 containers and roads. In a room we do not own (`roomLevel` 0) `makeSite`
-never purges on `ERR_RCL_NOT_ENOUGH`.
+never purges on `ERR_RCL_NOT_ENOUGH`. Both start with `updateTraffic()`
+(see Traffic); a pass that replans the traffic places no site.
 
 Every `kRetirePace` (10) ticks, first clears one retired tile (below). Skips when more than 2 of the room's construction sites exist. Then in order:
 tower or spawn if the room has none; extensions while
@@ -174,11 +281,13 @@ repair and no removal.
   `mineral`, `tripod`.
 - `getLinkMode(xy)` -> initial `Mode` for links (`struct.link.ts`).
 - `getMeta('asrc').targetid()` -> the source a srcer mines.
-- `getDests()` -> goals used by `Meta_traffic`.
+- `getTraffic()` -> every declared traffic entry; `trafficStatus()`,
+  `replanTraffic()`, `drawTraffic(v)` for the plan.
 
 ## Path costs used while planning
 
-`kPathRoad = 7`, `kPathPlain = 11`, `kPathSwamp = 12` with `heuristicWeight`
-7; existing metas fill the matrix with `0xFF` (roads `10`, ramparts ignored) so
-new plans avoid them. `calcWeight` (asrc) prefers tiles with fewer wall
-neighbours.
+`kPathRoad = 7`, `kPathPlain = 11`, `kPathSwamp = 12` (defined in
+`metatraffic.ts`) with `heuristicWeight` 7; existing metas
+fill the matrix with `0xFF` (roads `10`, ramparts ignored) so new plans avoid
+them. `calcWeight` (asrc) prefers tiles with fewer wall neighbours. The
+traffic planner's own matrix is described under Traffic.

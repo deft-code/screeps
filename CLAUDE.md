@@ -31,8 +31,8 @@ return                                 # lines 356-439 are dead
 | `Reactor <home>` missions | not scheduled as of 22 Sept 2026 (replaced by `ReactorDepot W25S7`); `scheduleService('Reactor W26S8')` brings one back | Season 11 scoring: scout, warboys (thorium runners), immortan (reactor claimer), guard at the sector core, plus one toxic (bait-and-trap mini) per lifetime while an armed enemy without HEAL is there |
 | `ReactorDepot <home> [cap]` mission | scheduled (`ReactorDepot W25S7`, since 22 Sept 2026), same way | `Reactor` with warrunners in place of warboys: they load thorium from the home terminal (laid only while it holds over 1000) and carry it to the reactor; scout, guard, immortan and the core pause are inherited |
 | `Thormine <room> [dest]` mission | scheduled (`Thormine W22S7`, since 22 Sept 2026; its thorium ran out and the **teardown of W22S7 began 23 Sept 2026**), same way | one thoreater per walkable tile beside the room's thorium (only with thorium left, an extractor on it and a terminal); they mine into the terminal, which ships to `dest` (default W25S7) every cooldown. Once the thorium is exhausted and the terminal empty it **tears the room down**: winds down every mission homed there, drains all energy into the terminal with `cleanup` creeps, ships it, destroys every structure and unclaims (`abortTeardown()` works until destruction starts) |
-| `Startup <room> [home]` mission | scheduled (`Startup W27S5`, since 22 Sept 2026; `Startup W22S7` wound down at RCL4), same way | claiming a third room: scout, claimer, pioneers, guard until it has a tower. With GCL full it plans (and draws, yellow dashed) a Rewalker-costed road from the controller to the home spawn instead of laying a claimer, saves it as `rroad_<room>_startup` metas per room, and sends pavers to unowned rooms with sites; a foreign reservation draws reservers while GCL is full; an invader core in the room draws a wolf every 1500 ticks |
-| `ClaimedStrat` per owned room | `room.strat` constructor `exec`s itself | towers, safe mode, labs, links, metastruct construction, factory |
+| `Startup <room> [home]` mission | scheduled (`Startup W27S5`, since 22 Sept 2026; `Startup W22S7` wound down at RCL4), same way | claiming a third room: scout, claimer, pioneers, guard until it has a tower. With GCL full it plans (and draws, yellow dashed) a Rewalker-costed road from the controller to the home spawn instead of laying a claimer, saves its ends in each room as `rroad_<room>_startup` traffic entries (in the room itself: to the sources and the controller) that each room's MetaManager turns into roads, and sends pavers to unowned rooms with sites; a foreign reservation draws reservers while GCL is full; an invader core in the room draws a wolf every 1500 ticks |
+| `ClaimedStrat` per owned room | `room.strat` constructor `exec`s itself | towers, safe mode, labs, links, metastruct construction (traffic replans included), factory |
 | `FlagService` daemon | `@daemon` at import | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
 | `SpawnDaemon` | `@daemon` at import | turns eggs into `spawnCreep` |
 | `SpawnTelemetry` | `@daemon` at import (`spawnload.ts`) | per-spawn busy ticks and creeps started, 500-tick windows in `Memory.spawns`; `spawnLoads()` prints it |
@@ -62,6 +62,7 @@ main.js
  │   role.*.ts (@injecter) and role.*.js (lib.merge via main.js `mods`) add roleXxx/afterXxx
  ├─ strat.ts        NullStrat/ClaimedStrat per room (also processes)
  ├─ metastruct.ts   base templates + flag-driven planning + construction upkeep + maxHits + spot lookup
+ │   └─ metatraffic.ts  road planner: metas declare traffic() src/dest entries, MetaManager plans the room's roads
  ├─ struct.link/tower/lab/factory/terminal/container/controller  structure logic and prototype helpers
  ├─ Rewalker.ts     movement engine (matrix.js is dead)
  ├─ cache.ts / debug.ts / roomobj.ts / lib.js / shed.ts   infrastructure
@@ -312,7 +313,8 @@ legacy systems did: [docs/legacy-systems.md](docs/legacy-systems.md).
 | [docs/missions-and-jobs.md](docs/missions-and-jobs.md) | adding/changing missions or jobs, egg lifecycle |
 | [docs/spawning.md](docs/spawning.md) | bodies, spawn selection, priorities, naming |
 | [docs/creep-roles.md](docs/creep-roles.md) | role dispatch, mixin chain, task conventions, role tables |
-| [docs/metastruct.md](docs/metastruct.md) | base layouts, genesis flag protocol, construction order, maxHits |
+| [docs/metastruct.md](docs/metastruct.md) | base layouts, genesis flag protocol, construction order, maxHits, traffic (roads) |
+| [docs/traffic-design.md](docs/traffic-design.md) | why and how roads became a MetaManager service, and the migration from `Meta_traffic`/tile-holding `rroad` legs |
 | [docs/room-and-structures.md](docs/room-and-structures.md) | strat, towers, links, labs, factory, terminal, intel |
 | [docs/movement.md](docs/movement.md) | Rewalker, route costs, xy packing |
 | [docs/conventions-and-styles.md](docs/conventions-and-styles.md) | the three eras, decorators, naming, migration recipe |

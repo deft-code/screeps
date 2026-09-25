@@ -5,6 +5,11 @@ import { canRun } from "shed";
 import { isSType, isOwnedStruct } from "guards";
 import { Mode } from "struct.link";
 import { max } from "lodash";
+import * as debug from "debug";
+import {
+    TrafficMem, TrafficResult, kPathRoad, kPathPlain, kPathSwamp, kPlannedRoad, kTrafficLevel, kTrafficBucket,
+    kTrafficHeadroom, kOrigin, trafficMatrix, planTraffic, validTraffic, describeTraffic, hashString,
+} from "metatraffic";
 
 declare global {
     interface Flag {
@@ -27,9 +32,33 @@ const kRetirePace = 10;
 // Structures that decay when nobody repairs them; retire() leaves them to it.
 const kDecays: StructureConstant[] = [STRUCTURE_ROAD, STRUCTURE_CONTAINER, STRUCTURE_RAMPART];
 
-export const kPathRoad = 7;
-export const kPathPlain = 11;
-export const kPathSwamp = 12;
+// Name of MetaManager's traffic plan (memory.traffic), and of the old
+// flag-planned meta it replaces.
+const kTrafficName = "traffic";
+// Bump to replan every room's traffic after the planner changes.
+const kTrafficVersion = 1;
+// Ticks a room waits after a traffic plan that ran out of CPU.
+const kTrafficRetry = 50;
+// Structures planTraffic rings with roads.
+const kRingTypes: BuildableStructureConstant[] = [STRUCTURE_STORAGE, STRUCTURE_TERMINAL, STRUCTURE_SPAWN];
+// Game.time of the last traffic plan in any room: one room plans per tick.
+let trafficTick = -1;
+// Rooms whose metas stopped declaring traffic in a save(), and when. Their
+// plans are dropped from the next tick on unless traffic came back: Startup
+// and Remote replace their road metas by removing and re-saving them within
+// one tick, and the plan (its sites, and the tiles a replan prefers) should
+// survive that. In memory only: the constructor's save() queues a room again
+// after a global reset.
+const trafficDrops = new Map<string, number>();
+
+function flushTrafficDrops() {
+    for (const [name, at] of trafficDrops) {
+        if (at >= Game.time) continue;
+        trafficDrops.delete(name);
+        const man = managers.get(name);
+        if (man && man.traffic && !man.declaresTraffic()) man.dropTraffic();
+    }
+}
 
 // One MetaManager per room for the life of the global, whether or not the
 // room is visible. Missions plan metas into rooms they cannot see, and two
@@ -138,13 +167,19 @@ merge(Flag, MetaPlan)
 // Brown, delete brown metas
 // Yellow, acquire all child flags
 // Green, save all changed metas to room manager
-// Blue, force replanning for all metas.
+// Blue, force replanning for all metas (and the traffic).
+// Traffic is not a child: the manager replans it after any saved change
+// (MetaManager.updateTraffic). A traffic_<genesis> child flag only asks for
+// the plan to be drawn every tick; every non-cyan pass draws it too.
 export function runGenesis(f: FlagExtra) {
     //man.save();
     const newer = f.memory.newer = f.memory.newer || {};
     const room = f.room;
     if (!room) return;
     room.meta.memory.name = f.name;
+    room.meta.checkTrafficOrigin();
+    // An old traffic meta parked here before traffic became the manager's.
+    delete newer[kTrafficName];
     if (f.secondaryColor === COLOR_GREY) {
         let created = false;
         for (const meta of room.meta.metas) {
@@ -159,6 +194,7 @@ export function runGenesis(f: FlagExtra) {
         return;
     }
     let changed = false;
+    let showTraffic = f.secondaryColor !== COLOR_CYAN;
     let i = -1;
     for (const child of room.find(FIND_FLAGS) as FlagExtra[]) {
         i++;
@@ -166,6 +202,15 @@ export function runGenesis(f: FlagExtra) {
         if (f.secondaryColor === COLOR_WHITE) {
             child.remove();
             changed = true;
+            continue;
+        }
+        if (child.role === kTrafficName) {
+            if (f.secondaryColor === COLOR_BROWN && child.secondaryColor === COLOR_BROWN) {
+                child.remove();
+                changed = true;
+                continue;
+            }
+            showTraffic = true;
             continue;
         }
         let nextm = null as MetaStructure | null;
@@ -227,6 +272,8 @@ export function runGenesis(f: FlagExtra) {
             meta.draw(room.visual);
         }
     }
+    if (f.secondaryColor === COLOR_BLUE) room.meta.forceTraffic();
+    if (showTraffic) room.meta.drawTraffic(room.visual);
     if (changed && _.contains([COLOR_GREEN, COLOR_BROWN], f.secondaryColor)) room.meta.save();
     if (!changed && f.secondaryColor !== COLOR_CYAN) f.setColor(f.color, COLOR_CYAN);
 }
@@ -320,6 +367,8 @@ function cleanMem(mem: MetaMem) {
 
 interface ManagerMem {
     metas: MetaMem[]
+    // The roads MetaManager planned for every meta's traffic(); not a meta.
+    traffic?: TrafficPlanMem
     // The room's name for itself: the genesis flag's name, stamped by
     // runGenesis. New spawns are named after it (MetaManager.spawnNames).
     name?: string
@@ -348,8 +397,22 @@ export interface MetaMem {
     // Tile -> RCL from which the structure planned there is retired: no longer
     // built, repaired or drawn, and destroyed by MetaManager.retire().
     retire?: MetaRetire
-    // Meta_traffic only: signature of the inputs the roads were planned from.
-    sig?: string
+    // Traffic entries stored at plan time, for metas that cannot derive them
+    // (the mission-planned Meta_rroad); see MetaStructure.traffic().
+    traffic?: TrafficMem[]
+}
+
+// MetaManager's traffic plan, Memory.rooms[x].meta.traffic: a MetaMem named
+// "traffic" holding only roads, by level. xy is the traffic origin it was
+// planned from (0 without one).
+interface TrafficPlanMem extends MetaMem {
+    // Hash of the inputs (MetaManager.trafficSig); "" marks a migrated plan
+    // that the next upkeep pass replans.
+    sig: string
+    // Game.time of the plan.
+    at?: number
+    // Entries whose search reached no goal (describeTraffic).
+    fail?: string[]
 }
 type MetaRetire = {
     [xy: number]: number
@@ -381,11 +444,28 @@ function metaOrder(l: MetaStructure, r: MetaStructure) {
 
 export class MetaManager {
     metas: MetaStructure[]
+    // The roads planned for every meta's traffic() (memory.traffic); not one
+    // of the metas. Null until a meta declares traffic.
+    traffic: TrafficPlan | null = null
+    // The metas may have changed since the traffic was last checked against
+    // them (updateTraffic compares signatures). In memory only: a global
+    // reset checks every room once.
+    trafficDirty = true
+    // The plan no longer matches the metas and awaits a replan: its roads are
+    // not placed meanwhile (a deleted leg's tiles, a moved field's).
+    trafficStale = false
+    // No traffic plan before this tick (a plan ran out of CPU).
+    trafficRetry = 0
+    trafficDrawn = -1
+    // Origin at the last checkTrafficOrigin; undefined until the first check.
+    lastOrigin: number | null | undefined = undefined
     birth = 0
     begin = 0
     wallHits = 20;
     constructor(readonly name: string) {
         const metaMem = this.memory;
+        if (migrateTrafficMeta(metaMem)) Game.rooms[name]?.log("traffic meta moved into the manager");
+        if (metaMem.traffic) this.traffic = new TrafficPlan(metaMem.traffic, this);
         this.metas = _.compact(_.map(metaMem.metas, mem => newMeta(mem, this))) as MetaStructure[];
         this.metas.sort(metaOrder);
         for (const meta of this.metas) {
@@ -414,9 +494,14 @@ export class MetaManager {
         return metaMem;
     }
 
+    // Any save may have moved the traffic: the next upkeep pass checks. A room
+    // whose metas no longer declare any traffic drops its roads on the next
+    // tick, vision or not (flushTrafficDrops), unless traffic is back by then.
     save() {
         this.clearHitsCache();
         this.memory.metas = _.map(this.metas, meta => meta.mem);
+        this.trafficDirty = true;
+        if (this.traffic && !this.declaresTraffic()) trafficDrops.set(this.name, Game.time);
     }
 
     clearHitsCache() {
@@ -450,6 +535,7 @@ export class MetaManager {
             //return 
         }
 
+        if (this.updateTraffic()) return;
         if (Game.time % kRetirePace === 0 && this.retire(room)) return;
 
         const nsites = room.find(FIND_MY_CONSTRUCTION_SITES).length
@@ -484,7 +570,7 @@ export class MetaManager {
             this.makeSite(STRUCTURE_POWER_SPAWN) ||
             this.makeSite(STRUCTURE_FACTORY) ||
             this.makeSite(STRUCTURE_RAMPART) ||
-            this.makeSite(STRUCTURE_ROAD) ||
+            (!this.trafficStale && this.makeSite(STRUCTURE_ROAD)) ||
             false
             ;
     }
@@ -494,8 +580,9 @@ export class MetaManager {
     runUnowned(): boolean {
         const room = this.room;
         if (!room) return false;
+        if (this.updateTraffic()) return true;
         if (room.find(FIND_MY_CONSTRUCTION_SITES).length > 2) return false;
-        return this.makeSite(STRUCTURE_CONTAINER) || this.makeSite(STRUCTURE_ROAD);
+        return this.makeSite(STRUCTURE_CONTAINER) || (!this.trafficStale && this.makeSite(STRUCTURE_ROAD));
     }
 
     getMeta(name: string): MetaStructure | null {
@@ -504,23 +591,14 @@ export class MetaManager {
 
     deleteMeta(name: string) {
         _.remove(this.metas, m => m.name === name);
+        this.trafficDirty = true;
     }
 
     setMeta(meta: MetaStructure) {
         _.remove(this.metas, m => m.name === meta.name);
+        this.trafficDirty = true;
         this.metas.push(meta);
-        this.metas.sort((l, r) => {
-            if (r.priority === l.priority) {
-                if (l.name < r.name) {
-                    return -1;
-                }
-                if (r.name < l.name) {
-                    return 1;
-                }
-                return 0;
-            }
-            return r.priority - l.priority;
-        });
+        this.metas.sort(metaOrder);
     }
 
     getSpot(name: string): RoomPosition | null {
@@ -550,9 +628,18 @@ export class MetaManager {
         return sites;
     }
 
+    // The metas and the traffic plan, in metaOrder (the plan sorts where the
+    // old traffic meta did): what upkeep, purge, maxHits and getMatrix walk.
+    planned(): MetaStructure[] {
+        if (!this.traffic) return this.metas;
+        return this.metas.concat(this.traffic).sort(metaOrder);
+    }
+
+    // Planned structures and standing spots block, planned roads are cheap;
+    // the traffic plan's roads count unless "traffic" is excluded.
     getMatrix(exclude: string[] = []) {
         const cm = new PathFinder.CostMatrix();
-        for (const meta of this.metas) {
+        for (const meta of this.planned()) {
             if (_.contains(exclude, meta.name)) continue;
             meta.fillMatrix(cm);
         }
@@ -572,15 +659,216 @@ export class MetaManager {
             });
     }
 
-    getDests(): Goal[] {
-        const dests: Goal[] = [];
+    // ---- Traffic: the roads connecting what the metas declare (traffic()),
+    // planned for all of them together so they coalesce (metatraffic.ts).
+
+    // Where the base metas' roads start: the planned storage, else the genesis
+    // flag standing in for it (storageOrParent, resolved at traffic time).
+    trafficOrigin(): number | null {
+        const store = this.getSite(STRUCTURE_STORAGE);
+        if (store) return toXY(store);
+        const flag = this.memory.name ? Game.flags[this.memory.name] : undefined;
+        return flag && flag.pos.roomName === this.name ? toXY(flag.pos) : null;
+    }
+
+    // Does any meta declare traffic, whether or not its src resolves?
+    declaresTraffic(): boolean {
+        return _.any(this.metas, m => m.traffic().length > 0);
+    }
+
+    // Every traffic entry the metas declare, metas in order, with a kOrigin
+    // src resolved to trafficOrigin(); entries from a missing origin are left
+    // out.
+    getTraffic(): TrafficMem[] {
+        const out: TrafficMem[] = [];
+        const origin = this.trafficOrigin();
         for (const meta of this.metas) {
-            for (const [xy, range] of meta.dests()) {
-                const pos = fromXY(xy, this.name);
-                dests.push({ pos, range });
+            for (const decl of meta.traffic()) {
+                if (decl && decl.src === kOrigin && origin === null) continue;
+                const e = decl && decl.src === kOrigin ? { ...decl, src: origin! } : decl;
+                if (validTraffic(e)) out.push(e);
+                else Game.rooms[this.name]?.log(meta.name, "bad traffic entry", JSON.stringify(decl));
             }
         }
-        return dests;
+        return out;
+    }
+
+    // Everything a plan is made from: the entries (their ends resolved) and
+    // every meta's structures and spots, which the paths route around. Any
+    // change to a meta changes it.
+    trafficSig(entries: TrafficMem[]): string {
+        const metas = this.metas.map(m => [m.name, m.priority, m.mem.xy, m.mem.color, m.mem.structs, m.mem.points]);
+        // The origin is an input of its own: the matrix keeps roads off its
+        // tile even when no entry starts there.
+        return hashString(JSON.stringify([kTrafficVersion, this.trafficOrigin(), entries, metas]));
+    }
+
+    // Replan the traffic once the metas changed (trafficSig no longer matches
+    // the plan's; a forced or migrated plan's is ""). Needs vision and
+    // bucket. Paced unless `now` (console): one room per tick, not in the
+    // manager's first ticks (begin), not within kTrafficRetry ticks of a plan
+    // that ran out of CPU. True when it planned this tick, so the caller
+    // leaves site placement for the next. Also drops the plans of rooms left
+    // without traffic (flushTrafficDrops), since every owned room calls this
+    // every tick.
+    updateTraffic(now = false): boolean {
+        flushTrafficDrops();
+        const room = this.room;
+        if (!room) return false;
+        // A dirty room is hashed once, ahead of the pacing and bucket gates,
+        // so a plan the metas have moved past is known stale (and its roads
+        // are not placed, see run()) even while the replan itself must wait.
+        if (this.trafficDirty) {
+            this.trafficDirty = false;
+            this.trafficStale = this.traffic?.mem.sig !== this.trafficSig(this.getTraffic());
+        }
+        if (!now && !this.trafficStale) return false;
+        if (Game.cpu.bucket < kTrafficBucket + kTrafficHeadroom) return false;
+        if (!now && (Game.time < this.birth + this.begin || Game.time < this.trafficRetry || trafficTick === Game.time)) return false;
+        const entries = this.getTraffic();
+        const sig = this.trafficSig(entries);
+        if (!entries.length) {
+            this.dropTraffic();
+            this.trafficStale = false;
+            return false;
+        }
+        trafficTick = Game.time;
+        const start = Game.cpu.getUsed();
+        const previous = this.traffic ? this.traffic.getSites(STRUCTURE_ROAD) : [];
+        const cm = trafficMatrix(this.name, this.getMatrix([kTrafficName]), previous);
+        // With no storage planned the genesis flag stands where it will go:
+        // keep roads off that tile as the storage will.
+        const origin = this.trafficOrigin();
+        if (origin !== null && !this.getSite(STRUCTURE_STORAGE)) {
+            const [ox, oy] = coordsFromXY(origin);
+            cm.set(ox, oy, 0xFF);
+        }
+        const result = planTraffic(this.name, cm, this.ringTiles(), entries, !room.controller?.my);
+        if (!result) {
+            this.trafficRetry = Game.time + kTrafficRetry;
+            room.log("traffic plan ran out of CPU; next try at", this.trafficRetry);
+            return true;
+        }
+        const removed = this.commitTraffic(result, sig, previous);
+        this.trafficStale = false;
+        room.log("traffic planned:", entries.length, "entries,", result.roads.size, "roads,",
+            removed, "dropped sites removed,", result.fail.length, "failed,",
+            (Game.cpu.getUsed() - start).toFixed(1), "cpu");
+        for (const e of result.fail) room.log("traffic entry reached no goal", describeTraffic(e));
+        return true;
+    }
+
+    // Console: replan now (bucket and vision permitting), whatever the signature.
+    replanTraffic(): boolean {
+        return this.updateTraffic(true);
+    }
+
+    // Replan on the next upkeep pass whatever the signature (BLUE): the plan's
+    // signature is cleared in memory, so a global reset does not lose it.
+    // Memory is re-parsed every tick, so the plan's runtime mem (what
+    // updateTraffic compares) and the live Memory object are both written.
+    forceTraffic() {
+        if (this.traffic) this.traffic.mem.sig = "";
+        const live = this.memory.traffic;
+        if (live) live.sig = "";
+        this.trafficDirty = true;
+    }
+
+    // The genesis flag stands in for the storage until one is planned; a
+    // moved flag moves the roads without any meta being saved. Compared with
+    // the origin last seen (not the plan's, which stays put while the
+    // signature judges the move unchanged), so each move dirties once.
+    checkTrafficOrigin() {
+        const origin = this.trafficOrigin();
+        if (origin === this.lastOrigin) return;
+        this.lastOrigin = origin;
+        this.trafficDirty = true;
+    }
+
+    // Planned storage, terminal and spawns: planTraffic rings each with roads.
+    ringTiles(): number[] {
+        const out: number[] = [];
+        for (const stype of kRingTypes) {
+            for (const p of this.getSites(stype)) out.push(toXY(p));
+        }
+        return out;
+    }
+
+    // Store a new plan and remove our road sites on the tiles it dropped.
+    // Dropped built roads are left to decay (maxHits no longer keeps them).
+    // Returns the number of sites removed.
+    commitTraffic(result: TrafficResult, sig: string, previous: number[]): number {
+        const mem = newTrafficMem(this.trafficOrigin() || 0);
+        mem.sig = sig;
+        mem.at = Game.time;
+        for (const [xy, lvl] of result.roads) addMemStruct(mem, STRUCTURE_ROAD, lvl as PlanLevel, xy);
+        if (result.fail.length) mem.fail = result.fail.map(describeTraffic);
+        this.memory.traffic = mem;
+        this.traffic = new TrafficPlan(mem, this);
+        this.clearHitsCache();
+        return this.removeRoadSites(previous.filter(xy => !result.roads.has(xy)));
+    }
+
+    // No traffic left: forget the plan and remove its sites; its built roads
+    // decay.
+    dropTraffic() {
+        const plan = this.traffic;
+        if (!plan) return;
+        const removed = this.removeRoadSites(plan.getSites(STRUCTURE_ROAD));
+        delete this.memory.traffic;
+        this.traffic = null;
+        this.clearHitsCache();
+        debug.log(this.name, "traffic plan dropped: no traffic entries left;", removed, "road sites removed");
+    }
+
+    // Remove our road sites on `xys`, except where a meta still plans a road.
+    // Walks Game.constructionSites, which holds our sites in rooms we cannot
+    // see too, and remove() needs no vision.
+    removeRoadSites(xys: number[]): number {
+        const drop = new Set(xys.filter(xy => !_.any(this.metas, m => m.hasAny(STRUCTURE_ROAD, xy))));
+        if (!drop.size) return 0;
+        let n = 0;
+        for (const id in Game.constructionSites) {
+            const site = Game.constructionSites[id];
+            if (site.structureType !== STRUCTURE_ROAD || site.pos.roomName !== this.name) continue;
+            if (drop.has(toXY(site.pos)) && site.remove() === OK) n++;
+        }
+        return n;
+    }
+
+    // Migration: keep `xys` planned at `lvl` in the traffic plan and mark it
+    // stale, so its roads stay built and repaired until the first replan.
+    adoptRoads(xys: number[], lvl: PlanLevel) {
+        if (!xys.length) return;
+        let mem = this.memory.traffic;
+        if (!mem) {
+            mem = this.memory.traffic = newTrafficMem(0);
+            this.traffic = new TrafficPlan(mem, this);
+        }
+        mergeRoads(mem, { [lvl]: xys });
+        mem.sig = "";
+        this.trafficDirty = true;
+    }
+
+    // Draw the plan's roads not built yet, at most once a tick however many
+    // callers (genesis flag, missions) ask.
+    drawTraffic(v?: RoomVisual) {
+        if (!this.traffic || this.trafficDrawn === Game.time) return;
+        this.trafficDrawn = Game.time;
+        this.traffic.draw(v || new RoomVisual(this.name));
+    }
+
+    // Console: one line on the plan.
+    trafficStatus(): string {
+        const entries = this.getTraffic();
+        const mem = this.memory.traffic;
+        if (!mem) return `${this.name} traffic: no plan, ${entries.length} entries`;
+        const roads: MetaLevel = mem.structs[STRUCTURE_ROAD] || {};
+        const lvls = _.map(roads, (xys: number[], lvl: string) => `${lvl}:${xys.length}`).join(" ");
+        const stale = mem.sig !== this.trafficSig(entries) ? " STALE" : "";
+        const at = mem.at === undefined ? "migrated" : `${Game.time - mem.at} ticks ago`;
+        const fail = mem.fail ? ` fail: ${mem.fail.join(" ")}` : "";
+        return `${this.name} traffic: ${entries.length} entries, roads by level ${lvls || "none"}, planned ${at}${stale}${fail}`;
     }
 
     // The names offered to a new spawn, from the room's meta name (the
@@ -610,8 +898,9 @@ export class MetaManager {
     makeSite(stype: BuildableStructureConstant): boolean {
         const room = Game.rooms[this.name];
         if (!room) return false;
+        const planned = this.planned();
         let blocker: blocker = null;
-        for (const meta of this.metas) {
+        for (const meta of planned) {
             const [free, newblocker] = meta.findSite(stype, room);
             if (free) {
                 const ret = this.createSite(free, stype);
@@ -633,7 +922,7 @@ export class MetaManager {
         }
 
         blocker = null;
-        for (const meta of this.metas) {
+        for (const meta of planned) {
             const [free, newblocker] = meta.findOptional(stype, room);
             if (free) {
                 const ret = this.createSite(free, stype);
@@ -683,8 +972,9 @@ export class MetaManager {
         const rcl = room.controller && room.controller.level || 0;
         room.log("purging", stype);
         const structs = room.findStructs(stype);
+        const planned = this.planned();
         for (const struct of structs) {
-            const m = _.find(this.metas, m => m.has(stype, rcl, struct.pos.xy));
+            const m = _.find(planned, m => m.has(stype, rcl, struct.pos.xy));
             if (!m) {
                 return this.removeDestroy(struct);
             }
@@ -832,7 +1122,7 @@ export class MetaManager {
     }
 
     maxHitsInner(stype: BuildableStructureConstant, xy: number, rcl: number): MAXHITS {
-        for (const meta of this.metas) {
+        for (const meta of this.planned()) {
             const mh = meta.maxHits(stype, xy, rcl);
             if (mh > MAXHITS.Unknown) return mh;
         }
@@ -913,12 +1203,20 @@ export class MetaStructure {
         this.mem.points[calcRole(this.name)] = xy;
     }
 
-    pointDests(): [number, number][] {
-        return _.map(this.mem.points, xy => [xy, 1] as [number, number]);
+    // The roads this meta wants: pairs of tiles in its room (TrafficMem) that
+    // the manager connects, planning every meta's together so they coalesce.
+    // By default the entries stored at plan time (mission metas); base metas
+    // build theirs from mem, starting at kOrigin, so a moved storage moves them.
+    traffic(): TrafficMem[] {
+        return this.mem.traffic || [];
     }
 
-    dests(): [number, number][] {
-        return [];
+    // A road from the room's traffic origin (kOrigin: the storage, else the
+    // genesis flag, resolved when the traffic is planned) to within `range`
+    // of `dest`; none without a dest.
+    originTraffic(dest: number | null, range: number, rcl = kTrafficLevel): TrafficMem[] {
+        if (!dest) return [];
+        return [{ src: kOrigin, dest, range, rcl, swamp: rcl }];
     }
 
     // Is the tile's planned structure retired at this RCL?
@@ -1008,7 +1306,7 @@ export class MetaStructure {
                         // Never cheapen a tile another meta (filled earlier)
                         // blocks: a road planned over its extension is that
                         // plan's error, not a way through.
-                        if (cm.get(x, y) < 0xFE) cm.set(x, y, 10);
+                        if (cm.get(x, y) < 0xFE) cm.set(x, y, kPlannedRoad);
                         return;
                     }
 
@@ -1210,9 +1508,10 @@ function planMeta(f: Flag) {
     return klass.plan(f, man);
 }
 
-// Where asrc/bsrc, ctrl and traffic path to: the saved storage site, else the
-// child's parent (genesis) flag, so a fresh room plans in one YELLOW pass
-// with the genesis flag standing in for the storage.
+// Where asrc/bsrc and ctrl path to: the saved storage site, else the child's
+// parent (genesis) flag, so a fresh room plans in one YELLOW pass with the
+// genesis flag standing in for the storage. MetaManager.trafficOrigin is the
+// same rule for the traffic.
 function storageOrParent(f: FlagExtra, man: MetaManager): RoomPosition | null {
     const storep = man.getSite(STRUCTURE_STORAGE);
     if (storep) return storep;
@@ -1270,10 +1569,10 @@ class Meta_hub extends MetaStructure {
         return new this(mem, man);
     }
 
-    dests(): [number, number][] {
-        const s = this.getSite(STRUCTURE_STORAGE)!;
-        const t = this.getSite(STRUCTURE_TERMINAL)!;
-        return [[s, 1], [t, 1]];
+    // The storage is the traffic origin; this connects the terminal to it.
+    // The rings (planTraffic) wrap both.
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.getSite(STRUCTURE_TERMINAL), 1);
     }
 
     spawnEnergyFirst() {
@@ -1322,8 +1621,8 @@ class Meta_cap extends MetaStructure {
         makeTemplate(mem, legend, [], layout);
         return new this(mem, man);
     }
-    dests(): [number, number][] {
-        return [[this.mem.xy, 2]]
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.mem.xy, 2);
     }
     spawnEnergyFirst() {
         // TODO custom ordering to maximize path.
@@ -1361,8 +1660,8 @@ class Meta_lab extends MetaStructure {
         addMemRamparts(mem, STRUCTURE_SPAWN);
         return new this(mem, man);
     }
-    dests(): [number, number][] {
-        return [[this.mem.xy, 1]];
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.mem.xy, 1);
     }
     spawnEnergyLast() {
         return this.getSpawnEnergies();
@@ -1412,8 +1711,8 @@ class Meta_extna extends Meta_extn {
         ere
         rer
         ere`;
-    dests(): [number, number][] {
-        return [[this.mem.xy, 1]];
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.mem.xy, 1);
     }
 }
 
@@ -1425,8 +1724,8 @@ class Meta_extnb extends Meta_extn {
         reeer
         erere
         eerer`;
-    dests(): [number, number][] {
-        return [[this.mem.xy, 2]];
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.mem.xy, 2);
     }
 }
 
@@ -1440,8 +1739,8 @@ class Meta_extnc extends Meta_extn {
         eereeer
         .eerere
         ..eeree`;
-    dests(): [number, number][] {
-        return [[this.mem.xy, 3]];
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.mem.xy, 3);
     }
 }
 
@@ -1600,8 +1899,9 @@ class Meta_asrc extends MetaStructure {
         f.log("spot rank", rank + 1, "of", sorted.length + 1, pick);
         return pick;
     }
-    dests(): [number, number][] {
-        return this.pointDests();
+    // To beside the container (the srcer's spot).
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.myspot, 1);
     }
     targetid<S extends AnyStructure>(): Id<S> {
         const room = Game.rooms[this.manager.name];
@@ -1656,8 +1956,8 @@ class Meta_min extends MetaStructure {
         mem.points['mineral'] = f.pos.xy;
         return new this(mem, man);
     }
-    dests(): [number, number][] {
-        return [[this.mem.xy, 1]];
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.mem.xy, 1);
     }
 }
 
@@ -1740,8 +2040,9 @@ class Meta_ctrl extends MetaStructure {
         }
         return changed;
     }
-    dests(): [number, number][] {
-        return this.pointDests();
+    // To beside the ctrl spot.
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.myspot, 1);
     }
     getLinkMode(xy: number) {
         if (this.hasAny(STRUCTURE_LINK, xy)) return Mode.sink;
@@ -1782,83 +2083,52 @@ class Meta_tripod extends MetaStructure {
     }
 }
 
-@registerMeta
-class Meta_traffic extends MetaStructure {
-    static plan(f: FlagExtra, man: MetaManager) {
-        const s = man.getSite(STRUCTURE_STORAGE);
-        const t = man.getSite(STRUCTURE_TERMINAL);
-        const sps = man.getSites(STRUCTURE_SPAWN);
-        // Rings whatever storage/terminal/spawns are saved so far; roads run
-        // from storage, or the parent flag without one. Re-plan with BLUE
-        // once the lab (spawns 2 and 3) is saved.
-        const from = storageOrParent(f, man);
-        if (!from) return null;
-
-        // Only saved metas have dests; an empty road plan is not worth parking.
-        const dests = man.getDests();
-        if (dests.length < 1) return null;
-
-        const tdests = _.clone(dests);
-
-        const mem = MetaStructure.makeMem(f);
-        mem.sig = this.signature(man);
-        const cm = man.getMatrix([f.role]);
-        if (s) this.wrapPosition(mem, cm, s);
-        if (t) this.wrapPosition(mem, cm, t);
-        sps.forEach(sp => this.wrapPosition(mem, cm, sp));
-        this.planTraffic(mem, man, cm, from, dests);
-        if (t) this.planTraffic(mem, man, cm, t, tdests);
-
-        return new this(mem, man);
+// MetaManager's traffic plan (memory.traffic) as a MetaStructure, so upkeep,
+// maxHits, fillMatrix and draw treat its roads like any meta's. Not a meta:
+// never in man.metas, never saved among them, planned by the manager
+// (updateTraffic) from what the metas declare, not by a flag.
+class TrafficPlan extends MetaStructure {
+    mem: TrafficPlanMem;
+    // It is what the declarations became; it declares nothing itself.
+    traffic(): TrafficMem[] {
+        return [];
     }
+}
 
-    // Everything plan() reads from the saved metas: ringed sites and dests.
-    // A meta added, moved or deleted changes it, and check() then re-plans.
-    static signature(man: MetaManager): string {
-        const sites = [STRUCTURE_STORAGE, STRUCTURE_TERMINAL, STRUCTURE_SPAWN].map(
-            stype => man.getSites(stype).map(p => p.xy).sort().join());
-        const dests = man.getDests().map(g => `${g.pos.xy}:${g.range}`).sort().join();
-        return `${sites.join('|')}|${dests}`;
-    }
+function newTrafficMem(xy: number): TrafficPlanMem {
+    return { name: kTrafficName, xy, color: COLOR_WHITE, points: {}, structs: {}, sig: "" };
+}
 
-    check(f: Flag): boolean {
-        return super.check(f) && this.mem.sig === Meta_traffic.signature(this.manager);
-    }
-
-    // Roads planned before the signature existed are taken as current.
-    migrate(): boolean {
-        if (this.mem.sig !== undefined) return false;
-        this.mem.sig = Meta_traffic.signature(this.manager);
-        return true;
-    }
-
-    static wrapPosition(mem: MetaMem, cm: CostMatrix, p: RoomPosition) {
-        const t = Game.map.getRoomTerrain(p.roomName);
-        for (let dx = -1; dx <= 1; dx++) {
-            const x = p.x + dx;
-            for (let dy = -1; dy <= 1; dy++) {
-                if (!dx && !dy) continue;
-                const y = p.y + dy;
-                if (t.get(x, y) === TERRAIN_MASK_WALL) continue;
-                if (cm.get(x, y) < 0xFE) {
-                    cm.set(x, y, kPathRoad);
-                    addMemStruct(mem, STRUCTURE_ROAD, 3, coordsToXY(x, y));
-                }
-            }
+// Add `roads` (level -> xys) to a plan's roads, each tile once at its lowest
+// level.
+function mergeRoads(mem: MetaMem, roads: MetaLevel) {
+    const levels = new Map<number, number>();
+    const add = (lvls: MetaLevel | undefined) => _.forEach(lvls || {}, (xys, lvl) => {
+        for (const xy of xys || []) {
+            const was = levels.get(xy);
+            if (was === undefined || +lvl! < was) levels.set(xy, +lvl!);
         }
-    }
+    });
+    add(mem.structs[STRUCTURE_ROAD]);
+    add(roads);
+    delete mem.structs[STRUCTURE_ROAD];
+    for (const [xy, lvl] of levels) addMemStruct(mem, STRUCTURE_ROAD, lvl as PlanLevel, xy);
+}
 
-    static planTraffic(mem: MetaMem, man: MetaManager, cm: CostMatrix, from: RoomPosition, dests: Goal[]) {
-        while (canRun(Game.cpu.getUsed(), 9000) && dests.length > 0) {
-            const ret = man.path(cm, from, dests);
-            const last = _.last(ret.path) || from;
-            _.remove(dests, g => last.inRangeTo(g.pos, g.range));
-            ret.path.forEach(pos => {
-                addMemStruct(mem, STRUCTURE_ROAD, 3, pos.xy);
-                cm.set(pos.x, pos.y, kPathRoad);
-            });
-        }
-    }
+// Before Sept 2026 traffic was a flag-planned meta named "traffic" among the
+// metas. Its roads become the manager's plan, once each, with an empty
+// signature: built and repaired as before until the first replan, which diffs
+// against them. True when memory changed.
+function migrateTrafficMeta(mem: ManagerMem): boolean {
+    // Numbered children (traffic1) had the traffic role too; every such meta
+    // merges into the one plan.
+    const olds = _.remove(mem.metas, m => calcRole(m.name) === kTrafficName);
+    if (!olds.length) return false;
+    const plan = mem.traffic || newTrafficMem(0);
+    for (const old of olds) mergeRoads(plan, old.structs[STRUCTURE_ROAD] || {});
+    plan.sig = "";
+    mem.traffic = plan;
+    return true;
 }
 
 function nearWall(t: RoomTerrain, x: number, y: number): boolean {
@@ -1963,8 +2233,9 @@ class Meta_wall extends MetaStructure {
         return this.calcRampWallHits(stype, xy, rcl) || this.calcStructHits(stype, xy, rcl);
     }
 
-    dests(): [number, number][] {
-        return [[this.mem.xy, 0]];
+    // To the flag's rampart.
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.mem.xy, 0);
     }
 }
 

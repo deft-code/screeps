@@ -264,7 +264,8 @@ export class Remote extends Farm {
         }
     }
 
-    // Draw every meta this mission planned, in every room, vision or not.
+    // Draw every meta this mission planned, in every room, vision or not, and
+    // each room's traffic plan, which holds the legs' roads.
     drawMetas() {
         const tracked = this.memory.metas;
         if (!tracked) return;
@@ -274,12 +275,14 @@ export class Remote extends Farm {
             for (const name of tracked[roomName]) {
                 man.getMeta(name)?.draw(v);
             }
+            man.drawTraffic(v);
         }
     }
 
-    // Delete the tracked metas from their rooms and drop our construction
-    // sites on their tiles where we can see them. The rooms then evolve back
-    // to NullStrat and whatever was built decays.
+    // Delete the tracked metas from their rooms and drop our container sites
+    // on their tiles where we can see them; each room's traffic replan (or
+    // drop, with nothing left) removes the road sites. The rooms then evolve
+    // back to NullStrat and whatever was built decays.
     removeMetas() {
         const tracked = this.memory.metas;
         if (!tracked) return;
@@ -290,11 +293,9 @@ export class Remote extends Farm {
                 const meta = man.getMeta(name);
                 if (!meta) continue;
                 if (room) {
-                    for (const stype of [STRUCTURE_ROAD, STRUCTURE_CONTAINER] as BuildableStructureConstant[]) {
-                        for (const pos of meta.getSites(stype).map(xy => room.unpackPos(xy))) {
-                            for (const site of pos.lookFor(LOOK_CONSTRUCTION_SITES)) {
-                                if (site.my && site.structureType === stype) site.remove();
-                            }
+                    for (const pos of meta.getSites(STRUCTURE_CONTAINER).map(xy => room.unpackPos(xy))) {
+                        for (const site of pos.lookFor(LOOK_CONSTRUCTION_SITES)) {
+                            if (site.my && site.structureType === STRUCTURE_CONTAINER) site.remove();
                         }
                     }
                 }

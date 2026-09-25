@@ -10,8 +10,9 @@ import { whoami } from "Rewalker";
 import { getSpots } from "spots";
 import { getMetaManager } from "metastruct";
 import { Meta_rroad } from "metaremote";
+import { kSwampAverse, pathTraffic, FarTarget } from "metatraffic";
 import { remoteSpawns } from "spawnold";
-import { defaultRewalker, MemPath, Path, coordsToXY } from "Rewalker";
+import { defaultRewalker, MemPath, Path, fromXY } from "Rewalker";
 import * as debug from "debug";
 
 // RCL at which the assisted room is on its own and the mission winds down.
@@ -90,13 +91,19 @@ const rewalker = defaultRewalker();
 // room is args[2], else the room of the nearest spawn outside the mission
 // room (spawnold remoteSpawns, the pioneers' pool).
 //
-// The planned tiles become road metas, one Meta_rroad (metaremote.ts) per
-// room named rroad_<room>_startup, saved into the per-room meta memory so
-// ActiveStrat places the sites in the unowned rooms and ClaimedStrat in the
-// home room. A replan that changes the path replaces them; winding down
-// removes them and our sites on their tiles (removeRoad() does the same by
-// hand). Any unowned room on the road with our sites in view gets a "Once
-// Paver <room>" at most every kPaverPace ticks, as Remote does.
+// The path becomes traffic entries, one Meta_rroad (metaremote.ts) per room
+// named rroad_<room>_startup, saved into the per-room meta memory; each
+// room's MetaManager plans the roads (so they coalesce with its others) and
+// ActiveStrat places the sites in the unowned rooms, ClaimedStrat in the home
+// room. As for a remote: in the mission room from the border the path leaves
+// by to each source and to the controller (all roads from level 0: pioneers
+// upgrade it from the claim on), border to border in the rooms between, and from the home
+// room's storage (its traffic origin) to the border. Every entry keeps the
+// road's swamp aversion (kSwampAverse). A replan that changes the path
+// replaces them in place; winding down removes them (removeRoad() does the
+// same by hand), and each room's replan removes our sites on the tiles no
+// longer planned. Any unowned room on the road with our sites in view gets a
+// "Once Paver <room>" at most every kPaverPace ticks, as Remote does.
 //
 // An invader core in the mission room draws one Wolf (job.wolf.ts) per
 // kCorePace ticks until it is gone (Farm.suppressInvaderCore). While GCL is
@@ -265,20 +272,20 @@ export class Startup extends Mission {
         mem.roadIncomplete = ret.incomplete;
         debug.log(this.name, "road plan", ret.path.length, "tiles via", mem.roadRooms.join(">"),
             "cost", ret.cost, "ops", ret.ops, ret.incomplete ? "INCOMPLETE" : "");
-        this.removeRoadMetas();
-        this.saveRoadMetas(ret.path);
+        this.saveRoadMetas(ret.path, controller, spawn.room.name);
     }
 
-    // The Rewalker matrix for a room with every other meta's plan laid over
-    // it: planned structures and standing spots impassable, planned roads
-    // cheap. Our own road metas are left out so a replan is free to move.
-    // Without this the road ran over the hub's planned extensions in the
-    // mission room and the two plans churned sites on the shared tiles.
+    // The Rewalker matrix for a room with every meta's plan laid over it:
+    // planned structures and standing spots impassable, planned roads cheap,
+    // the room's traffic plan included. That plan holds this road's own
+    // tiles too (our road metas hold only entries), so a replan keeps to the
+    // road it laid unless a clearly better one appears. Without this the
+    // road ran over the hub's planned extensions in the mission room and the
+    // two plans churned sites on the shared tiles.
     metaCosts(roomName: string, base: CostMatrix | null): CostMatrix {
         const man = getMetaManager(roomName);
         if (!man.metas.length) return base || new PathFinder.CostMatrix();
-        const ours = this.smem.roadMetas?.[roomName] || [];
-        const metas = man.getMatrix(ours);
+        const metas = man.getMatrix();
         const cm = base ? base.clone() : new PathFinder.CostMatrix();
         for (let x = 0; x < 50; x++) {
             for (let y = 0; y < 50; y++) {
@@ -294,48 +301,58 @@ export class Startup extends Mission {
         return cm;
     }
 
-    // One Meta_rroad per room from the planned tiles, exits left out, saved
-    // into each room's meta memory and tracked in memory.roadMetas.
-    saveRoadMetas(path: RoomPosition[]) {
-        const byRoom = new Map<string, number[]>();
-        for (const p of path) {
-            if (p.x === 0 || p.y === 0 || p.x === 49 || p.y === 49) continue;
-            let xys = byRoom.get(p.roomName);
-            if (!xys) byRoom.set(p.roomName, xys = []);
-            xys.push(coordsToXY(p.x, p.y));
+    // One Meta_rroad per room holding the path's traffic entries (pathTraffic;
+    // the path runs from the controller to the home room, whose entry starts
+    // at its storage), saved into each room's meta memory and tracked in
+    // memory.roadMetas. A room still on the road gets its meta replaced in
+    // place, so its traffic plan is never empty in between (MetaManager would
+    // drop it with its sites); a room the road left loses its meta. Every
+    // entry searches with a swamp tile at kSwampAverse, as the road itself
+    // was found (kRoadSwampCost).
+    saveRoadMetas(path: RoomPosition[], controller: StructureController, home: string) {
+        // Paved all the way: pioneers upgrade this controller from the claim
+        // on (a remote's controller leg is swamp-only because nobody does).
+        const far: FarTarget[] = [{ dest: controller.pos, range: 1, rcl: 0, swamp: 0 }];
+        for (const src of controller.room.find(FIND_SOURCES)) {
+            far.push({ dest: this.sourceSpot(src), range: 1, rcl: 0, swamp: 0 });
         }
+        const old = this.smem.roadMetas || {};
         const tracked: { [room: string]: string[] } = {};
-        for (const [roomName, xys] of byRoom) {
+        for (const [roomName, entries] of pathTraffic(path, far, home, 0, 0)) {
+            for (const e of entries) e.swampCost = kSwampAverse;
             const man = getMetaManager(roomName);
-            const meta = Meta_rroad.make(man, this.roomName, kRoadLeg, xys);
+            const meta = Meta_rroad.make(man, this.roomName, kRoadLeg, entries);
             man.setMeta(meta);
             man.save();
             tracked[roomName] = [meta.name];
+        }
+        for (const roomName in old) {
+            if (tracked[roomName]) continue;
+            const man = getMetaManager(roomName);
+            for (const name of old[roomName]) man.deleteMeta(name);
+            man.save();
         }
         this.smem.roadMetas = tracked;
         debug.log(this.name, "road metas saved", JSON.stringify(tracked));
     }
 
-    // Delete the tracked road metas and our road sites on their tiles where
-    // we can see them (Remote.removeMetas).
+    // Where a source's road ends: beside the standing spot of the meta that
+    // mines it (asrc, bsrc, rsrc) when one is planned, else beside the source.
+    sourceSpot(src: Source): RoomPosition {
+        const man = getMetaManager(src.pos.roomName);
+        const meta = _.find(man.metas, m => (m.targetid() as string) === src.id && !!m.myspot);
+        return meta ? fromXY(meta.myspot, src.pos.roomName) : src.pos;
+    }
+
+    // Delete the tracked road metas. Each room's MetaManager then replans its
+    // traffic, or drops it a tick later when nothing else is left, and removes
+    // our road sites on the tiles no longer planned.
     removeRoadMetas() {
         const tracked = this.smem.roadMetas;
         if (!tracked) return;
         for (const roomName in tracked) {
             const man = getMetaManager(roomName);
-            const room = Game.rooms[roomName];
-            for (const name of tracked[roomName]) {
-                const meta = man.getMeta(name);
-                if (!meta) continue;
-                if (room) {
-                    for (const pos of meta.getSites(STRUCTURE_ROAD).map(xy => room.unpackPos(xy))) {
-                        for (const site of pos.lookFor(LOOK_CONSTRUCTION_SITES)) {
-                            if (site.my && site.structureType === STRUCTURE_ROAD) site.remove();
-                        }
-                    }
-                }
-                man.deleteMeta(name);
-            }
+            for (const name of tracked[roomName]) man.deleteMeta(name);
             man.save();
         }
         debug.log(this.name, "removed road metas", JSON.stringify(tracked));

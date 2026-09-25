@@ -105,7 +105,11 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               a foreign reservation itself); no farmers.
                                                               Phase 2: planMetas() once the remote is visible (or planMetas(true) from the console):
                                                               RemotePlanner (metaremote.ts) saves rsrc/rroad metas into each room's meta memory and
-                                                              memory.metas tracks room -> names; drawMetas() every tick; windDown() removes them.
+                                                              memory.metas tracks room -> names; the rroads hold only traffic entries (per room the leg's
+                                                              ends: storage -> border, border -> border, border -> beside the container; the controller
+                                                              leg border -> controller on swamp only) and each room's MetaManager plans the roads;
+                                                              drawMetas() every tick (the metas and each room's traffic plan); windDown() removes them,
+                                                              and each room's traffic replan removes our road sites left on dropped tiles.
                                                               schedulePavers(): "Once Paver <room>" for any tracked unclaimed room with our sites in view,
                                                               at most one per room per 1500 ticks.
                                                               harvest(): paceJobs(Harvester, (1500 - 50*route dist) / rsrc metas) while visible, no hostiles,
@@ -129,14 +133,19 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               matrices, so keeper lairs and hostile rooms are avoided), plainCost 2 / swampCost 10, kept in
                                                               memory.road as a Rewalker `Path`, replanned every 500 ticks and drawn (yellow dashed) every
                                                               tick it exists; `replanRoad()` drops it; status adds `gcl:` and `road:<tiles> via:<rooms>`.
-                                                              The tiles (exits left out) become one `Meta_rroad` per room named `rroad_<room>_startup`
-                                                              (tracked in memory.roadMetas, status `metas:<rooms>`), so ActiveStrat/ClaimedStrat place the
-                                                              sites; a changed replan replaces them, windDown() and `removeRoad()` delete them and our road
-                                                              sites. Unowned road rooms with our sites in view get "Once Paver <room>" every 1500 ticks
+                                                              The path becomes traffic entries, one `Meta_rroad` per room named `rroad_<room>_startup`
+                                                              (tracked in memory.roadMetas, status `metas:<rooms>`), shaped like a remote's: in the mission
+                                                              room from the border the path leaves by to each source (beside its asrc/bsrc/rsrc spot when
+                                                              planned, level 0) and to the controller (level 0 too, unlike a remote's swamp-only leg: pioneers upgrade it), border -> border between, the home
+                                                              storage (kOrigin) -> border at home, every entry searched swamp-averse (swampCost 55, as the
+                                                              road's own search); each room's MetaManager plans the roads and ActiveStrat/ClaimedStrat
+                                                              place the sites; a changed replan replaces them in place, windDown() and `removeRoad()` delete them
+                                                              and each room's traffic replan removes our road sites left on dropped tiles. Unowned road
+                                                              rooms with our sites in view get "Once Paver <room>" every 1500 ticks
                                                               (`schedulePavers`, as Remote). The plan lays every room's other metas over the
-                                                              Rewalker matrix (`metaCosts`: planned structures and spots impassable, planned roads
-                                                              cost 1) so it never crosses the base plan; `replanRoad()` redoes it at once, owned
-                                                              room or not. Our road metas do not make `canPioneerEarly` true. An invader
+                                                              Rewalker matrix (`metaCosts`: planned structures and spots impassable, planned roads,
+                                                              the traffic plan's included, cost 1) so it never crosses the base plan; `replanRoad()`
+                                                              redoes it at once, owned room or not. Our road metas do not make `canPioneerEarly` true. An invader
                                                               core in the mission room draws paceJobs(Wolf, 1500) (`suppressInvaderCore`, status `core!`).
                                                               With GCL full and a foreign reservation on the controller (status `reserved:<user>/<ticks>`),
                                                               `reserve()` paces Reservers as Farm does (one per controller spot per CLAIM lifetime, none

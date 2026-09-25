@@ -33,7 +33,7 @@ ours already standing for the room is adopted when the id is missing or stale.
                      when?: { wolf: tick },                           // paceCreeps: tick the last paced egg was laid
                      sparkjoy?: tick,                                 // Swipe: next sparkJoy look at the home stores
                      doze?: [[xy, roomName], ...] } }                 // Bulldoze: tiles to clear, the first is the destination
-  "Remote W27S9 W26S8": { ..., metas?: { W27S9: ["rsrc_608", "rroad_W27S9_608"], W26S9: [...] },  // room -> metas the mission planned
+  "Remote W27S9 W26S8": { ..., metas?: { W27S9: ["rsrc_608", "rroad_W27S9_608"], W26S9: [...] },  // room -> metas the mission planned (rroads hold traffic entries)
                           planned?: tick,                             // present once planning was attempted; windDown removes the metas
                           pavers?: { W26S9: tick },                   // last tick a "Once Paver <room>" was scheduled per room
                           legSteps?: 115 }                            // longest planned source leg, one-way trucker trip
@@ -70,7 +70,7 @@ delete by hand: it restarts from empty.
 | field | writer | live | shape |
 |---|---|---|---|
 | `intel` | `intel.ts` | yes | `{ last, enabled?, owner?: [userIdx, rcl], core?: [lvl, expire], power?: [xy, amount, expire], deposit?: [xy, cooldown, expire], portal? }` |
-| `meta` | `metastruct.ts` | yes | `{ name?: string, metas: MetaMem[], keep?, drop?, roadkeep?, roaddrop?: xy[], rampart?, constructedWall?: {xy: MAXHITS} }`; `name` is the genesis flag's name (stamped by every `runGenesis` pass) and names the room's spawns; `MetaMem.retire?: {xy: rcl}` retires a tile from that RCL; see [metastruct.md](metastruct.md) |
+| `meta` | `metastruct.ts` | yes | `{ name?: string, metas: MetaMem[], traffic?: TrafficPlanMem, keep?, drop?, roadkeep?, roaddrop?: xy[], rampart?, constructedWall?: {xy: MAXHITS} }`; `name` is the genesis flag's name (stamped by every `runGenesis` pass) and names the room's spawns; `MetaMem.retire?: {xy: rcl}` retires a tile from that RCL; `MetaMem.traffic?: [{src, dest, range?, rcl, swamp?, swampCost?}]` are stored traffic entries (`rroad_*`; `src: -1` is the room's traffic origin); `traffic` is the manager's road plan, a `MetaMem` named `traffic` with `structs.road` by level plus `sig` (input hash, `""` = migrated, replan pending), `at` (tick) and `fail?: string[]`; see [metastruct.md](metastruct.md) |
 | `links` | `struct.link.ts` | yes | `{ [xy]: { mode: "^"|"+"|"-"|"="|"x" } }` (old entries may still say `"src"`/`"sink"`) |
 | `labs` | `struct.lab.js` | yes | `{ current?: resource, order?: labId[], [labId]: { note, planType?, boost?, boostTime? } }` |
 | `centroid` | `spots.ts` | yes | packed xy of the mean non-wall tile (`roomCentroid`), never expires |
