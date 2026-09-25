@@ -2,8 +2,8 @@ import {
     MetaStructure, MetaManager, MetaMem, addMemStruct, registerMeta, getMetaManager,
 } from "metastruct";
 import {
-    kPathRoad, kPathPlain, kPathSwamp, kPlannedRoad, kNoRoad, kShared, kSwampAverse, TrafficMem,
-    avoidAround, pathTraffic, legacyLegTraffic,
+    kPathRoad, kPathPlain, kPathSwamp, kPlannedRoad, kNoRoad, kShared, TrafficMem,
+    avoidAround, pathTraffic,
 } from "metatraffic";
 import { coordsFromXY, toXY, defaultRewalker, Goal } from "Rewalker";
 import * as debug from "debug";
@@ -72,21 +72,6 @@ export class Meta_rroad extends MetaStructure {
             traffic: entries,
         };
         return new this(mem, man);
-    }
-
-    // Legs planned before Sept 2026 held their road tiles, in path order far
-    // end first. They become the entry between the two ends, and the tiles
-    // stay planned in the room's traffic plan until it is replanned. A
-    // Startup leg keeps its swamp-averse search (ms.startup.ts).
-    migrate(): boolean {
-        const roads = this.mem.structs[STRUCTURE_ROAD];
-        if (!roads || this.mem.traffic) return false;
-        const xys = _.flatten(_.values(roads)) as number[];
-        const swampCost = /_startup$/.test(this.name) ? kSwampAverse : undefined;
-        this.mem.traffic = legacyLegTraffic(xys, /_ctrl$/.test(this.name), swampCost);
-        this.manager.adoptRoads(xys, 0);
-        delete this.mem.structs[STRUCTURE_ROAD];
-        return true;
     }
 }
 

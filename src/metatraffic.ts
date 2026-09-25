@@ -4,8 +4,8 @@ import { canRun } from "shed";
 // Road planning for MetaManager (metastruct.ts). Metas declare traffic
 // entries, pairs of tiles in their room to connect; the room's manager plans
 // roads for all of them together so they coalesce, and keeps the result as its
-// traffic plan. This module is the planner itself and imports metastruct only
-// for types, so metastruct can import it (docs/traffic-design.md).
+// traffic plan. This module is the planner itself and imports only Rewalker
+// and shed, so metastruct can import it (docs/traffic-design.md).
 
 // Path costs for every meta planner. Roads are cheapest so paths coalesce onto
 // them; heuristicWeight kPathRoad keeps the search admissible.
@@ -16,7 +16,7 @@ export const kPathSwamp = 12;
 // A plan level no room reaches: an entry with rcl kNoRoad gets no roads on
 // plain. Above 9 (optional), so the lowest level wins where entries share a tile.
 export const kNoRoad = 10;
-// Level of the base metas' roads and of the rings: Meta_traffic's level.
+// Level of the base metas' roads and of the rings.
 export const kTrafficLevel = 3;
 export const kRingLevel = 3;
 // src of an entry that starts at the room's traffic origin (the planned
@@ -199,8 +199,8 @@ export interface TrafficResult {
 // Plan the roads for `entries` (srcs resolved) in `roomName` on `cm`
 // (trafficMatrix; it is modified). First a ring of kRingLevel roads on the
 // free neighbours of every tile in `rings` (storage, terminal, spawns), then
-// the entries grouped by (src, rcl, swamp, swampCost) in order. Per group, as
-// Meta_traffic did: search from src to every open entry's dest at once, close
+// the entries grouped by (src, rcl, swamp, swampCost) in order. Per group:
+// search from src to every open entry's dest at once, close
 // the entries the path ends in range of, lay the path at the group's levels
 // and stamp it kPathRoad so later paths coalesce onto it; repeat until the
 // group is done. The order roads are laid in is the order they are built in:
@@ -359,14 +359,3 @@ export function pathTraffic(path: RoomPosition[], far: FarTarget[], home: string
     return out;
 }
 
-// A road leg planned before Sept 2026 held its tiles in path order, far end
-// first. The entry that stands for it: home-side end to far end, at level 0;
-// a swamp-only (controller) leg gets no plain roads, and `swampCost` carries
-// a swamp-averse search over (Startup's legs).
-export function legacyLegTraffic(xys: number[], swampOnly: boolean, swampCost?: number): TrafficMem[] {
-    // A one-tile leg (a road clipping a room corner) is src === dest.
-    if (!xys.length) return [];
-    const e: TrafficMem = { src: xys[xys.length - 1], dest: xys[0], range: 0, rcl: swampOnly ? kNoRoad : 0, swamp: 0 };
-    if (swampCost) e.swampCost = swampCost;
-    return [e];
-}

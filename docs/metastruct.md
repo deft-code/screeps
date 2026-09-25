@@ -51,13 +51,11 @@ The flags described here are the only flags that exist in the game today.
 | `wall` | 0 | Rampart/wall line through the flag, east and west along its row, or north and south along its column when the flag's primary colour is RED; each way runs to terrain wall or the room edge. The flag tile, tiles beside terrain wall and every other tile are ramparts, the rest constructed walls. A parallel road both ways through the first step of the flag-to-storage path more than 2 tiles out, and on-ramps (road + rampart, `mem.onramps`, repaired at `rcl-3`) from each rampart to it. Needs the saved storage site; with the storage within 2 tiles of the flag only the line is planned (no road, no on-ramps). |
 | `nuke` | 200 | Auto-created by `checkNukes(room)` (never called): ramparts over blast tiles with hits scaled by expected damage. |
 
-`traffic` is no longer a meta role (Sept 2026): the manager plans the roads
-(next section). A `traffic` meta saved by older code is moved into the manager
-when it loads.
+Roads are not a meta role: the manager plans them (next section).
 
 ## Traffic (`MetaManager` + `src/metatraffic.ts`)
 
-Design and migration notes: [traffic-design.md](traffic-design.md).
+Design notes: [traffic-design.md](traffic-design.md).
 
 A meta declares the roads it wants as **traffic entries** by overriding
 `traffic(): TrafficMem[]` (default: `mem.traffic`, entries stored at plan
@@ -115,7 +113,7 @@ sorts at priority 0 under the name `traffic`, where the old meta sorted).
 2. Rings: level 3 roads on the free neighbours of every planned storage,
    terminal and spawn.
 3. Entries grouped by `(src, rcl, swamp, swampCost)` in order (metas by
-   priority then name). Per group, as the old `Meta_traffic` did: multi-goal
+   priority then name). Per group: multi-goal
    searches from `src` to every open entry's dest (single room, heuristic
    weight 7), closing the entries the path ends in range of; each path is laid
    at the group's levels and stamped 7, so later paths coalesce onto it. The
@@ -217,7 +215,7 @@ without flags through `RemotePlanner(home, remote)`:
 | role | what it holds |
 |---|---|
 | `rsrc` (`rsrc_<source xy>`, priority 1) | container (level 0) on the container tile, point `rsrc` on it, `targetid()` = the source. The tile is chosen the `Meta_asrc` way: the source's neighbours are weighted by openness and the first step of a path to the home storage wins. Sources are planned most-cramped first and a tile touching two sources is never a candidate. |
-| `rroad` (`rroad_<remote>_<leg>`, priority 0) | the traffic entries of one leg inside one room (`mem.traffic`, no structs); each room's manager plans the roads with its other traffic. A leg is one multi-room `PathFinder` search to the home storage at range 1, cut into its stay in each room (`pathTraffic`): in the home room its storage (`kOrigin`, so the leg follows a moved storage) -> the border tile it enters by, in rooms between border -> border, in the remote room the border it leaves by -> beside the container (range 1), all level 0. The controller leg keeps only its remote-room entry, border -> controller (range 1) with `rcl kNoRoad, swamp 0`: roads on swamp only. Legs planned before Sept 2026 held their road tiles; `migrate()` turns them into one entry between the leg's two ends and adopts the tiles into the room's plan until it replans. |
+| `rroad` (`rroad_<remote>_<leg>`, priority 0) | the traffic entries of one leg inside one room (`mem.traffic`, no structs); each room's manager plans the roads with its other traffic. A leg is one multi-room `PathFinder` search to the home storage at range 1, cut into its stay in each room (`pathTraffic`): in the home room its storage (`kOrigin`, so the leg follows a moved storage) -> the border tile it enters by, in rooms between border -> border, in the remote room the border it leaves by -> beside the container (range 1), all level 0. The controller leg keeps only its remote-room entry, border -> controller (range 1) with `rcl kNoRoad, swamp 0`: roads on swamp only. |
 
 Both classes have `static plan = noPlan`, so genesis flags cannot re-plan them
 (a BROWN genesis pass can still delete them). The planner paths with the

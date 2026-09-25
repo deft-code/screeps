@@ -32,8 +32,8 @@ const kRetirePace = 10;
 // Structures that decay when nobody repairs them; retire() leaves them to it.
 const kDecays: StructureConstant[] = [STRUCTURE_ROAD, STRUCTURE_CONTAINER, STRUCTURE_RAMPART];
 
-// Name of MetaManager's traffic plan (memory.traffic), and of the old
-// flag-planned meta it replaces.
+// Name of MetaManager's traffic plan (memory.traffic), and the role of the
+// genesis child flag that keeps it drawn.
 const kTrafficName = "traffic";
 // Bump to replan every room's traffic after the planner changes.
 const kTrafficVersion = 1;
@@ -178,8 +178,6 @@ export function runGenesis(f: FlagExtra) {
     if (!room) return;
     room.meta.memory.name = f.name;
     room.meta.checkTrafficOrigin();
-    // An old traffic meta parked here before traffic became the manager's.
-    delete newer[kTrafficName];
     if (f.secondaryColor === COLOR_GREY) {
         let created = false;
         for (const meta of room.meta.metas) {
@@ -406,8 +404,8 @@ export interface MetaMem {
 // "traffic" holding only roads, by level. xy is the traffic origin it was
 // planned from (0 without one).
 interface TrafficPlanMem extends MetaMem {
-    // Hash of the inputs (MetaManager.trafficSig); "" marks a migrated plan
-    // that the next upkeep pass replans.
+    // Hash of the inputs (MetaManager.trafficSig); "" (a forced replan)
+    // matches nothing, so the next upkeep pass replans.
     sig: string
     // Game.time of the plan.
     at?: number
@@ -464,7 +462,6 @@ export class MetaManager {
     wallHits = 20;
     constructor(readonly name: string) {
         const metaMem = this.memory;
-        if (migrateTrafficMeta(metaMem)) Game.rooms[name]?.log("traffic meta moved into the manager");
         if (metaMem.traffic) this.traffic = new TrafficPlan(metaMem.traffic, this);
         this.metas = _.compact(_.map(metaMem.metas, mem => newMeta(mem, this))) as MetaStructure[];
         this.metas.sort(metaOrder);
@@ -628,8 +625,8 @@ export class MetaManager {
         return sites;
     }
 
-    // The metas and the traffic plan, in metaOrder (the plan sorts where the
-    // old traffic meta did): what upkeep, purge, maxHits and getMatrix walk.
+    // The metas and the traffic plan, in metaOrder (the plan sorts at
+    // priority 0 under its name): what upkeep, purge, maxHits and getMatrix walk.
     planned(): MetaStructure[] {
         if (!this.traffic) return this.metas;
         return this.metas.concat(this.traffic).sort(metaOrder);
@@ -704,7 +701,7 @@ export class MetaManager {
     }
 
     // Replan the traffic once the metas changed (trafficSig no longer matches
-    // the plan's; a forced or migrated plan's is ""). Needs vision and
+    // the plan's; a forced plan's is ""). Needs vision and
     // bucket. Paced unless `now` (console): one room per tick, not in the
     // manager's first ticks (begin), not within kTrafficRetry ticks of a plan
     // that ran out of CPU. True when it planned this tick, so the caller
@@ -836,20 +833,6 @@ export class MetaManager {
         return n;
     }
 
-    // Migration: keep `xys` planned at `lvl` in the traffic plan and mark it
-    // stale, so its roads stay built and repaired until the first replan.
-    adoptRoads(xys: number[], lvl: PlanLevel) {
-        if (!xys.length) return;
-        let mem = this.memory.traffic;
-        if (!mem) {
-            mem = this.memory.traffic = newTrafficMem(0);
-            this.traffic = new TrafficPlan(mem, this);
-        }
-        mergeRoads(mem, { [lvl]: xys });
-        mem.sig = "";
-        this.trafficDirty = true;
-    }
-
     // Draw the plan's roads not built yet, at most once a tick however many
     // callers (genesis flag, missions) ask.
     drawTraffic(v?: RoomVisual) {
@@ -866,7 +849,7 @@ export class MetaManager {
         const roads: MetaLevel = mem.structs[STRUCTURE_ROAD] || {};
         const lvls = _.map(roads, (xys: number[], lvl: string) => `${lvl}:${xys.length}`).join(" ");
         const stale = mem.sig !== this.trafficSig(entries) ? " STALE" : "";
-        const at = mem.at === undefined ? "migrated" : `${Game.time - mem.at} ticks ago`;
+        const at = mem.at === undefined ? "never" : `${Game.time - mem.at} ticks ago`;
         const fail = mem.fail ? ` fail: ${mem.fail.join(" ")}` : "";
         return `${this.name} traffic: ${entries.length} entries, roads by level ${lvls || "none"}, planned ${at}${stale}${fail}`;
     }
@@ -2097,38 +2080,6 @@ class TrafficPlan extends MetaStructure {
 
 function newTrafficMem(xy: number): TrafficPlanMem {
     return { name: kTrafficName, xy, color: COLOR_WHITE, points: {}, structs: {}, sig: "" };
-}
-
-// Add `roads` (level -> xys) to a plan's roads, each tile once at its lowest
-// level.
-function mergeRoads(mem: MetaMem, roads: MetaLevel) {
-    const levels = new Map<number, number>();
-    const add = (lvls: MetaLevel | undefined) => _.forEach(lvls || {}, (xys, lvl) => {
-        for (const xy of xys || []) {
-            const was = levels.get(xy);
-            if (was === undefined || +lvl! < was) levels.set(xy, +lvl!);
-        }
-    });
-    add(mem.structs[STRUCTURE_ROAD]);
-    add(roads);
-    delete mem.structs[STRUCTURE_ROAD];
-    for (const [xy, lvl] of levels) addMemStruct(mem, STRUCTURE_ROAD, lvl as PlanLevel, xy);
-}
-
-// Before Sept 2026 traffic was a flag-planned meta named "traffic" among the
-// metas. Its roads become the manager's plan, once each, with an empty
-// signature: built and repaired as before until the first replan, which diffs
-// against them. True when memory changed.
-function migrateTrafficMeta(mem: ManagerMem): boolean {
-    // Numbered children (traffic1) had the traffic role too; every such meta
-    // merges into the one plan.
-    const olds = _.remove(mem.metas, m => calcRole(m.name) === kTrafficName);
-    if (!olds.length) return false;
-    const plan = mem.traffic || newTrafficMem(0);
-    for (const old of olds) mergeRoads(plan, old.structs[STRUCTURE_ROAD] || {});
-    plan.sig = "";
-    mem.traffic = plan;
-    return true;
 }
 
 function nearWall(t: RoomTerrain, x: number, y: number): boolean {

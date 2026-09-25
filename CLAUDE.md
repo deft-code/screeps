@@ -314,7 +314,7 @@ legacy systems did: [docs/legacy-systems.md](docs/legacy-systems.md).
 | [docs/spawning.md](docs/spawning.md) | bodies, spawn selection, priorities, naming |
 | [docs/creep-roles.md](docs/creep-roles.md) | role dispatch, mixin chain, task conventions, role tables |
 | [docs/metastruct.md](docs/metastruct.md) | base layouts, genesis flag protocol, construction order, maxHits, traffic (roads) |
-| [docs/traffic-design.md](docs/traffic-design.md) | why and how roads became a MetaManager service, and the migration from `Meta_traffic`/tile-holding `rroad` legs |
+| [docs/traffic-design.md](docs/traffic-design.md) | why and how roads are a MetaManager service: entries, the planner, replan triggers, decisions taken |
 | [docs/room-and-structures.md](docs/room-and-structures.md) | strat, towers, links, labs, factory, terminal, intel |
 | [docs/movement.md](docs/movement.md) | Rewalker, route costs, xy packing |
 | [docs/conventions-and-styles.md](docs/conventions-and-styles.md) | the three eras, decorators, naming, migration recipe |
