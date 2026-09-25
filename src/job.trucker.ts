@@ -82,8 +82,32 @@ export class Trucker extends JobRole {
         return "wait";
     }
 
-    // Grab any energy lying next to the path (spilled drop-mining, tombstones).
+    // Grab any energy lying next to the path (spilled drop-mining, tombstones),
+    // else top up a working creep beside us.
     after() {
-        this.cc.idleNom();
+        this.cc.idleNom() || this.idleShare();
+    }
+
+    // Hand energy to an adjacent creep of ours that has CARRY and WORK (a
+    // worker, paver, harvester...) and room for it. One transfer per tick,
+    // the emptiest neighbour first. Lives here for now; meant for
+    // creep.carry.ts once every job wants it.
+    idleShare(): string | false {
+        const c = this.cc;
+        if (c.intents.transfer) return false;
+        const carried = c.store.energy;
+        if (!carried) return false;
+        const target = _(this.pos.findInRange(FIND_MY_CREEPS, 1))
+            .filter(o => o.name !== c.name
+                && o.getActiveBodyparts(CARRY) > 0
+                && o.getActiveBodyparts(WORK) > 0
+                && o.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
+            .max(o => o.store.getFreeCapacity(RESOURCE_ENERGY)) as Creep | number;
+        if (!(target instanceof Creep)) return false;
+        const amount = Math.min(carried, target.store.getFreeCapacity(RESOURCE_ENERGY));
+        const err = c.transfer(target, RESOURCE_ENERGY, amount);
+        if (err !== OK) return false;
+        c.intents.transfer = target;
+        return `share ${amount} ${target.name}`;
     }
 }

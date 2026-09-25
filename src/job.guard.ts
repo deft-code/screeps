@@ -200,12 +200,15 @@ export class Guard extends JobRole {
     }
 
     // Nothing to do: after kHoldIdle idle ticks, drift to within range of the
-    // room centroid (spots.roomCentroid).
+    // room centroid (spots.roomCentroid). An exit tile is left at once: standing
+    // on it carries the guard back out, so gidle would never get past 1.
     hold(range = kHoldRange): Task2Ret {
         this.holding = true;
+        const { x, y } = this.pos;
+        const onExit = x === 0 || y === 0 || x === 49 || y === 49;
         const idle = (this.memory.gidle || 0) + 1;
         this.memory.gidle = idle;
-        if (idle < kHoldIdle) return "wait";
+        if (idle < kHoldIdle && !onExit) return "wait";
         const center = roomCentroid(this.pos.roomName);
         if (this.pos.inRangeTo(center, range)) return "wait";
         this.movePos(center, range);
