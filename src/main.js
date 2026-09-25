@@ -60,6 +60,7 @@ import 'ms.reactor';
 import 'ms.thormine';
 import 'ms.reactordepot';
 import 'ms.remote';
+import 'ms.growfarm';
 import 'ms.once';
 import 'ms.startup';
 import 'ms.hub';

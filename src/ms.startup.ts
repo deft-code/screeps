@@ -87,7 +87,8 @@ const rewalker = defaultRewalker();
 // cost matrices, so keeper lairs, hostile structures and rooms the Rewalker
 // rates hostile are avoided the way a walking creep avoids them. The plan
 // is kept in memory (memory.road), redone every kRoadPace ticks, and drawn
-// every tick it exists, whatever the mission is otherwise doing. The home
+// while the mission room has at least two of our construction sites,
+// whatever the mission is otherwise doing. The home
 // room is args[2], else the room of the nearest spawn outside the mission
 // room (spawnold remoteSpawns, the pioneers' pool).
 //
@@ -161,7 +162,7 @@ export class Startup extends Mission {
             this.paceNJobs(Pioneer, kPioneers);
             if (!room.findStructs(STRUCTURE_TOWER).length) this.nJobs(Guard, 1);
         }
-        this.drawRoad();
+        if (this.building()) this.drawRoad();
 
         super.run();
         return "normal";
@@ -397,6 +398,12 @@ export class Startup extends Mission {
     get road(): Path | null {
         const mem = this.smem.road;
         return mem ? Path.deserialize(mem) : null;
+    }
+
+    // At least two of our construction sites in the mission room: the road
+    // is going in, so draw it. False while the room is invisible.
+    building(): boolean {
+        return (this.room?.find(FIND_MY_CONSTRUCTION_SITES).length || 0) >= 2;
     }
 
     drawRoad() {

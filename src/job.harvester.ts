@@ -44,13 +44,18 @@ export class Harvester extends JobRole {
     }
 
     // A reserved source regenerates 10 energy/tick: 6 WORK with slack, 1 CARRY
-    // so building and repairing work, 3 MOVE. Smaller homes get the floor.
+    // so building and repairing work, 3 MOVE (half speed on roads), 800 energy,
+    // which a full RCL3 room affords. Smaller homes get as many WORK as fit,
+    // at least 2, keeping the 2 WORK per MOVE ratio.
     static body(ecap: number): BodyPartConstant[] {
-        const full: BodyPartConstant[] = [WORK, WORK, WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE, MOVE];
-        const floor: BodyPartConstant[] = [WORK, WORK, WORK, CARRY, MOVE, MOVE];
-        if (ecap >= 900) return full;
-        if (ecap >= 550) return [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE];
-        return floor;
+        const cost = (w: number) => w * BODYPART_COST[WORK] + BODYPART_COST[CARRY] + Math.ceil(w / 2) * BODYPART_COST[MOVE];
+        let works = 6;
+        while (works > 2 && cost(works) > ecap) works--;
+        return [
+            ..._.fill(Array(works), WORK),
+            CARRY,
+            ..._.fill(Array(Math.ceil(works / 2)), MOVE),
+        ] as BodyPartConstant[];
     }
 
     get cc(): CreepRepair {

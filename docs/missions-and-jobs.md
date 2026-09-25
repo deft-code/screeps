@@ -38,7 +38,7 @@ Process                      run(): Priority; kill()           (process.ts)
          ├─ Bulldoze         @register  (ms.bulldoze.ts)       "Bulldoze <target> <home>"; tile list in memory.doze fed by `bulldoze*` flags (flag = this tile next, flag removed) and by the breach plan
          │                                                     (spawn -> first tile, cost round(log10(hits)*20) per blocked tile, replanned every 100 ticks); one Bulldozer while the list is not empty; asks the home labs for XZH2O while a dozer is an egg/hatch
          ├─ Hub              @register  (ms.hub.ts)            "Hub <room>"; GlobalRespawn for any owned room, without the startup creeps:
-                                                              Reboot while the mission has no creeps, bsrc/asrc (ecap >= 550) or haulers (1 + one per 2k dropped energy over 1k, max 3), Worker, Ctrl, Hub once storage exists, Upgrader.want(room) upgraders (below RCL8: storage energy / 100k, from 100k, fractional),
+                                                              Reboot while the mission has no creeps, bsrc (only with a Meta_bsrc)/asrc (ecap >= 550; nCreeps 1 + (cached spawn->spot walk + 30)/1500 each) or haulers (1 + one per 2k dropped energy over 1k, max 3), Worker, Ctrl, Hub once storage exists, Upgrader.want(room) upgraders (below RCL8: storage energy / 100k, from 100k, fractional),
                                                               all spawned "local"; idles (paced log) while the room is not ours or has no spawn of its own (status `no-spawn`). Distinct from the `Hub` job class (separate registries).
          ├─ Swipe            @register  (ms.swipe.ts)          "Swipe <target> <home>"; Scout while the target is invisible, else two Swipers (kSwipers);
          │                                                     winds down once the target room has no swipe targets left (job.swiper swipeTargets)
@@ -96,6 +96,10 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               paceJobs(Reserver, 550/ctrl spots) while someone else holds the reservation, no hostiles,
                                                               and living reservers' ttl*CLAIM < ticks left;
                                                               no farmers while that reservation has > 100 ticks left
+         │   ├─ GrowFarm     @register  (ms.growfarm.ts)       "GrowFarm <farm> <home> [spawn]"; a Farm that evolve()s into "Remote <farm> <home> [spawn]"
+                                                              once <home> is ours with energyCapacityAvailable >= 800 (full RCL3; 1300, full RCL4, if the
+                                                              farm controller has one free tile; waits while the farm is invisible) and a storage built
+                                                              or planned (RemotePlanner needs one); status shows `ecap:<n>/<need>`
          │   └─ Remote       @register  (ms.remote.ts)         "Remote <remote> <home> [spawn]"; port of team.ts teamRemote, phase 1. Extends Farm for
                                                               the suppress* rules but replaces run() and reserve():
                                                               [spawn] as Farm: the only room its creeps spawn from (Harvester/Trucker.spawn honour it too); idles `spawn-not-ready` without a spawn there;
@@ -108,7 +112,7 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               memory.metas tracks room -> names; the rroads hold only traffic entries (per room the leg's
                                                               ends: storage -> border, border -> border, border -> beside the container; the controller
                                                               leg border -> controller on swamp only) and each room's MetaManager plans the roads;
-                                                              drawMetas() every tick (the metas and each room's traffic plan); windDown() removes them,
+                                                              drawMetas() while the remote room has > 1 of our construction sites (the metas and each room's traffic plan); windDown() removes them,
                                                               and each room's traffic replan removes our road sites left on dropped tiles.
                                                               schedulePavers(): "Once Paver <room>" for any tracked unclaimed room with our sites in view,
                                                               at most one per room per 1500 ticks.
@@ -131,8 +135,8 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               claimer; instead `planRoad`: PathFinder controller -> home spawn (home = args[2], else the
                                                               nearest outside spawn's room) through `Rewalker.restrictedRoomCallback` (its route and cost
                                                               matrices, so keeper lairs and hostile rooms are avoided), plainCost 2 / swampCost 10, kept in
-                                                              memory.road as a Rewalker `Path`, replanned every 500 ticks and drawn (yellow dashed) every
-                                                              tick it exists; `replanRoad()` drops it; status adds `gcl:` and `road:<tiles> via:<rooms>`.
+                                                              memory.road as a Rewalker `Path`, replanned every 500 ticks and drawn (yellow dashed) while
+                                                              the mission room has >= 2 of our construction sites; `replanRoad()` drops it; status adds `gcl:` and `road:<tiles> via:<rooms>`.
                                                               The path becomes traffic entries, one `Meta_rroad` per room named `rroad_<room>_startup`
                                                               (tracked in memory.roadMetas, status `metas:<rooms>`), shaped like a remote's: in the mission
                                                               room from the border the path leaves by to each source (beside its asrc/bsrc/rsrc spot when
@@ -301,7 +305,8 @@ purged, so no creep is lost. Only the base `MissionMemory` moves: a subclass
 with extra state should override `evolve`; `Remote.evolve` calls
 `removeMetas()` first so the old plan and its sites go, and the new Remote
 replans against its own home on its next visible run. The target may be a different mission class; the creeps keep their
-jobs and simply resolve `this.mission` to the new instance.
+jobs and simply resolve `this.mission` to the new instance. `GrowFarm` calls
+it on itself (into a `Remote` on the same arguments) when its home room grows.
 
 ## Winding down a mission
 

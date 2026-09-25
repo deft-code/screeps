@@ -42,7 +42,9 @@ Consequences: no market automation, radar scanning, deposit farming, or flag
 flags in the game are metastruct genesis/child flags (genesis `Home` W26S8,
 `Port` W25S7, `Forth` W27S5; `Three` W22S7 went with that room) and purple service flags. Missions exist only
 while scheduled: the table is `Memory.scheduler.services` as of Sept 2026, so
-read that key rather than trusting this list. `Farm`, `Once`, `Swipe` and the
+read that key rather than trusting this list. `Farm`, `GrowFarm` (a Farm that
+evolves into `Remote` at 800 home energy capacity, 1300 if the farm controller
+has one free tile), `Once`, `Swipe` and the
 `Selloff <room>` terminal-selling service are not scheduled and run only by
 command string or a purple flag ([docs/missions-and-jobs.md](docs/missions-and-jobs.md)).
 

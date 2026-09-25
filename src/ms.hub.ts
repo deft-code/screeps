@@ -1,4 +1,4 @@
-import { Mission } from "mission";
+import { Mission, MissionMemory } from "mission";
 import { register, Priority } from "process";
 import { Worker } from "job.worker";
 import { Ctrl } from "job.ctrl";
@@ -7,6 +7,7 @@ import { Reboot } from "job.reboot";
 import { Upgrader } from "job.upgrader";
 import { CtrlHauler } from "job.ctrlhauler";
 import { Chemist } from "job.chemist";
+import { defaultRewalker, toXY } from "Rewalker";
 import * as debug from "debug";
 
 // Ticks between "waiting" log lines while the room is not ours or has no spawn.
@@ -19,6 +20,23 @@ const kEnergyTolerance = 1000;
 const kHaulerScale = 2000;
 const kMaxHaulers = 3;
 
+// A srcer is replaced this many ticks before its predecessor dies on top of
+// the walk from the spawn to its spot: spawning plus slack.
+const kSrcerLead = 30;
+// Ticks a cached spawn -> src spot walk stays good; roads and spawns change.
+const kSrcDistPace = 5000;
+
+interface SrcDist {
+    xy: number   // the meta spot the walk was measured to
+    dist: number // steps from the nearest spawn
+    at: number   // Game.time measured
+}
+
+interface HubMemory extends MissionMemory {
+    // role (asrc/bsrc) -> Rewalker-costed walk from the nearest spawn.
+    srcDist?: { [role: string]: SrcDist }
+}
+
 // Run an owned room's economy from its own spawns: GlobalRespawn without the
 // startup creeps.
 //
@@ -26,8 +44,10 @@ const kMaxHaulers = 3;
 //
 // Every tick, as GlobalRespawn does for Game.spawns.Home's room: one Reboot
 // (job.reboot.ts) while the mission has no creeps at all; once energyCapacity
-// reaches 550 one bsrc then one asrc (job.srcer.ts; they need the room's
-// Meta_bsrc/Meta_asrc), otherwise nHaulers() haulers (1 + one per
+// reaches 550 one bsrc (only if a Meta_bsrc is planned) then one asrc
+// (job.srcer.ts; they need the room's Meta_bsrc/Meta_asrc), each counted as
+// 1 + (walk from spawn + 30) / 1500 so the replacement arrives as the old
+// one dies; otherwise nHaulers() haulers (1 + one per
 // kHaulerScale of dropped energy over kEnergyTolerance, max kMaxHaulers);
 // one Worker; one Ctrl; one
 // Hub once the room has storage (Hub.spawn also waits for the 'hub' spot);
@@ -39,6 +59,10 @@ const kMaxHaulers = 3;
 export class Hub extends Mission {
     get roomName(): string {
         return this.args[1];
+    }
+
+    get memory(): HubMemory {
+        return super.memory as HubMemory;
     }
 
     run(): Priority {
@@ -65,7 +89,10 @@ export class Hub extends Mission {
             this.nJobs(Reboot, 1);
         }
 
-        ecap >= 550 && (this.nCreeps('bsrc', 1) || this.nCreeps('asrc', 1)) ||
+        // A bsrc only where a Meta_bsrc is planned: single-source rooms have none.
+        const bsrc = !!room.meta.getMeta('bsrc');
+        ecap >= 550 && ((bsrc && this.nCreeps('bsrc', this.nSrcers(room, 'bsrc'))) ||
+            this.nCreeps('asrc', this.nSrcers(room, 'asrc'))) ||
             this.nCreeps('hauler', this.nHaulers(room));
 
         this.nJobs(Worker, 1);
@@ -78,6 +105,41 @@ export class Hub extends Mission {
 
         super.run();
         return "critical";
+    }
+
+    // One srcer, plus the fraction of a lifetime its replacement needs to
+    // walk to the spot, so the next one arrives as the last one dies.
+    nSrcers(room: Room, role: string): number {
+        const dist = this.srcDist(room, role);
+        return 1 + (dist + kSrcerLead) / CREEP_LIFE_TIME;
+    }
+
+    // Rewalker-costed steps from the room's nearest spawn to the role's meta
+    // spot (plains 2, swamps 10, the Rewalker matrix: roads 1, structures
+    // and creeps as it rates them), cached in memory.srcDist until the spot
+    // moves or kSrcDistPace ticks pass. 0 without a spot or a spawn.
+    srcDist(room: Room, role: string): number {
+        const spot = room.meta.getSpot(role);
+        if (!spot) return 0;
+        const xy = toXY(spot);
+        const cache = this.memory.srcDist = this.memory.srcDist || {};
+        const old = cache[role];
+        if (old && old.xy === xy && old.at + kSrcDistPace > Game.time) return old.dist;
+
+        const spawns = room.findStructs(STRUCTURE_SPAWN);
+        if (!spawns.length) return 0;
+        const rewalker = defaultRewalker();
+        const ret = PathFinder.search(spot, spawns.map(s => ({ pos: s.pos, range: 1 })), {
+            plainCost: 2,
+            swampCost: 10,
+            maxRooms: 1,
+            roomCallback: roomName => rewalker.getMatrix(roomName),
+        });
+        const dist = ret.path.length;
+        if (ret.incomplete) debug.log(this.name, "srcDist incomplete", role, spot, "steps", dist);
+        cache[role] = { xy, dist, at: Game.time };
+        debug.log(this.name, "srcDist", role, spot, "steps", dist);
+        return dist;
     }
 
     // Energy lying on the floor of the room.

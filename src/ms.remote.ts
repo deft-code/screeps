@@ -105,7 +105,7 @@ export class Remote extends Farm {
             this.truck();
         }
         this.schedulePavers();
-        this.drawMetas();
+        if (this.building()) this.drawMetas();
         // Farm.run() would lay farmers, so reach Mission.run() directly.
         Mission.prototype.run.call(this);
         return "normal";
@@ -262,6 +262,12 @@ export class Remote extends Farm {
             debug.log(this.name, "scheduling", cmd);
             Service.schedule(cmd);
         }
+    }
+
+    // More than one of our construction sites in the remote room: the roads
+    // are going in, so draw the plan. False while the room is invisible.
+    building(): boolean {
+        return (this.room?.find(FIND_MY_CONSTRUCTION_SITES).length || 0) > 1;
     }
 
     // Draw every meta this mission planned, in every room, vision or not, and
