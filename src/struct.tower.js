@@ -1,5 +1,5 @@
 import * as debug from 'debug';
-import { repairable, dynMaxHits } from 'creep.repair';
+import { repairable } from 'creep.repair';
 
 const one = (towers, func, obj) => {
   if (!obj) return towers
@@ -90,7 +90,7 @@ export function runTowers(room) {
     let overRepair = Infinity;
     let repairs = [];
     for (const struct of room.findStructs(STRUCTURE_WALL, STRUCTURE_RAMPART)) {
-      const max = dynMaxHits(struct);
+      const max = room.maxHits(struct);
       if (struct.hits > max && max > 0) {
         const over = struct.hits / max;
         if (over < overRepair) overRepair = over;
@@ -103,7 +103,7 @@ export function runTowers(room) {
       repairs = _.filter(room.find(FIND_STRUCTURES),
         s => s.structureType !== STRUCTURE_ROAD &&
           s.hits < s.hitsMax &&
-          s.hits < (overRepair + 0.1) * dynMaxHits(s));
+          s.hits < (overRepair + 0.1) * room.maxHits(s));
     }
     if (repairs.length === 0) return;
     for (const tower of towers) {

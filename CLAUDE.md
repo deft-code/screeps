@@ -263,8 +263,6 @@ links, labs, spots, containers}`, `Memory.intel`, `Memory.flags[genesis].newer`,
   always returns `null`).
 - `GlobalRespawn` (unscheduled, see above) uses the spawn named `Home`, else the first spawn in `Game.spawns`; with no spawns at all it throws every tick.
 - `afterWorker` exists in both `role.worker.js` (wins) and `role.mason.ts`.
-- `struct.tower.js` imports a non-existent `dynMaxHits`; only the storage
-  > 800k overheal branch hits it.
 - `Game.terminals`/`Game.storages`/`Game.ncreeps` are referenced but never
   defined (dead paths only).
 - `room.turtle` / `room.wallMax` do not exist; `taskTurtle*` in live roles

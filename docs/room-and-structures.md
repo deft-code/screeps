@@ -51,8 +51,7 @@ structures about to decay (all towers) -> heal a creep hurt more than
 `TOWER_POWER_HEAL` -> if exactly one assaulter, all towers fire; if several,
 each tower picks a random-ish nearest enemy -> top-off heals -> upkeep repairs
 of roads/ramparts/containers near decay -> snipe weak enemies -> "overheal" wall
-repair when storage > 800k (this branch calls a missing `dynMaxHits` import and
-would throw; see [known-issues.md](known-issues.md)).
+repair when storage > 800k, capped by `room.maxHits` (the metastruct maxHits).
 
 ## Links (`src/struct.link.ts`)
 

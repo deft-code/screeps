@@ -35,9 +35,9 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
 
 ## Latent bugs in code that is loaded but currently unreachable
 
-9. **`dynMaxHits` is imported but not exported** (`src/struct.tower.js:2`,
-    `src/creep.repair.ts`). The tower "overheal" branch (storage > 800k energy)
-    would throw `TypeError`.
+9. *(Fixed Sept 2026.)* The tower "overheal" branch in `src/struct.tower.js`
+    called a never-exported `dynMaxHits`; it now uses `room.maxHits` (the
+    metastruct maxHits via `strat.maxHits`).
 10. **`Game.terminals`, `Game.storages`, `Game.ncreeps` are never assigned**
     (defined by a deleted `globals.js`). Used by `struct.terminal.js` market
     functions, `team.ts:427`, `team.egg.js:5`.
