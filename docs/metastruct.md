@@ -248,7 +248,9 @@ road`. `makeSite` walks metas in priority order, tries required levels
 `0..RCL`, then optional level 9. A tile blocked by a wrong structure or a
 foreign site is `removeDestroy`ed (storage/terminal/factory are protected while
 a replacement site exists). `ERR_RCL_NOT_ENOUGH` triggers `purge` of structures
-no meta claims at this RCL.
+no meta claims at this RCL. While the room has armed hostiles other than
+Source Keepers (`hostileHold`), `makeSite` places only rampart and tower sites
+(and destroys no blockers for anything else); upkeep resumes once they leave.
 
 ## Retiring structures
 

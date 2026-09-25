@@ -114,10 +114,10 @@ export class Hub extends Mission {
         return 1 + (dist + kSrcerLead) / CREEP_LIFE_TIME;
     }
 
-    // Rewalker-costed steps from the room's nearest spawn to the role's meta
-    // spot (plains 2, swamps 10, the Rewalker matrix: roads 1, structures
-    // and creeps as it rates them), cached in memory.srcDist until the spot
-    // moves or kSrcDistPace ticks pass. 0 without a spot or a spawn.
+    // Steps from the room's nearest spawn to the role's meta spot as
+    // Rewalker.planRoad walks them (a srcer keeps full speed on roads only),
+    // cached in memory.srcDist until the spot moves or kSrcDistPace ticks
+    // pass. 0 without a spot or a spawn.
     srcDist(room: Room, role: string): number {
         const spot = room.meta.getSpot(role);
         if (!spot) return 0;
@@ -128,13 +128,7 @@ export class Hub extends Mission {
 
         const spawns = room.findStructs(STRUCTURE_SPAWN);
         if (!spawns.length) return 0;
-        const rewalker = defaultRewalker();
-        const ret = PathFinder.search(spot, spawns.map(s => ({ pos: s.pos, range: 1 })), {
-            plainCost: 2,
-            swampCost: 10,
-            maxRooms: 1,
-            roomCallback: roomName => rewalker.getMatrix(roomName),
-        });
+        const ret = defaultRewalker().planRoad(spot, spawns.map(s => ({ pos: s.pos, range: 1 })));
         const dist = ret.path.length;
         if (ret.incomplete) debug.log(this.name, "srcDist incomplete", role, spot, "steps", dist);
         cache[role] = { xy, dist, at: Game.time };

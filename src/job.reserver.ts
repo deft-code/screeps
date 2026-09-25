@@ -2,8 +2,9 @@ import { JobRole } from "job.role";
 import { register, task, Task2Ret } from "mycreep";
 
 // Port of role.reserver.js (2017 flag-team era) to the 2022 mission/job system.
-// Spawns in the mission's "home" room, walks to the mission room and keeps its
-// controller reserved. A controller reserved by someone else is attacked
+// Spawns in the mission's "home" room, walks straight to the mission room's
+// controller (to the room's center while the room is out of sight: intel
+// keeps no controller position) and keeps it reserved. A controller reserved by someone else is attacked
 // until the reservation drops. Farm paces one through Farm.reserve(), the
 // team.ts reserve() rule from teamFarm.
 @register
@@ -19,21 +20,19 @@ export class Reserver extends JobRole {
     }
 
     start(): Task2Ret {
+        const room = Game.rooms[this.mission.roomName];
+        const controller = room?.controller;
+        if (controller) return this.reserve(controller);
         if (this.pos.roomName !== this.mission.roomName) {
             return this.moveRoom(this.mission.roomName);
         }
-        const controller = this.c.room.controller;
-        if (!controller) {
-            this.log("no controller to reserve in", this.mission.roomName);
-            return "wait";
-        }
-        return this.reserve(controller);
+        this.log("no controller to reserve in", this.mission.roomName);
+        return "wait";
     }
 
     // creep.work.js taskReserve
     @task
     reserve(controller: StructureController): Task2Ret {
-        if (controller.pos.roomName !== this.pos.roomName) return "start";
         let err = this.c.reserveController(controller);
         if (err === ERR_INVALID_TARGET) {
             err = this.c.attackController(controller);

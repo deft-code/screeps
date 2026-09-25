@@ -12,6 +12,7 @@ import { getMetaManager } from "metastruct";
 import { Meta_rroad } from "metaremote";
 import { kSwampAverse, pathTraffic, FarTarget } from "metatraffic";
 import { remoteSpawns } from "spawnold";
+import { PaveAll } from "ms.paveall";
 import { defaultRewalker, MemPath, Path, fromXY } from "Rewalker";
 import * as debug from "debug";
 
@@ -37,8 +38,6 @@ const kRoadLeg = "startup";
 // Cost of a tile another meta already plans a road on: below kRoadPlainCost
 // so the startup road rides planned roads instead of laying its own beside.
 const kRoadPlannedRoadCost = 1;
-// Ticks between "Once Paver <room>" schedules for the same road room.
-const kPaverPace = 1500;
 // One wolf per this many ticks while an invader core stands in the room
 // (Farm.suppressInvaderCore).
 const kCorePace = 1500;
@@ -56,8 +55,6 @@ export interface StartupMemory extends MissionMemory {
     roadIncomplete?: boolean
     // room -> names of the road metas planned there.
     roadMetas?: { [room: string]: string[] }
-    // room -> tick a "Once Paver <room>" was last scheduled for it.
-    pavers?: { [room: string]: number }
 }
 
 const rewalker = defaultRewalker();
@@ -104,7 +101,7 @@ const rewalker = defaultRewalker();
 // replaces them in place; winding down removes them (removeRoad() does the
 // same by hand), and each room's replan removes our sites on the tiles no
 // longer planned. Any unowned room on the road with our sites in view gets a
-// "Once Paver <room>" at most every kPaverPace ticks, as Remote does.
+// "PaveAll <room>" (ms.paveall.ts), as Remote does.
 //
 // An invader core in the mission room draws one Wolf (job.wolf.ts) per
 // kCorePace ticks until it is gone (Farm.suppressInvaderCore). While GCL is
@@ -361,25 +358,16 @@ export class Startup extends Mission {
     }
 
     // Any unowned room on the road with our construction sites in view gets a
-    // "Once Paver <room>" (ms.once.ts), at most every kPaverPace ticks
-    // (Remote.schedulePavers).
+    // "PaveAll <room>" (ms.paveall.ts; Remote.schedulePavers).
     schedulePavers() {
-        const mem = this.smem;
-        const tracked = mem.roadMetas;
+        const tracked = this.smem.roadMetas;
         if (!tracked) return;
-        const when = mem.pavers = mem.pavers || {};
         for (const roomName in tracked) {
             if (roomName === this.homeName) continue;
             const room = Game.rooms[roomName];
             if (!room || room.controller?.owner) continue;
             if (!room.find(FIND_MY_CONSTRUCTION_SITES).length) continue;
-            const cmd = `Once Paver ${roomName}`;
-            if (Service.getType(cmd)) continue;
-            const last = when[roomName];
-            if (last && last + kPaverPace > Game.time) continue;
-            when[roomName] = Game.time;
-            debug.log(this.name, "scheduling", cmd);
-            Service.schedule(cmd);
+            PaveAll.request(roomName, this.name);
         }
     }
 

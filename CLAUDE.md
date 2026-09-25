@@ -86,7 +86,7 @@ storage >= 100k energy), `ctrlhauler` (`job.ctrlhauler.ts`, storage -> ctrl cont
 while storage >= 100k and container + ctrl creep are empty). Those are the
 base-room roles from `GlobalRespawn`/`Hub`. The scheduled missions add pure
 job-layer creeps (no `roleXxx` method): `harvester`, `trucker`, `reserver`
-(`Remote`); `warboy`, `immortan` (`Reactor`); `warrunner` (`ReactorDepot`); `thoreater`, `cleanup` (`Thormine`); `claimer`, `pioneer` (`Startup`);
+(`Remote`); `paver` (`PaveAll`, requested by `Remote`/`Startup` for unowned road rooms with our sites); `warboy`, `immortan` (`Reactor`); `warrunner` (`ReactorDepot`); `thoreater`, `cleanup` (`Thormine`); `claimer`, `pioneer` (`Startup`);
 and `scout`, `guard`, `mini`, `wolf` wherever a mission wants vision or a
 fight; `toxic` (`job.toxic.ts`, bait-and-trap mini) only by `Once Toxic <room> [count]`. Everything else with a `roleXxx` method is loaded but no job spawns it.
 Table and task conventions in [docs/creep-roles.md](docs/creep-roles.md).

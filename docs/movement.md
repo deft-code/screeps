@@ -20,7 +20,15 @@ Three generations of movement code exist. Only **Rewalker** is live.
   is cleared), or an `ERR_*`. `creep.move.ts` wraps this: `moveTarget` returns
   a `"move N@pos"` string while walking and `false` on arrival.
 - `planWalk(creep, goals)`, `getRoute`, `getRouteSet`, `getRouteDist`,
-  `getMatrix(roomName)`, `getStuckTicks(creep)`.
+  `getMatrix(roomName)`, `getStuckTicks(creep)`. `planWalk` issues no move
+  but overwrites `creep.memory._walk`, which the next `walkTo` builds on.
+- Creep-free plans: `planRoad(from, goals, {maxCost}?)`, `planOffRoad`,
+  `planSwamp` for a body that keeps full speed on roads only (plains 2, swamps
+  10), on plains (1/5), or everywhere (1/1). They return a `PlanResult`
+  (`path` without the origin, so `path.length` is steps; `goal` index or
+  `ERR_NO_PATH`; `incomplete`, `cost`, `ops`), store nothing, and copy the
+  goals before `cleanGoal` edits them. `moveTerrain(creep)` says which tier a
+  creep is in. `ms.hub.ts` `srcDist` uses `planRoad`.
 
 Helpers exported for everyone: `coordsToXY/coordsFromXY/toXY/fromXY` (the
 `x*100+y` packing shared with `path.ts`), `getDirectionTo` (cross-room aware),
@@ -59,9 +67,10 @@ rejoins instead of recomputing everything.
 
 ## Costs
 
-`planSteps` uses `PathFinder.search` with `plainCost 2 / swampCost 10`, or
+`planSteps` and the `plan*` helpers share one search, `Rewalker._search`,
+with the costs of the creep's `moveTerrain`: `plainCost 2 / swampCost 10`, or
 `1 / 5` when MOVE parts >= other parts, `swamp 1` at 5x MOVE; `maxCost` =
-ticks to live; `maxOps` = `4000 * route rooms`, capped at 20000 (PathFinder's
+ticks to live for `planSteps`, unbounded for `plan*`; `maxOps` = `4000 * route rooms`, capped at 20000 (PathFinder's
 heuristic ignores `plainCost`, so slow creeps need several times the default
 2000). Rooms are limited to the `findRoute` set via `restrictedRoomCallback`
 for walks over 4 rooms; shorter walks search unrestricted. An incomplete

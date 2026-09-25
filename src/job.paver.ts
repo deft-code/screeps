@@ -8,6 +8,9 @@ import { roomKind, Kind } from "intel";
 const kMinPile = 50;
 // Keep this far from a keeper lair when picking things up in an SK room.
 const kLairRange = 5;
+// A paver spawns only from a room holding at least this much energy, so a
+// drained room does not turn out a 1 WORK paver.
+const kPaverMinEnergy = 550;
 
 type Mode = "work" | "gather" | "forage";
 
@@ -22,9 +25,9 @@ type Forage = Resource | Tombstone | Ruin | AnyStoreStructure | Source;
 
 const rewalker = defaultRewalker();
 
-// Port of role.paver.js to the mission/job system. Spawned by "Once Paver
-// <room>" (ms.once.ts), which Remote schedules whenever an unclaimed room on
-// its route has construction sites. Three modes (memory.pmode):
+// Port of role.paver.js to the mission/job system. Spawned by "PaveAll
+// <room>" (ms.paveall.ts), which Remote and Startup schedule whenever an
+// unclaimed room on their roads has construction sites. Three modes (memory.pmode):
 //
 //   work    walk to the mission room, build any of our sites, then repair
 //           roads and containers; when empty, pick gather or forage.
@@ -41,8 +44,12 @@ const rewalker = defaultRewalker();
 @register
 export class Paver extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        // Body "farmer" is WORK/CARRY/CARRY per MOVE.
-        return this.closeSpawn(spawns, { body: "farmer" });
+        // Body "farmer" is WORK/CARRY/CARRY per MOVE, sized to the energy on
+        // hand. No spawn (the SpawnDaemon skips the egg this tick) until the
+        // chosen room holds kPaverMinEnergy.
+        const [spawn, body] = this.closeSpawn(spawns, { body: "farmer" });
+        if (!spawn || spawn.room.energyAvailable < kPaverMinEnergy) return [null, []];
+        return [spawn, body];
     }
 
     // Typed view of the legacy prototype mixins.

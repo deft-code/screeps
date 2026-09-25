@@ -878,9 +878,18 @@ export class MetaManager {
         return pos.createConstructionSite(stype);
     }
 
+    // While armed hostiles (not Source Keepers, which never leave) are in the
+    // room only defences get sites: a site elsewhere would be trampled or
+    // draw builders into the fight.
+    hostileHold(room: Room, stype: BuildableStructureConstant): boolean {
+        if (stype === STRUCTURE_RAMPART || stype === STRUCTURE_TOWER) return false;
+        return _.any(room.hostiles, h => !h.keeper);
+    }
+
     makeSite(stype: BuildableStructureConstant): boolean {
         const room = Game.rooms[this.name];
         if (!room) return false;
+        if (this.hostileHold(room, stype)) return false;
         const planned = this.planned();
         let blocker: blocker = null;
         for (const meta of planned) {

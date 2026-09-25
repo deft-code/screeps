@@ -132,7 +132,7 @@ passes `body: "srcer"`). Live keys are marked.
 | `hauler` | yes | `energyDef({move:2, per:[C], interleave: true, energy: eggMem.energy})`, spawn with >= `eggMem.energy` available (energy drops to available if under 550) |
 | `srcer` | yes | `srcerBody`: `harvesterBody(eggMem.lvl)` (6 to 15 WORK by source regen level) plus extra CARRY at RCL7/8, trimmed to the room's `energyCapacityAvailable` (floor `[W,W,M]`); the daemon waits for the energy |
 | `startup`, `reboot` | via `Startup`/`Reboot` classes instead | tables shown above; `reboot` case here is `[W,C,M]` |
-| `wolf` | `Farm`/`Remote` (`Wolf`) | `energyDef({move:1, per:[ATTACK]})` sized from `energyAvailable`, spawn with capacity >= 700 |
+| `wolf` | `Farm`/`Remote` (`Wolf`) | `energyDef({move:1, per:[ATTACK]})` sized from `max(550, energyAvailable)` (a drained room waits: 4 ATTACK + 4 MOVE at least), spawn with capacity >= 700 |
 | `guard` | `Farm`/`Remote` (`Guard`) | `energyDef({move:1, base:[M,H], per:[TOUGH,RA], movesFirst})` sized from `energyAvailable`, spawn with capacity >= 550; worked example above |
 | `mini` | `Farm`/`Remote` (`Mini`) | fixed `[RA, M, M, H]` (400), first spawn with that much available; does not scale |
 | `bootstrap`, `bulldozer`, `cart`, `chemist`, `claimer`, `cap`, `cleaner`, `collector`, `coresrc`, `declaimer`, `defender`, `depositfarmer`, `farmer`, `immortan`, `mason`, `micro`, `minecart`, `miner`, `mineral`, `rambo`, `reserver`, `scout`, `shunt`, `tower` | no | see `src/spawnold.js:271-586` |

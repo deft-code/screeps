@@ -90,7 +90,10 @@ export class CreepMove extends CreepRole {
     return this.idleFlee(this.room.hostiles, 3)
   }
 
-  idleFlee(creeps: Creep[], range: number) {
+  // Step away until every creep is at least `range` away; `range` may be a
+  // per-creep function.
+  idleFlee(creeps: Creep[], range: number | ((c: Creep) => number)) {
+    const rangeOf = typeof range === 'number' ? () => range : range
     const room = this.room
     const callback = (roomName: string) => {
       if (roomName !== room.name) {
@@ -116,7 +119,7 @@ export class CreepMove extends CreepRole {
       return mat
     }
     const ret = PathFinder.search(
-      this.pos, _.map(creeps, creep => ({ pos: creep.pos, range: range })), {
+      this.pos, _.map(creeps, creep => ({ pos: creep.pos, range: rangeOf(creep) })), {
       flee: true,
       roomCallback: callback
     })

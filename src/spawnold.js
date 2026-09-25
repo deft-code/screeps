@@ -192,6 +192,9 @@ function buildCtrl(spawns, eggMem) {
 // Find full spawns with atleast min energy.
 // Spawns considered full with energy >= max
 // Default max of 2500 allows for full 50 part haulers
+// Least energy a wolf body is sized to: 4 ATTACK + 4 MOVE (520).
+const kWolfMinEnergy = 550
+
 function energySpawn(spawns, min, max = 2500) {
   return _.find(spawns, s => s.room.energyCapacityAvailable >= min);
 }
@@ -594,10 +597,13 @@ export function buildBody(spawns, eggMem, { maxRCL }) {
     case 'wolf':
       spawn = energySpawn(spawns, 700)
       if (!spawn) break
+      // Sized to at least kWolfMinEnergy, so a drained room waits (the
+      // SpawnDaemon skips bodies it cannot afford) instead of spawning a
+      // 1 ATTACK + 1 MOVE wolf; more energy on hand buys a bigger one.
       body = energyDef(_.defaults({}, eggMem, {
         move: 1,
         per: [ATTACK],
-        energy: spawn.room.energyAvailable
+        energy: Math.max(kWolfMinEnergy, spawn.room.energyAvailable)
       }))
       break
     case 'worker':

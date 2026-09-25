@@ -14,7 +14,8 @@ export class Wolf extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         // body key "wolf" in spawnold.buildBody: a close spawn whose room capacity
         // is >= 700, body scaled by energyDef to the energy available there now:
-        // n ATTACK + n MOVE (130 per level), level 1 (260) up to level 25 (3250, 50 parts).
+        // n ATTACK + n MOVE (130 per level), at least level 4 (520: sized to max(550, energy
+        // available), so a drained room waits) up to level 25 (3250, 50 parts).
         // See docs/spawning.md "Body definitions". Offroad creep: spawns fine from
         // whatever spawns are nearest the mission room.
         return this.closeSpawn(spawns, { body: "wolf" });

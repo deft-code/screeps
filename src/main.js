@@ -62,6 +62,7 @@ import 'ms.reactordepot';
 import 'ms.remote';
 import 'ms.growfarm';
 import 'ms.once';
+import 'ms.paveall';
 import 'ms.startup';
 import 'ms.hub';
 import 'ms.selloff';

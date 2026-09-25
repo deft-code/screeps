@@ -35,7 +35,6 @@ ours already standing for the room is adopted when the id is missing or stale.
                      doze?: [[xy, roomName], ...] } }                 // Bulldoze: tiles to clear, the first is the destination
   "Remote W27S9 W26S8": { ..., metas?: { W27S9: ["rsrc_608", "rroad_W27S9_608"], W26S9: [...] },  // room -> metas the mission planned (rroads hold traffic entries)
                           planned?: tick,                             // present once planning was attempted; windDown removes the metas
-                          pavers?: { W26S9: tick },                   // last tick a "Once Paver <room>" was scheduled per room
                           legSteps?: 115 }                            // longest planned source leg, one-way trucker trip
   "Hub W25S7": { ..., srcDist?: { asrc: { xy, dist, at } } }          // Rewalker steps nearest spawn -> asrc/bsrc spot; remeasured when the spot moves or after 5000 ticks
 ```

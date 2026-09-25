@@ -30,7 +30,7 @@ Creep
      └─ CreepMove    (creep.move.ts)    moveDir/movePos/moveNear/moveRange/moveTarget (Rewalker), moveRoom, taskMoveRoom, taskMoveFlag, moveSpot, fleeHostiles/idleFlee, idleRetreat, actionHospital, moveBump
          └─ CreepCarry  (creep.carry.ts)  transfer/withdraw/pickup families: idleTransfer*, taskTransfer*, goTransfer, idleWithdrawExtra, idleRecharge, taskRecharge(Limit), taskWithdraw*, goWithdraw, idleNom/idleNomNom, taskPickup*, goPickup, taskDrop
              └─ CreepHarvest (creep.harvest.ts)  goHarvest
-                 └─ CreepBuild (creep.build.ts)  idleBuild, taskBuildOrdered/Structs/Sites/..., goBuild
+                 └─ CreepBuild (creep.build.ts)  idleBuild, taskBuildOrdered/Structs/Sites/..., goBuild (builds from buildRange: 3, 2 within 3 of the edge, 1 within 2)
                      └─ CreepRepair (creep.repair.ts)  idleRepairAny, taskRepairHurt/Ordered/Structs, taskRepair, goRepair; exports repairable()
                          ├─ SrcerExtra  (role.src.ts)     roleAsrc/roleBsrc, afterAsrc/afterBsrc
                          └─ RoleMason   (role.mason.ts)   roleMason (+ a stray afterWorker)

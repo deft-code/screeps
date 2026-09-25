@@ -174,6 +174,25 @@ export function calcWeight(c: Creep | PowerCreep): [number, number] {
     return [weight, nmoves]
 }
 
+// How freely a body moves, as the terrain it keeps full speed on: "road"
+// only on roads (fewer MOVE than weight), "offroad" on plains too (a MOVE per
+// weighted part), "swamp" everywhere (five times that).
+export type MoveTerrain = "road" | "offroad" | "swamp"
+
+// [plainCost, swampCost] a path search uses for each MoveTerrain.
+const kTerrainCosts: { [t in MoveTerrain]: [number, number] } = {
+    road: [2, 10],
+    offroad: [1, 5],
+    swamp: [1, 1],
+}
+
+export function moveTerrain(c: Creep | PowerCreep): MoveTerrain {
+    const [weight, nmoves] = calcWeight(c)
+    if (nmoves >= weight * 5) return "swamp"
+    if (nmoves >= weight) return "offroad"
+    return "road"
+}
+
 export function hasActivePart(c: Creep, ...partTypes: BodyPartConstant[]): boolean {
     for (let i = c.body.length - 1; i >= 0; i--) {
         if (c.body[i].hits <= 0) return false
@@ -288,6 +307,23 @@ export class Path {
 export interface Goal {
     pos: RoomPosition
     range: number
+}
+
+// What Rewalker.plan* return. `path` omits the origin (PathFinder's
+// convention), so its length is the number of steps. `goal` is the index of
+// the goal the path ends in range of (the origin, for an empty path), or
+// ERR_NO_PATH when the search was incomplete or reached no goal.
+export interface PlanResult {
+    path: RoomPosition[]
+    goal: number
+    incomplete: boolean
+    cost: number
+    ops: number
+}
+
+export interface PlanOpts {
+    // PathFinder maxCost: give up past this path cost. Unbounded by default.
+    maxCost?: number
 }
 
 export function drawGoal(pos: RoomPosition, color: string, goal: Goal) {
@@ -721,6 +757,52 @@ export class Rewalker {
         return roomName => this.getMatrix(roomName)
     }
 
+    // Creep-free path plans through the same route and cost matrices a
+    // walking creep uses, for a body that keeps full speed on roads only,
+    // on plains, or everywhere. Nothing is stored and nothing moves; the
+    // goals are copied before cleanGoal adjusts them.
+    planRoad(from: RoomPosition, goals: Goal[], opts?: PlanOpts): PlanResult {
+        return this.plan(from, goals, "road", opts)
+    }
+
+    planOffRoad(from: RoomPosition, goals: Goal[], opts?: PlanOpts): PlanResult {
+        return this.plan(from, goals, "offroad", opts)
+    }
+
+    planSwamp(from: RoomPosition, goals: Goal[], opts?: PlanOpts): PlanResult {
+        return this.plan(from, goals, "swamp", opts)
+    }
+
+    plan(from: RoomPosition, goals: Goal[], terrain: MoveTerrain, opts: PlanOpts = {}): PlanResult {
+        const clean = goals.map(g => cleanGoal({ pos: new RoomPosition(g.pos.x, g.pos.y, g.pos.roomName), range: g.range }))
+        return this._search(from, clean, terrain, opts.maxCost)
+    }
+
+    // The one PathFinder.search behind Step.planSteps and plan*: the terrain's
+    // costs, an ops budget scaled by the route to goals[0] (the true
+    // destination; any others lie nearer), and the route-restricted rooms.
+    // `goals` must already be clean.
+    _search(from: RoomPosition, goals: Goal[], terrain: MoveTerrain, maxCost?: number): PlanResult {
+        const [plainCost, swampCost] = kTerrainCosts[terrain]
+        const rooms = this.getRouteDist(from.roomName, goals[0].pos.roomName)
+        const ret = PathFinder.search(from, goals, {
+            roomCallback: this.restrictedRoomCallback(from, goals),
+            plainCost,
+            swampCost,
+            maxCost,
+            maxOps: Math.min(kMaxOps, kOpsPerRoom * rooms),
+        })
+        const final = _.last(ret.path) || from
+        const i = _.findIndex(goals, g => final.inRangeTo(g.pos, g.range))
+        return {
+            path: ret.path,
+            goal: ret.incomplete || i < 0 ? ERR_NO_PATH : i,
+            incomplete: ret.incomplete,
+            cost: ret.cost,
+            ops: ret.ops,
+        }
+    }
+
     restrictedRoomCallback(pos: RoomPosition, goals: Goal[]): (roomName: string) => boolean | CostMatrix {
         // Short distance walks don't usually exceed the 16 room limit.
         if (this.getRouteDist(pos.roomName, goals[0].pos.roomName) <= 4) {
@@ -982,33 +1064,7 @@ class Step {
     }
 
     planSteps(pos: RoomPosition, goals: Array<Goal>, maxSteps: number): [number, Path] {
-        // calculate plainCost and swampCost
-        const [weight, nmoves] = calcWeight(this.creep)
-        let plainCost = 2
-        let swampCost = 10
-        if (nmoves >= weight) {
-            plainCost = 1
-            swampCost = 5
-        }
-        if (nmoves >= weight * 5) {
-            swampCost = 1
-        }
-
-        // Budget scales with the route: goals[0] is the true destination, any
-        // others (rewalkTo waypoints) lie along the current path and are nearer.
-        const rooms = this.rewalker.getRouteDist(pos.roomName, goals[0].pos.roomName)
-        const maxOps = Math.min(kMaxOps, kOpsPerRoom * rooms)
-
-        const ret = PathFinder.search(
-            pos,
-            goals,
-            {
-                roomCallback: this.rewalker.restrictedRoomCallback(pos, goals),
-                plainCost,
-                swampCost,
-                maxCost: maxSteps,
-                maxOps,
-            })
+        const ret = this.rewalker._search(pos, goals, moveTerrain(this.creep), maxSteps)
         this.incomplete = ret.incomplete
 
         // A walk that starts and ends in one room should stay in it. Leaving
@@ -1017,7 +1073,7 @@ class Step {
             const foreign = _.uniq(ret.path.filter(p => p.roomName !== pos.roomName).map(p => p.roomName))
             if (foreign.length) {
                 console.log(`Rewalker intra-room walk leaves ${pos.roomName}: ${this.creep.name} ${pos} -> ${goals[0].pos}`,
-                    `via ${foreign.join(',')} cost ${ret.cost} steps ${ret.path.length} ops ${ret.ops}/${maxOps}`)
+                    `via ${foreign.join(',')} cost ${ret.cost} steps ${ret.path.length} ops ${ret.ops}`)
             }
         }
 
@@ -1026,7 +1082,7 @@ class Step {
             // replan from there has a shorter, hopefully complete, search.
             const keep = Math.ceil(ret.path.length / 2)
             console.log(`Rewalker incomplete path ${this.creep.name} ${pos} -> ${goals[0].pos}`,
-                `ops ${ret.ops}/${maxOps} rooms ${rooms} walking ${keep}/${ret.path.length} steps`)
+                `ops ${ret.ops} walking ${keep}/${ret.path.length} steps`)
             ret.path.length = keep
         }
 
@@ -1040,26 +1096,15 @@ class Step {
             }
             return [0, new Path([this.creep.pos])]
         }
-        let vis = new RoomVisual(pos.roomName)
         Path.draw(ret.path, { stroke: color, lineStyle: 'dashed' })
         const path = new Path(ret.path)
-        if (ret.path.length === 0) {
-            return [0, path];
-        }
         if (ret.incomplete) {
             return [ERR_NO_PATH, path];
         }
 
-        let closest = 0
-        const final = _.last(ret.path)
-        for (let i = 0; i < goals.length; i++) {
-            const g = goals[i]
-            if (final.inRangeTo(g.pos, g.range)) {
-                closest = i
-                break
-            }
-        }
-        drawGoal(final, color, goals[closest])
+        // A complete path always ends in range of a goal; 0 is only a guard.
+        const closest = Math.max(0, ret.goal)
+        drawGoal(_.last(ret.path), color, goals[closest])
         return [closest, path]
     }
 }

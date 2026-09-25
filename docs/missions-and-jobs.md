@@ -114,8 +114,8 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               leg border -> controller on swamp only) and each room's MetaManager plans the roads;
                                                               drawMetas() while the remote room has > 1 of our construction sites (the metas and each room's traffic plan); windDown() removes them,
                                                               and each room's traffic replan removes our road sites left on dropped tiles.
-                                                              schedulePavers(): "Once Paver <room>" for any tracked unclaimed room with our sites in view,
-                                                              at most one per room per 1500 ticks.
+                                                              schedulePavers(): PaveAll.request -> "PaveAll <room>" for any tracked unclaimed room with our
+                                                              sites in view, unless one is already running.
                                                               harvest(): paceJobs(Harvester, (1500 - 50*route dist) / rsrc metas) while visible, no hostiles,
                                                               not foreign-reserved (civilians in remotes are paced, never replaced).
                                                               truck(): paceJobs(Trucker, min(1500, 1500 / (5*sum(src cap) / (avg carry * 1500 / (2*legSteps+10))))) only once a container stands on an rsrc tile;
@@ -123,6 +123,8 @@ Process                      run(): Priority; kill()           (process.ts)
          ├─ Once             @register  (ms.once.ts)           "Once <Job> <room> [count]"; lays an egg of the job whenever none is alive until count
                                                               (args[3], default 1) have been laid (memory.laid), winds down once the last has spawned,
                                                               kills and deschedules itself when the creep and its tombstone are gone
+         ├─ PaveAll          @register  (ms.paveall.ts)        "PaveAll <room>"; paceJobs(Paver, 1400) while Game.constructionSites has any of ours in the
+                                                              room (works without vision), windDown() once none are left; requested by Remote and Startup
          └─ Startup          @register  (ms.startup.ts)        "Startup <room>"; claims and boots a room: nJobs(Scout, 1) while the room is invisible;
                                                               nJobs(Claimer, 1, 600) while the controller is not ours and owned rooms < GCL, and meanwhile
                                                               paceNJobs(Pioneer, 2) if nobody owns or reserves the room and it has saved metas (`canPioneerEarly`;
@@ -145,7 +147,7 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               road's own search); each room's MetaManager plans the roads and ActiveStrat/ClaimedStrat
                                                               place the sites; a changed replan replaces them in place, windDown() and `removeRoad()` delete them
                                                               and each room's traffic replan removes our road sites left on dropped tiles. Unowned road
-                                                              rooms with our sites in view get "Once Paver <room>" every 1500 ticks
+                                                              rooms with our sites in view get "PaveAll <room>"
                                                               (`schedulePavers`, as Remote). The plan lays every room's other metas over the
                                                               Rewalker matrix (`metaCosts`: planned structures and spots impassable, planned roads,
                                                               the traffic plan's included, cost 1) so it never crosses the base plan; `replanRoad()`
@@ -161,27 +163,35 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       WORK/CARRY pairs, spawned via the "remote" strategy (nearest spawns outside the mission room), and
      │                       init() sets memory.home to the mission room so roleBootstrap works there (rolePioneer in role.bootstrap.js)
      ├─ Reboot   @register   priority 10, body from energyAvailable   (job.reboot.ts)
-     ├─ Scout    @register   [MOVE] from the "home" room if any, walks to the mission room (job.scout.ts)
-     ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "remote" spawn strategy; three modes in memory.pmode:
+     ├─ Scout    @register   [MOVE] from the "home" room if any, walks to the mission room (job.scout.ts); there, shadows the
+     │                       armed hostiles (not keepers): 5 from any with RANGED_ATTACK, 3 from melee-only; idleFlee when
+     │                       inside, else closes on the one with least slack (distance - range) and holds at 0; with no
+     │                       hostiles, walks onto the nearest foreign construction site to stomp it (not under ramparts or
+     │                       obstacles, not while the owner's controller is in safe mode)
+     ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "close" spawn strategy, only once that room holds >= 550 energy; three modes in memory.pmode:
      │                       work (walk to the mission room, taskBuildAny, then taskRepairRemote on roads/containers; empty -> gather or forage),
      │                       gather (mission room is not SK and has a source: taskRechargeHarvest there until full), forage (SK room or no source:
      │                       walk the Rewalker route toward memory.home taking the nearest piles >= 50, tombstones, ruins, our stores or a
      │                       non-SK source in each room, nothing within 5 of a lair; taskRechargeHarvest at home as last resort; full -> work);
-     │                       after(): idleNom + idleBuild|idleRepairAny; spawned by Once
+     │                       after(): idleNom + idleBuild|idleRepairAny; spawned by PaveAll
      ├─ Harvester @register  (job.harvester.ts) port of role.harvester.js for Remote; 6W/1C/3M from "home" (falls back to the nearest spawns) (floor 3W/1C/2M); claims an rsrc meta
      │                       (memory.rsrc; if all are claimed it shadows the harvester with the fewest ticks to live), stands on the
      │                       container tile drop-mining; builds the container site and repairs the container, withdrawing from it for that;
      │                       after() idles (nom/build/repair) only while inside the mission room
      ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.js for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
-     │                       when empty); withdraws from the fullest rsrc container (sweeps dropped energy), unloads into the home storage
-     │                       when more than half full; after() idleNom picks up adjacent energy
+     │                       when empty); withdraws from the fullest rsrc container (sweeps dropped energy), once more than half full unloads
+     │                       at home until empty (JobCreep.unloadHome); after() idleNom picks up adjacent energy
      ├─ Bulldozer @register  (job.bulldozer.ts) 2 WORK per MOVE (33W/17M at full energy); boosts XZH2O at home when a lab has it ready (never waits); planWalk over mission.dozePositions() at range 1, @task doze(xy, room) dismantles the tile (rampart first)
      ├─ Konmari  @register   (job.konmari.ts) CARRY/MOVE pairs like Swiper; loads worthless resources (catalyzed boosts excepted) from the home storage then terminal, walks towards the
      │                       Swipe target and drops 20 units per tick while outside the home room; empty -> home for more; nothing worthless left -> suicide
-     ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs from the spawns nearest home, sized to energy on hand (max 50 parts);
+     ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs from the spawns nearest home (JobCreep.getHomeRoomName: mission
+     │                       "home", else "spawn", else the nest's room, else a random spawn's, so "Once Swiper <room>" works), sized to energy on hand (max 50 parts);
      │                       loots the Swipe target: @task withdrawFrom the cheapest-path non-own structure with anything in its store (Rewalker.planWalk over all candidates), one resource at a time in random order
      │                       (nuker excluded; rampart-covered ones skipped 1500 ticks via memory.skip) until full, or until the room is empty and it holds anything,
-     │                       then straight to home: @task transferTo storage/terminal, else dropAt the controller
+     │                       then unloads at home until empty (JobCreep.unloadHome), else dropAt the controller
+     ├─ JobCreep.unloadLatch/unloadHome  (job.creep.ts) shared by Trucker and Swiper: latched (memory.unload) until empty; walks
+     │                       straight to the home storage, else terminal (ours, with space), else the home container with the most free
+     │                       space (memory.dropid), then the next; every transfer passes what fits; null when home has no space
      └─ JobRole              bridge to legacy roles: start() calls creep.run()/after() (job.role.ts)
          ├─ Worker  @register              (job.worker.ts)
          ├─ Ctrl    @register              (job.ctrl.ts)   boosts XGH2O, ecap rules
@@ -274,7 +284,8 @@ scheduleService('Thormine W26S8')    // args[1]=owned room with thorium, extract
 scheduleService('Thormine W26S8 W22S7')  // optional args[2]=room to ship the thorium to instead
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
 scheduleService('Remote W5N8 W6N8 W7N8')  // optional args[3]=the only room its creeps spawn from (as Farm; idles `spawn-not-ready` while it has no spawn)
-scheduleService('Once Paver W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down (Remote schedules these itself)
+scheduleService('PaveAll W5N8')      // a paver every 1400 ticks until the room has none of our sites (Remote/Startup schedule these)
+scheduleService('Once Scout W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down
 scheduleService('Once Toxic W25S5 3')  // optional args[3]=count: that many creeps one after another (memory.laid), then winds down
 scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown, skipping orders that pay less per unit than the shipping energy is worth (transfer rate x energy buy-order price); under 25k terminal energy keeps one 10k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)
 scheduleService('Furiosa')           // power creep Furiosa; picks a home power spawn room into Memory.furiosa.home

@@ -49,9 +49,9 @@ declare global {
 // the cheapest-path structure that is not ours and holds something (spawns,
 // extensions, towers, storage, terminal, labs, links, containers...; nukers
 // excepted) until full, or until the room has nothing left to take while it
-// carries something, then walks straight to the home
-// storage (terminal as fallback, drop at the controller failing both) as one
-// persisted cross-room task, so a detour through another room resumes it.
+// carries something, then unloads at home until empty (JobCreep.unloadHome:
+// storage, terminal, else the home containers with the most free space;
+// dropped at the controller failing all of them).
 // Withdrawing from a hostile structure only fails when a hostile rampart
 // covers it; those are skipped for kSkipTicks.
 @register
@@ -67,7 +67,7 @@ export class Swiper extends JobCreep {
     }
 
     get homeName(): string {
-        return this.mission.getRoomName("home")!;
+        return this.getHomeRoomName();
     }
 
     get home(): Room | undefined {
@@ -79,12 +79,12 @@ export class Swiper extends JobCreep {
         // Full: carry it home. Walk straight to the store from wherever we
         // are; hopping to the room centre first sent the creep through W3N4's
         // awkward entrance twice and restarted the walk each time.
-        if (!c.store.getFreeCapacity()) return this.deliver();
+        if (this.unloadLatch(!c.store.getFreeCapacity())) return this.deliver();
         if (this.pos.roomName !== this.mission.roomName) return this.moveRoom(this.mission.roomName);
         const target = this.pickTarget();
         if (target) return this.withdrawFrom(target);
         // Nothing left to take: deliver whatever we hold rather than idle.
-        if (c.store.getUsedCapacity()) return this.deliver();
+        if (this.unloadLatch(true)) return this.deliver();
         this.dlog("nothing to swipe in", this.mission.roomName);
         return "wait";
     }
@@ -132,27 +132,14 @@ export class Swiper extends JobCreep {
         return "start";
     }
 
-    // Targets need vision of home; as its owner we normally have it. Without
-    // it, walk into the room and pick a target once there.
+    // Home stores first (unloadHome); with nowhere to put it, drop it at the
+    // home controller.
     deliver(): Task2Ret {
-        const home = this.home;
-        if (!home) return this.moveRoom(this.homeName);
-        const store = home.storage || home.terminal;
-        if (store) return this.transferTo(store);
-        if (home.controller) return this.dropAt(home.controller);
+        const ret = this.unloadHome(this.homeName);
+        if (ret) return ret;
+        const ctrl = this.home?.controller;
+        if (ctrl) return this.dropAt(ctrl);
         this.log("nowhere to deliver in", this.homeName);
-        return "wait";
-    }
-
-    @task
-    transferTo(store: StructureStorage | StructureTerminal): Task2Ret {
-        const c = this.c;
-        if (!c.store.getUsedCapacity()) return "start";
-        if (!this.pos.isNearTo(store)) return this.moveTarget(store, 1);
-        // One resource per tick, in random order.
-        const res = _.first(stocked(c.store))!;
-        const err = c.transfer(store, res);
-        if (err !== OK) this.log("transfer to", store, "failed", err);
         return "wait";
     }
 

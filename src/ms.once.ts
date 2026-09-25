@@ -6,7 +6,7 @@ import * as debug from "debug";
 // Spawn a job's creep a set number of times, one at a time, and shepherd
 // each until it is gone.
 //
-//   scheduleService('Once Paver W27S9')     // args[1]=job class name, args[2]=mission room
+//   scheduleService('Once Scout W27S9')     // args[1]=job class name, args[2]=mission room
 //   scheduleService('Once Toxic W25S5 3')   // optional args[3]=how many in turn (default 1)
 //
 // An egg is laid whenever nothing of the job is alive (egg, hatchling or

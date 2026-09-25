@@ -10,6 +10,7 @@ import { Harvester } from "job.harvester";
 import { Trucker } from "job.trucker";
 import { dist } from "routes";
 import { RemotePlanner } from "metaremote";
+import { PaveAll } from "ms.paveall";
 import * as debug from "debug";
 
 // team.ts reserve(): a reserver every 225 ticks holds a room's reservation;
@@ -23,8 +24,6 @@ const kReserveStopAt = 1000;
 const kReserveSpotPace = 500;
 // Ticks between "waiting" log lines while the spawn room has no spawn.
 const kLogPace = 100;
-// Ticks between "Once Paver <room>" schedules for the same room.
-const kPaverPace = 1500;
 // Walking allowance per room of route distance when pacing civilians.
 const kTicksPerRoom = 50;
 // One-way trucker trip per room of route distance when no leg was measured;
@@ -36,8 +35,6 @@ interface RemoteMemory extends MissionMemory {
     // Present (possibly empty) once planning has been attempted.
     metas?: { [room: string]: string[] }
     planned?: number
-    // room -> tick a "Once Paver <room>" was last scheduled for it.
-    pavers?: { [room: string]: number }
     // Steps of the longest source leg (one-way trucker trip), from planning.
     legSteps?: number
 }
@@ -241,26 +238,18 @@ export class Remote extends Farm {
     }
 
     // Any unclaimed room on the route with our construction sites in view
-    // gets a "Once Paver <room>" (ms.once.ts): one paver, then the Once winds
-    // down. Service.schedule is idempotent, and kPaverPace keeps a room that
-    // stays unfinished from getting a paver the tick the last one dies.
+    // gets a "PaveAll <room>" (ms.paveall.ts), which paces pavers until the
+    // room's sites are gone and then winds down.
     schedulePavers() {
         const tracked = this.memory.metas;
         if (!tracked) return;
         const home = this.getRoomName("home");
-        const when = this.memory.pavers = this.memory.pavers || {};
         for (const roomName in tracked) {
             if (roomName === home) continue;
             const room = Game.rooms[roomName];
             if (!room || room.controller?.owner) continue;
             if (!room.find(FIND_MY_CONSTRUCTION_SITES).length) continue;
-            const cmd = `Once Paver ${roomName}`;
-            if (Service.getType(cmd)) continue;
-            const last = when[roomName];
-            if (last && last + kPaverPace > Game.time) continue;
-            when[roomName] = Game.time;
-            debug.log(this.name, "scheduling", cmd);
-            Service.schedule(cmd);
+            PaveAll.request(roomName, this.name);
         }
     }
 
