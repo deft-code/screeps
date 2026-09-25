@@ -111,7 +111,8 @@ export class CreepRepair extends CreepBuild {
         return this.goRepair(struct, false);
     }
 
-    goRepair(struct: Structure, move = true): TaskRet {
+    goRepair(struct: Structure | null, move = true): TaskRet {
+        if (!struct) return false;
         const err = this.repair(struct);
         this.dlog(`gorepair ${err}`);
         let ret: TaskRet = false;

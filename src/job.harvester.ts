@@ -4,6 +4,7 @@ import { CreepRepair } from "creep.repair";
 import { getMetaManager, MetaStructure } from "metastruct";
 import type { Remote } from "ms.remote";
 import { findSpawns } from "spawnold";
+import { fromXY } from "Rewalker";
 
 declare global {
     interface CreepMemory {
@@ -15,9 +16,10 @@ declare global {
 // Port of role.harvester.js (team.ts harvester/harvestaga) for the Remote
 // mission. Spawns in the home room, walks to the remote, claims an rsrc meta
 // (metaremote.ts) and stands on its container tile drop-mining the source:
-// harvest overflow lands in the container. Builds the container site and
-// repairs the container, withdrawing from it for that. Never carries energy
-// away; that is the trucker's job.
+// harvest overflow lands in the container. Builds the container site first;
+// once it stands, harvesting comes first and building/repairing around the
+// spot (the container included) fills the ticks when creep and container
+// are both full. Never carries energy away; that is the trucker's job.
 @register
 export class Harvester extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
@@ -76,28 +78,34 @@ export class Harvester extends JobRole {
     start(): Task2Ret {
         const c = this.cc;
         if (c.idleRetreat(WORK) || c.fleeHostiles()) return "wait";
-        if (this.pos.roomName !== this.mission.roomName) {
-            return this.moveRoom(this.mission.roomName);
-        }
 
+        // Claim from wherever the creep is (metas and claims live in memory)
+        // and walk straight to the spot. Walking to the room centre first
+        // fought the spot path: from the exit tile the cheapest route to the
+        // spot can run through the home room, so the creep bounced between
+        // the two targets on the border.
         let meta = this.meta;
+        let shadow = false;
         if (!meta) {
             meta = this.claim();
-            if (!meta) return "wait";
-            if (this.c.memory.rsrc !== meta.name) {
-                // Every source is taken: shadow the one whose harvester dies first.
-                this.movePos(this.spot(meta), 1);
+            if (!meta) {
+                if (this.pos.roomName !== this.mission.roomName) return this.moveRoom(this.mission.roomName);
                 return "wait";
             }
+            // Every source is taken: shadow the one whose harvester dies first.
+            shadow = this.c.memory.rsrc !== meta.name;
         }
         const spot = this.spot(meta);
+        if (shadow) {
+            this.movePos(spot, 1);
+            return "wait";
+        }
         if (!this.pos.isEqualTo(spot)) return this.movePos(spot, 0);
         return this.work(meta, spot);
     }
 
     spot(meta: MetaStructure): RoomPosition {
-        const room = Game.rooms[this.mission.roomName]!;
-        return room.unpackPos(meta.getSpot("rsrc"));
+        return fromXY(meta.getSpot("rsrc"), this.mission.roomName);
     }
 
     // Claim a free rsrc meta (recorded in memory). If all are claimed, return
@@ -122,7 +130,7 @@ export class Harvester extends JobRole {
     }
 
     work(meta: MetaStructure, spot: RoomPosition): Task2Ret {
-        const c = this.c;
+        const c = this.cc;
         const src = Game.getObjectById(meta.targetid() as unknown as Id<Source>);
         if (!src) {
             this.log("no source for", meta.name);
@@ -131,26 +139,27 @@ export class Harvester extends JobRole {
         const site = _.first(spot.lookFor(LOOK_CONSTRUCTION_SITES).filter(s => s.my && s.structureType === STRUCTURE_CONTAINER));
         const cont = _.first(spot.lookFor(LOOK_STRUCTURES).filter(s => s.structureType === STRUCTURE_CONTAINER)) as StructureContainer | undefined;
 
+        // No container yet: build it whenever a full swing of WORK is
+        // affordable, otherwise harvest to earn the energy.
         if (site) {
             if (c.store.energy >= c.getActiveBodyparts(WORK) * BUILD_POWER) {
-                c.build(site);
+                c.goBuild(site, false);
             } else {
-                c.harvest(src);
+                c.goHarvest(src, false);
             }
             return "wait";
         }
-        if (cont && cont.hits < cont.hitsMax) {
-            if (c.store.energy) {
-                c.repair(cont);
-            } else if (cont.store.energy) {
-                c.withdraw(cont, RESOURCE_ENERGY);
-            } else {
-                c.harvest(src);
-            }
-            return "wait";
-        }
-        if (src.energy && (!cont || cont.store.getFreeCapacity(RESOURCE_ENERGY) > 0)) {
-            c.harvest(src);
+        // Container built (or gone): harvest first. Overflow lands in the
+        // container under the creep. Stop only when both the creep and the
+        // container are full; after() then builds and repairs nearby with
+        // the carried energy.
+        const full = !c.store.getFreeCapacity(RESOURCE_ENERGY) && (!cont || !cont.store.getFreeCapacity(RESOURCE_ENERGY));
+        if (src.energy && !full) {
+            c.goHarvest(src, false);
+        } else if (!src.energy && cont && cont.store.energy && c.store.energy <= c.getActiveBodyparts(WORK)) {
+            // Source regenerating and the creep nearly empty: top up from the
+            // container so idle build/repair has energy to spend.
+            c.withdraw(cont, RESOURCE_ENERGY);
         }
         return "wait";
     }

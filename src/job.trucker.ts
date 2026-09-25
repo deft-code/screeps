@@ -13,8 +13,6 @@ import type { Remote } from "ms.remote";
 // repairs: the paver and harvester do that.
 @register
 export class Trucker extends JobRole {
-    // Hauling remote energy yields to every other egg; the containers buffer it.
-    priority = -1;
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         // A mission's designated spawn room (Farm/Remote args[3]) overrides
         // the nearest-first pool: those spawns and no others.

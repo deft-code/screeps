@@ -63,6 +63,13 @@ class SrcerExtra extends CreepRepair {
             }
         }
 
+        // Full creep, room in the container and a pile under our feet: hand
+        // the load to the container so the pile can be picked up next tick.
+        if (!this.store.getFreeCapacity() && cont && cont.store.getFreeCapacity(RESOURCE_ENERGY)
+            && _.any(this.pos.lookFor(LOOK_RESOURCES), r => r.resourceType === RESOURCE_ENERGY)) {
+            this.goTransfer(cont, RESOURCE_ENERGY, false);
+        }
+
         if (this.store.getFreeCapacity()) {
             this.idleNom() ||
                 this.idleSipCont(this.mycont(), recharging ? -CONTAINER_CAPACITY : reserve) ||
