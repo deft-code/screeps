@@ -10,8 +10,6 @@ tasks are implemented in `console-tools.js`.
 - Copy `blank_credentials.js` to `credentials.js` (gitignored). Fill `token`
   (preferred) or `email`/`password`. `branch` defaults to `default`. One-off
   tasks also read `market_token` and `money_token`.
-- `.gitmodules` declares `murmurhash-js/`, but the build never references it.
-  `git submodule update --init` is optional.
 - Line endings are LF everywhere: `.gitattributes` (`* text=auto eol=lf`)
   normalises on commit and checkout regardless of `core.autocrlf`, and
   `.editorconfig` tells editors the same (VS Code needs the EditorConfig

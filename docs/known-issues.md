@@ -77,7 +77,6 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
 
 ## Housekeeping
 
-- `.gitmodules` points at a `murmurhash-js` submodule the build does not use.
 - The previous `CLAUDE.md` referenced planning notes in `~/screeps`; that
   directory does not exist on this machine.
 - `gulp fetch` overwrites `src/*.js` from the server.
