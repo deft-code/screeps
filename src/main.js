@@ -66,6 +66,7 @@ import 'ms.paveall';
 import 'ms.startup';
 import 'ms.hub';
 import 'ms.selloff';
+import 'ms.balance';
 import 'ms.furiosa';
 import "service.flag";
 

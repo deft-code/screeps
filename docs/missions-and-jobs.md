@@ -11,6 +11,9 @@ flag-driven "team" system ([legacy-systems.md](legacy-systems.md)).
 ```
 Process                      run(): Priority; kill()           (process.ts)
  └─ Service                  named by a command string, e.g. "Swipe W5N8 W6N8"
+     ├─ Balance      @register  (ms.balance.ts)   "Balance"; no creeps. Rooms come from addRoom(room)/removeRoom(room) (Memory.balance.rooms).
+     │                                            Each tick no listed terminal is on cooldown: the fullest sends half the gap to the
+     │                                            emptiest when the gap is at least 5k, shrunk to what it can pay with the transfer fee.
      ├─ Selloff      @register  (ms.selloff.ts)   "Selloff <room>"; no creeps, so a purple flag "Selloff_<room>" may run it.
      │                                            Kills itself when the room is not ours or has no terminal (room invisible counts).
      │                                            Each tick the room's terminal is off cooldown: non-energy stock in random order,
@@ -289,6 +292,7 @@ scheduleService('Once Scout W5N8')   // args[1]=job class, args[2]=room; one cre
 scheduleService('Once Toxic W25S5 3')  // optional args[3]=count: that many creeps one after another (memory.laid), then winds down
 scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown, skipping orders that pay less per unit than the shipping energy is worth (transfer rate x energy buy-order price); under 25k terminal energy keeps one 10k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)
 scheduleService('Furiosa')           // power creep Furiosa; picks a home power spawn room into Memory.furiosa.home
+scheduleService('Balance'); getService('Balance').addRooms('W26S8', 'W25S7')  // no args; rooms via addRoom/addRooms/removeRoom (Memory.balance.rooms); fullest terminal sends half the energy gap to the emptiest when the gap is >= 5k and none is on cooldown
 ```
 
 `schedule` = `spawn` + push the command onto `Memory.scheduler.services`, which

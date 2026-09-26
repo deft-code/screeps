@@ -45,7 +45,8 @@ while scheduled: the table is `Memory.scheduler.services` as of Sept 2026, so
 read that key rather than trusting this list. `Farm`, `GrowFarm` (a Farm that
 evolves into `Remote` at 800 home energy capacity, 1300 if the farm controller
 has one free tile), `Once`, `Swipe` and the
-`Selloff <room>` terminal-selling service are not scheduled and run only by
+`Selloff <room>` terminal-selling service and the `Balance` terminal energy
+leveller (rooms via `getService('Balance').addRoom(room)`) are not scheduled and run only by
 command string or a purple flag ([docs/missions-and-jobs.md](docs/missions-and-jobs.md)).
 
 ## Architecture in one screen

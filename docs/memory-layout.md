@@ -14,6 +14,11 @@ power creep on; pinned by a flag named `Furiosa`, else re-picked at random among
 our power spawns when unset or stale. `Memory.powerCreeps[name].home` is the room
 the creep was last spawned in (`MyPowerCreep.spawn`), alongside `swipe` state.
 
+### `Memory.balance` (`ms.balance.ts`)
+
+`{ rooms: string[] }`: the rooms whose terminals the `Balance` service levels
+energy across; edited by `addRoom`/`removeRoom` on the service.
+
 ### `Memory.selloff` (`ms.selloff.ts`)
 
 `{ [roomName]: { bid?: orderId } }`: the energy buy order that room's `Selloff`
