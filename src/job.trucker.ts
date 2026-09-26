@@ -12,6 +12,10 @@ import type { Remote } from "ms.remote";
 // Offroad while empty, so it spawns from the spawns nearest the remote; the
 // loaded trip home follows the roads the Remote planned. Never builds or
 // repairs: the paver and harvester do that.
+
+// With energy aboard and every rsrc container below this, the trucker heads
+// home with what it has rather than waiting on a dribble.
+const kDryCont = 50;
 @register
 export class Trucker extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
@@ -50,19 +54,27 @@ export class Trucker extends JobRole {
         const c = this.cc;
         if (c.idleRetreat(CARRY) || c.fleeHostiles()) return "wait";
 
-        // More than half full: go home and unload until empty
-        // (JobCreep.unloadHome: storage, terminal, else home containers).
-        if (this.unloadLatch(c.store.getUsedCapacity() > c.store.getFreeCapacity())) {
+        // More than half full, or holding energy while the containers have
+        // run dry: go home and unload until empty (JobCreep.unloadHome:
+        // storage, terminal, else home containers).
+        if (this.unloadLatch(c.store.getUsedCapacity() > c.store.getFreeCapacity() || this.dry())) {
             return this.unloadHome(this.homeName) || this.dropHome();
         }
 
         // Anywhere but the remote, any energy goes home to the pile rather
         // than riding along.
         if (this.pos.roomName !== this.mission.roomName) return this.dropHome() || this.moveRoom(this.mission.roomName);
-        // Nothing to load: at half full carry it home and pile it at the
-        // controller, else wait by the container.
-        const half = c.store.energy * 2 >= c.store.getCapacity();
-        return this.load() || (half && this.dropHome()) || this.waitAtCont();
+        // Nothing to load: wait by the container.
+        return this.load() || this.waitAtCont();
+    }
+
+    // In the remote with energy aboard while every rsrc container holds
+    // less than kDryCont: nothing worth waiting for.
+    dry(): boolean {
+        if (this.pos.roomName !== this.mission.roomName) return false;
+        if (!this.c.store.energy) return false;
+        const cont = this.fullestCont();
+        return !cont || cont.store.energy < kDryCont;
     }
 
     // With nowhere to unload at home (or nothing to load here) drop the load
