@@ -880,10 +880,12 @@ export class MetaManager {
 
     // While armed hostiles (not Source Keepers, which never leave) are in the
     // room only defences get sites: a site elsewhere would be trampled or
-    // draw builders into the fight.
+    // draw builders into the fight. Roads wait for any enemy creep, armed or
+    // not: an unarmed scout wandering over a road site removes it too.
     hostileHold(room: Room, stype: BuildableStructureConstant): boolean {
         if (stype === STRUCTURE_RAMPART || stype === STRUCTURE_TOWER) return false;
-        return _.any(room.hostiles, h => !h.keeper);
+        const threats = stype === STRUCTURE_ROAD ? room.enemies : room.hostiles;
+        return _.any(threats, h => !h.keeper);
     }
 
     makeSite(stype: BuildableStructureConstant): boolean {

@@ -253,6 +253,8 @@ a replacement site exists). `ERR_RCL_NOT_ENOUGH` triggers `purge` of structures
 no meta claims at this RCL. While the room has armed hostiles other than
 Source Keepers (`hostileHold`), `makeSite` places only rampart and tower sites
 (and destroys no blockers for anything else); upkeep resumes once they leave.
+Road sites additionally wait for every enemy creep, armed or not, to leave,
+since any hostile creep stepping onto a site removes it.
 
 ## Retiring structures
 
