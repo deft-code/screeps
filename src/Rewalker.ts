@@ -425,11 +425,12 @@ const ROUTE_HOSTILE_CLAIMED = 10
 const kOpsPerRoom = 4000
 const kMaxOps = 20000
 
-// When a chased destination moves off the current path, re-plan only if the
-// straight-line distance beats the remaining path by this many tiles. Range
-// is a lower bound on any fresh path, so a bend around a wall or a zigzagging
-// target makes the direct distance look shorter without a real shortcut.
-const kDetourMargin = 2
+// When a chased destination moves out of range of the path's tip, the path is
+// cut back to its first tile within range + kChaseCutback of the new
+// destination and extended afresh from there, so the target's zig-zags are
+// re-planned rather than recorded. Increase it if chasers keep following
+// loop-back trails; the trade is a longer extension search each tick.
+const kChaseCutback = 2
 
 // Ceiling for the weight a long-stationary creep of ours puts on its tile.
 // Step.bump() pushes our own blockers aside, so a parked harvester should
@@ -949,37 +950,37 @@ class Step {
             const goal = cleanGoal({ pos: this.dest, range: this.range })
             // New destintation is too far to rewalk
             if (this.dest.getRangeTo(this.prev) > 3 || this.path.size < 3) {
-                const [err, path] = this.planSteps(this.creep.pos, [goal], this.creep.ticksToLive || CREEP_LIFE_TIME)
-                this.path = path
-                return this.step()
+                return this.replan(goal)
             }
 
-            // Remove excess path
-            const last = this.path.trim(this.dest, this.range)
-            this.path.draw({ lineStyle: "dashed", stroke: 'orange' })
+            // Remove excess path if the target moved closer.
+            const trimmedTip = this.path.trim(this.dest, this.range)
 
             // Add more to path if needed
-            if (!last.inRangeTo(this.dest, this.range)) {
-                // Extending from the tip records the target's trail. When the
-                // target has looped back, the trail is a detour: a fresh path
-                // needs at least (range - goal range) steps, so if that beats
-                // the steps still on the old path, re-plan from the creep.
-                // getRangeTo is Infinity across rooms, which keeps the extend.
-                const direct = this.creep.pos.getRangeTo(this.dest) - this.range
-                if (direct + kDetourMargin < this.path.size) {
-                    const [err, path] = this.planSteps(this.creep.pos, [goal], this.creep.ticksToLive || CREEP_LIFE_TIME)
-                    this.path = path
-                    return this.step()
+            if (trimmedTip.inRangeTo(this.dest, this.range)) {
+                this.path.draw({ lineStyle: "dashed", stroke: 'orange' })
+                drawGoal(trimmedTip, 'orange', goal)
+            } else {
+                // Extend the path to catch up to the moving target.
+
+                // Truncate the path a bit to avoid recording zig-zags from the target in the path.
+                const truncatedTip = this.path.trim(this.dest, this.range + kChaseCutback)
+
+                // If the truncated path is too small replan the whole thing.
+                if (this.path.size < 3) {
+                    return this.replan(goal)
                 }
-                const [err, ext] = this.planSteps(last, [goal], this.creep.ticksToLive || CREEP_LIFE_TIME);
+
+                // We're keeping the truncated path, draw it now.
+                this.path.draw({ lineStyle: "dashed", stroke: 'orange' })
+
+                const [err, ext] = this.planSteps(truncatedTip, [goal], this.creep.ticksToLive || CREEP_LIFE_TIME);
                 // PathFinder omits the origin, so ext.first is the tile after the
                 // tip: splice in the connecting step or the extension lands one
                 // tile off. An empty result falls back to creep.pos; skip that.
-                if (ext.first.isNearTo(last) && !ext.first.isEqualTo(last)) {
-                    this.path._steps += getDirectionTo(last, ext.first) + ext._steps
+                if (ext.first.isNearTo(truncatedTip) && !ext.first.isEqualTo(truncatedTip)) {
+                    this.path._steps += getDirectionTo(truncatedTip, ext.first) + ext._steps
                 }
-            } else {
-                drawGoal(last, 'orange', goal)
             }
             // Fallthrough to allow other move conditions to check position
         }
@@ -991,13 +992,7 @@ class Step {
             if (this.path.done) {
                 // console.log("path is empty", JSON.stringify(this.path), JSON.stringify(this.creep.memory._walk))
                 // path ran out build a new one.
-                const [err, path] = this.planSteps(this.creep.pos,
-                    [cleanGoal({ pos: this.dest, range: this.range })],
-                    this.creep.ticksToLive || CREEP_LIFE_TIME);
-                // An incomplete plan still returns its (halved) path; walk it.
-                if (err < OK && path.done) return err as ScreepsReturnCode;
-                this.path = path
-                return this.step()
+                return this.replan(cleanGoal({ pos: this.dest, range: this.range }))
             }
             this.path = this.path.step()
             if (!this.path.done && this.creep.pos.isNearTo(this.path.second)) {
@@ -1063,6 +1058,17 @@ class Step {
         return this.step()
     }
 
+    // Throw the cached path away and plan afresh from the creep to `goal`,
+    // then take the first step. An incomplete plan still returns its (halved)
+    // path; walk it. Only an incomplete plan with no steps at all fails.
+    replan(goal: Goal): WalkReturnCode {
+        const [err, path] = this.planSteps(this.creep.pos, [goal], this.creep.ticksToLive || CREEP_LIFE_TIME)
+        if (err < OK && path.done) return err as ScreepsReturnCode
+        this.path = path
+        return this.step()
+    }
+
+    // TODO add a comment describing the return values.
     planSteps(pos: RoomPosition, goals: Array<Goal>, maxSteps: number): [number, Path] {
         const ret = this.rewalker._search(pos, goals, moveTerrain(this.creep), maxSteps)
         this.incomplete = ret.incomplete
