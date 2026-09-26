@@ -3,7 +3,9 @@ import { register, Task2Ret } from "mycreep";
 import { CreepRepair } from "creep.repair";
 
 // Storage energy needed before the first upgrader; the count then scales
-// linearly, one per kEnergyPer (150k = 1.5, 200k = 2; nCreeps takes fractions). Upgraders never spawn at RCL 8 or in a room without storage.
+// linearly, one per kEnergyPer (150k = 1.5, 200k = 2; nCreeps takes fractions). want() is 0 at RCL 8 or without storage; Hub adds one
+// upgrader on its own while a big energy pile lies in the room (ms.hub.ts
+// pileUpgraders), which taskRecharge picks up from.
 export const kEnergyPer = 100000;
 
 // Port of role.upgrader.js (2017 flag-team era, team.ts upgrader()) to the

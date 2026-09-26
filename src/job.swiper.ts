@@ -133,22 +133,13 @@ export class Swiper extends JobCreep {
     }
 
     // Home stores first (unloadHome); with nowhere to put it, drop it at the
-    // home controller.
+    // home controller (JobCreep.dropAt).
     deliver(): Task2Ret {
         const ret = this.unloadHome(this.homeName);
         if (ret) return ret;
         const ctrl = this.home?.controller;
         if (ctrl) return this.dropAt(ctrl);
         this.log("nowhere to deliver in", this.homeName);
-        return "wait";
-    }
-
-    @task
-    dropAt(ctrl: StructureController): Task2Ret {
-        const res = _.first(stocked(this.c.store));
-        if (!res) return "start";
-        if (this.walkRange(ctrl) !== OK) return "wait";
-        this.c.drop(res);
         return "wait";
     }
 

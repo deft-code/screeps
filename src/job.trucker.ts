@@ -3,6 +3,7 @@ import { register, Task2Ret } from "mycreep";
 import { CreepRepair } from "creep.repair";
 import { closeSpawns } from "spawnold";
 import { energyDef } from "spawn";
+import { isGeneralStoreStruct, isStoreStruct } from "guards";
 import type { Remote } from "ms.remote";
 
 // Port of role.trucker.js (team.ts trucker/truckaga) for the Remote mission.
@@ -52,17 +53,41 @@ export class Trucker extends JobRole {
         // More than half full: go home and unload until empty
         // (JobCreep.unloadHome: storage, terminal, else home containers).
         if (this.unloadLatch(c.store.getUsedCapacity() > c.store.getFreeCapacity())) {
-            const ret = this.unloadHome(this.homeName);
-            if (ret) return ret;
-            this.log("no storage or container space in", this.homeName);
-            return "wait";
+            return this.unloadHome(this.homeName) || this.dropHome();
         }
 
-        if (this.pos.roomName !== this.mission.roomName) return this.moveRoom(this.mission.roomName);
-        return this.load();
+        // Anywhere but the remote, any energy goes home to the pile rather
+        // than riding along.
+        if (this.pos.roomName !== this.mission.roomName) return this.dropHome() || this.moveRoom(this.mission.roomName);
+        // Nothing to load: at half full carry it home and pile it at the
+        // controller, else wait by the container.
+        const half = c.store.energy * 2 >= c.store.getCapacity();
+        return this.load() || (half && this.dropHome()) || this.waitAtCont();
+    }
+
+    // With nowhere to unload at home (or nothing to load here) drop the load
+    // by the home controller (JobCreep.dropAt), where Hub's pile upgraders
+    // burn it. False when empty.
+    dropHome(): Task2Ret {
+        if (!this.c.store.getUsedCapacity()) return false;
+        const home = Game.rooms[this.homeName];
+        if (!home) return this.moveRoom(this.homeName);
+        if (!home.controller) {
+            this.log("no controller to drop at in", this.homeName);
+            return "wait";
+        }
+        return this.dropAt(home.controller);
+    }
+
+    // The rsrc container holding the most energy, if any is built.
+    fullestCont(): StructureContainer | null {
+        const conts = _.compact(this.remote.rsrcMetas().map(m => m.getStructs(STRUCTURE_CONTAINER)[0])) as StructureContainer[];
+        if (!conts.length) return null;
+        return _.max(conts, k => k.store.energy);
     }
 
     // Take from the fullest rsrc container; sweep dropped energy on the way.
+    // False when there is nothing to take this tick.
     load(): Task2Ret {
         const c = this.cc;
         const dropped = _.find(
@@ -70,22 +95,39 @@ export class Trucker extends JobRole {
             r => r[LOOK_RESOURCES].resourceType === RESOURCE_ENERGY);
         if (dropped && c.goPickup(dropped[LOOK_RESOURCES], false)) return "wait";
 
-        const conts = _.compact(this.remote.rsrcMetas().map(m => m.getStructs(STRUCTURE_CONTAINER)[0])) as StructureContainer[];
-        const cont = _.max(conts, k => k.store.energy);
-        if (!cont || !conts.length) return "wait";
-        if (!cont.store.energy) {
-            // Wait next to the container the harvester is filling.
-            if (!this.pos.isNearTo(cont)) this.moveTarget(cont, 1);
-            return "wait";
-        }
+        const cont = this.fullestCont();
+        if (!cont || !cont.store.energy) return false;
         c.goWithdraw(cont, RESOURCE_ENERGY);
         return "wait";
     }
 
+    // Wait next to the container the harvester is filling.
+    waitAtCont(): Task2Ret {
+        const cont = this.fullestCont();
+        if (cont && !this.pos.isNearTo(cont)) this.moveTarget(cont, 1);
+        return "wait";
+    }
+
     // Grab any energy lying next to the path (spilled drop-mining, tombstones),
-    // else top up a working creep beside us.
+    // else at home top up whatever structure beside us takes energy, else a
+    // working creep beside us.
     after() {
-        this.cc.idleNom() || this.idleShare();
+        this.cc.idleNom() || this.idleFillHome() || this.idleShare();
+    }
+
+    // In the home room, transfer energy into an adjacent structure with room
+    // for it: extensions, spawns, towers and the like first, then general
+    // stores (storage, terminal, containers). One transfer per tick.
+    idleFillHome(): string | false {
+        const c = this.cc;
+        if (this.pos.roomName !== this.homeName) return false;
+        if (c.intents.transfer || !c.store.energy) return false;
+        const structs = c.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
+            .map(look => look[LOOK_STRUCTURES])
+            .filter(s => isStoreStruct(s) && ((s.store as GenericStore).getFreeCapacity(RESOURCE_ENERGY) || 0) > 0) as AnyStoreStructure[];
+        const target = _.find(structs, s => !isGeneralStoreStruct(s)) || _.first(structs);
+        if (!target) return false;
+        return c.goTransfer(target as XferStruct, RESOURCE_ENERGY, false);
     }
 
     // Hand energy to an adjacent creep of ours that has CARRY and WORK (a

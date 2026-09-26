@@ -1932,6 +1932,27 @@ function flagMineral(f: FlagExtra, range: number, pick: (m: Mineral) => boolean)
     return f.pos.findInRange(FIND_MINERALS, range, { filter: pick })[0] || null;
 }
 
+// A lone container on the flag tile (a drop point, a parking spot for
+// energy). Priority well below every other container holder so it is the
+// last one makeSite spends CONTROLLER_STRUCTURES on and the one purge()
+// tears down when a higher meta's container is short. Asks for a road from
+// the traffic origin (the storage, else the genesis flag) to the tile.
+const kContPriority = -10;
+const kContLevel: PlanLevel = 1;
+@registerMeta
+class Meta_cont extends MetaStructure {
+    static plan(f: FlagExtra, man: MetaManager) {
+        const mem = MetaStructure.makeMem(f);
+        mem.priority = kContPriority;
+        addMemStruct(mem, STRUCTURE_CONTAINER, kContLevel, f.pos.xy);
+        mem.points['cont'] = f.pos.xy;
+        return new this(mem, man);
+    }
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.mem.xy, 1);
+    }
+}
+
 @registerMeta
 class Meta_min extends MetaStructure {
     // Flag beside an ordinary mineral: container (the standing spot) on the

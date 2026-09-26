@@ -19,6 +19,9 @@ const kLogPace = 100;
 const kEnergyTolerance = 1000;
 const kHaulerScale = 2000;
 const kMaxHaulers = 3;
+// A single energy pile this big on the floor earns an upgrader to burn it
+// (below RCL8), storage or not.
+const kPileUpgrade = 1500;
 
 // A srcer is replaced this many ticks before its predecessor dies on top of
 // the walk from the spawn to its spot: spawning plus slack.
@@ -99,7 +102,7 @@ export class Hub extends Mission {
         this.nJobs(Ctrl, 1);
 
         room.storage && this.nJobs(HubJob, 1);
-        this.nJobs(Upgrader, Upgrader.want(room));
+        this.nJobs(Upgrader, Math.max(Upgrader.want(room), this.pileUpgraders(room)));
         this.nJobs(CtrlHauler, CtrlHauler.want(this));
         this.nJobs(Chemist, Chemist.want(room));
 
@@ -141,6 +144,15 @@ export class Hub extends Mission {
         return _.sum(room.find(FIND_DROPPED_RESOURCES, {
             filter: r => r.resourceType === RESOURCE_ENERGY,
         }), r => r.amount);
+    }
+
+    // One upgrader while some pile in the room holds kPileUpgrade energy.
+    pileUpgraders(room: Room): number {
+        if (!room.controller || room.controller.level >= 8) return 0;
+        const big = room.find(FIND_DROPPED_RESOURCES, {
+            filter: r => r.resourceType === RESOURCE_ENERGY && r.amount >= kPileUpgrade,
+        });
+        return big.length ? 1 : 0;
     }
 
     nHaulers(room: Room): number {

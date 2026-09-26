@@ -1,5 +1,5 @@
 import { Mission } from "mission";
-import { MyCreep, Task2Ret } from "mycreep";
+import { MyCreep, task, Task2Ret } from "mycreep";
 import { Service } from "process";
 import { defaultRewalker, fromXY } from "Rewalker";
 
@@ -129,6 +129,19 @@ export class JobCreep extends MyCreep {
         if (err !== OK) this.log("transfer to", dest, "failed", err);
         // A container this fills is done with: pick the next one.
         if (dest.structureType === STRUCTURE_CONTAINER && amount >= free) delete c.memory.dropid;
+        return "wait";
+    }
+
+    // Nowhere to unload: walk to within 3 of `ctrl` and drop what we carry
+    // there, one resource per tick, until empty. Shared by Swiper.deliver
+    // and Trucker (the pile then feeds Hub's pile upgraders).
+    @task
+    dropAt(ctrl: StructureController): Task2Ret {
+        const c = this.c;
+        const res = _.find(Object.keys(c.store) as ResourceConstant[], r => c.store[r] > 0);
+        if (!res) return "start";
+        if (this.walkRange(ctrl) !== OK) return "wait";
+        c.drop(res);
         return "wait";
     }
 
