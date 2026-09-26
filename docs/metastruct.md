@@ -245,7 +245,8 @@ Every `kRetirePace` (10) ticks, first clears one retired tile (below). Skips whe
 tower or spawn if the room has none; extensions while
 `energyCapacityAvailable < 600`; then
 `terminal, tower, spawn, extension, storage, wall, link, container, extractor
-(planned by `min`/`reactor`; there is no mineral scan outside the metas), lab, observer, nuker, power spawn, factory, rampart,
+(planned by `min`/`reactor`; there is no mineral scan outside the metas), lab, observer, nuker, power spawn, factory (skipped on
+`shardSeason`: no market to sell its products on), rampart,
 road`. `makeSite` walks metas in priority order, tries required levels
 `0..RCL`, then optional level 9. A tile blocked by a wrong structure or a
 foreign site is `removeDestroy`ed (storage/terminal/factory are protected while

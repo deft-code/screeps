@@ -32,6 +32,13 @@ const kRetirePace = 10;
 // Structures that decay when nobody repairs them; retire() leaves them to it.
 const kDecays: StructureConstant[] = [STRUCTURE_ROAD, STRUCTURE_CONTAINER, STRUCTURE_RAMPART];
 
+// Factory products are only good for selling, and the seasonal world has no
+// market, so no factory is built there; the hub meta still reserves the tile.
+const kNoFactoryShards = ["shardSeason"];
+function factoryDisabled(): boolean {
+    return _.contains(kNoFactoryShards, Game.shard.name);
+}
+
 // Name of MetaManager's traffic plan (memory.traffic), and the role of the
 // genesis child flag that keeps it drawn.
 const kTrafficName = "traffic";
@@ -565,7 +572,7 @@ export class MetaManager {
             this.makeSite(STRUCTURE_OBSERVER) ||
             this.makeSite(STRUCTURE_NUKER) ||
             this.makeSite(STRUCTURE_POWER_SPAWN) ||
-            this.makeSite(STRUCTURE_FACTORY) ||
+            (!factoryDisabled() && this.makeSite(STRUCTURE_FACTORY)) ||
             this.makeSite(STRUCTURE_RAMPART) ||
             (!this.trafficStale && this.makeSite(STRUCTURE_ROAD)) ||
             false
