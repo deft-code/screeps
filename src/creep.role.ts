@@ -359,6 +359,31 @@ export class CreepRole extends CreepExtra {
     }
     if (s.renewCreep(this) === OK) {
       s.tick.renew = this.name;
+      this.renewRefill(s);
+    }
+  }
+
+  // Pay the renew back out of our own load, so the spawn stays full for the
+  // next egg. The renew's energy only leaves the spawn at the end of the
+  // tick, so right now the spawn still reads full and transfer would answer
+  // ERR_FULL: debit its store by the renew cost for the call and put it
+  // back afterwards. Skipped when this tick's transfer intent is spent.
+  renewRefill(s: StructureSpawn) {
+    if (this.intents.transfer) return;
+    // Renew cost: ceil(body cost / 2.5 / body size) (Screeps rules).
+    const bodyCost = _.sum(this.body, part => BODYPART_COST[part.type]);
+    const cost = Math.ceil(bodyCost / 2.5 / this.body.length);
+    const amount = Math.min(cost, this.store.energy);
+    if (amount <= 0) return;
+    const was = s.store.energy;
+    s.store.energy = was - cost;
+    try {
+      if (this.transfer(s, RESOURCE_ENERGY, amount) === OK) {
+        this.intents.transfer = s;
+        s.tick.transfer = this.name;
+      }
+    } finally {
+      s.store.energy = was;
     }
   }
 }
