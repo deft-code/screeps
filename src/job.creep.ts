@@ -13,8 +13,14 @@ declare global {
         unload?: boolean
         // Home container being carried to while home has no storage/terminal space.
         dropid?: Id<StructureContainer>
+        // Hurt friendly being healed (pickHurt), cleared once healed or gone.
+        healid?: Id<Creep>
     }
 }
+
+// pickHurt looks this far for a hurt friendly before searching the room:
+// rangedHeal reach.
+const kHealRange = 3;
 
 type UnloadStore = StructureStorage | StructureTerminal | StructureContainer;
 
@@ -143,6 +149,25 @@ export class JobCreep extends MyCreep {
         if (this.walkRange(ctrl) !== OK) return "wait";
         c.drop(res);
         return "wait";
+    }
+
+    // The friendly to heal, or null when none in the room is hurt. Sticks to
+    // the one picked before while it is still here and still hurt; otherwise
+    // the most damaged within kHealRange, else the most damaged in the room.
+    // Shared by Guard and Toxic.
+    pickHurt(): Creep | null {
+        const mem = this.c.memory;
+        const kept = mem.healid && Game.getObjectById(mem.healid);
+        if (kept && kept.pos.roomName === this.pos.roomName && kept.hits < kept.hitsMax) return kept;
+        const hurt = this.c.room.find(FIND_MY_CREEPS).filter(f => f.hits < f.hitsMax);
+        if (!hurt.length) {
+            delete mem.healid;
+            return null;
+        }
+        const near = hurt.filter(f => f.pos.inRangeTo(this.pos, kHealRange));
+        const pick = _.max(near.length ? near : hurt, f => f.hitsMax - f.hits);
+        mem.healid = pick.id;
+        return pick;
     }
 
     // Where unloadHome carries to in `home`, or null (see unloadHome).

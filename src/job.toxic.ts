@@ -191,7 +191,7 @@ export class Toxic extends Guard {
         const room = this.c.room;
         const target = this.pos.findClosestByRange(room.assaulters || []);
         if (target) return this.engage(target);
-        const hurt = this.pos.findClosestByRange(room.find(FIND_MY_CREEPS).filter(f => f.hits < f.hitsMax));
+        const hurt = this.pickHurt();
         if (hurt) return this.healCreep(hurt);
         return this.hold(kCentroidRange);
     }

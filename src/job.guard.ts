@@ -94,8 +94,8 @@ export class Guard extends JobRole {
         const enemy = this.pos.findClosestByRange(c.room.enemies || []);
         if (enemy) return this.hunt(enemy);
 
-        // role.guard.js taskGuardHealRoom: patch up a hurt friendly.
-        const hurt = _.sample(c.room.find(FIND_MY_CREEPS).filter(f => f.hits < f.hitsMax));
+        // role.guard.js taskGuardHealRoom: patch up a hurt friendly (JobCreep.pickHurt).
+        const hurt = this.pickHurt();
         if (hurt) return this.healCreep(hurt);
 
         // role.guard.js movePeace(team): hold near the room centre.
@@ -195,7 +195,13 @@ export class Guard extends JobRole {
             this.moveTarget(target, 1);
             return "wait";
         }
-        if (c.heal(target) === OK) c.intents.melee = target;
+        if (c.heal(target) === OK) {
+            c.intents.melee = target;
+            // Press toward the target so it can keep moving without losing
+            // the heal. A plain move, not the Rewalker, so it is never
+            // bumped, and the move intent is left unset for an idle to use.
+            if (!c.intents.move) c.move(this.pos.getDirectionTo(target));
+        }
         return "wait";
     }
 
