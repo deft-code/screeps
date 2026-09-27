@@ -23,6 +23,13 @@ interface RoomIntelMem {
     // for the room's life, so written once on first sight.
     src?: number[]
     ctrl?: number
+    // The room's ordinary mineral, fixed like the sources.
+    min?: number
+    // Season 11: the thorium mineral (RESOURCE_THORIUM, a second Mineral in
+    // FIND_MINERALS) as [xy, amount], rewritten on every visit. It vanishes
+    // from the room once mined out, so a visit without one deletes the key:
+    // no key after first sight means none left (or never any).
+    thor?: [number, number]
 }
 
 declare global {
@@ -127,6 +134,26 @@ export class RoomIntel {
         const xy = this.ctrlXY;
         return xy === null ? null : fromXY(xy, this.name);
     }
+    // The ordinary mineral, or null before first sight.
+    get minXY(): number | null {
+        return this.mem.min ?? null;
+    }
+    get minPos(): RoomPosition | null {
+        const xy = this.minXY;
+        return xy === null ? null : fromXY(xy, this.name);
+    }
+    // The thorium mineral as of the last visit, or null when the room had
+    // none (mined out, or never any).
+    get thorXY(): number | null {
+        return this.mem.thor ? this.mem.thor[0] : null;
+    }
+    get thorPos(): RoomPosition | null {
+        const xy = this.thorXY;
+        return xy === null ? null : fromXY(xy, this.name);
+    }
+    get thorAmount(): number {
+        return this.mem.thor ? this.mem.thor[1] : 0;
+    }
 }
 
 export function updateIntel(room: Room) {
@@ -154,6 +181,15 @@ function updateIntelMem(mem: RoomIntelMem, room: Room) {
     mem.last = Game.time;
 
     if (!mem.src) mem.src = room.find(FIND_SOURCES).map(s => s.pos.xy);
+
+    const minerals = room.find(FIND_MINERALS);
+    const thor = _.find(minerals, m => m.mineralType === RESOURCE_THORIUM);
+    if (mem.min === undefined) {
+        const min = _.find(minerals, m => m.mineralType !== RESOURCE_THORIUM);
+        if (min) mem.min = min.pos.xy;
+    }
+    if (thor) mem.thor = [thor.pos.xy, thor.mineralAmount];
+    else delete mem.thor;
 
     const controller = room.controller;
     if (controller) {

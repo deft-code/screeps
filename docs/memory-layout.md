@@ -74,7 +74,7 @@ delete by hand: it restarts from empty.
 ### `Memory.rooms[name]`
 | field | writer | live | shape |
 |---|---|---|---|
-| `intel` | `intel.ts` | yes | `{ last, enabled?, owner?: [userIdx, rcl], core?: [lvl, expire], power?: [xy, amount, expire], deposit?: [xy, cooldown, expire], src?: xy[], ctrl?: xy, portal? }` (`src`/`ctrl` written once on first sight; `RoomIntel.srcPos`/`ctrlPos` unpack them) |
+| `intel` | `intel.ts` | yes | `{ last, enabled?, owner?: [userIdx, rcl], core?: [lvl, expire], power?: [xy, amount, expire], deposit?: [xy, cooldown, expire], src?: xy[], ctrl?: xy, min?: xy, thor?: [xy, amount], portal? }` (`src`/`ctrl`/`min` written once on first sight, `thor` rewritten every visit and deleted when the thorium is gone; `RoomIntel.srcPos`/`ctrlPos`/`minPos`/`thorPos`/`thorAmount` read them) |
 | `meta` | `metastruct.ts` | yes | `{ name?: string, metas: MetaMem[], traffic?: TrafficPlanMem, keep?, drop?, roadkeep?, roaddrop?: xy[], rampart?, constructedWall?: {xy: MAXHITS} }`; `name` is the genesis flag's name (stamped by every `runGenesis` pass) and names the room's spawns; `MetaMem.retire?: {xy: rcl}` retires a tile from that RCL; `MetaMem.traffic?: [{src, dest, range?, rcl, swamp?, swampCost?}]` are stored traffic entries (`rroad_*`; `src: -1` is the room's traffic origin); `traffic` is the manager's road plan, a `MetaMem` named `traffic` with `structs.road` by level plus `sig` (input hash, `""` = replan pending), `at` (tick) and `fail?: string[]`; see [metastruct.md](metastruct.md) |
 | `links` | `struct.link.ts` | yes | `{ [xy]: { mode: "^"|"+"|"-"|"="|"x" } }` (old entries may still say `"src"`/`"sink"`) |
 | `labs` | `struct.lab.js` | yes | `{ current?: resource, order?: labId[], [labId]: { note, planType?, boost?, boostTime? } }` |

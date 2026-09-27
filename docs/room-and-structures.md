@@ -113,7 +113,7 @@ ask the terminal to `requestMineral`/`autoBuy`. `needs(orig)` walks
 ## Intel and radar (`src/intel.ts`, `src/radar.ts`)
 
 `updateIntel(room)` runs for every visible room from `strat.init()` and writes
-`Memory.rooms[x].intel = { last, owner: [userIdx, rcl], core?, power?, deposit?, src?: xy[], ctrl?: xy }`
+`Memory.rooms[x].intel = { last, owner: [userIdx, rcl], core?, power?, deposit?, src?: xy[], ctrl?: xy, min?: xy, thor?: [xy, amount] }`
 (`src`/`ctrl` are the packed source and controller positions, written once; `RoomIntel.srcPos`/`ctrlPos`/`srcXYs`/`ctrlXY` read them)
 plus the shared `Memory.intel = { users, recs, recExpire }` (highway rooms with
 deposits/power banks). `roomKind(name)` classifies Hwy / Portal / SourceKeeper /
