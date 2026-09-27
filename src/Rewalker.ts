@@ -127,8 +127,10 @@ export function matrixAvoid(mat: CostMatrix, pos: RoomPosition, range: number, b
             if (x > 49 || y > 49) continue
             const tile = t.get(x, y);
             if (tile === TERRAIN_MASK_WALL) continue
-            if (_.find(new RoomPosition(x, y, pos.roomName).lookFor(LOOK_STRUCTURES) as StructureRampart[],
-                s => s.structureType === STRUCTURE_RAMPART && s.my)) continue
+            // lookFor throws without vision; a blind matrix has no ramparts.
+            if (Game.rooms[pos.roomName] &&
+                _.find(new RoomPosition(x, y, pos.roomName).lookFor(LOOK_STRUCTURES) as StructureRampart[],
+                    s => s.structureType === STRUCTURE_RAMPART && s.my)) continue
             let w = mat.get(x, y)
             // Impassable stays impassable; the clamp below must not lower it.
             if (w === 0xff) continue
@@ -138,6 +140,71 @@ export function matrixAvoid(mat: CostMatrix, pos: RoomPosition, range: number, b
             // 255 is impassable to PathFinder; stay walkable however penalties stack.
             mat.set(x, y, Math.min(w, 254))
         }
+    }
+}
+
+// The engine's Source Keeper user (creeps/keepers/pretick.js in the engine).
+export const kKeeperUser = 'Source Keeper'
+
+// Where a keeper room's Source Keepers stand. A keeper walks once from its
+// lair to a tile beside the source or mineral it guards and stays there for
+// the rest of its 300-tick life, attacking within range 3 and never
+// chasing; the next keeper picks the same tile. So a room's danger is four
+// fixed tiles, one per resource: `memory[i]` is the packed xy of the keeper
+// beside resource i, the sources and the ordinary mineral sorted by id
+// (thorium is left out: it vanishes when mined out, which would shift the
+// indexes), or 0 (never a real xy) until a keeper has been seen there.
+// Rewalker keeps one per RoomInfo (Rewalker.skInfo returns it) and, for
+// any entry still 0, asks its blindSKInfo callback (intel.ts answers from
+// Memory.rooms[x].intel.sk, which it fills from skInfo).
+export class SKInfo {
+    readonly memory: number[]
+
+    constructor(xys: number[]) {
+        this.memory = xys && xys.length === 4 ? xys : [0, 0, 0, 0]
+    }
+
+    // The known keeper tiles.
+    get xys(): number[] {
+        return this.memory.filter(xy => xy !== 0)
+    }
+
+    // No entry left to learn.
+    get complete(): boolean {
+        return !_.any(this.memory, xy => xy === 0)
+    }
+
+    allPos(roomName: string): RoomPosition[] {
+        return this.xys.map(xy => fromXY(xy, roomName))
+    }
+
+    // Fill the unknown entries from `other`; a known one is never replaced.
+    update(other: SKInfo): this {
+        for (let i = 0; i < 4; i++) {
+            if (this.memory[i] === 0) this.memory[i] = other.memory[i]
+        }
+        return this
+    }
+
+    // The guarded resources in memory order.
+    static resources(room: Room): RoomObject[] {
+        const res: RoomObject[] = [...room.find(FIND_SOURCES),
+            ...room.find(FIND_MINERALS, { filter: m => (m.mineralType as string) !== 'T' })]
+        return _.sortBy(res, r => (r as Source).id)
+    }
+
+    // A new memory array: `prev` with every 0 entry filled by the keeper
+    // now standing beside that resource, if one is.
+    static recalc(room: Room, prev: number[] = []): number[] {
+        const mem = new SKInfo(prev).memory.slice()
+        const res = SKInfo.resources(room)
+        const keepers = room.find(FIND_HOSTILE_CREEPS, { filter: c => c.owner.username === kKeeperUser })
+        for (let i = 0; i < Math.min(4, res.length); i++) {
+            if (mem[i] !== 0) continue
+            const k = _.find(keepers, k => k.pos.isNearTo(res[i].pos))
+            if (k) mem[i] = toXY(k.pos)
+        }
+        return mem
     }
 }
 
@@ -461,6 +528,41 @@ export class Rewalker {
         return owned.owner.username === SYSTEM_USERNAME
     }
 
+    // What is known of a keeper room's keepers without vision (intel.ts
+    // sets this; Rewalker itself imports nothing). The default knows
+    // nothing.
+    _blindSKInfo: (roomName: string) => SKInfo = () => new SKInfo([])
+    get blindSKInfo(): (roomName: string) => SKInfo {
+        return this._blindSKInfo
+    }
+    set blindSKInfo(fn: (roomName: string) => SKInfo) {
+        this._blindSKInfo = fn
+    }
+
+    // The keepers of a room as Rewalker knows them: recalculated from
+    // vision while any is unknown, the blind callback asked for the gaps
+    // that remain. A room never seen is the callback's answer alone.
+    skInfo(roomName: string): SKInfo {
+        const info = this._getRoomInfo(roomName)
+        if (!info) return this.blindSKInfo(roomName)
+        if (!Game.rooms[roomName] && !info.sk.complete) info.sk.update(this.blindSKInfo(roomName))
+        return info.sk
+    }
+
+    // The keeper layer of a keeper room's matrix: range 3 around each known
+    // keeper tile, or, with vision, range 4 around a resource whose keeper
+    // has not been seen yet (`resources` in SKInfo memory order).
+    applySK(mat: CostMatrix, roomName: string, sk: SKInfo, resources: RoomObject[] = []) {
+        for (let i = 0; i < 4; i++) {
+            const xy = sk.memory[i]
+            if (xy !== 0) {
+                matrixAvoid(mat, fromXY(xy, roomName), 3)
+            } else if (resources[i]) {
+                matrixAvoid(mat, resources[i].pos, 4)
+            }
+        }
+    }
+
     // Return index of plan destination or ERR_* constant.
     planWalk(c: Creep | PowerCreep, goals: Goal[]): number {
         const step = new Step(c, c.pos, 1, this)
@@ -516,7 +618,14 @@ export class Rewalker {
         if (!mat) {
             const info = this._getRoomInfo(roomName)
             if (!info) {
-                mat = RoomInfo._null
+                // Never seen: only what intel knows of its keepers.
+                const sk = this.blindSKInfo(roomName)
+                if (sk.xys.length > 0) {
+                    mat = new PathFinder.CostMatrix()
+                    this.applySK(mat, roomName, sk)
+                } else {
+                    mat = RoomInfo._null
+                }
             } else {
                 mat = info.newMatrix(roomName, this)
             }
@@ -581,7 +690,9 @@ export class Rewalker {
             }
             // Danger zones are for creeps that can hurt us; our own guards
             // and minis must not repel our paths (FIND_CREEPS includes them).
+            // Source Keepers are covered by the room's SKInfo (applySK).
             if (creep.my || this.isAllied(creep)) continue
+            if (creep.owner.username === kKeeperUser) continue
             if (creep.getActiveBodyparts(RANGED_ATTACK)) {
                 matrixAvoid(mat, creep.pos, 4)
             } else if (creep.getActiveBodyparts(ATTACK)) {
@@ -1131,6 +1242,10 @@ class RoomInfo {
     until = 0
     needMat = false
     mat: number[] = []
+    // The keepers of a keeper room (SKInfo); all zeros elsewhere.
+    sk = new SKInfo([])
+    // Whether the room has keeper lairs; null until first seen.
+    lairs: boolean | null = null
 
     update(room: Room, rewalker: Rewalker) {
         if (this.time === Game.time) return
@@ -1142,6 +1257,7 @@ class RoomInfo {
             this.cost = cost
             this.until = until
         }
+        this.skUpdate(room, rewalker)
 
         const last = this.creeps
         this.creeps = new Map()
@@ -1189,15 +1305,34 @@ class RoomInfo {
         }
     }
 
+    // With vision: learn the keepers still unknown, from the room first and
+    // the blind callback for whatever is not standing there this tick.
+    // Nothing to do once every entry is known, or outside keeper rooms.
+    skUpdate(room: Room, rewalker: Rewalker) {
+        if (this.lairs === null) {
+            this.lairs = _.any(room.find(FIND_STRUCTURES), s => s.structureType === STRUCTURE_KEEPER_LAIR)
+        }
+        if (!this.lairs || this.sk.complete) return
+        this.sk = new SKInfo(SKInfo.recalc(room, this.sk.memory))
+        if (!this.sk.complete) this.sk.update(rewalker.blindSKInfo(room.name))
+    }
+
     static _hotMat: CostMatrix | null = null
     static _null = new PathFinder.CostMatrix()
     newMatrix(roomName: string, rewalker: Rewalker): CostMatrix {
         const room = Game.rooms[roomName]
 
         if (!room) {
+            // Blind: the last snapshot (kept without its keeper layer) plus
+            // the keepers known then, the blind callback asked for the rest.
             this.needMat = true
-            if (this.mat.length > 0) return matrixDeserialize(this.mat)
-            return RoomInfo._null
+            if (!this.sk.complete) this.sk.update(rewalker.blindSKInfo(roomName))
+            let mat = this.mat.length > 0 ? matrixDeserialize(this.mat) : null
+            if (this.sk.xys.length > 0) {
+                if (!mat) mat = new PathFinder.CostMatrix()
+                rewalker.applySK(mat, roomName, this.sk)
+            }
+            return mat || RoomInfo._null
         }
         this.needMat = false
 
@@ -1212,11 +1347,15 @@ class RoomInfo {
             const res = ctrl.reservation
             if (res && res.username === whoami() && res.ticksToEnd > 500) return mat
         }
+        // The snapshot goes without the keeper layer so the blind branch
+        // can lay it again from a fuller SKInfo without stacking it.
         this.mat = matrixSerialize(mat)
         if (this.mat.length === 0) {
             RoomInfo._hotMat = mat
             return RoomInfo._null
         }
+        // this.sk is current: update() ran skUpdate this tick.
+        if (this.lairs) rewalker.applySK(mat, roomName, this.sk, SKInfo.resources(room))
         return mat
     }
 }

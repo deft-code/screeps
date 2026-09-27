@@ -89,6 +89,23 @@ guards repelled our own paths), and any recent own tombstone marks the whole roo
 expensive for a while. Matrices for rooms without vision are kept serialised in
 `RoomInfo.mat` and rebuilt when vision returns.
 
+Source Keepers are not in that creep loop. A keeper walks once from its lair
+to a tile beside its resource and stands there attacking within range 3, so
+`SKInfo` (exported by `Rewalker.ts`) records the four standing tiles, one per
+source and ordinary mineral sorted by id, `0` until a keeper has been seen
+there. Each `RoomInfo` keeps one and, every visible tick while an entry is
+still `0`, fills the zeros from the keepers standing beside their resources
+(`SKInfo.recalc`) and then from `Rewalker.blindSKInfo(roomName)`: a callback
+that `intel.ts` sets to read `Memory.rooms[x].intel.sk`, since Rewalker
+imports nothing (the default knows nothing). Intel in turn stores a copy of
+`Rewalker.skInfo(roomName)` each visible tick, so the two agree. With vision
+the matrix gets a range 3 avoid at every known tile and a range 4 avoid
+around a resource whose keeper is still unknown (`applySK`). The snapshot in
+`RoomInfo.mat` is taken before that layer, so without vision it is laid
+again from the cached `SKInfo`, the callback asked only for entries still
+`0` (a known tile is never replaced). A room never seen gets the callback's
+answer alone.
+
 Route costs for `Game.map.findRoute` (`routeCallback`): own claimed 1, own
 reserved 2, highway 3, ally reserved 4, normal 5, ally claimed 6, SK 7,
 hostile reserved 8, hostile claimed 10; a room where we were recently killed

@@ -1,4 +1,4 @@
-import { fromXY } from "Rewalker";
+import { fromXY, defaultRewalker, SKInfo } from "Rewalker";
 
 export function bestDeposit(room: Room): Deposit | null {
     const deposits = room.find(FIND_DEPOSITS);
@@ -30,6 +30,10 @@ interface RoomIntelMem {
     // from the room once mined out, so a visit without one deletes the key:
     // no key after first sight means none left (or never any).
     thor?: [number, number]
+    // Keeper rooms: where each Source Keeper stands (Rewalker's SKInfo
+    // memory; 0 until seen), a copy of what Rewalker.skInfo learns while
+    // the room is visible.
+    sk?: number[]
 }
 
 declare global {
@@ -154,7 +158,14 @@ export class RoomIntel {
     get thorAmount(): number {
         return this.mem.thor ? this.mem.thor[1] : 0;
     }
+    // The keepers known to stand in the room; all zeros outside keeper rooms.
+    get sk(): SKInfo {
+        return new SKInfo(this.mem.sk || []);
+    }
 }
+
+// Rewalker imports nothing: it asks here for a blind room's keepers.
+defaultRewalker().blindSKInfo = roomName => new SKInfo(Memory.rooms[roomName]?.intel?.sk || []);
 
 export function updateIntel(room: Room) {
     const intel = RoomIntel.get(room.name);
@@ -208,6 +219,7 @@ function updateIntelMem(mem: RoomIntelMem, room: Room) {
     const kind = roomKind(room.name)
     // Strongholds live in SK rooms; Season 11 sector cores (the Portal kind,
     // x5y5) can hold one too, guarding the reactor.
+    if (kind === Kind.SourceKeeper) mem.sk = defaultRewalker().skInfo(room.name).memory.slice();
     if (kind === Kind.SourceKeeper || kind === Kind.Portal) {
         const core = _.first(room.findStructs(STRUCTURE_INVADER_CORE));
         if (core) {
