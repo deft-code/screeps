@@ -6,6 +6,7 @@ import { isSType, isOwnedStruct } from "guards";
 import { Mode } from "struct.link";
 import { max } from "lodash";
 import * as debug from "debug";
+import { RoomIntel } from "intel";
 import {
     TrafficMem, TrafficResult, kPathRoad, kPathPlain, kPathSwamp, kPlannedRoad, kTrafficLevel, kTrafficBucket,
     kTrafficHeadroom, kOrigin, trafficMatrix, planTraffic, validTraffic, describeTraffic, hashString,
@@ -176,17 +177,24 @@ merge(Flag, MetaPlan)
 // Green, save all changed metas to room manager
 // Blue, force replanning for all metas (and the traffic).
 // Traffic is not a child: the manager replans it after any saved change
-// (MetaManager.updateTraffic). Every pass draws the plan with the metas.
+// (MetaManager.updateTraffic). Every pass draws the plan with the metas,
+// as long as the genesis flag has at least one child flag.
+//
+// Vision is not needed: the planners work from terrain, the flags and the
+// saved metas (Meta_ctrl reads the controller from intel), child flags are
+// made with createFlagAt, and RoomVisual draws in any room. Only the roads
+// wait: updateTraffic runs from the strats' upkeep, which needs the room.
 export function runGenesis(f: FlagExtra) {
     //man.save();
     const newer = f.memory.newer = f.memory.newer || {};
-    const room = f.room;
-    if (!room) return;
-    room.meta.memory.name = f.name;
-    room.meta.checkTrafficOrigin();
+    const roomName = f.pos.roomName;
+    const man = getMetaManager(roomName);
+    const visual = new RoomVisual(roomName);
+    man.memory.name = f.name;
+    man.checkTrafficOrigin();
     if (f.secondaryColor === COLOR_GREY) {
         let created = false;
-        for (const meta of room.meta.metas) {
+        for (const meta of man.metas) {
             const child = f.getChild(meta.name);
             if (child) continue;
             f.makeChild(meta.name, meta.pos, meta.mem.color);
@@ -198,23 +206,23 @@ export function runGenesis(f: FlagExtra) {
         return;
     }
     let changed = false;
-    let i = -1;
-    for (const child of room.find(FIND_FLAGS) as FlagExtra[]) {
-        i++;
-        if (child.parentName !== f.name) continue;
+    let children = 0;
+    for (const child of _.values<FlagExtra>(Game.flags)) {
+        if (child.pos.roomName !== roomName || child.parentName !== f.name) continue;
+        children++;
         if (f.secondaryColor === COLOR_WHITE) {
             child.remove();
             changed = true;
             continue;
         }
         let nextm = null as MetaStructure | null;
-        const meta = room.meta.getMeta(child.self);
+        const meta = man.getMeta(child.self);
         f.log("actual child", child, meta);
         if (!meta) {
             if (f.secondaryColor === COLOR_BROWN && child.secondaryColor === COLOR_BROWN) {
                 child.remove()
                 changed = true;
-                room.visual.line(f.pos, child.pos, { color: "brown" });
+                visual.line(f.pos, child.pos, { color: "brown" });
                 continue;
             }
             const mem = newer[child.self];
@@ -227,8 +235,8 @@ export function runGenesis(f: FlagExtra) {
             }
         } else {
             if (f.secondaryColor === COLOR_BROWN && child.secondaryColor === COLOR_BROWN) {
-                room.meta.deleteMeta(meta.name);
-                room.visual.line(f.pos, child.pos, { color: "red" });
+                man.deleteMeta(meta.name);
+                visual.line(f.pos, child.pos, { color: "red" });
                 changed = true;
                 continue;
             }
@@ -245,7 +253,7 @@ export function runGenesis(f: FlagExtra) {
         if (!nextm) {
             const mem = newer[child.self];
             if (mem) {
-                nextm = newMeta(mem, room.meta);
+                nextm = newMeta(mem, man);
                 if (!nextm?.check(child)) {
                     nextm = planMeta(child);
                 }
@@ -253,22 +261,24 @@ export function runGenesis(f: FlagExtra) {
         }
         if (nextm) {
             newer[child.self] = nextm.mem;
-            nextm.draw(room.visual);
+            nextm.draw(visual);
             // Save children
             if (f.secondaryColor === COLOR_GREEN) {
-                room.visual.line(f.pos, child.pos, { color: "yellow" });
-                room.meta.setMeta(nextm);
+                visual.line(f.pos, child.pos, { color: "yellow" });
+                man.setMeta(nextm);
                 changed = true;
             } else {
-                room.visual.line(f.pos, nextm.pos, { color: "cornflowerblue" });
+                visual.line(f.pos, nextm.pos, { color: "cornflowerblue" });
             }
         } else if(meta) {
-            meta.draw(room.visual);
+            meta.draw(visual);
         }
     }
-    if (f.secondaryColor === COLOR_BLUE) room.meta.forceTraffic();
-    room.meta.drawTraffic(room.visual);
-    if (changed && _.contains([COLOR_GREEN, COLOR_BROWN], f.secondaryColor)) room.meta.save();
+    if (f.secondaryColor === COLOR_BLUE) man.forceTraffic();
+    // Roads only alongside the metas they serve: a genesis flag with no
+    // children (a bare marker, or one whose children were removed) draws none.
+    if (children) man.drawTraffic(visual);
+    if (changed && _.contains([COLOR_GREEN, COLOR_BROWN], f.secondaryColor)) man.save();
     if (!changed && f.secondaryColor !== COLOR_CYAN) f.setColor(f.color, COLOR_CYAN);
 }
 
@@ -1494,7 +1504,7 @@ function planMeta(f: Flag) {
     const klass = allMetas.get(klassName);
     f.log("Planning Meta", klassName, role, klass?.name);
     if (!klass) return null;
-    const man = f.room!.meta;
+    const man = getMetaManager(f.pos.roomName);
     return klass.plan(f, man);
 }
 
@@ -2011,11 +2021,12 @@ class Meta_ctrl extends MetaStructure {
             v.circle(pos.x, pos.y);
         }
         const mem = MetaStructure.makeMem(f);
-        const ctrl = f.room?.controller;
-        if (ctrl && !ctrl.pos.isEqualTo(f.pos)) {
+        // The controller, from the room or (blind) from intel.
+        const ctrlPos = f.room?.controller?.pos || RoomIntel.get(man.name)?.ctrlPos || null;
+        if (ctrlPos && !ctrlPos.isEqualTo(f.pos)) {
             // Flag placed off the controller: stand on the flag, link on the next step to storage.
             if (ret.path.length < 1) return null;
-            if (!ctrl.pos.inRangeTo(f.pos, 3)) f.log("ctrl spot out of upgrade range", f.pos);
+            if (!ctrlPos.inRangeTo(f.pos, 3)) f.log("ctrl spot out of upgrade range", f.pos);
             mem.points[calcRole(mem.name)] = toXY(f.pos);
             addMemStruct(mem, STRUCTURE_LINK, kCtrlLinkLevel, ret.path[0].xy);
             Meta_ctrl.addContainer(mem);

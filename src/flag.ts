@@ -13,6 +13,18 @@ declare global {
 
 const missionTasker = new Tasker();
 
+// Create a flag in any room, vision or not. Room.prototype.createFlag only
+// reads this.name (it validates the arguments, registers the flag in
+// Game.flags for this tick and pushes a room intent the server accepts
+// blind), so a pseudo room stands in; RoomPosition.createFlag would throw
+// without vision. Returns the name, or an error code like createFlag.
+// Console: createFlagAt('W30S4', 25, 25, 'Loot', COLOR_ORANGE, COLOR_GREY)
+export function createFlagAt(roomName: string, x: number, y: number, name?: string,
+    color?: ColorConstant, secondaryColor?: ColorConstant): string | ScreepsReturnCode {
+    const create = Room.prototype.createFlag as (this: { name: string }, ...args: any[]) => string | ScreepsReturnCode;
+    return create.call({ name: roomName }, x, y, name, color, secondaryColor);
+}
+
 @extender
 export class FlagExtra extends Flag {
   get id(): string {
@@ -48,7 +60,7 @@ export class FlagExtra extends Flag {
   }
 
   makeChild(prefix: string, pos: RoomPosition, color: ColorConstant) {
-    return pos.createFlag(this.childName(prefix), COLOR_GREY, color);
+    return createFlagAt(pos.roomName, pos.x, pos.y, this.childName(prefix), COLOR_GREY, color);
   }
 
   get self() {

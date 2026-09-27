@@ -19,6 +19,10 @@ interface RoomIntelMem {
     core?: [number, number]
     power?: [number, number, number]
     deposit?: [number, number, number]
+    // Packed xy (RoomPosition.xy) of the sources and the controller. Fixed
+    // for the room's life, so written once on first sight.
+    src?: number[]
+    ctrl?: number
 }
 
 declare global {
@@ -107,6 +111,22 @@ export class RoomIntel {
         }
         return ttl;
     }
+
+    // Sources seen in the room, vision or not; [] before first sight.
+    get srcXYs(): number[] {
+        return this.mem.src || [];
+    }
+    get srcPos(): RoomPosition[] {
+        return this.srcXYs.map(xy => fromXY(xy, this.name));
+    }
+    // The controller, or null for a room without one (or not yet seen).
+    get ctrlXY(): number | null {
+        return this.mem.ctrl ?? null;
+    }
+    get ctrlPos(): RoomPosition | null {
+        const xy = this.ctrlXY;
+        return xy === null ? null : fromXY(xy, this.name);
+    }
 }
 
 export function updateIntel(room: Room) {
@@ -133,8 +153,11 @@ export function userIdx(username: string): number {
 function updateIntelMem(mem: RoomIntelMem, room: Room) {
     mem.last = Game.time;
 
+    if (!mem.src) mem.src = room.find(FIND_SOURCES).map(s => s.pos.xy);
+
     const controller = room.controller;
     if (controller) {
+        if (mem.ctrl === undefined) mem.ctrl = controller.pos.xy;
         const owner = controller.owner;
         if (owner) {
             mem.owner = [userIdx(owner.username), controller.level];

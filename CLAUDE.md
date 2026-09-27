@@ -219,6 +219,7 @@ getService('Reactor W26S8').layEgg('warboy')  // one extra egg (lowercased job c
 getService('Reactor W25S7').windDown()        // purge eggs, run creeps to death, kill + deschedule
 scheduleService('Reactor W25S7')              // bring it back
 Game.rooms.W25S7.createFlag(30, 29, 'reactor_Port', COLOR_GREY, COLOR_GREY)  // child flag, then YELLOW, check log, GREEN
+createFlagAt('W30S4', 25, 25, 'Loot', COLOR_ORANGE, COLOR_CYAN)   // any room, vision or not; genesis passes run blind too
 ```
 
 Genesis flags reset themselves to CYAN (secondary `4`) when a command is done.

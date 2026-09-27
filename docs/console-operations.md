@@ -99,10 +99,18 @@ Game.rooms.W5N8.meta.replanTraffic()          // replan the roads now (bucket an
 Memory.rooms.W5N8.meta.traffic                // the road plan (structs.road by level, sig, at, fail)
 ```
 
+Flags in a room without vision: `createFlagAt('W30S4', 25, 25, 'Loot',
+COLOR_ORANGE, COLOR_CYAN)` (global from `flag.ts`; `Room.createFlag` needs
+the room object, `RoomPosition.createFlag` throws blind). `setColor` and
+`remove()` on a dark room's flag work as they are. With the room's
+`RoomIntel.srcPos`/`ctrlPos` for the `asrc`/`bsrc`/`ctrl` children, the whole
+genesis pass (YELLOW, GREEN) runs without vision; the roads follow once the
+room is seen.
+
 Flag protocol details in [metastruct.md](metastruct.md). Draw the current plan
 without changing anything: set YELLOW and then back to CYAN; planned-but-
 uncommitted metas sit in `Memory.flags.genesis.newer`. The road plan is
-drawn every tick with the metas. The roads replan by themselves a tick or so after any saved change (GREEN, BROWN, a mission plan).
+drawn every tick with the metas while the genesis flag has a child flag. The roads replan by themselves a tick or so after any saved change (GREEN, BROWN, a mission plan).
 
 ## Links, labs, spots
 

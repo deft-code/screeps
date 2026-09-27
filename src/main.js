@@ -49,6 +49,7 @@ global.statusServices = () => liveServices().map(svc => svc.toString());
 // Spawn telemetry table (spawnload.ts): load short/long and creeps per 1500
 // ticks short/long, for everything, each room and each spawn.
 global.spawnLoads = () => require('spawnload').report();
+global.createFlagAt = (...args) => require('flag').createFlagAt(...args);
 
 import 'strat';
 

@@ -184,7 +184,7 @@ is a command; after acting it usually resets itself to `COLOR_CYAN` (idle):
 
 Traffic is not a child: GREEN and BROWN save, and the manager replans the
 roads on its next upkeep pass. Every pass, CYAN included, draws the road
-plan along with the metas (the `traffic_<genesis>` display-toggle flag is
+plan along with the metas while the genesis flag has at least one child flag (the `traffic_<genesis>` display-toggle flag is
 gone since 26 Sept 2026). Every pass also checks the traffic origin, so moving the genesis flag while
 no storage is planned replans the roads.
 
@@ -195,6 +195,17 @@ several of the same kind unique (`extna1`, `extna2`). The child's **secondary
 colour is the template rotation** and is stored in `mem.color`;
 `meta.check(flag)` fails (forcing a re-plan) if the flag moved or changed colour.
 Planned-but-unsaved metas are parked in the genesis flag's `memory.newer[self]`.
+
+Vision is not needed for any of this (since 26 Sept 2026): `runGenesis`
+works from the flags, terrain and the saved metas, `Meta_ctrl` takes the
+controller position from `RoomIntel.ctrlPos` when the room is dark, child
+flags are made with `createFlagAt` (flag.ts: `Room.prototype.createFlag`
+on a pseudo room, which the server accepts blind), and `RoomVisual` draws in
+any room. Only the roads wait for vision: `updateTraffic` runs from the
+strats' upkeep. `Meta_min`/`Meta_reactor` still need vision to find their
+mineral. A dark room's source and controller tiles come from
+`RoomIntel.srcPos`/`ctrlPos` (intel.ts), so a room seen once can be laid out
+and planned from the console with no creep there.
 
 Manual workflow: place `genesis` (orange/cyan) in the room; add child flags
 (`hub_genesis`, `cap_genesis`, `asrc_genesis` on source A, `bsrc_genesis` on

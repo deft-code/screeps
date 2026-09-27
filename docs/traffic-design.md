@@ -239,7 +239,7 @@ since the rroad metas hold no tiles.
 ### 2.6 Genesis flag protocol
 
 - The genesis pass draws the plan every tick, CYAN included, with the
-  metas (the `traffic_<genesis>` display-toggle flag was dropped 26 Sept
+  metas, while the genesis flag has at least one child flag (the `traffic_<genesis>` display-toggle flag was dropped 26 Sept
   2026). YELLOW never plans traffic; GREEN/BROWN save and the plan follows
   automatically on the next upkeep tick.
 - BLUE also forces a traffic replan.
