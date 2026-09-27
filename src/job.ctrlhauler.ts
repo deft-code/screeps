@@ -13,9 +13,10 @@ const kBodyEnergy = 1500;
 // from storage while the room is rich.
 //
 // Missions call nJobs(CtrlHauler, CtrlHauler.want(mission)): 1 only while the
-// storage holds kStorageEnergy energy, the ctrl container exists and holds
-// no energy, and the mission's ctrl creep has none either; 0 otherwise. A
-// living ctrlhauler keeps shuttling until it dies.
+// storage holds kStorageEnergy energy and is not adjacent to the ctrl
+// container, the container exists and holds no energy, and the mission's
+// ctrl creep has none either; 0 otherwise. A living ctrlhauler keeps
+// shuttling until it dies.
 @register
 export class CtrlHauler extends JobRole {
     // A surplus job like Upgrader: every other egg spawns first.
@@ -34,6 +35,8 @@ export class CtrlHauler extends JobRole {
         if ((room.storage?.store.energy || 0) < kStorageEnergy) return 0;
         const cont = CtrlHauler.container(room);
         if (!cont || cont.store.energy > 0) return 0;
+        // The ctrl creep withdraws from an adjacent storage itself (role.ctrl.js).
+        if (room.storage?.pos.isNearTo(cont)) return 0;
         const ctrls = mission.roleCreeps("ctrl").filter(c => c.c);
         if (!ctrls.length || _.any(ctrls, c => c.c.store.energy > 0)) return 0;
         return 1;

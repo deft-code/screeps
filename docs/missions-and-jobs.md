@@ -142,15 +142,15 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               matrices, so keeper lairs and hostile rooms are avoided), plainCost 2 / swampCost 10, kept in
                                                               memory.road as a Rewalker `Path`, replanned every 500 ticks and drawn (yellow dashed) while
                                                               the mission room has >= 2 of our construction sites; `replanRoad()` drops it; status adds `gcl:` and `road:<tiles> via:<rooms>`.
-                                                              The path becomes traffic entries, one `Meta_rroad` per room named `rroad_<room>_startup`
-                                                              (tracked in memory.roadMetas, status `metas:<rooms>`), shaped like a remote's: in the mission
-                                                              room from the border the path leaves by to each source (beside its asrc/bsrc/rsrc spot when
-                                                              planned, level 0) and to the controller (level 0 too, unlike a remote's swamp-only leg: pioneers upgrade it), border -> border between, the home
-                                                              storage (kOrigin) -> border at home, every entry searched swamp-averse (swampCost 55, as the
-                                                              road's own search); each room's MetaManager plans the roads and ActiveStrat/ClaimedStrat
-                                                              place the sites; a changed replan replaces them in place, windDown() and `removeRoad()` delete them
-                                                              and each room's traffic replan removes our road sites left on dropped tiles. Unowned road
-                                                              rooms with our sites in view get "PaveAll <room>"
+                                                              Only the head of the path, the tiles within 3 (kRoadRange) of the controller, becomes road
+                                                              (since 26 Sept 2026; sources and the way home are the genesis metas' business): one traffic
+                                                              entry in a `Meta_rroad` named `rroad_<room>_startup` in the mission room (tracked in
+                                                              memory.roadMetas, status `metas:<rooms>`), from the stub's far end to the controller (level 0,
+                                                              unlike a remote's swamp-only leg: pioneers upgrade it), searched swamp-averse (swampCost 55, as
+                                                              the road's own search); the room's MetaManager plans the road and ActiveStrat/ClaimedStrat
+                                                              place the sites; a changed replan replaces it in place, windDown() and `removeRoad()` delete it
+                                                              and the room's traffic replan removes our road sites left on dropped tiles. The mission room
+                                                              gets "PaveAll <room>" while unowned with our sites in view
                                                               (`schedulePavers`, as Remote). The plan lays every room's other metas over the
                                                               Rewalker matrix (`metaCosts`: planned structures and spots impassable, planned roads,
                                                               the traffic plan's included, cost 1) so it never crosses the base plan; `replanRoad()`
