@@ -15,6 +15,7 @@ Process                      run(): Priority; kill()           (process.ts)
      │                                            Each tick no listed terminal is on cooldown: the fullest sends half the gap to the
      │                                            emptiest when the gap is at least 5k, shrunk to what it can pay with the transfer fee.
      ├─ Selloff      @register  (ms.selloff.ts)   "Selloff <room>"; no creeps, so a purple flag "Selloff_<room>" may run it.
+     ├─ Experiment   @register  (ms.experiment.ts) "Experiment"; road weight comparison from a purple flag "Experiment" to its child "dest_Experiment" (roadplan.ts).
      │                                            Kills itself when the room is not ours or has no terminal (room invisible counts).
      │                                            Each tick the room's terminal is off cooldown: non-energy stock in random order,
      │                                            per resource walk the buy orders (Game.market.getAllOrders cached 50 ticks,
@@ -138,16 +139,15 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               the `Startup` job class (separate registries).
                                                               "Startup <room> [home]": while not ours and GCL is full (owned rooms >= gcl.level) no
                                                               claimer; instead `planRoad`: PathFinder controller -> home spawn (home = args[2], else the
-                                                              nearest outside spawn's room) through `Rewalker.restrictedRoomCallback` (its route and cost
-                                                              matrices, so keeper lairs and hostile rooms are avoided), plainCost 2 / swampCost 10, kept in
+                                                              nearest outside spawn's room) on a `RoadPlanner` (roadplan.ts: the shared road weights
+                                                              8/12/24, harvest spots and keeper lairs dear, rooms other players own impassable), kept in
                                                               memory.road as a Rewalker `Path`, replanned every 500 ticks and drawn (yellow dashed) while
                                                               the mission room has >= 2 of our construction sites; `replanRoad()` drops it; status adds `gcl:` and `road:<tiles> via:<rooms>`.
                                                               Only the head of the path, the tiles within 3 (kRoadRange) of the controller, becomes road
                                                               (since 26 Sept 2026; sources and the way home are the genesis metas' business): one traffic
                                                               entry in a `Meta_rroad` named `rroad_<room>_startup` in the mission room (tracked in
                                                               memory.roadMetas, status `metas:<rooms>`), from the stub's far end to the controller (level 0,
-                                                              unlike a remote's swamp-only leg: pioneers upgrade it), searched swamp-averse (swampCost 55, as
-                                                              the road's own search); the room's MetaManager plans the road and ActiveStrat/ClaimedStrat
+                                                              unlike a remote's swamp-only leg: pioneers upgrade it); the room's MetaManager plans the road and ActiveStrat/ClaimedStrat
                                                               place the sites; a changed replan replaces it in place, windDown() and `removeRoad()` delete it
                                                               and the room's traffic replan removes our road sites left on dropped tiles. The mission room
                                                               gets "PaveAll <room>" while unowned with our sites in view

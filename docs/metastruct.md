@@ -63,16 +63,15 @@ A meta declares the roads it wants as **traffic entries** by overriding
 time, used by the mission metas):
 
 ```
-{ src: xy | kOrigin, dest: xy, range?: n (default 0), rcl: level, swamp?: level (default rcl), swampCost?: n }
+{ src: xy | kOrigin, dest: xy, range?: n (default 0), rcl: level, swamp?: level (default rcl) }
 ```
 
 Both tiles are in the meta's room. Plain tiles of the road are built from plan
 level `rcl`, swamp tiles from `swamp`; `kNoRoad` (10, above every level) means
 never, so `{rcl: kNoRoad, swamp: 0}` is a road built on swamp only. Where
 entries share a tile the lowest level wins. `src: kOrigin` (-1) starts at the
-room's traffic origin, resolved when the traffic is planned. `swampCost` is what
-an unroaded swamp tile costs that entry's search (default 12; Startup uses
-`kSwampAverse`, 55, five times plain, as its own search does).
+room's traffic origin, resolved when the traffic is planned. Every entry
+searches at the shared weights (an old `swampCost` field in memory is ignored).
 
 | meta | entry (`rcl = swamp = 3`, `kTrafficLevel`) |
 |---|---|
@@ -107,17 +106,17 @@ sorts at priority 0 under the name `traffic`, where the old meta sorted).
    roads 10), then with vision every structure a road cannot share a tile with
    (containers too) and every source, mineral and deposit `0xFF`, and every
    site but our own road and rampart sites `0xFF`. Roads go on a ladder below
-   plain: a built road some plan holds (another meta's, or the traffic plan
-   being replaced) 7, a built road no plan holds 8, a planned road not yet
-   built 10; plain 11, swamp 12. Rooms we do not own get `0xF0` beside every
-   source and the controller. Exit tiles cost `0xFE` (only an entry's own end
+   plain: a road laid by the plan in progress 8, a road another meta plans or
+   the traffic plan being replaced holds 10, a built road in no plan its
+   terrain; plain 12, swamp 24. The free tiles beside every source, mineral
+   and the controller cost 48 (`kNearCost`). Exit tiles cost `0xFE` (only an entry's own end
    uses one). Terrain walls never get a walkable cost, except built tunnels.
 2. Rings: level 3 roads on the free neighbours of every planned storage,
    terminal and spawn.
-3. Entries grouped by `(src, rcl, swamp, swampCost)` in order (metas by
+3. Entries grouped by `(src, rcl, swamp)` in order (metas by
    priority then name). Per group: multi-goal
    searches from `src` to every open entry's dest (single room, heuristic
-   weight 7), closing the entries the path ends in range of; each path is laid
+   weight 8), closing the entries the path ends in range of; each path is laid
    at the group's levels and stamped 7, so later paths coalesce onto it. The
    `src` tile is laid with the first path when a road can stand there (a
    storage or spawn src is blocked, a border src is an exit). A search that
@@ -229,11 +228,12 @@ without flags through `RemotePlanner(home, remote)`:
 | `rroad` (`rroad_<remote>_<leg>`, priority 0) | the traffic entries of one leg inside one room (`mem.traffic`, no structs); each room's manager plans the roads with its other traffic. A leg is one multi-room `PathFinder` search to the home storage at range 1, cut into its stay in each room (`pathTraffic`): in the home room its storage (`kOrigin`, so the leg follows a moved storage) -> the border tile it enters by, in rooms between border -> border, in the remote room the border it leaves by -> beside the container (range 1), all level 0. The controller leg keeps only its remote-room entry, border -> controller (range 1) with `rcl kNoRoad, swamp 0`: roads on swamp only. |
 
 Both classes have `static plan = noPlan`, so genesis flags cannot re-plan them
-(a BROWN genesis pass can still delete them). The planner paths with the
-metastruct costs (road 7, plain 11, swamp 12), restricts rooms to the
-`Game.map.findRoute` set plus both ends, marks every existing structure that
-is not a road or rampart `0xFF` in every room (so the upkeep never finds a
-"blocker" to destroy), stamps a ring of `0xF0` around the remote's sources and
+(a BROWN genesis pass can still delete them). The planner searches on a
+`RoadPlanner` (`roadplan.ts`): the shared costs (road 8, plain 12, swamp 24),
+rooms restricted to the map route plus both ends (rooms other players own are
+impassable, keeper rooms dear), every existing structure that is not a road
+or rampart `0xFF` in every room (so the upkeep never finds a "blocker" to
+destroy), 48 (`kNearCost`) on the free tiles around every source, mineral and
 controller, blocks each chosen container tile for later legs, and stamps
 earlier legs (roads 7, plains 10) so legs share corridors and room crossings.
 Rooms without vision use Rewalker's remembered matrix. Everything is level 0
@@ -300,8 +300,10 @@ repair and no removal.
 
 ## Path costs used while planning
 
-`kPathRoad = 7`, `kPathPlain = 11`, `kPathSwamp = 12` (defined in
-`metatraffic.ts`) with `heuristicWeight` 7; existing metas
+`kPathRoad = 8`, `kPathPlain = 12`, `kPathSwamp = 24` (defined in
+`metatraffic.ts`, 2:3:6 settled with the `Experiment` service in Sept 2026)
+with `heuristicWeight` 8; the same weights drive the room-to-room planners in
+`roadplan.ts` (Remote legs, Startup's road). Existing metas
 fill the matrix with `0xFF` (roads `10`, ramparts ignored) so new plans avoid
 them. `calcWeight` (asrc) prefers tiles with fewer wall neighbours. The
 traffic planner's own matrix is described under Traffic.

@@ -37,21 +37,19 @@ export interface TrafficMem {
     range?: number     // Chebyshev range to dest, default 0
     rcl: number        // level the road tiles are built from; kNoRoad = never
     swamp?: number     // level the swamp tiles are built from; default rcl
-    swampCost?: number // path cost of an unroaded swamp tile for this entry's search; default 12
 }
 export const kNoRoad = 10;      // above every plan level (0..8, 9 optional)
 export const kOrigin = -1;      // src: the room's traffic origin, resolved at plan time
 export const kTrafficLevel = 3; // base metas' roads and the rings
 export const kRingLevel = 3;
-export const kSwampAverse = 55; // kPathPlain * CONSTRUCTION_COST_ROAD_SWAMP_RATIO
 ```
 
 Levels are plan levels like any other struct (`0..8`, `9` optional). `kNoRoad`
 is a level no room reaches, so taking the minimum over entries that share a
 tile just works. A remote's controller leg is `{rcl: kNoRoad, swamp: 0}`.
-`swampCost` is the one field beyond the goals: Startup's search avoids swamp
-at five times plain (a swamp road costs five times as much to build and to
-keep), and its entries carry that into the in-room planning.
+Every entry searches at the same weights (2.3); the `swampCost` field that
+let Startup's entries search swamp-averse was dropped in Sept 2026 with the
+weight consolidation and is ignored where it survives in memory.
 
 A meta declares entries by overriding `MetaStructure.traffic(): TrafficMem[]`.
 The default returns `mem.traffic` (entries stored at plan time, used by the
@@ -93,8 +91,8 @@ like any meta's:
 - `makeSite`, `purge`, `maxHitsInner` and `getMatrix` walk
   `man.planned()` = metas plus the plan, in the same `metaOrder` (priority 0,
   name `traffic`).
-- `getMatrix()` includes the plan's roads (Startup's `metaCosts` and the
-  RemotePlanner's home matrix coalesce onto base roads);
+- `getMatrix()` includes the plan's roads (`roadplan.ts`'s `roadMatrix`, and
+  so Startup's road and the RemotePlanner's legs, coalesce onto them);
   `getMatrix(['traffic'])` leaves them out.
 - `man.metas`, `hasMetas()`, GREY child creation, `canPioneerEarly()` and
   `Meta_nuke` never see the plan: it is not a meta.
@@ -111,27 +109,31 @@ giving a terrain wall a walkable cost (a non-zero cost would make it walkable):
    "blocker" the upkeep would destroy); every construction site except our own
    road and rampart sites -> `0xFF` (a foreign site blocks a road site too);
    sources, minerals, deposits -> `0xFF`.
-3. Roads go on a cost ladder below plain (11) and swamp (12), so a replan
-   reuses what is built and breaks ties toward what is planned instead of
-   churning between equal routes: a built road some plan holds (another
-   meta's, or the traffic plan being replaced, `previous`) 7 like a road just
-   laid; a built road no plan holds (a leftover route) 8; a planned road not
-   built yet (another meta's or the previous traffic plan's) 10. Built tunnels
-   stay walkable on the same ladder.
-4. Rooms we do not own: `0xF0` (`kAvoid`) on the free tiles beside every
-   source and the controller (`avoidAround`, shared with RemotePlanner).
+3. Planned roads go on a cost ladder below plain (12) and swamp (24), so a
+   replan breaks ties toward what is planned instead of churning between
+   equal routes: a road laid by the plan in progress 8; a road another meta
+   plans, or the traffic plan being replaced (`previous`) holds, 10. A road
+   that is merely built, in no plan, is its terrain (since Sept 2026; before,
+   a built road cost 8 or 9 and a route left to decay could hold a replan to
+   itself, which is how W29S5's controller leg kept an avoidable swamp belt).
+   A planned tunnel stays walkable at 10. The weights themselves (road 8, plain
+   12, swamp 24: 2:3:6, scaled by four so the ladder fits) were settled with
+   the `Experiment` service in Sept 2026, see 4.
+4. `kNearCost` (48, two swamps) on the free tiles beside every source,
+   mineral and the controller (`avoidAround`), in every room: a road crosses
+   a harvest or upgrade spot only when the way around costs more.
 5. Exit tiles -> `0xFE`: only an entry's own end may use one, so no path walks
    along the border where no road can be built.
 
 `planTraffic(roomName, cm, rings, entries, fromDest)`:
 
 1. Rings: level `kRingLevel` roads on the free (`< 0xFE`, non-wall, non-exit)
-   neighbours of every planned storage, terminal and spawn, stamped 7.
-2. Entries (srcs resolved) are grouped by `(src, rcl, swamp, swampCost)` in
+   neighbours of every planned storage, terminal and spawn, stamped 8.
+2. Entries (srcs resolved) are grouped by `(src, rcl, swamp)` in
    declaration order (metas by priority then name, each meta's entries in
    order). Per group: repeated multi-goal searches from `src` to every open
-   entry's `{dest, range}` (`maxRooms 1`, plain 11, swamp the group's
-   `swampCost`, heuristic weight 7, `maxOps 4000`); the entries whose dest the
+   entry's `{dest, range}` (`maxRooms 1`, plain 12, swamp 24, heuristic
+   weight 8, `maxOps 4000`); the entries whose dest the
    path's end is in range of are done; every step gets the group's level
    (swamp tiles the swamp level, the minimum where tiles are shared) and is
    stamped 7, so later paths coalesce; steps of a `kNoRoad` plain tile are
@@ -209,21 +211,21 @@ per-room spans, and make entries that point home-side -> far-side:
   is treated as an in-between room;
 - `farOnly` keeps only the far room (a remote's controller leg).
 
-`RemotePlanner` keeps its search, container choice, cramped-first order and
-matrix stamping (so legs share border crossings). Per source leg: `far =
+`RemotePlanner` keeps its container choice and cramped-first order; its
+search, matrices and stamping (so legs share border crossings) are a
+`RoadPlanner` (`roadplan.ts`, 2.8). Per source leg: `far =
 [{dest: container, range 1, rcl 0, swamp 0}]`, `home` = the home room, levels
 0. Controller leg: `far = [{dest: controller, range 1, rcl kNoRoad, swamp
 0}]`, `farOnly`. Each room's entries become one `Meta_rroad`
 (`rroad_<remote>_<leg>`, `mem.traffic`, no structs); `Meta_rsrc` holds the
 container as before.
 
-`Startup.planRoad` keeps its Rewalker + `metaCosts` search from the controller
-to the home spawn. Output: `far` = the controller and each source of the
-mission room (dest = the container spot of the meta whose `targetid()` is that
-source when there is one, else the source; range 1), all `rcl 0, swamp 0`,
-the home room's entry from its storage (`kOrigin`), and every entry with
-`swampCost: kSwampAverse` so the in-room roads keep the search's swamp
-aversion. The controller stretch is fully paved, unlike a remote's swamp-only
+`Startup.planRoad` searches from the controller to the home spawn on a
+`RoadPlanner` (`roadplan.ts`, 2.8). Output: `far` = the controller and each
+source of the mission room (dest = the container spot of the meta whose
+`targetid()` is that source when there is one, else the source; range 1),
+all `rcl 0, swamp 0`, and the home room's entry from its storage
+(`kOrigin`). The controller stretch is fully paved, unlike a remote's swamp-only
 controller leg, because pioneers upgrade this controller from the claim until
 the base `ctrl` road arrives at RCL3. A changed path replaces the road metas
 in place (`saveRoadMetas`: rooms still on the road get theirs replaced, rooms
@@ -251,10 +253,27 @@ since the rroad metas hold no tiles.
 ## 3. Where the code is
 
 - `src/metatraffic.ts` (imports only `Rewalker` and `shed`, so `metastruct`
-  can import it): `TrafficMem`, levels, `kOrigin`, `kSwampAverse`, path costs
-  (`kPathRoad/Plain/Swamp`, `kPlannedRoad`, `kAvoid`, `kShared`),
-  `avoidAround`, `trafficMatrix`, `planTraffic`, `roomSpans`, `pathTraffic`,
-  `hashString`, `describeTraffic`, `validTraffic`.
+  can import it): `TrafficMem`, levels, `kOrigin`, path costs
+  (`kPathRoad/Plain/Swamp`, `kPlannedRoad`, `kShared`, `kNearCost`,
+  `kLairCost`/`kLairRange`), `costAround`, `avoidAround`, `trafficMatrix`
+  (`MetaManager.replanTrafficFresh()` plans with the old plan left out),
+  `planTraffic`, `roomSpans`, `pathTraffic`, `hashString`, `describeTraffic`,
+  `validTraffic`.
+- `src/roadplan.ts` (imports `metastruct`, so it sits above it): the
+  room-to-room planner every multi-room road shares. `RoadWeights` /
+  `kRoadWeights` (metatraffic's costs), `ownedByOther`, `roadRoute` (the map
+  route: rooms other players own impassable, keeper rooms cost 3), `roadMatrix`
+  (a room under those weights: meta-planned roads at road cost, built roads
+  no plan holds ignored, planned structures and spots blocked, other
+  structures blocked, our road and container sites not, `kNearCost` beside sources, minerals and the
+  controller, `kLairCost` within 3 of a keeper lair; without vision the
+  Rewalker's remembered blocks and roads plus intel's source and controller
+  tiles), and `RoadPlanner` (`route`/`allow`, cached `matrix`, `search` with
+  heuristic weight = road cost and an optional per-room override, `stamp`).
+- `src/ms.experiment.ts`: the `Experiment` purple-flag service that compares
+  weight sets on a `RoadPlanner` each (flag `Experiment` -> child
+  `dest_Experiment`, drawn yellow/cyan/magenta/red, `status()` counts tiles by
+  terrain).
 - `src/metastruct.ts`: `MetaStructure.traffic()`/`originTraffic()` and the
   per-meta overrides; `TrafficPlan`; on the manager `traffic`, `planned()`,
   `trafficOrigin`, `declaresTraffic`, `getTraffic`, `trafficSig`,
@@ -264,7 +283,7 @@ since the rroad metas hold no tiles.
   `runUnowned()`, `setMeta`, `deleteMeta`, `save()`; `runGenesis` (2.6);
   `ManagerMem.traffic`, `MetaMem.traffic`.
 - `src/metaremote.ts`: `Meta_rroad.make(man, remote, leg, entries)`,
-  `RemotePlanner.stamp()` + `pathTraffic()`.
+  `RemotePlanner` on a `RoadPlanner` + `pathTraffic()`.
 - `src/ms.startup.ts`: `saveRoadMetas` builds entries via `pathTraffic`.
 - `src/ms.remote.ts`: `removeMetas` removes container sites only; `drawMetas`
   draws each tracked room's plan.
@@ -306,11 +325,23 @@ since the rroad metas hold no tiles.
 - **Replans are deferred to the upkeep** (vision, CPU, one room a tick), not
   run inside `save()`, so a GREEN or a remote plan shows its roads a tick or
   more later.
-- **Built roads attract, real structures block** in every room; it keeps
-  replans on the built network.
-- **One field beyond the goals**, `swampCost`, so Startup's roads keep avoiding
-  swamp inside rooms as its search does. Remote legs and base traffic use
-  plain 11 / swamp 12.
+- **Planned roads attract, real structures block** in every room. Built
+  roads no plan holds do not (Sept 2026): they pulled replans back onto
+  routes the weights had abandoned, so the metas' roads are the only pull.
+- **One weight set for every planner** (Sept 2026): road 8, plain 12, swamp
+  24, i.e. 2:3:6, in the in-room planner, the RemotePlanner and Startup's
+  road alike; the `swampCost` entry override and Startup's five-times-plain
+  swamp cost went with it. Measured with the `Experiment` service on
+  W25S7 -> W29S4 and W27S7 -> W29S4: at road:plain 3:4 the plans cut corners
+  across country and missed built and planned roads (the W27S7 corner leg
+  left the remote road for 6 tiles); at 1:2 they detoured 14-18 tiles to ride
+  roads. Swamp under twice plain walked the W29S5 belt the controller road
+  had been planned through; three and four times plain chose the same path
+  as twice on that leg and stretch others.
+- **Aversions instead of near-walls**: the free tiles beside sources,
+  minerals and the controller cost two swamps (`kNearCost`), in owned rooms
+  too, and keeper lairs five swamps within 3; the old `0xF0` ring only in
+  unowned rooms made those tiles a last resort rather than a cost.
 - **Mission home-room entries start at `kOrigin`** (the home storage), not at
   a stored tile, so they follow a moved storage; Startup's home entry starts
   at the storage rather than the spawn it searched to.

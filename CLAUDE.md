@@ -44,7 +44,8 @@ flags in the game are metastruct genesis/child flags (genesis `Home` W26S8,
 while scheduled: the table is `Memory.scheduler.services` as of Sept 2026, so
 read that key rather than trusting this list. `Farm`, `GrowFarm` (a Farm that
 evolves into `Remote` at 800 home energy capacity, 1300 if the farm controller
-has one free tile), `Once`, `Swipe` and the
+has one free tile), `Once`, `Swipe`, the `Experiment` road-weight
+comparison (purple flag `Experiment` plus child `dest_Experiment`), the
 `Selloff <room>` terminal-selling service and the `Balance` terminal energy
 leveller (rooms via `getService('Balance').addRoom(room)`) are not scheduled and run only by
 command string or a purple flag ([docs/missions-and-jobs.md](docs/missions-and-jobs.md)).
@@ -65,7 +66,8 @@ main.js
  │   role.*.ts (@injecter) and role.*.js (lib.merge via main.js `mods`) add roleXxx/afterXxx
  ├─ strat.ts        NullStrat/ClaimedStrat per room (also processes)
  ├─ metastruct.ts   base templates + flag-driven planning + construction upkeep + maxHits + spot lookup
- │   └─ metatraffic.ts  road planner: metas declare traffic() src/dest entries, MetaManager plans the room's roads
+ │   ├─ metatraffic.ts  road planner: metas declare traffic() src/dest entries, MetaManager plans the room's roads; the shared road weights (2:3:6, Sept 2026)
+ │   └─ roadplan.ts     room-to-room road planner on those weights (RoadPlanner): Remote legs, Startup's road, the Experiment purple-flag service (ms.experiment.ts)
  ├─ struct.link/tower/lab/factory/terminal/container/controller  structure logic and prototype helpers
  ├─ Rewalker.ts     movement engine (matrix.js is dead)
  ├─ cache.ts / debug.ts / roomobj.ts / lib.js / shed.ts   infrastructure

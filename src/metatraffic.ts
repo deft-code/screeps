@@ -7,11 +7,28 @@ import { canRun } from "shed";
 // traffic plan. This module is the planner itself and imports only Rewalker
 // and shed, so metastruct can import it (docs/traffic-design.md).
 
-// Path costs for every meta planner. Roads are cheapest so paths coalesce onto
-// them; heuristicWeight kPathRoad keeps the search admissible.
-export const kPathRoad = 7;
-export const kPathPlain = 11;
-export const kPathSwamp = 12;
+// Path costs for every road planner: the in-room traffic plan (planTraffic)
+// and the room-to-room planners (roadplan.ts). Settled with the Experiment
+// service (ms.experiment.ts, Sept 2026) at road:plain:swamp = 2:3:6, scaled
+// by four so the cost ladder below plain (kPlannedRoad, kShared)
+// fits between road and plain:
+// - A road costs two thirds of a plain. At 3:4 the plans cut corners across
+//   country and missed too many built and planned roads; at 1:2 they went
+//   so far out of their way to ride a road that the paths were too long.
+// - A swamp costs twice a plain (three times a road). Less did not avoid
+//   swamps a short detour skips; more made the paths too long for the swamp
+//   they saved.
+// Roads are cheapest so paths coalesce onto them; heuristicWeight kPathRoad
+// keeps the search admissible.
+export const kPathRoad = 8;
+export const kPathPlain = 12;
+export const kPathSwamp = 24;
+// The free tiles beside a source, mineral or controller (harvest and upgrade
+// spots): a road crosses them only when the way around costs more.
+export const kNearCost = 2 * kPathSwamp;
+// The tiles within kLairRange of a keeper lair; the lair itself blocks.
+export const kLairCost = 5 * kPathSwamp;
+export const kLairRange = 3;
 
 // A plan level no room reaches: an entry with rcl kNoRoad gets no roads on
 // plain. Above 9 (optional), so the lowest level wins where entries share a tile.
@@ -23,25 +40,17 @@ export const kRingLevel = 3;
 // storage, else the genesis flag), resolved when the traffic is planned so a
 // moved storage moves the road (MetaManager.getTraffic).
 export const kOrigin = -1;
-// A swamp tile's path cost for an entry that should stay off swamp where it
-// can: a swamp road costs CONSTRUCTION_COST_ROAD_SWAMP_RATIO times a plain one
-// to build and to keep (Startup's roads).
-export const kSwampAverse = kPathPlain * CONSTRUCTION_COST_ROAD_SWAMP_RATIO;
 // Plans keep the bucket at this or above while they run, and start only with
 // kTrafficHeadroom more, so a plan is not begun that the gate will cut short.
 export const kTrafficBucket = 8000;
 export const kTrafficHeadroom = 1000;
 
-// Free tiles beside sources and the controller in rooms we do not own (the
-// harvest and reserve spots): passable, but only as a last resort.
-export const kAvoid = 0xF0;
-// The cost ladder below plain, so replans reuse what is built and break ties
-// toward what is planned instead of churning between equal routes: a built
-// road some plan holds (another meta's, or the traffic plan being replaced)
-// costs kPathRoad like a road just laid; a built road no plan holds (an older
-// route left to decay) one more; a planned road not built yet (fillMatrix's
-// 10) a little under plain.
-const kLooseRoad = kPathRoad + 1;
+// The cost ladder below plain, so replans break ties toward what is planned
+// instead of churning between equal routes: a road laid by the plan in
+// progress costs kPathRoad; a road another meta plans, or the traffic plan
+// being replaced holds (fillMatrix's 10), a little under plain. Roads that
+// merely stand in the room count for nothing (Sept 2026): only the metas'
+// roads pull a plan, so a route left to decay cannot hold a replan to it.
 export const kPlannedRoad = 10;
 // A plain tile a kNoRoad path walks: pulls later paths gently onto the same
 // corridor without pretending it is a road.
@@ -54,16 +63,15 @@ const kTrafficOps = 4000;
 
 // One road a meta wants: from src (a tile, or kOrigin) to within range of
 // dest, both in the meta's room. Plain tiles are built from plan level rcl,
-// swamp tiles from swamp (default rcl); kNoRoad for never. swampCost, when
-// set, is what an unroaded swamp tile costs this entry's search (default
-// kPathSwamp).
+// swamp tiles from swamp (default rcl); kNoRoad for never. (Entries saved
+// before Sept 2026 may carry a swampCost field; it is ignored, every search
+// runs at kPathSwamp.)
 export interface TrafficMem {
     src: number
     dest: number
     range?: number
     rcl: number
     swamp?: number
-    swampCost?: number
 }
 
 export function trafficRange(e: TrafficMem): number {
@@ -72,10 +80,6 @@ export function trafficRange(e: TrafficMem): number {
 
 export function trafficSwamp(e: TrafficMem): number {
     return e.swamp === undefined ? e.rcl : e.swamp;
-}
-
-function trafficSwampCost(e: TrafficMem): number {
-    return e.swampCost || kPathSwamp;
 }
 
 function isXY(xy: unknown): boolean {
@@ -89,17 +93,15 @@ function isLevel(lvl: unknown): boolean {
 }
 
 // A well formed entry with its src resolved: tiles in the room, levels
-// 0..kNoRoad, range >= 0, a swamp cost PathFinder takes (1..254).
+// 0..kNoRoad, range >= 0.
 export function validTraffic(e: TrafficMem): boolean {
     if (!e || !isXY(e.src) || !isXY(e.dest) || !isLevel(e.rcl)) return false;
     if (e.swamp !== undefined && !isLevel(e.swamp)) return false;
-    if (e.swampCost !== undefined && !(Number.isInteger(e.swampCost) && e.swampCost >= 1 && e.swampCost < 0xFF)) return false;
     return e.range === undefined || (Number.isInteger(e.range) && e.range >= 0);
 }
 
 export function describeTraffic(e: TrafficMem): string {
-    const cost = e.swampCost ? `$${e.swampCost}` : "";
-    return `${e.src}>${e.dest}~${trafficRange(e)}@${e.rcl}/${trafficSwamp(e)}${cost}`;
+    return `${e.src}>${e.dest}~${trafficRange(e)}@${e.rcl}/${trafficSwamp(e)}`;
 }
 
 // 32-bit FNV-1a of a string, base 36: a short signature for plan inputs.
@@ -116,26 +118,35 @@ function atEdge(x: number, y: number): boolean {
     return x <= 0 || y <= 0 || x >= 49 || y >= 49;
 }
 
-// kAvoid on the free tiles around `pos`: terrain walls and blocked tiles
-// (0xFE and up) keep their cost. Shared with RemotePlanner.
-export function avoidAround(cm: CostMatrix, t: RoomTerrain, pos: RoomPosition) {
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+// Every free tile within `range` of pos costs at least `cost`: terrain
+// walls and blocked tiles (0xFE and up) keep theirs, dearer tiles too.
+// Shared with roadplan.ts.
+export function costAround(cm: CostMatrix, t: RoomTerrain, pos: RoomPosition, range: number, cost: number) {
+    for (let dx = -range; dx <= range; dx++) for (let dy = -range; dy <= range; dy++) {
         const x = pos.x + dx, y = pos.y + dy;
         if (x < 0 || y < 0 || x > 49 || y > 49) continue;
         if (t.get(x, y) & TERRAIN_MASK_WALL) continue;
         if (cm.get(x, y) >= 0xFE) continue;
-        cm.set(x, y, kAvoid);
+        cm.set(x, y, Math.max(cm.get(x, y), cost));
     }
+}
+
+// kNearCost on the free tiles beside a source, mineral or controller.
+export function avoidAround(cm: CostMatrix, t: RoomTerrain, pos: RoomPosition) {
+    costAround(cm, t, pos, 1, kNearCost);
 }
 
 // The matrix a room's traffic is planned on. `planned` is the metas' own
 // (MetaManager.getMatrix without the traffic plan: standing spots 0xFE,
 // structures 0xFF, roads 10). With vision the room's contents go over it:
 // anything a road site could not share a tile with blocks (a container too:
-// the upkeep would destroy it as a blocker), and roads go on the cost ladder
-// above, with `previous` (the traffic plan being replaced) counting as
-// planned. A terrain wall keeps cost 0, since any other cost would make it
-// walkable, unless a built road tunnels through it.
+// the upkeep would destroy it as a blocker). Planned roads, `previous` (the
+// traffic plan being replaced) included, cost kPlannedRoad; a road that is
+// built but in no plan is just its terrain. A terrain wall keeps cost 0,
+// since any other cost would make it walkable, unless a planned road
+// tunnels through it. The free tiles beside the sources, minerals and
+// controller cost kNearCost. (MetaManager.replanTrafficFresh passes an
+// empty `previous`: a plan from the metas' roads alone.)
 export function trafficMatrix(roomName: string, planned: CostMatrix, previous: number[] = []): CostMatrix {
     const t = Game.map.getRoomTerrain(roomName);
     const room = Game.rooms[roomName];
@@ -171,19 +182,19 @@ export function trafficMatrix(roomName: string, planned: CostMatrix, previous: n
             let v = planned.get(x, y);
             const plannedRoad = v === kPlannedRoad || prev.has(xy);
             if (t.get(x, y) & TERRAIN_MASK_WALL) {
-                if (roads.has(xy) && !block.has(xy)) cm.set(x, y, plannedRoad ? kPathRoad : kLooseRoad);
+                if (roads.has(xy) && plannedRoad && !block.has(xy)) cm.set(x, y, kPlannedRoad);
                 continue;
             }
             if (block.has(xy)) v = 0xFF;
-            else if (v < 0xFE && roads.has(xy)) v = plannedRoad ? kPathRoad : kLooseRoad;
             else if (v < 0xFE && plannedRoad) v = kPlannedRoad;
             if (atEdge(x, y) && v < 0xFE) v = kExitCost;
             if (v) cm.set(x, y, v);
         }
     }
 
-    if (room && !room.controller?.my) {
+    if (room) {
         for (const src of room.find(FIND_SOURCES)) avoidAround(cm, t, src.pos);
+        for (const min of room.find(FIND_MINERALS)) avoidAround(cm, t, min.pos);
         if (room.controller) avoidAround(cm, t, room.controller.pos);
     }
     return cm;
@@ -199,7 +210,7 @@ export interface TrafficResult {
 // Plan the roads for `entries` (srcs resolved) in `roomName` on `cm`
 // (trafficMatrix; it is modified). First a ring of kRingLevel roads on the
 // free neighbours of every tile in `rings` (storage, terminal, spawns), then
-// the entries grouped by (src, rcl, swamp, swampCost) in order. Per group:
+// the entries grouped by (src, rcl, swamp) in order. Per group:
 // search from src to every open entry's dest at once, close
 // the entries the path ends in range of, lay the path at the group's levels
 // and stamp it kPathRoad so later paths coalesce onto it; repeat until the
@@ -236,7 +247,7 @@ export function planTraffic(roomName: string, cm: CostMatrix, rings: number[], e
 
     const groups = new Map<string, TrafficMem[]>();
     for (const e of entries) {
-        const key = `${e.src}:${e.rcl}:${trafficSwamp(e)}:${trafficSwampCost(e)}`;
+        const key = `${e.src}:${e.rcl}:${trafficSwamp(e)}`;
         let group = groups.get(key);
         if (!group) groups.set(key, group = []);
         group.push(e);
@@ -258,7 +269,7 @@ export function planTraffic(roomName: string, cm: CostMatrix, rings: number[], e
             const goals: Goal[] = open.map(e => ({ pos: fromXY(e.dest, roomName), range: trafficRange(e) }));
             const ret = PathFinder.search(src, goals, {
                 plainCost: kPathPlain,
-                swampCost: trafficSwampCost(group[0]),
+                swampCost: kPathSwamp,
                 heuristicWeight: kPathRoad,
                 maxRooms: 1,
                 maxOps: kTrafficOps,

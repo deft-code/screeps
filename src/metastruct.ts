@@ -44,7 +44,7 @@ function factoryDisabled(): boolean {
 // genesis child flag that keeps it drawn.
 const kTrafficName = "traffic";
 // Bump to replan every room's traffic after the planner changes.
-const kTrafficVersion = 1;
+const kTrafficVersion = 2;
 // Ticks a room waits after a traffic plan that ran out of CPU.
 const kTrafficRetry = 50;
 // Structures planTraffic rings with roads.
@@ -714,7 +714,10 @@ export class MetaManager {
     // leaves site placement for the next. Also drops the plans of rooms left
     // without traffic (flushTrafficDrops), since every owned room calls this
     // every tick.
-    updateTraffic(now = false): boolean {
+    // With `fresh` (console, implies now) the search ignores the plan being
+    // replaced: what the metas' other roads and the weights alone would lay.
+    // The sites the new plan drops are still removed against the old plan.
+    updateTraffic(now = false, fresh = false): boolean {
         flushTrafficDrops();
         const room = this.room;
         if (!room) return false;
@@ -738,7 +741,7 @@ export class MetaManager {
         trafficTick = Game.time;
         const start = Game.cpu.getUsed();
         const previous = this.traffic ? this.traffic.getSites(STRUCTURE_ROAD) : [];
-        const cm = trafficMatrix(this.name, this.getMatrix([kTrafficName]), previous);
+        const cm = trafficMatrix(this.name, this.getMatrix([kTrafficName]), fresh ? [] : previous);
         // With no storage planned the genesis flag stands where it will go:
         // keep roads off that tile as the storage will.
         const origin = this.trafficOrigin();
@@ -764,6 +767,12 @@ export class MetaManager {
     // Console: replan now (bucket and vision permitting), whatever the signature.
     replanTraffic(): boolean {
         return this.updateTraffic(true);
+    }
+
+    // Console: replan now with the old plan ignored, so its roads no longer
+    // pull the new one onto themselves.
+    replanTrafficFresh(): boolean {
+        return this.updateTraffic(true, true);
     }
 
     // Replan on the next upkeep pass whatever the signature (BLUE): the plan's

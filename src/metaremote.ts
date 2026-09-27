@@ -1,11 +1,9 @@
 import {
     MetaStructure, MetaManager, MetaMem, addMemStruct, registerMeta, getMetaManager,
 } from "metastruct";
-import {
-    kPathRoad, kPathPlain, kPathSwamp, kPlannedRoad, kNoRoad, kShared, TrafficMem,
-    avoidAround, pathTraffic,
-} from "metatraffic";
-import { coordsFromXY, toXY, defaultRewalker, Goal } from "Rewalker";
+import { kPathPlain, kNoRoad, TrafficMem, pathTraffic } from "metatraffic";
+import { RoadPlanner } from "roadplan";
+import { coordsFromXY, toXY, Goal } from "Rewalker";
 import * as debug from "debug";
 
 // Metas planned by the Remote mission (ms.remote.ts) rather than by genesis
@@ -13,9 +11,9 @@ import * as debug from "debug";
 // rooms) and ClaimedStrat (the home room) build and repair them like any other
 // meta; the roads are the room's traffic plan (MetaManager.updateTraffic),
 // planned from the rroad metas' entries. Everything is at level 0: an unowned
-// room's roomLevel is 0. The planner's matrices keep roads off the harvest and
-// reserve spots with metatraffic's kAvoid ring (avoidAround), and pull later
-// legs onto an earlier one's plain tiles with kShared.
+// room's roomLevel is 0. The searches run on a RoadPlanner (roadplan.ts):
+// the shared weights, roads off the harvest and reserve spots (kNearCost),
+// later legs pulled onto an earlier one's corridor (stamp).
 
 // Genesis flags cannot re-plan mission metas; planMeta() gets null.
 function noPlan() { return null; }
@@ -86,16 +84,15 @@ export interface LegResult {
 // Plans the roads of one remote room: a leg from each source back to the home
 // storage, paved end to end through every room, and a leg from the controller
 // that is paved only on swamp and only inside the remote room. Legs share
-// per-room cost matrices so later legs prefer earlier corridors and never
-// cross the chosen container tiles. A leg's output is its ends in each room
-// (pathTraffic): storage -> the border it enters home by, border to border in
-// between, the border it leaves the remote by -> beside the container (or the
-// controller); each room's MetaManager then plans the roads. Create one, call
-// sources() with the remote's sources and controller(), then commit with
-// saveAll().
+// the RoadPlanner's per-room cost matrices so later legs prefer earlier
+// corridors and never cross the chosen container tiles. A leg's output is
+// its ends in each room (pathTraffic): storage -> the border it enters home
+// by, border to border in between, the border it leaves the remote by ->
+// beside the container (or the controller); each room's MetaManager then
+// plans the roads. Create one, call sources() with the remote's sources and
+// controller(), then commit with saveAll().
 export class RemotePlanner {
-    readonly allowed = new Set<string>();
-    readonly mats = new Map<string, CostMatrix>();
+    readonly planner = new RoadPlanner();
     readonly metas: MetaStructure[] = [];
     readonly storage: RoomPosition;
     // Steps of the longest complete source leg; the trucker's one-way trip.
@@ -105,75 +102,15 @@ export class RemotePlanner {
         const store = getMetaManager(home).getSite(STRUCTURE_STORAGE) || Game.rooms[home]?.storage?.pos;
         if (!store) throw new Error(`RemotePlanner: ${home} has no storage`);
         this.storage = store;
-        this.allowed.add(home).add(remote);
-        const route = Game.map.findRoute(remote, home);
-        if (route !== ERR_NO_PATH) for (const step of route) this.allowed.add(step.room);
+        if (!this.planner.route(remote, home)) debug.log("RemotePlanner", remote, "no room route to", home);
     }
 
-    // Cost matrix for one room, built once per planner. Every structure that
-    // is not a road or rampart is impassable so a road is never planned onto
-    // something the upkeep would then destroy as a blocker.
     matrix(roomName: string): CostMatrix {
-        let cm = this.mats.get(roomName);
-        if (cm) return cm;
-        cm = new PathFinder.CostMatrix();
-        const room = Game.rooms[roomName];
-        if (room) {
-            for (const s of room.find(FIND_STRUCTURES)) {
-                if (s.structureType === STRUCTURE_RAMPART) continue;
-                cm.set(s.pos.x, s.pos.y, s.structureType === STRUCTURE_ROAD ? kPathRoad : 0xFF);
-            }
-            for (const s of room.find(FIND_CONSTRUCTION_SITES)) {
-                if (s.structureType === STRUCTURE_RAMPART) continue;
-                // Our own container and road sites are usually the previous
-                // plan's, removed this very tick by planMetas(true); do not
-                // let them block the replan.
-                if (s.my && (s.structureType === STRUCTURE_CONTAINER || s.structureType === STRUCTURE_ROAD)) continue;
-                cm.set(s.pos.x, s.pos.y, s.structureType === STRUCTURE_ROAD ? kPathRoad : 0xFF);
-            }
-        } else {
-            // No vision: reuse what Rewalker remembers of the room (0xff blocks, 1 roads).
-            const old = defaultRewalker().getMatrix(roomName);
-            for (let x = 0; x < 50; x++) for (let y = 0; y < 50; y++) {
-                const v = old.get(x, y);
-                if (v === 0xFF) cm.set(x, y, 0xFF);
-                else if (v === 1) cm.set(x, y, kPathRoad);
-            }
-        }
-        if (roomName === this.home) {
-            // Planned base structures block, planned base roads attract.
-            const planned = getMetaManager(this.home).getMatrix();
-            for (let x = 0; x < 50; x++) for (let y = 0; y < 50; y++) {
-                const v = planned.get(x, y);
-                if (v >= 0xFE) cm.set(x, y, 0xFF);
-                else if (v === kPlannedRoad && cm.get(x, y) < 0xFF) cm.set(x, y, kPathRoad);
-            }
-        }
-        if (roomName === this.remote) {
-            const t = Game.map.getRoomTerrain(roomName);
-            const r = Game.rooms[roomName];
-            if (r) {
-                for (const src of r.find(FIND_SOURCES)) avoidAround(cm, t, src.pos);
-                if (r.controller) avoidAround(cm, t, r.controller.pos);
-            }
-        }
-        this.mats.set(roomName, cm);
-        return cm;
+        return this.planner.matrix(roomName);
     }
 
     search(from: RoomPosition, goals: Goal[], remoteMat?: CostMatrix) {
-        return PathFinder.search(from, goals, {
-            plainCost: kPathPlain,
-            swampCost: kPathSwamp,
-            heuristicWeight: kPathRoad,
-            maxRooms: this.allowed.size + 1,
-            maxOps: 4000 * this.allowed.size,
-            roomCallback: roomName => {
-                if (!this.allowed.has(roomName)) return false;
-                if (remoteMat && roomName === this.remote) return remoteMat;
-                return this.matrix(roomName);
-            },
-        });
+        return this.planner.search(from, goals, remoteMat ? { override: { room: this.remote, cm: remoteMat } } : {});
     }
 
     // Open (non-wall) neighbours of a tile.
@@ -197,7 +134,7 @@ export class RemotePlanner {
 
     // Meta_asrc's trick: weight the source's neighbours by openness and path
     // to storage; the first step is the container tile and the rest the road.
-    // Tiles that also touch another source keep their kAvoid cost.
+    // Tiles that also touch another source keep their kNearCost.
     source(src: Source): LegResult {
         const leg = `${toXY(src.pos)}`;
         const t = Game.map.getRoomTerrain(this.remote);
@@ -209,8 +146,9 @@ export class RemotePlanner {
             if (t.get(x, y) & TERRAIN_MASK_WALL) continue;
             if (base.get(x, y) === 0xFF) continue;
             if (_.any(others, o => o.pos.inRangeTo(x, y, 1))) continue;
-            // 20 - open neighbours: open tiles are cheap, cramped ones dear.
-            cm.set(x, y, 20 - this.openAround(t, x, y));
+            // Just over plain for a tile open all round, one more per
+            // neighbouring wall: open tiles are cheap, cramped ones dear.
+            cm.set(x, y, kPathPlain + 9 - this.openAround(t, x, y));
         }
         const ret = this.search(src.pos, [{ pos: this.storage, range: 1 }], cm);
         const cont = ret.path[0];
@@ -247,17 +185,7 @@ export class RemotePlanner {
     // steps when swampOnly; the others pull gently) so later legs share the
     // corridor and its room crossings.
     stamp(path: RoomPosition[], swampOnly: boolean) {
-        for (const p of path) {
-            if (p.x === 0 || p.y === 0 || p.x === 49 || p.y === 49) continue;
-            const cm = this.matrix(p.roomName);
-            if (cm.get(p.x, p.y) === 0xFF) continue;
-            const t = Game.map.getRoomTerrain(p.roomName);
-            if (!swampOnly || t.get(p.x, p.y) & TERRAIN_MASK_SWAMP) {
-                cm.set(p.x, p.y, kPathRoad);
-            } else if (cm.get(p.x, p.y) === 0) {
-                cm.set(p.x, p.y, kShared);
-            }
-        }
+        this.planner.stamp(path, swampOnly);
     }
 
     // One Meta_rroad per room holding that room's entries of the leg.

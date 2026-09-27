@@ -10,10 +10,11 @@ import { whoami } from "Rewalker";
 import { getSpots } from "spots";
 import { getMetaManager } from "metastruct";
 import { Meta_rroad } from "metaremote";
-import { kSwampAverse, pathTraffic, FarTarget } from "metatraffic";
+import { pathTraffic, FarTarget } from "metatraffic";
+import { RoadPlanner } from "roadplan";
 import { remoteSpawns } from "spawnold";
 import { PaveAll } from "ms.paveall";
-import { defaultRewalker, MemPath, Path, fromXY } from "Rewalker";
+import { MemPath, Path, fromXY } from "Rewalker";
 import * as debug from "debug";
 
 // RCL at which the assisted room is on its own and the mission winds down.
@@ -26,12 +27,6 @@ const kLogPace = 100;
 const kRoadPace = 500;
 // PathFinder budget for the road plan.
 const kRoadMaxOps = 20000;
-const kRoadMaxRooms = 16;
-// Tile costs for the road plan: a swamp road costs five times a plain one
-// (CONSTRUCTION_COST_ROAD_SWAMP_RATIO), and existing roads are 1 in the
-// Rewalker matrix, so the plan follows them where it can.
-const kRoadPlainCost = 2;
-const kRoadSwampCost = kRoadPlainCost * CONSTRUCTION_COST_ROAD_SWAMP_RATIO;
 
 // Leg name of the road metas: rroad_<mission room>_startup.
 const kRoadLeg = "startup";
@@ -39,9 +34,6 @@ const kRoadLeg = "startup";
 // approach the upgraders stand on. The rest of the room (sources, the way
 // home) is the genesis metas' business once the room is planned.
 const kRoadRange = 3;
-// Cost of a tile another meta already plans a road on: below kRoadPlainCost
-// so the startup road rides planned roads instead of laying its own beside.
-const kRoadPlannedRoadCost = 1;
 // One wolf per this many ticks while an invader core stands in the room
 // (Farm.suppressInvaderCore).
 const kCorePace = 1500;
@@ -61,7 +53,6 @@ export interface StartupMemory extends MissionMemory {
     roadMetas?: { [room: string]: string[] }
 }
 
-const rewalker = defaultRewalker();
 
 // Boost a freshly claimed room with startup creeps spawned elsewhere.
 //
@@ -83,10 +74,10 @@ const rewalker = defaultRewalker();
 //
 // While the controller is not ours and GCL has no room for another (owned
 // rooms >= Game.gcl.level) no claimer is laid; instead the mission plans a
-// road from the controller back to the home room: a PathFinder search from
-// the controller to the home spawn through the Rewalker's room route and
-// cost matrices, so keeper lairs, hostile structures and rooms the Rewalker
-// rates hostile are avoided the way a walking creep avoids them. The plan
+// road from the controller back to the home room: a RoadPlanner search
+// (roadplan.ts) from the controller to the home spawn, so it runs at the
+// shared road weights, keeps off harvest spots and keeper lairs, rides the
+// metas' planned roads and stays out of rooms other players own. The plan
 // is kept in memory (memory.road), redone every kRoadPace ticks, and drawn
 // while the mission room has at least two of our construction sites,
 // whatever the mission is otherwise doing. The home
@@ -100,9 +91,8 @@ const rewalker = defaultRewalker();
 // pioneers upgrade it from the claim on); the room's MetaManager plans it
 // (so it coalesces with the genesis metas' roads once they exist) and
 // ActiveStrat places the sites while the room is unowned. The way to the
-// sources and home is left to the genesis plan. The entry keeps the road's
-// swamp aversion (kSwampAverse). A replan that changes the path replaces it
-// in place; winding down removes it (removeRoad() does the same by hand),
+// sources and home is left to the genesis plan. A replan that changes the
+// path replaces it in place; winding down removes it (removeRoad() does the same by hand),
 // and the room's replan removes our sites on the tiles no longer planned.
 // The mission room gets a "PaveAll <room>" (ms.paveall.ts) while it is
 // unowned with our sites in view, as Remote does.
@@ -250,18 +240,12 @@ export class Startup extends Mission {
         }
         mem.roadAt = Game.time;
         const goal = { pos: spawn.pos, range: 1 };
-        const base = rewalker.restrictedRoomCallback(controller.pos, [goal]);
-        const ret = PathFinder.search(controller.pos, goal, {
-            plainCost: kRoadPlainCost,
-            swampCost: kRoadSwampCost,
-            maxOps: kRoadMaxOps,
-            maxRooms: kRoadMaxRooms,
-            roomCallback: roomName => {
-                const cm = base(roomName);
-                if (cm === false) return false;
-                return this.metaCosts(roomName, cm === true ? null : cm);
-            },
-        });
+        const planner = new RoadPlanner();
+        if (!planner.route(controller.pos.roomName, spawn.pos.roomName)) {
+            debug.log(this.name, "road plan: no room route", controller.pos.roomName, "->", spawn.pos.roomName);
+            return;
+        }
+        const ret = planner.search(controller.pos, [goal], { maxOps: kRoadMaxOps });
         if (!ret.path.length) {
             debug.log(this.name, "road plan found nothing", controller.pos, "->", spawn.pos, "ops", ret.ops);
             return;
@@ -281,32 +265,6 @@ export class Startup extends Mission {
         this.saveRoadMetas(stub, controller, spawn.room.name);
     }
 
-    // The Rewalker matrix for a room with every meta's plan laid over it:
-    // planned structures and standing spots impassable, planned roads cheap,
-    // the room's traffic plan included. That plan holds this road's own
-    // tiles too (our road metas hold only entries), so a replan keeps to the
-    // road it laid unless a clearly better one appears. Without this the
-    // road ran over the hub's planned extensions in the mission room and the
-    // two plans churned sites on the shared tiles.
-    metaCosts(roomName: string, base: CostMatrix | null): CostMatrix {
-        const man = getMetaManager(roomName);
-        if (!man.metas.length) return base || new PathFinder.CostMatrix();
-        const metas = man.getMatrix();
-        const cm = base ? base.clone() : new PathFinder.CostMatrix();
-        for (let x = 0; x < 50; x++) {
-            for (let y = 0; y < 50; y++) {
-                const m = metas.get(x, y);
-                if (!m) continue;
-                if (m >= 0xFE) {
-                    cm.set(x, y, 0xFF);
-                } else if (cm.get(x, y) < 0xFE) {
-                    cm.set(x, y, kRoadPlannedRoadCost);
-                }
-            }
-        }
-        return cm;
-    }
-
     // One Meta_rroad per room holding the path's traffic entries (pathTraffic;
     // with the path cut at kRoadRange that is the mission room alone: from
     // the stub's far end to the controller), saved into the room's meta
@@ -314,8 +272,8 @@ export class Startup extends Mission {
     // its meta replaced in place, so its traffic plan is never empty in
     // between (MetaManager would drop it with its sites); a room the road
     // left (any room but the mission room, since the cut) loses its meta.
-    // Every entry searches with a swamp tile at kSwampAverse, as the road
-    // itself was found (kRoadSwampCost).
+    // The room's planner searches the entries at the same weights the road
+    // itself was found with (roadplan.ts and metatraffic.ts share them).
     saveRoadMetas(path: RoomPosition[], controller: StructureController, home: string) {
         // Paved all the way: pioneers upgrade this controller from the claim
         // on (a remote's controller leg is swamp-only because nobody does).
@@ -323,7 +281,6 @@ export class Startup extends Mission {
         const old = this.smem.roadMetas || {};
         const tracked: { [room: string]: string[] } = {};
         for (const [roomName, entries] of pathTraffic(path, far, home, 0, 0)) {
-            for (const e of entries) e.swampCost = kSwampAverse;
             const man = getMetaManager(roomName);
             const meta = Meta_rroad.make(man, this.roomName, kRoadLeg, entries);
             man.setMeta(meta);
