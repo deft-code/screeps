@@ -49,7 +49,12 @@ export class Upgrader extends JobRole {
         if (what) return "wait";
 
         if (c.store.energy) {
-            c.goUpgradeController(c.room.controller);
+            const ctrl = c.room.controller!;
+            // Upgrade from wherever we stand (range 3), but keep closing
+            // to range 2 so the range-3 ring stays free for through
+            // traffic and the hauler; moving and upgrading share a tick.
+            c.goUpgradeController(ctrl, false);
+            if (!c.pos.inRangeTo(ctrl, 2)) c.moveRange(ctrl, { range: 2 });
             return "wait";
         }
         c.taskRecharge();

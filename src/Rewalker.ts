@@ -1,3 +1,10 @@
+// A tombstone beside one of our spawns is a recycled creep, not a kill:
+// spawn.recycleCreep leaves the body next to the spawn. Those must not mark
+// the room as a combat zone or repel paths from the base.
+function isRecycled(tomb: Tombstone): boolean {
+    return tomb.pos.findInRange(FIND_MY_SPAWNS, 1).length > 0
+}
+
 let _whoami = ""
 export function whoami(): string {
     if (_whoami.length === 0) {
@@ -584,7 +591,8 @@ export class Rewalker {
 
         // Use recent tombstones to identify hostile rooms and increase the travel cost accordingly.
         for (const tomb of room.find(FIND_TOMBSTONES)) {
-            if (tomb.creep.owner.username === whoami() && (tomb.creep.ticksToLive || 0) > 50) {
+            if (tomb.creep.owner.username === whoami() && (tomb.creep.ticksToLive || 0) > 50 &&
+                !isRecycled(tomb)) {
                 matrixAvoid(mat, tomb.pos, 50, 3, 0);
                 // Just one avoid for the whole room is enough.
                 break;
@@ -650,7 +658,8 @@ export class Rewalker {
     }
 
     _checkMurder(room: Room): boolean {
-        let murdered = _.find(room.find(FIND_TOMBSTONES), t => t.creep.my && t.creep.ticksToLive! > 100)
+        let murdered = _.find(room.find(FIND_TOMBSTONES),
+            t => t.creep.my && t.creep.ticksToLive! > 100 && !isRecycled(t))
         if (!murdered) return false
         const tower = _.any(room.find(FIND_HOSTILE_STRUCTURES), s => s.structureType === STRUCTURE_TOWER)
         if (tower) return true
