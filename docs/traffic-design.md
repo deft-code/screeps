@@ -264,8 +264,8 @@ since the rroad metas hold no tiles.
   `kRoadWeights` (metatraffic's costs), `ownedByOther`, `roadRoute` (the map
   route: rooms other players own impassable, keeper rooms cost 3), `roadMatrix`
   (a room under those weights: meta-planned roads at road cost, built roads
-  no plan holds ignored, planned structures and spots blocked, other
-  structures blocked, our road and container sites not, `kNearCost` beside sources, minerals and the
+  and containers no plan holds ignored, planned structures and spots blocked,
+  other structures blocked, our road and container sites not, `kNearCost` beside sources, minerals and the
   controller, `kLairCost` within 3 of a keeper lair; without vision the
   Rewalker's remembered blocks and roads plus intel's source and controller
   tiles), and `RoadPlanner` (`route`/`allow`, cached `matrix`, `search` with

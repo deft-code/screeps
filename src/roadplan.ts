@@ -94,10 +94,11 @@ export function roadRoute(fromRoom: string, toRoom: string): Set<string> | null 
 // other structure blocks (a road is never planned onto something the upkeep
 // would then destroy as a blocker) but a rampart (ours or public), the
 // controller and extractor, which sit on tiles a road may not need anyway,
-// and roads: a road that is built but in no plan is just its terrain, so a
-// route left to decay cannot hold a replan to it. Our own container and
-// road sites do not block: in a remote they are the previous plan's,
-// removed by the replan. The free tiles beside sources, minerals and the
+// and roads and containers: a road that is built but in no plan is just its
+// terrain, so a route left to decay cannot hold a replan to it, and a built
+// container is a tile a replan may keep (RemotePlanner.source prefers it).
+// Our own container and road sites do not block either: in a remote they
+// are the previous plan's, removed by the replan. The free tiles beside sources, minerals and the
 // controller cost w.near, the tiles around a keeper lair w.lair. Without
 // vision the sources and controller come from intel, and what the Rewalker
 // remembers of the room supplies its blocks (minerals and lairs are not
@@ -114,6 +115,7 @@ export function roadMatrix(roomName: string, w: RoadWeights = kRoadWeights): Cos
             const { x, y } = s.pos;
             switch (s.structureType) {
                 case STRUCTURE_ROAD:
+                case STRUCTURE_CONTAINER:
                     break;
                 case STRUCTURE_RAMPART:
                     if (!(s as StructureRampart).my && !(s as StructureRampart).isPublic) cm.set(x, y, 0xFF);

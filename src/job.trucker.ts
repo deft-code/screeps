@@ -7,13 +7,15 @@ import { isGeneralStoreStruct, isStoreStruct } from "guards";
 import type { Remote } from "ms.remote";
 
 // Port of role.trucker.js (team.ts trucker/truckaga) for the Remote mission.
-// Shuttles energy from the remote's rsrc containers to the home storage, or
+// Shuttles energy from the containers in the remote room (any container
+// there, not just the ones on the planned rsrc tiles: a replan can move a
+// tile while the old container still holds energy) to the home storage, or
 // while home has none (RCL3) into its containers, emptiest first.
 // Offroad while empty, so it spawns from the spawns nearest the remote; the
 // loaded trip home follows the roads the Remote planned. Never builds or
 // repairs: the paver and harvester do that.
 
-// With energy aboard and every rsrc container below this, the trucker heads
+// With energy aboard and every container below this, the trucker heads
 // home with what it has rather than waiting on a dribble.
 const kDryCont = 50;
 @register
@@ -68,8 +70,8 @@ export class Trucker extends JobRole {
         return this.load() || this.waitAtCont();
     }
 
-    // In the remote with energy aboard while every rsrc container holds
-    // less than kDryCont: nothing worth waiting for.
+    // In the remote with energy aboard while every container holds less
+    // than kDryCont: nothing worth waiting for.
     dry(): boolean {
         if (this.pos.roomName !== this.mission.roomName) return false;
         if (!this.c.store.energy) return false;
@@ -91,14 +93,18 @@ export class Trucker extends JobRole {
         return this.dropAt(home.controller);
     }
 
-    // The rsrc container holding the most energy, if any is built.
+    // The container in the remote room holding the most energy, if any.
     fullestCont(): StructureContainer | null {
-        const conts = _.compact(this.remote.rsrcMetas().map(m => m.getStructs(STRUCTURE_CONTAINER)[0])) as StructureContainer[];
+        const room = Game.rooms[this.mission.roomName];
+        if (!room) return null;
+        const conts = room.find(FIND_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_CONTAINER,
+        }) as StructureContainer[];
         if (!conts.length) return null;
         return _.max(conts, k => k.store.energy);
     }
 
-    // Take from the fullest rsrc container; sweep dropped energy on the way.
+    // Take from the fullest container; sweep dropped energy on the way.
     // False when there is nothing to take this tick.
     load(): Task2Ret {
         const c = this.cc;

@@ -32,6 +32,17 @@ interface DozerMission {
     dozePositions?(): RoomPosition[]
 }
 
+// The Bulldozer body from the spawns nearest `homeName`: one MOVE per
+// kWorkPerMove WORK, sized to the energy on hand up to the 50-part cap.
+// Shared with the Razer (job.razer.ts).
+export function dozerSpawn(spawns: StructureSpawn[], homeName: string): [StructureSpawn | null, BodyPartConstant[]] {
+    const close = closeSpawns(spawns, homeName) as StructureSpawn[];
+    const spawn = _.find(close, s => !s.spawning) || _.first(close);
+    if (!spawn) return [null, []];
+    const energy = Math.min(spawn.room.energyAvailable, kMaxBodyEnergy);
+    return [spawn, energyDef({ move: kWorkPerMove, per: [WORK], energy } as any)];
+}
+
 // Could a bulldozer take this structure down? Not ours, has hits, and not one
 // of the types above. Ramparts count (a hostile one blocks the tile).
 export function dozeableStruct(s: Structure): boolean {
@@ -66,11 +77,7 @@ export function dozeable(pos: RoomPosition): Structure[] {
 export class Bulldozer extends JobCreep {
     // From the spawns nearest home, one MOVE per kWorkPerMove WORK.
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        const close = closeSpawns(spawns, this.homeName) as StructureSpawn[];
-        const spawn = _.find(close, s => !s.spawning) || _.first(close);
-        if (!spawn) return [null, []];
-        const energy = Math.min(spawn.room.energyAvailable, kMaxBodyEnergy);
-        return [spawn, energyDef({ move: kWorkPerMove, per: [WORK], energy } as any)];
+        return dozerSpawn(spawns, this.homeName);
     }
 
     get homeName(): string {

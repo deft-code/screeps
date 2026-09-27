@@ -122,8 +122,10 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               sites in view, unless one is already running.
                                                               harvest(): paceJobs(Harvester, (1500 - 50*route dist) / rsrc metas) while visible, no hostiles,
                                                               not foreign-reserved (civilians in remotes are paced, never replaced).
-                                                              truck(): paceJobs(Trucker, min(1500, 1500 / (5*sum(src cap) / (avg carry * 1500 / (2*legSteps+10))))) only once a container stands on an rsrc tile;
+                                                              truck(): paceJobs(Trucker, min(1500, 1500 / (5*sum(src cap) / (avg carry * 1500 / (2*legSteps+10))))) only once a container stands in the room (any container);
                                                               same gates; 1500 while no trucker is alive; legSteps = longest source leg from planning
+         ├─ Raze             @register  (ms.raze.ts)           "Raze <room> [home]"; nJobs(Razer, 1) until the razer decommissions (memory.decomm) or the room is
+         │                                                     visible with no dozeableStruct another player owns (FIND_HOSTILE_STRUCTURES), then windDown() (purges an unhatched egg)
          ├─ Once             @register  (ms.once.ts)           "Once <Job> <room> [count]"; lays an egg of the job whenever none is alive until count
                                                               (args[3], default 1) have been laid (memory.laid), winds down once the last has spawned,
                                                               kills and deschedules itself when the creep and its tombstone are gone
@@ -182,9 +184,12 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       container tile drop-mining; builds the container site and repairs the container, withdrawing from it for that;
      │                       after() idles (nom/build/repair) only while inside the mission room
      ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.js for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
-     │                       when empty); withdraws from the fullest rsrc container (sweeps dropped energy), once more than half full unloads
+     │                       when empty); withdraws from the fullest container in the remote room, whichever plan built it (sweeps dropped energy), once more than half full unloads
      │                       at home until empty (JobCreep.unloadHome); after() idleNom picks up adjacent energy
      ├─ Bulldozer @register  (job.bulldozer.ts) 2 WORK per MOVE (33W/17M at full energy); boosts XZH2O at home when a lab has it ready (never waits); planWalk over mission.dozePositions() at range 1, @task doze(xy, room) dismantles the tile (rampart first)
+     ├─ Razer    @register   (job.razer.ts) the Bulldozer body (job.bulldozer dozerSpawn, spawns nearest home); in the Raze room @task dismantle the dozeableStruct with the cheapest walk
+     │                       (planWalk; rampart on the tile first), then walks onto the foreign sites (job.scout stompable); idle kIdleTicks (10) -> memory.decomm, @task decomm walks to
+     │                       the spawn that hatched it (memory.nest, else a home spawn) and recycleCreep, suicide with none; a foreign safe mode counts as nothing to do
      ├─ Konmari  @register   (job.konmari.ts) CARRY/MOVE pairs like Swiper; loads worthless resources (catalyzed boosts excepted) from the home storage then terminal, walks towards the
      │                       Swipe target and drops 20 units per tick while outside the home room; empty -> home for more; nothing worthless left -> suicide
      ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs from the spawns nearest home (JobCreep.getHomeRoomName: mission
@@ -288,6 +293,7 @@ scheduleService('Thormine W26S8 W22S7')  // optional args[2]=room to ship the th
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
 scheduleService('Remote W5N8 W6N8 W7N8')  // optional args[3]=the only room its creeps spawn from (as Farm; idles `spawn-not-ready` while it has no spawn)
 scheduleService('PaveAll W5N8')      // a paver every 1400 ticks until the room has none of our sites (Remote/Startup schedule these)
+scheduleService('Raze W27S4 W27S5')  // args[1]=room to clear, args[2]=home (spawns nearest it); one Razer, winds down when it decommissions
 scheduleService('Once Scout W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down
 scheduleService('Once Toxic W25S5 3')  // optional args[3]=count: that many creeps one after another (memory.laid), then winds down
 scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown, skipping orders that pay less per unit than the shipping energy is worth (transfer rate x energy buy-order price); under 25k terminal energy keeps one 10k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)

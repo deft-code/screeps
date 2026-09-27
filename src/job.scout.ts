@@ -15,6 +15,16 @@ function shadowRange(h: Creep): number {
     return h.getActiveBodyparts(RANGED_ATTACK) ? kShadowRanged : kShadowMelee;
 }
 
+// The foreign construction sites in `room` a creep can walk onto, which
+// removes them: not under an obstacle or a rampart. Shared with the Razer
+// (job.razer.ts).
+export function stompable(room: Room): ConstructionSite[] {
+    return room.find(FIND_HOSTILE_CONSTRUCTION_SITES, {
+        filter: s => !_.any(s.pos.lookFor(LOOK_STRUCTURES),
+            t => t.structureType === STRUCTURE_RAMPART || OBSTACLE_OBJECT_TYPES.includes(t.structureType as any)),
+    });
+}
+
 @register
 export class Scout extends JobCreep {
     // Cheap and unblocking: vision gates whole missions, so jump the 0-priority queue.
@@ -52,11 +62,7 @@ export class Scout extends JobCreep {
     stomp(): Task2Ret | null {
         const room = this.c.room;
         if (room.controller?.safeMode && !room.controller.my) return null;
-        const sites = room.find(FIND_HOSTILE_CONSTRUCTION_SITES, {
-            filter: s => !_.any(s.pos.lookFor(LOOK_STRUCTURES),
-                t => t.structureType === STRUCTURE_RAMPART || OBSTACLE_OBJECT_TYPES.includes(t.structureType as any)),
-        });
-        const site = this.pos.findClosestByRange(sites);
+        const site = this.pos.findClosestByRange(stompable(room));
         if (!site) return null;
         this.moveTarget(site, 0);
         return "wait";

@@ -1016,6 +1016,12 @@ export class MetaManager {
                 }
             }
         }
+        // destroy() needs our room or our structure: in a room we do not
+        // own, a leftover road, container or foreign building stays.
+        if (!s.room.controller?.my && !(isOwnedStruct(s) && s.my)) {
+            s.room.log("cannot destroy blocker in a room we do not own:", s);
+            return false;
+        }
         const err = s.destroy();
         s.room?.errlog(err, "failed to destory site:", s);
         return err === OK;
@@ -1470,6 +1476,12 @@ export class MetaStructure {
     }
 }
 
+// Structure types the game lets stand on one tile, ramparts aside.
+function canShare(a: StructureConstant, b: StructureConstant): boolean {
+    return (a === STRUCTURE_ROAD && b === STRUCTURE_CONTAINER) ||
+        (a === STRUCTURE_CONTAINER && b === STRUCTURE_ROAD);
+}
+
 function checkSitePos(pos: RoomPosition, stype: BuildableStructureConstant): [RoomPosition | null, Structure | ConstructionSite | null] {
     const sites = pos.lookFor(LOOK_CONSTRUCTION_SITES);
     for (const site of sites) {
@@ -1493,6 +1505,10 @@ function checkSitePos(pos: RoomPosition, stype: BuildableStructureConstant): [Ro
         if (stype === STRUCTURE_RAMPART) continue;
 
         if (struct.structureType === STRUCTURE_RAMPART) continue;
+
+        // A road and a container share a tile (a remote's container often
+        // lands on a leftover road, which no one can destroy there).
+        if (canShare(struct.structureType, stype)) continue;
 
         // Wrong structure and not a rampart
         return [null, struct];

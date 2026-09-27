@@ -1,7 +1,7 @@
 import {
     MetaStructure, MetaManager, MetaMem, addMemStruct, registerMeta, getMetaManager,
 } from "metastruct";
-import { kPathPlain, kNoRoad, TrafficMem, pathTraffic } from "metatraffic";
+import { kPathRoad, kPathPlain, kNoRoad, TrafficMem, pathTraffic } from "metatraffic";
 import { RoadPlanner } from "roadplan";
 import { coordsFromXY, toXY, Goal } from "Rewalker";
 import * as debug from "debug";
@@ -73,6 +73,13 @@ export class Meta_rroad extends MetaStructure {
     }
 }
 
+// 2 for a container on the tile, 1 for a container site of ours, else 0.
+function containerAt(room: Room, x: number, y: number): number {
+    if (_.any(room.lookForAt(LOOK_STRUCTURES, x, y), s => s.structureType === STRUCTURE_CONTAINER)) return 2;
+    if (_.any(room.lookForAt(LOOK_CONSTRUCTION_SITES, x, y), s => s.my && s.structureType === STRUCTURE_CONTAINER)) return 1;
+    return 0;
+}
+
 export interface LegResult {
     leg: string
     metas: MetaStructure[]
@@ -134,10 +141,14 @@ export class RemotePlanner {
 
     // Meta_asrc's trick: weight the source's neighbours by openness and path
     // to storage; the first step is the container tile and the rest the road.
-    // Tiles that also touch another source keep their kNearCost.
+    // Tiles that also touch another source keep their kNearCost. A tile
+    // that already holds our container (built or sited: an earlier plan's)
+    // is the cheapest of all, so a replan keeps the container and what is
+    // in it rather than moving it one tile over (Sept 2026, W28S4).
     source(src: Source): LegResult {
         const leg = `${toXY(src.pos)}`;
         const t = Game.map.getRoomTerrain(this.remote);
+        const room = Game.rooms[this.remote];
         const base = this.matrix(this.remote);
         const cm = base.clone();
         const others = this.srcs.filter(o => o.id !== src.id);
@@ -146,6 +157,13 @@ export class RemotePlanner {
             if (t.get(x, y) & TERRAIN_MASK_WALL) continue;
             if (base.get(x, y) === 0xFF) continue;
             if (_.any(others, o => o.pos.inRangeTo(x, y, 1))) continue;
+            const cont = room ? containerAt(room, x, y) : 0;
+            if (cont) {
+                // Built beats sited: a forced replan still sees the old
+                // plan's sites the tick it runs.
+                cm.set(x, y, cont === 2 ? kPathRoad : kPathRoad + 1);
+                continue;
+            }
             // Just over plain for a tile open all round, one more per
             // neighbouring wall: open tiles are cheap, cramped ones dear.
             cm.set(x, y, kPathPlain + 9 - this.openAround(t, x, y));

@@ -133,16 +133,12 @@ export class Remote extends Farm {
         return Math.floor(kReserveSpotPace / nspots);
     }
 
-    // Truckers have nothing to haul until a harvester's container stands on
-    // an rsrc tile; the harvester builds it (job.harvester.ts).
+    // Truckers have nothing to haul until a container stands in the room:
+    // the harvester builds one on its rsrc tile (job.harvester.ts), and an
+    // earlier plan's container counts too (the truckers load from any).
     hasContainer(): boolean {
         const room = this.room!;
-        return _.any(this.rsrcMetas(), m => {
-            const xy = m.getSite(STRUCTURE_CONTAINER);
-            if (xy === null) return false;
-            const [x, y] = coordsFromXY(xy);
-            return _.any(room.lookForAt(LOOK_STRUCTURES, x, y), s => s.structureType === STRUCTURE_CONTAINER);
-        });
+        return room.find(FIND_STRUCTURES, { filter: s => s.structureType === STRUCTURE_CONTAINER }).length > 0;
     }
 
     // The rsrc metas planned in the remote room, in a stable order.

@@ -91,7 +91,7 @@ base-room roles from `GlobalRespawn`/`Hub`. The scheduled missions add pure
 job-layer creeps (no `roleXxx` method): `harvester`, `trucker`, `reserver`
 (`Remote`); `paver` (`PaveAll`, requested by `Remote`/`Startup` for unowned road rooms with our sites); `warboy`, `immortan` (`Reactor`); `warrunner` (`ReactorDepot`); `thoreater`, `cleanup` (`Thormine`); `claimer`, `pioneer` (`Startup`);
 and `scout`, `guard`, `mini`, `wolf` wherever a mission wants vision or a
-fight; `toxic` (`job.toxic.ts`, bait-and-trap mini) only by `Once Toxic <room> [count]`. Everything else with a `roleXxx` method is loaded but no job spawns it.
+fight; `toxic` (`job.toxic.ts`, bait-and-trap mini) only by `Once Toxic <room> [count]`; `razer` (`job.razer.ts`, Bulldozer body) only by `Raze <room> [home]`, which clears a room of foreign structures and sites and recycles the creep when done. Everything else with a `roleXxx` method is loaded but no job spawns it.
 Table and task conventions in [docs/creep-roles.md](docs/creep-roles.md).
 
 ## Conventions that code depends on
