@@ -238,10 +238,10 @@ since the rroad metas hold no tiles.
 
 ### 2.6 Genesis flag protocol
 
-- A `traffic_<genesis>` child flag is a display toggle: while it exists the
-  genesis pass draws the plan every tick. The plan is also drawn on every
-  non-CYAN pass. YELLOW never plans traffic; GREEN/BROWN save and the plan
-  follows automatically on the next upkeep tick.
+- The genesis pass draws the plan every tick, CYAN included, with the
+  metas (the `traffic_<genesis>` display-toggle flag was dropped 26 Sept
+  2026). YELLOW never plans traffic; GREEN/BROWN save and the plan follows
+  automatically on the next upkeep tick.
 - BLUE also forces a traffic replan.
 - Every pass checks whether the origin moved (the genesis flag moved while no
   storage is planned) and marks the room dirty.

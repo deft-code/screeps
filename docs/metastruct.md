@@ -42,7 +42,7 @@ The flags described here are the only flags that exist in the game today.
 | `cap` | 101 | 5x5 extension cluster with a centre container (RCL2-4). Link mode `sink`. |
 | `lab` | 0 | 10 labs (RCL6-8), 2 spawns, observer, nuker. Its spawn energies are filled last. |
 | `extna` / `extnb` / `extnc` | 0 | Optional (level 9) extension fields, 3x3 / 5x5 / 7x7 checkerboards with roads at RCL5. Tiles are stored nearest the `hub` spot first (`Meta_extn.orderByHub`; storage site, then the anchor, without a hub), which is the build order; `migrate()` re-sorts fields planned earlier. |
-| `asrc` / `bsrc` | 103 | Source cluster: container(2, but held back below RCL3 until a spawn stands in the room; `migrate()` moves older RCL3 entries) on the path step nearest storage (the parent flag stands in for storage while no storage meta is saved), road, link(5) at the adjacent tile nearest storage, extensions(2) on the other free neighbours (RCL2 so they outrank `cap`'s RCL2 field by priority; `migrate()` moves older RCL3 entries). `myspot` = container tile; `targetid()` = the source. Link mode `src`. The child flag's secondary colour overrides the container tile: RED takes the second-best neighbour, PURPLE the third-best (ranked by weighted path cost to storage, `Meta_asrc.pickSpot`); any other colour keeps the best. |
+| `asrc` / `bsrc` | 103 | Source cluster: container(2, but held back below RCL3 until a spawn stands in the room; `migrate()` moves older RCL3 entries) on the path step nearest storage (the parent flag stands in for storage while no storage meta is saved), road, link(5) at the adjacent tile nearest storage, extensions(3) on the other free neighbours (RCL3 since 26 Sept 2026: an RCL2 srcer is too small to keep them filled, so `cap`'s hauler-fed RCL2 field builds first; `migrate()` lifts entries saved at RCL2). `myspot` = container tile; `targetid()` = the source. Link mode `src`. The child flag's secondary colour overrides the container tile: RED takes the second-best neighbour, PURPLE the third-best (ranked by weighted path cost to storage, `Meta_asrc.pickSpot`); any other colour keeps the best. |
 | `min` | 0 | Flag beside an ordinary (non-thorium) mineral: extractor(6) on the mineral, container(6) on the flag tile, point `mineral` there. Needs vision to plan; refuses a flag sitting on the mineral. |
 | `cont` | -10 | A lone container(1) on the flag tile, point `cont` there; road origin -> flag tile, range 1. The lowest priority of any container holder, so `makeSite` fills it last and `purge` removes it first when containers run short. |
 | `reactor` | 10 | Season 11: extractor(6) over the thorium mineral on or beside the flag, nothing else (warboys carry thorium straight to the sector core). Outranks `min` because `CONTROLLER_STRUCTURES.extractor` is 1 at every RCL and `makeSite` spends it in priority order. |
@@ -183,10 +183,9 @@ is a command; after acting it usually resets itself to `COLOR_CYAN` (idle):
 | CYAN | Idle. |
 
 Traffic is not a child: GREEN and BROWN save, and the manager replans the
-roads on its next upkeep pass. A `traffic_<genesis>` child flag is only a
-display toggle (the plan is drawn every tick while it exists, and on every
-non-CYAN pass anyway); BROWN on a BROWN traffic child just removes the flag.
-Every pass also checks the traffic origin, so moving the genesis flag while
+roads on its next upkeep pass. Every pass, CYAN included, draws the road
+plan along with the metas (the `traffic_<genesis>` display-toggle flag is
+gone since 26 Sept 2026). Every pass also checks the traffic origin, so moving the genesis flag while
 no storage is planned replans the roads.
 
 **Child flags** are named `<self>_<parentName>` (`FlagExtra.childName`), e.g.
@@ -200,8 +199,7 @@ Planned-but-unsaved metas are parked in the genesis flag's `memory.newer[self]`.
 Manual workflow: place `genesis` (orange/cyan) in the room; add child flags
 (`hub_genesis`, `cap_genesis`, `asrc_genesis` on source A, `bsrc_genesis` on
 source B, `ctrl_genesis` near the controller, `lab_genesis`, `extn*_genesis`,
-`wall_genesis`, `min_genesis` on the mineral, and `traffic_genesis` anywhere
-to keep the roads drawn); set genesis secondary to YELLOW to plan and inspect
+`wall_genesis`, `min_genesis` on the mineral); set genesis secondary to YELLOW to plan and inspect
 the visuals; set GREEN to commit, and the roads follow a tick or so later.
 `asrc`/`bsrc` and `ctrl` path to the saved storage site; with no storage meta
 saved they path to their parent (genesis) flag instead (`storageOrParent`),

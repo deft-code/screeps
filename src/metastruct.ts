@@ -176,8 +176,7 @@ merge(Flag, MetaPlan)
 // Green, save all changed metas to room manager
 // Blue, force replanning for all metas (and the traffic).
 // Traffic is not a child: the manager replans it after any saved change
-// (MetaManager.updateTraffic). A traffic_<genesis> child flag only asks for
-// the plan to be drawn every tick; every non-cyan pass draws it too.
+// (MetaManager.updateTraffic). Every pass draws the plan with the metas.
 export function runGenesis(f: FlagExtra) {
     //man.save();
     const newer = f.memory.newer = f.memory.newer || {};
@@ -199,7 +198,6 @@ export function runGenesis(f: FlagExtra) {
         return;
     }
     let changed = false;
-    let showTraffic = f.secondaryColor !== COLOR_CYAN;
     let i = -1;
     for (const child of room.find(FIND_FLAGS) as FlagExtra[]) {
         i++;
@@ -207,15 +205,6 @@ export function runGenesis(f: FlagExtra) {
         if (f.secondaryColor === COLOR_WHITE) {
             child.remove();
             changed = true;
-            continue;
-        }
-        if (child.role === kTrafficName) {
-            if (f.secondaryColor === COLOR_BROWN && child.secondaryColor === COLOR_BROWN) {
-                child.remove();
-                changed = true;
-                continue;
-            }
-            showTraffic = true;
             continue;
         }
         let nextm = null as MetaStructure | null;
@@ -278,7 +267,7 @@ export function runGenesis(f: FlagExtra) {
         }
     }
     if (f.secondaryColor === COLOR_BLUE) room.meta.forceTraffic();
-    if (showTraffic) room.meta.drawTraffic(room.visual);
+    room.meta.drawTraffic(room.visual);
     if (changed && _.contains([COLOR_GREEN, COLOR_BROWN], f.secondaryColor)) room.meta.save();
     if (!changed && f.secondaryColor !== COLOR_CYAN) f.setColor(f.color, COLOR_CYAN);
 }
@@ -1760,10 +1749,11 @@ function calcWeight(x: number, y: number, t: RoomTerrain): number {
 }
 
 // Source extensions are filled by the srcer standing next to them, so they
-// are the cheapest extensions to run. RCL2 puts them ahead of Meta_cap's
-// RCL2 field: makeSite walks metas by priority (asrc/bsrc 103 > cap 101) but
-// only over levels the room has reached.
-const kSrcExtensionLevel: PlanLevel = 2;
+// are the cheapest extensions to run once the srcer is big enough. RCL3:
+// an RCL2 srcer is too small to keep its neighbours filled, so Meta_cap's
+// RCL2 field (haulers fill it) comes first and these follow at RCL3
+// (they were RCL2 from 13 to 26 Sept 2026; migrate() lifts saved entries).
+const kSrcExtensionLevel: PlanLevel = 3;
 // The source container is offered from RCL2, but findSite holds it back
 // below RCL3 until a spawn stands in the room: in a room being booted the
 // spawn is what the first energy must go into, not a container.
@@ -1849,18 +1839,20 @@ class Meta_asrc extends MetaStructure {
         return meta;
     }
 
-    // Metas planned before Sept 2026 had their extensions and container at
-    // RCL3, which let the cap field's RCL2 extensions build first despite the
-    // lower priority; both move down to their current levels.
+    // Saved metas follow the current levels: extensions planned at RCL2
+    // (13-26 Sept 2026) lift to kSrcExtensionLevel, a container planned at
+    // RCL3 (before Sept 2026) drops to kSrcContainerLevel.
     migrate(): boolean {
         let changed = false;
-        for (const [stype, lvl] of [[STRUCTURE_EXTENSION, kSrcExtensionLevel], [STRUCTURE_CONTAINER, kSrcContainerLevel]] as [BuildableStructureConstant, PlanLevel][]) {
+        const move = (stype: BuildableStructureConstant, from: PlanLevel, to: PlanLevel) => {
             const lvls = this.mem.structs[stype];
-            if (!lvls || !lvls[3]) continue;
-            lvls[lvl] = [...(lvls[lvl] || []), ...lvls[3]];
-            delete lvls[3];
+            if (!lvls || !lvls[from] || from === to) return;
+            lvls[to] = [...(lvls[to] || []), ...lvls[from]!];
+            delete lvls[from];
             changed = true;
-        }
+        };
+        move(STRUCTURE_EXTENSION, 2, kSrcExtensionLevel);
+        move(STRUCTURE_CONTAINER, 3, kSrcContainerLevel);
         return changed;
     }
 

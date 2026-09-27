@@ -101,9 +101,8 @@ Memory.rooms.W5N8.meta.traffic                // the road plan (structs.road by 
 
 Flag protocol details in [metastruct.md](metastruct.md). Draw the current plan
 without changing anything: set YELLOW and then back to CYAN; planned-but-
-uncommitted metas sit in `Memory.flags.genesis.newer`. A `traffic_genesis`
-child flag keeps the road plan drawn every tick. The roads replan by
-themselves a tick or so after any saved change (GREEN, BROWN, a mission plan).
+uncommitted metas sit in `Memory.flags.genesis.newer`. The road plan is
+drawn every tick with the metas. The roads replan by themselves a tick or so after any saved change (GREEN, BROWN, a mission plan).
 
 ## Links, labs, spots
 
