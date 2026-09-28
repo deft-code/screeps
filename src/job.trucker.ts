@@ -4,7 +4,10 @@ import { CreepRepair } from "creep.repair";
 import { closeSpawns } from "spawnold";
 import { energyDef } from "spawn";
 import { isGeneralStoreStruct, isStoreStruct } from "guards";
+import { defaultRewalker } from "Rewalker";
 import type { Remote } from "ms.remote";
+
+const rewalker = defaultRewalker();
 
 // Port of role.trucker.js (team.ts trucker/truckaga) for the Remote mission.
 // Shuttles energy from the containers in the remote room (any container
@@ -16,8 +19,16 @@ import type { Remote } from "ms.remote";
 // repairs: the paver and harvester do that.
 
 // With energy aboard and every container below this, the trucker heads
-// home with what it has rather than waiting on a dribble.
+// home with what it has rather than waiting on a dribble. Also the least a
+// container must hold to be worth walking to over an emptier one.
 const kDryCont = 50;
+
+declare global {
+    interface CreepMemory {
+        // Trucker: the container it is heading to load from (pickCont).
+        contid?: Id<StructureContainer>
+    }
+}
 @register
 export class Trucker extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
@@ -64,8 +75,17 @@ export class Trucker extends JobRole {
         }
 
         // Anywhere but the remote, any energy goes home to the pile rather
-        // than riding along.
-        if (this.pos.roomName !== this.mission.roomName) return this.dropHome() || this.moveRoom(this.mission.roomName);
+        // than riding along. Empty, head straight for the picked container
+        // when the remote is in view: the cheapest walk to it may cross
+        // another room (from W27S4's south exit the route runs along W27S5's
+        // edge and back in), and aiming at the room centre from there sent
+        // truckers back and forth over the border every tick (Sept 2026).
+        if (this.pos.roomName !== this.mission.roomName) {
+            const drop = this.dropHome();
+            if (drop) return drop;
+            const cont = this.pickCont();
+            return cont ? this.moveTarget(cont, 1) : this.moveRoom(this.mission.roomName);
+        }
         // Nothing to load: wait by the container.
         return this.load() || this.waitAtCont();
     }
@@ -93,19 +113,58 @@ export class Trucker extends JobRole {
         return this.dropAt(home.controller);
     }
 
-    // The container in the remote room holding the most energy, if any.
-    fullestCont(): StructureContainer | null {
+    // Every container in the remote room; [] without vision.
+    conts(): StructureContainer[] {
         const room = Game.rooms[this.mission.roomName];
-        if (!room) return null;
-        const conts = room.find(FIND_STRUCTURES, {
+        if (!room) return [];
+        return room.find(FIND_STRUCTURES, {
             filter: s => s.structureType === STRUCTURE_CONTAINER,
         }) as StructureContainer[];
+    }
+
+    // The container in the remote room holding the most energy, if any.
+    fullestCont(): StructureContainer | null {
+        const conts = this.conts();
         if (!conts.length) return null;
         return _.max(conts, k => k.store.energy);
     }
 
-    // Take from the fullest container; sweep dropped energy on the way.
-    // False when there is nothing to take this tick.
+    // The container to load from, by tiers: those holding a full load for
+    // us (our free capacity), else those holding more than kDryCont, else
+    // any. Within the tier the one with the cheapest walk (Rewalker.planWalk
+    // over all of them, which also stores that walk as the creep's). The
+    // pick is cached in memory.contid and kept while it is still in the
+    // best tier, so the trucker keeps heading there instead of flip-flopping
+    // as the containers fill; it is re-picked once a better tier appears or
+    // the cached one drops out (drained by another trucker).
+    pickCont(): StructureContainer | null {
+        const conts = this.conts();
+        if (!conts.length) {
+            delete this.memory.contid;
+            return null;
+        }
+        const free = this.c.store.getFreeCapacity();
+        const full = conts.filter(k => k.store.energy >= free);
+        const some = conts.filter(k => k.store.energy > kDryCont);
+        const tier = full.length ? full : some.length ? some : conts;
+
+        const cached = this.memory.contid ? Game.getObjectById(this.memory.contid) : null;
+        if (cached && _.contains(tier, cached)) return cached;
+
+        const i = rewalker.planWalk(this.c, tier.map(k => ({ pos: k.pos, range: 1 })));
+        const pick = i >= 0 ? tier[i] : this.pos.findClosestByRange(tier);
+        if (!pick) {
+            delete this.memory.contid;
+            return null;
+        }
+        this.dlog("picked container", pick.pos, "of", tier.length, "holding", pick.store.energy);
+        this.memory.contid = pick.id;
+        return pick;
+    }
+
+    // Head for the picked container and take from it; sweep dropped energy
+    // on the way. False when there is no container, or the picked one is
+    // empty on arrival (then waitAtCont).
     load(): Task2Ret {
         const c = this.cc;
         const dropped = _.find(
@@ -113,15 +172,17 @@ export class Trucker extends JobRole {
             r => r[LOOK_RESOURCES].resourceType === RESOURCE_ENERGY);
         if (dropped && c.goPickup(dropped[LOOK_RESOURCES], false)) return "wait";
 
-        const cont = this.fullestCont();
-        if (!cont || !cont.store.energy) return false;
+        const cont = this.pickCont();
+        if (!cont) return false;
+        if (!this.pos.isNearTo(cont)) return this.moveTarget(cont, 1);
+        if (!cont.store.energy) return false;
         c.goWithdraw(cont, RESOURCE_ENERGY);
         return "wait";
     }
 
-    // Wait next to the container the harvester is filling.
+    // Wait next to the picked container while the harvester fills it.
     waitAtCont(): Task2Ret {
-        const cont = this.fullestCont();
+        const cont = this.pickCont();
         if (cont && !this.pos.isNearTo(cont)) this.moveTarget(cont, 1);
         return "wait";
     }

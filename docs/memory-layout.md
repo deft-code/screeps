@@ -55,7 +55,7 @@ After spawn: `nest = spawnName`, `home = roomName`. Roles then add:
 `task` (legacy `{task, id?, flag?, first?, resource?, max?, spot?}`), `task2`
 (`{name, args, id?}`), `_walk` (Rewalker `[destXY, destRoom, [xy, room, dirs], incomplete?]`),
 `srcid/contid/linkid` (srcer), `struct` (ctrl), `repairid`, `spawnid`, `ecap` (room capacity at the first `idleImmortal`; renewing stops once the room exceeds it),
-`noboost` (Bulldozer: a lab refused it, stop asking), `idle`/`decomm` (Razer: ticks with nothing to do; decommissioning, walking back to its spawn to be recycled), `stray` (Chemist: the load in hand was gathered off the floor and goes to the storage), `boosts[]`, `debug` (expiry tick), `spot`, `start`, `team`.
+`noboost` (Bulldozer: a lab refused it, stop asking), `idle`/`decomm` (Razer: ticks with nothing to do; decommissioning, walking back to its spawn to be recycled), `contid` (Trucker: the remote container it is heading to load from), `stray` (Chemist: the load in hand was gathered off the floor and goes to the storage), `boosts[]`, `debug` (expiry tick), `spot`, `start`, `team`.
 Legacy team eggs used `{ team: flagName, egg: { team, body, laid, spawn, priority, ... } }`
 and are no longer created; `Mission.hatchEggs` treats any `nest !== "egg"` as
 a stuck egg and resets it.

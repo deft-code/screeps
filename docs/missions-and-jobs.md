@@ -59,9 +59,9 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     a creep dying in a room whose intel shows an invader core (level > 0) pauses all laying
          │                                                     for 1500 ticks (Mission.creepDied hook; queued eggs purged) so the survivors die off and the
          │                                                     next scout re-probes the core, dying to it again renewing the pause;
-         │                                                     nJobs(Guard, 1) while any enemy creep (room.enemies) is in the core;
+         │                                                     nJobs(Guard, 1) while any enemy creep (room.enemies) is in the core and homeHasThorium (a runner could be sent; else an idle guard wastes energy and spawn time);
          │                                                     paceNJobs(Toxic, 1) while an armed enemy (room.hostiles) with no active HEAL part is in the core;
-         │                                                     nJobs(Immortan, 1) while the reactor is visible and either not `my` or `my` with over 100 thorium aboard (CLAIM creeps are costly);
+         │                                                     nJobs(Immortan, 1) while homeHasThorium and the reactor is visible and either not `my` or `my` with over 100 thorium aboard (CLAIM creeps are costly);
          │                                                     nJobs(Warboy, min(args[2], 700 / tripLoad)) once the home room has an
          │                                                     extractor on a thorium mineral with thorium left, the core is visible with a reactor in it and no armed hostile (room.hostiles),
          │                                                     and a full load will still fit when it lands: store - 600 (lead ticks) + thorium inbound from every Reactor mission's warboys and eggs + 450 <= 1000
@@ -184,7 +184,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       container tile drop-mining; builds the container site and repairs the container, withdrawing from it for that;
      │                       after() idles (nom/build/repair) only while inside the mission room
      ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.js for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
-     │                       when empty); withdraws from the fullest container in the remote room, whichever plan built it (sweeps dropped energy), once more than half full unloads
+     │                       when empty); loads from a container in the remote room picked by pickCont(): the ones holding a full load (our free capacity), else those over 50, else any, and within that tier the cheapest walk (Rewalker.planWalk over all), cached in memory.contid while it stays in the best tier, and walked to from any room once the remote is in view, so a route that crosses another room is not undone by a walk to the room centre (sweeps dropped energy), once more than half full unloads
      │                       at home until empty (JobCreep.unloadHome); after() idleNom picks up adjacent energy
      ├─ Bulldozer @register  (job.bulldozer.ts) 2 WORK per MOVE (33W/17M at full energy); boosts XZH2O at home when a lab has it ready (never waits); planWalk over mission.dozePositions() at range 1, @task doze(xy, room) dismantles the tile (rampart first)
      ├─ Razer    @register   (job.razer.ts) the Bulldozer body (job.bulldozer dozerSpawn, spawns nearest home); in the Raze room @task dismantle the dozeableStruct with the cheapest walk

@@ -171,10 +171,20 @@ export class Reactor extends Mission {
         debug.log(this.name, name, "died in", roomName, "with a level", lvl, "invader core; pausing until", this.mem.pauseUntil);
     }
 
+    // Whether the home room has thorium to send a runner with
+    // (homeHasThorium). Guards and Immortans are only laid while it does:
+    // with nothing to carry there is nothing at the core worth their energy
+    // and spawn time (Sept 2026). Scouts and Toxics are not gated.
+    get haveThorium(): boolean {
+        const home = this.getRoom("home");
+        return !!home && this.homeHasThorium(home);
+    }
+
     // Enemy creeps in the core (strat.init's room.enemies: anything not ours
     // or allied, armed or not, so a rival claimer counts): keep one Guard
-    // there until they are gone.
+    // there until they are gone, while we have thorium to run.
     guard() {
+        if (!this.haveThorium) return null;
         if (!this.enemies.length) return null;
         return this.nJobs(Guard, 1);
     }
@@ -197,12 +207,13 @@ export class Reactor extends Mission {
         return this.room?.hostiles || [];
     }
 
-    // CLAIM creeps are expensive, so an Immortan is laid only when we can see
-    // the reactor and either it is not ours (anyone can re-claim it, so this
-    // also covers taking it back after a loss) or it is ours and fuelled past
-    // kGuardAbove, so a loss can be reversed before the fuel is burned for
-    // someone else.
+    // CLAIM creeps are expensive, so an Immortan is laid only while we have
+    // thorium to run (haveThorium) and we can see the reactor and either it
+    // is not ours (anyone can re-claim it, so this also covers taking it
+    // back after a loss) or it is ours and fuelled past kGuardAbove, so a
+    // loss can be reversed before the fuel is burned for someone else.
     hold() {
+        if (!this.haveThorium) return null;
         const reactor = this.reactors[0];
         if (!reactor) return null;
         const fuel = RESOURCE_THORIUM && reactor.store[RESOURCE_THORIUM] || 0;
