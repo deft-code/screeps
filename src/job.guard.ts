@@ -24,9 +24,12 @@ const kKiteRange = 5;
 const kHoldIdle = 3;
 const kHoldRange = 3;
 // engage(): close to this range on a target. Melee targets are kept at 3
-// because kite() backs off at 2, and closing to 2 would fight it.
+// because kite() backs off at 2, and closing to 2 would fight it; but a
+// melee that is fatigued cannot step this tick, so it is closed to 2, where
+// rangedAttack does 10 instead of the 4 it does at 3 (Sept 2026).
 const kEngageRange = 2;
 const kEngageMeleeRange = 3;
+const kEngageFatiguedRange = 2;
 
 declare global {
     interface CreepMemory {
@@ -151,12 +154,18 @@ export class Guard extends JobRole {
         return this.kite(target);
     }
 
+    // The range to keep from a melee target: 3, or 2 while it is fatigued
+    // and cannot close the gap this tick.
+    meleeHold(target: Creep): number {
+        return target.fatigue > 0 ? kEngageFatiguedRange : kEngageMeleeRange;
+    }
+
     // role.guard.js goKite: shoot, and back off from every melee when one is
-    // within two tiles; otherwise close to range 3.
+    // nearer than the hold range (meleeHold); otherwise close to it.
     kite(target: Creep): Task2Ret {
         const c = this.cc;
         const range = this.pos.getRangeTo(target);
-        if (range <= 2) {
+        if (range < this.meleeHold(target)) {
             this.shoot(target, range);
             c.idleFlee(c.room.melees || [], kKiteRange);
             return "wait";
@@ -164,11 +173,11 @@ export class Guard extends JobRole {
         return this.engage(target);
     }
 
-    // Shoot the target and close to kEngageRange (a melee target: 3, see
-    // kite); every tick both, so it keeps closing while it fires.
+    // Shoot the target and close to kEngageRange (a melee target: meleeHold,
+    // see kite); every tick both, so it keeps closing while it fires.
     engage(target: Creep): Task2Ret {
         const range = this.pos.getRangeTo(target);
-        const hold = target.melee ? kEngageMeleeRange : kEngageRange;
+        const hold = target.melee ? this.meleeHold(target) : kEngageRange;
         if (range <= 3) this.shoot(target, range);
         if (range > hold) this.moveTarget(target, hold);
         return "wait";
