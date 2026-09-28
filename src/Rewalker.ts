@@ -567,7 +567,7 @@ export class Rewalker {
     planWalk(c: Creep | PowerCreep, goals: Goal[]): number {
         const step = new Step(c, c.pos, 1, this)
         const clean = goals.map(cleanGoal)
-        const [i, path] = step.planSteps(c.pos, clean, c.ticksToLive || CREEP_LIFE_TIME)
+        const [i, path] = step.planSteps(c.pos, clean, CREEP_LIFE_TIME)
         step.path = path
         if (i < OK) return i
         step.goal = goals[i]
@@ -1094,7 +1094,7 @@ class Step {
                 // We're keeping the truncated path, draw it now.
                 this.path.draw({ lineStyle: "dashed", stroke: 'orange' })
 
-                const [err, ext] = this.planSteps(truncatedTip, [goal], this.creep.ticksToLive || CREEP_LIFE_TIME);
+                const [err, ext] = this.planSteps(truncatedTip, [goal], CREEP_LIFE_TIME);
                 // PathFinder omits the origin, so ext.first is the tile after the
                 // tip: splice in the connecting step or the extension lands one
                 // tile off. An empty result falls back to creep.pos; skip that.
@@ -1157,7 +1157,7 @@ class Step {
             }
         })()
 
-        const [i, repath] = this.planSteps(this.creep.pos, goals, this.creep.ticksToLive || CREEP_LIFE_TIME);
+        const [i, repath] = this.planSteps(this.creep.pos, goals, CREEP_LIFE_TIME);
         // If i is 0 then repath went all the way to the destination
         // If there was an error only use the repath
         if (i > 0) {
@@ -1182,15 +1182,22 @@ class Step {
     // then take the first step. An incomplete plan still returns its (halved)
     // path; walk it. Only an incomplete plan with no steps at all fails.
     replan(goal: Goal): WalkReturnCode {
-        const [err, path] = this.planSteps(this.creep.pos, [goal], this.creep.ticksToLive || CREEP_LIFE_TIME)
+        const [err, path] = this.planSteps(this.creep.pos, [goal], CREEP_LIFE_TIME)
         if (err < OK && path.done) return err as ScreepsReturnCode
         this.path = path
         return this.step()
     }
 
-    // TODO add a comment describing the return values.
-    planSteps(pos: RoomPosition, goals: Array<Goal>, maxSteps: number): [number, Path] {
-        const ret = this.rewalker._search(pos, goals, moveTerrain(this.creep), maxSteps)
+    // Search from `pos` to `goals` and return [goal index or ERR_NO_PATH,
+    // path]. `maxCost` bounds the search: callers pass CREEP_LIFE_TIME, a
+    // whole life, never the creep's remaining ticks. With the remaining
+    // ticks as the bound a creep short on life got its search aborted on
+    // the first node, a one-tile stub that Path treats as finished, and it
+    // stood still until it died (a full trucker in W28S4, Sept 2026).
+    // Whether the creep can arrive in time is the job's call, not the
+    // walk's.
+    planSteps(pos: RoomPosition, goals: Array<Goal>, maxCost: number): [number, Path] {
+        const ret = this.rewalker._search(pos, goals, moveTerrain(this.creep), maxCost)
         this.incomplete = ret.incomplete
 
         // A walk that starts and ends in one room should stay in it. Leaving

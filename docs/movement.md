@@ -71,7 +71,8 @@ rejoins instead of recomputing everything.
 `planSteps` and the `plan*` helpers share one search, `Rewalker._search`,
 with the costs of the creep's `moveTerrain`: `plainCost 2 / swampCost 10`, or
 `1 / 5` when MOVE parts >= other parts, `swamp 1` at 5x MOVE; `maxCost` =
-ticks to live for `planSteps`, unbounded for `plan*`; `maxOps` = `4000 * route rooms`, capped at 20000 (PathFinder's
+`CREEP_LIFE_TIME` for `planSteps` (until Sept 2026 the creep's ticks to live, which
+aborted the search on the first node for a creep short on life and left it standing), unbounded for `plan*`; `maxOps` = `4000 * route rooms`, capped at 20000 (PathFinder's
 heuristic ignores `plainCost`, so slow creeps need several times the default
 2000). Rooms are limited to the `findRoute` set via `restrictedRoomCallback`
 for walks over 4 rooms; shorter walks search unrestricted. An incomplete

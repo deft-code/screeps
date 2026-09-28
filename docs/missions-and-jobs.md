@@ -217,7 +217,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
          ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' via "close"
          ├─ Guard   @register              (job.guard.ts)  port of role.guard.js; Task2 @task hunt/duel/healCreep/retreat, kites melees via idleFlee;
-         │                                                 engage() shoots and closes to range 2 (3 on a melee target, since kite backs off at 2);
+         │                                                 engage() shoots and closes to range 2 (3 on a melee target, since kite backs off at 2; 2 while that melee is fatigued, for the 10 damage instead of 4);
          │                                                 with nothing to do hold() drifts to within 3 of spots.roomCentroid, but only after 3 idle ticks
          │                                                 (memory.gidle) so a friendly flickering on an exit draws it over instead of resetting it;
          │                                                 body 'guard' via "remote": room capacity >= 550, energyDef scales T/RA pairs to energy available (spawning.md)
