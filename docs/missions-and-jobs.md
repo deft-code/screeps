@@ -173,7 +173,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       inside, else closes on the one with least slack (distance - range) and holds at 0; with no
      │                       hostiles, walks onto the nearest foreign construction site to stomp it (not under ramparts or
      │                       obstacles, not while the owner's controller is in safe mode)
-     ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "close" spawn strategy, only once that room holds >= 550 energy; shield(): while its legacy build task (memory.task) is on a road/container site and an enemy creep (not a keeper) is within 4 of it, stands on that site so the enemy cannot remove it, unless one of our creeps is on it already (after armed hostiles are fled, before the task resumes); three modes in memory.pmode:
+     ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "close" spawn strategy, only once that room holds >= 550 energy; shield(): while its legacy build task (memory.task) is on a road/container site and an enemy creep (not a keeper) is within 4 of it, stands on that site so the enemy cannot remove it, unless one of our creeps is on it already (after armed hostiles are fled, before the task resumes); an empty paver drops its build task first; three modes in memory.pmode:
      │                       work (walk to the mission room, taskBuildAny, then taskRepairRemote on roads/containers; empty -> gather or forage),
      │                       gather (mission room is not SK and has a source: taskRechargeHarvest there until full), forage (SK room or no source:
      │                       walk the Rewalker route toward memory.home taking the nearest piles >= 50, tombstones, ruins, our stores or a
@@ -217,6 +217,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
          ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' via "close"
          ├─ Guard   @register              (job.guard.ts)  port of role.guard.js; Task2 @task hunt/duel/healCreep/retreat, kites melees via idleFlee;
+         │                                                 picks its fight in the arena (the mission room while visible from anywhere, else its own room): without vision it walks to the room first, with vision it heads straight for its target from wherever it is and only walks to the room when nothing there needs it;
          │                                                 engage() shoots and closes to range 2 (3 on a melee target, since kite backs off at 2; 2 while that melee is fatigued, for the 10 damage instead of 4);
          │                                                 with nothing to do hold() drifts to within 3 of spots.roomCentroid, but only after 3 idle ticks
          │                                                 (memory.gidle) so a friendly flickering on an exit draws it over instead of resetting it;

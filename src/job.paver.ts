@@ -108,6 +108,10 @@ export class Paver extends JobRole {
         // taskRepairRemote are JS mixins without typings.
         const legacy = c as any;
         if (c.idleRetreat(WORK) || c.fleeHostiles()) return "wait";
+        // Empty: the build target is forgotten (taskTask would otherwise
+        // resume it, and shield would hold the site, with nothing to build).
+        // A fresh one is picked once refilled.
+        if (!this.energy && this.memory.task?.task === "build") delete this.memory.task;
         const shield = this.shield();
         if (shield) return shield;
         if (c.taskTask()) return "wait";

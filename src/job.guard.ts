@@ -5,10 +5,13 @@ import { roomCentroid } from "spots";
 
 // Port of role.guard.js (2017 flag-team era) to the 2022 mission/job system.
 // A ranged skirmisher with a heal part, spawned in the mission's "home" room.
-// It walks to the mission room and picks a fight by the number of melee
-// enemies there: none, hunt anything with ranged fire; one, duel it by
-// kiting; more, kite the closest one. With no enemies it heals hurt friendlies
-// and holds near the room centre. Farm and Remote lay one through
+// It picks a fight by the number of melee enemies in the mission room
+// (arena): none, hunt anything with ranged fire; one, duel it by kiting;
+// more, kite the closest one. While the mission room is visible that choice
+// is made from wherever the guard stands, so it walks straight at its target
+// instead of to the room centre first; without vision it walks to the room.
+// With no enemies it heals hurt friendlies and holds near the room centre.
+// Farm and Remote lay one through
 // paceJobs(Guard, max(1500 - thostiles, 350)) once armed hostiles have been
 // seen for 100 consecutive ticks (team.ts suppressGuard was 3).
 
@@ -58,6 +61,18 @@ export class Guard extends JobRole {
         return this.mission.getRoomName("home");
     }
 
+    // The room whose enemies the guard fights: the mission room while it is
+    // visible (from anywhere), else the room the guard is in.
+    get arena(): Room {
+        return Game.rooms[this.mission.roomName] || this.c.room;
+    }
+
+    // A target still in play: in the arena or in the guard's own room.
+    inArena(target: Creep): boolean {
+        const name = target.pos.roomName;
+        return name === this.arena.name || name === this.pos.roomName;
+    }
+
     // Typed view of the prototype mixins this job leans on (intents, hurts,
     // activeByType, partsByType, idleFlee).
     get cc(): CreepMove {
@@ -78,28 +93,36 @@ export class Guard extends JobRole {
         const c = this.cc;
         if (this.shouldRetreat()) return this.retreat();
 
-        if (c.room.name !== this.mission.roomName) {
+        const away = c.room.name !== this.mission.roomName;
+        if (away) {
             // Fight whatever is in the way rather than walking through it,
             // except Source Keepers: they stay by their lair, and engaging one
             // from range 3 parks the guard there for good.
             const enemy = this.pos.findClosestByRange((c.room.enemies || []).filter(e => !e.keeper));
             if (enemy && this.pos.inRangeTo(enemy, 3)) return this.engage(enemy);
-            return this.moveRoom(this.mission.roomName);
+            // Blind: walk to the room. With vision the fight is picked from
+            // here (arena) and the Rewalker carries the guard to it.
+            if (!Game.rooms[this.mission.roomName]) return this.moveRoom(this.mission.roomName);
         }
 
         // role.guard.js taskGuard: pick the fight by melee count.
-        const melees = c.room.melees || [];
+        const arena = this.arena;
+        const melees = arena.melees || [];
         if (melees.length > 1) {
-            const melee = this.pos.findClosestByRange(melees);
-            if (melee) return this.kite(melee);
+            const melee = this.pos.findClosestByRange(melees) || melees[0];
+            return this.kite(melee);
         }
         if (melees.length === 1) return this.duel(melees[0]);
-        const enemy = this.pos.findClosestByRange(c.room.enemies || []);
+        const enemies = arena.enemies || [];
+        const enemy = this.pos.findClosestByRange(enemies) || enemies[0];
         if (enemy) return this.hunt(enemy);
 
         // role.guard.js taskGuardHealRoom: patch up a hurt friendly (JobCreep.pickHurt).
         const hurt = this.pickHurt();
         if (hurt) return this.healCreep(hurt);
+
+        // Nothing to fight or heal seen from outside: go and stand watch.
+        if (away) return this.moveRoom(this.mission.roomName);
 
         // role.guard.js movePeace(team): hold near the room centre.
         return this.hold();
@@ -132,12 +155,11 @@ export class Guard extends JobRole {
         return "wait";
     }
 
-    // role.guard.js taskHunt: chase an enemy while no melee is in the room.
+    // role.guard.js taskHunt: chase an enemy while no melee is in the arena.
     @task
     hunt(target: Creep): Task2Ret {
-        const c = this.cc;
-        if (target.pos.roomName !== this.pos.roomName) return "start";
-        if ((c.room.melees || []).length) return "start";
+        if (!this.inArena(target)) return "start";
+        if ((this.arena.melees || []).length) return "start";
         this.engage(target);
         return "wait";
     }
@@ -146,9 +168,8 @@ export class Guard extends JobRole {
     // shows up, or if the target lost its ATTACK parts while others remain.
     @task
     duel(target: Creep): Task2Ret {
-        const c = this.cc;
-        if (target.pos.roomName !== this.pos.roomName) return "start";
-        const nmelees = (c.room.melees || []).length;
+        if (!this.inArena(target)) return "start";
+        const nmelees = (this.arena.melees || []).length;
         if (nmelees > 1) return "start";
         if (!target.melee && nmelees) return "start";
         return this.kite(target);
