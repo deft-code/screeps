@@ -173,7 +173,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       inside, else closes on the one with least slack (distance - range) and holds at 0; with no
      │                       hostiles, walks onto the nearest foreign construction site to stomp it (not under ramparts or
      │                       obstacles, not while the owner's controller is in safe mode)
-     ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "close" spawn strategy, only once that room holds >= 550 energy; three modes in memory.pmode:
+     ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "close" spawn strategy, only once that room holds >= 550 energy; shield(): while its legacy build task (memory.task) is on a road/container site and an enemy creep (not a keeper) is within 4 of it, stands on that site so the enemy cannot remove it, unless one of our creeps is on it already (after armed hostiles are fled, before the task resumes); three modes in memory.pmode:
      │                       work (walk to the mission room, taskBuildAny, then taskRepairRemote on roads/containers; empty -> gather or forage),
      │                       gather (mission room is not SK and has a source: taskRechargeHarvest there until full), forage (SK room or no source:
      │                       walk the Rewalker route toward memory.home taking the nearest piles >= 50, tombstones, ruins, our stores or a

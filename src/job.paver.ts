@@ -11,6 +11,11 @@ const kLairRange = 5;
 // A paver spawns only from a room holding at least this much energy, so a
 // drained room does not turn out a 1 WORK paver.
 const kPaverMinEnergy = 550;
+// An enemy creep within this range of the road or container site the paver
+// is building may walk over it, which removes it (the engine drops a
+// foreign site under a creep). The paver stands on the site instead: a
+// creep on a tile keeps every other creep off it.
+const kShieldRange = 4;
 
 type Mode = "work" | "gather" | "forage";
 
@@ -41,6 +46,14 @@ const rewalker = defaultRewalker();
 //           SK rooms are ignored, and nothing within kLairRange of a keeper
 //           lair is touched). In the home room with nothing found it falls
 //           back to taskRechargeHarvest there. Full, it goes back to work.
+//
+// While the site the paver is building (its legacy build task,
+// memory.task) is a road or container and an enemy creep (Source Keepers
+// aside) is within kShieldRange of it, the paver walks onto that site and
+// stays on it (shield), so the enemy cannot step there and remove it; it
+// keeps building from on top (after: idleBuild). One of our creeps already
+// on the site does the same job, so the paver leaves it be. Armed hostiles
+// still send it fleeing first.
 @register
 export class Paver extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
@@ -94,14 +107,42 @@ export class Paver extends JobRole {
         // role.bootstrap.js taskRechargeHarvest and creep.oldrepair.js
         // taskRepairRemote are JS mixins without typings.
         const legacy = c as any;
-        const what = c.idleRetreat(WORK) || c.fleeHostiles() || c.taskTask();
-        if (what) return "wait";
+        if (c.idleRetreat(WORK) || c.fleeHostiles()) return "wait";
+        const shield = this.shield();
+        if (shield) return shield;
+        if (c.taskTask()) return "wait";
 
         switch (this.mode) {
             case "gather": return this.gather(legacy);
             case "forage": return this.forage(legacy);
             default: return this.work(legacy);
         }
+    }
+
+    // The road or container site the legacy build task is on, if any.
+    get buildingSite(): ConstructionSite | null {
+        const task = this.memory.task;
+        if (!task || task.task !== "build") return null;
+        const site = Game.getObjectById(task.id as Id<ConstructionSite>);
+        if (!site || !site.my) return null;
+        if (site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_CONTAINER) return null;
+        return site;
+    }
+
+    // Stand on the site being built while an enemy creep is within
+    // kShieldRange of it, or null.
+    shield(): Task2Ret | null {
+        const site = this.buildingSite;
+        if (!site || site.pos.roomName !== this.pos.roomName) return null;
+        const enemies = (this.c.room.enemies || []).filter(e => !e.keeper);
+        if (!site.pos.findInRange(enemies, kShieldRange).length) return null;
+        if (this.pos.isEqualTo(site.pos)) {
+            this.dlog("shielding", site);
+            return "wait";
+        }
+        // Another creep of ours on the site shields it already.
+        if (_.any(site.pos.lookFor(LOOK_CREEPS), c => c.my)) return null;
+        return this.moveTarget(site, 0);
     }
 
     work(legacy: any): Task2Ret {
