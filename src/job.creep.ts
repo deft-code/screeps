@@ -98,6 +98,12 @@ export class JobCreep extends MyCreep {
     // shoved off its tile. The plain step also follows a target that moves
     // and takes the tile the tick it frees up. "wait" while standing on the
     // target's tile.
+    //
+    // Works on any target with a pos: creeps, structures and construction
+    // sites alike. Do not special-case the target's type in a caller. A
+    // walkable target (a road or container site: Paver.shield) is stepped
+    // onto; a blocking one (an invader core: Wolf.attack) just keeps the
+    // creep pressed against it, which is harmless.
     moveChase(target: HasPos): Task2Ret {
         if (!this.pos.isNearTo(target.pos)) return this.moveTarget(target, 1);
         if (this.pos.isEqualTo(target.pos)) return "wait";

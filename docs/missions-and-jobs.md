@@ -215,7 +215,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 after() idleNom + idleRecharge; body 'upgrader' (2W/1C per level) via "local";
          │                                                 Upgrader.want(room) = 0 at RCL8, without storage, or below 100k, else storage energy / 100k (linear, fractional: 150k = 1.5)
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
-         ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' via "close"
+         ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' via "close"; attack() closes on its target, creep or structure, with moveChase
          ├─ Guard   @register              (job.guard.ts)  port of role.guard.js; Task2 @task hunt/duel/healCreep/retreat, kites melees via idleFlee;
          │                                                 picks its fight in the arena (the mission room while visible from anywhere, else its own room): without vision it walks to the room first, with vision it heads straight for its target from wherever it is and only walks to the room when nothing there needs it;
          │                                                 engage() shoots and closes to range 2 (3 on a melee target, since kite backs off at 2; 2 while that melee is fatigued, for the 10 damage instead of 4); an unarmed target (no active ATTACK or RANGED_ATTACK) is chased with moveChase instead, to range 1 and then a step at it every tick;

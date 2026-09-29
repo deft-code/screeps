@@ -98,18 +98,16 @@ export class Wolf extends JobRole {
         if (this.hostiles.length && !(target instanceof Creep && target.hostile)) return "start";
 
         const err = c.attack(target);
-        if (err === OK) {
-            c.intents.melee = target;
-            // Step into the target's square so a fleeing creep stays in reach.
-            if (target instanceof Creep) this.moveDir(this.pos.getDirectionTo(target));
-            return "wait";
+        if (err !== OK && err !== ERR_NOT_IN_RANGE) {
+            this.log("attack failed", err, target);
+            return "start";
         }
-        if (err === ERR_NOT_IN_RANGE) {
-            this.moveTarget(target, 1);
-            return "wait";
-        }
-        this.log("attack failed", err, target);
-        return "start";
+        if (err === OK) c.intents.melee = target;
+        // moveChase: walk to range 1, then step at the target's square every
+        // tick so a fleeing creep stays in reach. Creeps and structures
+        // alike: it takes any target.
+        this.moveChase(target);
+        return "wait";
     }
 
     hold(): Task2Ret {

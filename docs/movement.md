@@ -128,4 +128,8 @@ is range 3. `moveChase(target)` walks (Rewalker) to range 1 and then steps
 with `moveDir` toward the target, so the last step needs no path and follows
 a target that moves, and the Rewalker never paths onto the target's tile, so
 a stationary target (one of our creeps) is not bumped off it; `"wait"` once
-on the target's tile.
+on the target's tile. It takes any target with a `pos`, creeps, structures
+and construction sites alike, so callers must not special-case the target's
+type: a walkable target is stepped onto (`Paver.shield` on a road or
+container site), a blocking one keeps the creep pressed against it
+(`Wolf.attack` on an invader core).
