@@ -221,17 +221,13 @@ export class Guard extends JobRole {
         if (target.pos.roomName !== this.pos.roomName) return "start";
         if ((c.room.melees || []).length) return "start";
         if (target.hits >= target.hitsMax) return "start";
-        if (!this.pos.isNearTo(target)) {
-            this.moveTarget(target, 1);
-            return "wait";
-        }
-        if (c.heal(target) === OK) {
-            c.intents.melee = target;
-            // Press toward the target so it can keep moving without losing
-            // the heal. A plain move, not the Rewalker, so it is never
-            // bumped, and the move intent is left unset for an idle to use.
-            if (!c.intents.move) c.move(this.pos.getDirectionTo(target));
-        }
+        const near = this.pos.isNearTo(target);
+        if (near && c.heal(target) === OK) c.intents.melee = target;
+        // moveChase: a Rewalker walk to range 1, then a plain step toward the
+        // target, so it can keep moving without losing the heal and is never
+        // bumped. Beside it the move intent is left unset for an idle to use,
+        // and an earlier move this tick is not overridden.
+        if (!near || !c.intents.move) this.moveChase(target);
         return "wait";
     }
 

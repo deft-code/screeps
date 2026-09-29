@@ -29,6 +29,9 @@ const kTicksPerRoom = 50;
 // One-way trucker trip per room of route distance when no leg was measured;
 // real legs run container to storage and measure ~70 tiles per room.
 const kTilesPerRoom = 70;
+// Truckers are laid only while a container in the remote holds more energy
+// than this.
+const kTruckMinEnergy = 50;
 
 interface RemoteMemory extends MissionMemory {
     // room -> names of the metas this mission planned there (metaremote.ts).
@@ -133,12 +136,17 @@ export class Remote extends Farm {
         return Math.floor(kReserveSpotPace / nspots);
     }
 
-    // Truckers have nothing to haul until a container stands in the room:
-    // the harvester builds one on its rsrc tile (job.harvester.ts), and an
-    // earlier plan's container counts too (the truckers load from any).
-    hasContainer(): boolean {
+    // Truckers have nothing to haul until a container in the room holds
+    // more than kTruckMinEnergy energy: the harvester builds one on its rsrc tile (job.harvester.ts),
+    // and an earlier plan's container counts too (the truckers load from
+    // any). A dry room lays no truckers, which leaves the spawn queue to the
+    // harvesters that will fill the containers.
+    hasContainerEnergy(): boolean {
         const room = this.room!;
-        return room.find(FIND_STRUCTURES, { filter: s => s.structureType === STRUCTURE_CONTAINER }).length > 0;
+        return room.find(FIND_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_CONTAINER &&
+                (s as StructureContainer).store.getUsedCapacity(RESOURCE_ENERGY) > kTruckMinEnergy
+        }).length > 0;
     }
 
     // The rsrc metas planned in the remote room, in a stable order.
@@ -163,18 +171,19 @@ export class Remote extends Farm {
     }
 
     // team.ts trucker(): enough truckers in flight to carry away what the
-    // sources regenerate, all per creep lifetime:
-    //   energy  = 5 * sum(source capacity)            (regen every 300 ticks)
+    // worked sources regenerate, all per creep lifetime:
+    //   worked  = min(live harvesters, sources)       (a source nobody mines fills no container)
+    //   energy  = 5 * worked * avg source capacity    (regen every 300 ticks)
     //   haul    = avg trucker carry * 1500 / roundTrip (roundTrip from the planned leg)
     //   pace    = 1500 / (energy / haul), capped at 1500 so one is always in flight;
-    // 1500 while no trucker is alive to average. Same gates as harvest(), plus
-    // a built container on an rsrc tile.
+    // 1500 while no trucker is alive to average or no harvester is alive.
+    // Same gates as harvest(), plus a container in the room holding energy.
     truck() {
         const room = this.room!;
         if (room.hostiles.length) return null;
         if (this.foreignReserved()) return null;
         if (!this.rsrcMetas().length) return null;
-        if (!this.hasContainer()) return null;
+        if (!this.hasContainerEnergy()) return null;
         return this.paceJobs(Trucker, this.truckPace());
     }
 
@@ -185,7 +194,12 @@ export class Remote extends Farm {
         if (!carries.length) return CREEP_LIFE_TIME;
         const avgCarry = _.sum(carries) / carries.length;
 
-        const energy = 5 * _.sum(room.find(FIND_SOURCES), s => s.energyCapacity);
+        // Paced harvesters overlap, so never count more than the sources.
+        const sources = room.find(FIND_SOURCES);
+        const worked = Math.min(this.roleCreeps("harvester").length, sources.length);
+        if (!worked) return CREEP_LIFE_TIME;
+        const avgCapacity = _.sum(sources, s => s.energyCapacity) / sources.length;
+        const energy = 5 * worked * avgCapacity;
         const oneWay = this.memory.legSteps || kTilesPerRoom * dist(this.getRoomName("home")!, this.roomName);
         const roundTrip = 2 * oneWay + 10;
         const haul = avgCarry * CREEP_LIFE_TIME / roundTrip;

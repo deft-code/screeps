@@ -90,6 +90,20 @@ export class JobCreep extends MyCreep {
         return this.movePos(obj.pos, range);
     }
 
+    // Chase a target onto its tile: a Rewalker walk to range 1, then a plain
+    // step in the target's direction. The Rewalker never paths onto the
+    // target's tile, so it never bumps the target: a walk to range 0 that
+    // finds itself stuck pushes whichever of our creeps stands on the next
+    // tile aside (Rewalker bump), and a stationary target of ours would be
+    // shoved off its tile. The plain step also follows a target that moves
+    // and takes the tile the tick it frees up. "wait" while standing on the
+    // target's tile.
+    moveChase(target: HasPos): Task2Ret {
+        if (!this.pos.isNearTo(target.pos)) return this.moveTarget(target, 1);
+        if (this.pos.isEqualTo(target.pos)) return "wait";
+        return this.moveDir(this.pos.getDirectionTo(target.pos));
+    }
+
     movePos(pos: RoomPosition, range: number): Task2Ret {
         const ret = rewalker.walkTo(this.c, pos, range);
         if (ret === OK) return "start";

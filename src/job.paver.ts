@@ -146,7 +146,7 @@ export class Paver extends JobRole {
         }
         // Another creep of ours on the site shields it already.
         if (_.any(site.pos.lookFor(LOOK_CREEPS), c => c.my)) return null;
-        return this.moveTarget(site, 0);
+        return this.moveChase(site);
     }
 
     work(legacy: any): Task2Ret {

@@ -124,4 +124,8 @@ Room distance via `Game.map.findRoute` length, memoised in a module map and in
 `JobCreep.moveRoom(roomName, xy=2525, range=20)`, `moveTargetRoom(target)` (steps
 off the exit tile once inside), `moveDir`, `moveTarget`, `movePos` return
 `Task2Ret` (`"start"` on arrival, `"wait"` while moving). `walkRange(target)`
-is range 3.
+is range 3. `moveChase(target)` walks (Rewalker) to range 1 and then steps
+with `moveDir` toward the target, so the last step needs no path and follows
+a target that moves, and the Rewalker never paths onto the target's tile, so
+a stationary target (one of our creeps) is not bumped off it; `"wait"` once
+on the target's tile.

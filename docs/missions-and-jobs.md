@@ -122,8 +122,8 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               sites in view, unless one is already running.
                                                               harvest(): paceJobs(Harvester, (1500 - 50*route dist) / rsrc metas) while visible, no hostiles,
                                                               not foreign-reserved (civilians in remotes are paced, never replaced).
-                                                              truck(): paceJobs(Trucker, min(1500, 1500 / (5*sum(src cap) / (avg carry * 1500 / (2*legSteps+10))))) only once a container stands in the room (any container);
-                                                              same gates; 1500 while no trucker is alive; legSteps = longest source leg from planning
+                                                              truck(): paceJobs(Trucker, min(1500, 1500 / (5*min(live harvesters, sources)*avg src cap / (avg carry * 1500 / (2*legSteps+10))))) only while a container in the room (any container) holds more than 50 energy (kTruckMinEnergy), so a dry room leaves the spawn queue to its harvesters;
+                                                              same gates; 1500 while no trucker or no harvester is alive; legSteps = longest source leg from planning
          ├─ Raze             @register  (ms.raze.ts)           "Raze <room> [home]"; nJobs(Razer, 1) until the razer decommissions (memory.decomm) or the room is
          │                                                     visible with no dozeableStruct another player owns (FIND_HOSTILE_STRUCTURES), then windDown() (purges an unhatched egg)
          ├─ Once             @register  (ms.once.ts)           "Once <Job> <room> [count]"; lays an egg of the job whenever none is alive until count
@@ -173,7 +173,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       inside, else closes on the one with least slack (distance - range) and holds at 0; with no
      │                       hostiles, walks onto the nearest foreign construction site to stomp it (not under ramparts or
      │                       obstacles, not while the owner's controller is in safe mode)
-     ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "close" spawn strategy, only once that room holds >= 550 energy; shield(): while its legacy build task (memory.task) is on a road/container site and an enemy creep (not a keeper) is within 4 of it, stands on that site so the enemy cannot remove it, unless one of our creeps is on it already (after armed hostiles are fled, before the task resumes); an empty paver drops its build task first; three modes in memory.pmode:
+     ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "close" spawn strategy, only once that room holds >= 550 energy; shield(): while its legacy build task (memory.task) is on a road/container site and an enemy creep (not a keeper) is within 4 of it, stands on that site (reached with moveChase) so the enemy cannot remove it, unless one of our creeps is on it already (after armed hostiles are fled, before the task resumes); an empty paver drops its build task first; three modes in memory.pmode:
      │                       work (walk to the mission room, taskBuildAny, then taskRepairRemote on roads/containers; empty -> gather or forage),
      │                       gather (mission room is not SK and has a source: taskRechargeHarvest there until full), forage (SK room or no source:
      │                       walk the Rewalker route toward memory.home taking the nearest piles >= 50, tombstones, ruins, our stores or a
