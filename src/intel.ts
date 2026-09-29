@@ -1,4 +1,4 @@
-import { fromXY, defaultRewalker, SKInfo } from "Rewalker";
+import { fromXY, defaultRewalker, SKInfo, Rewalker, whoami } from "Rewalker";
 
 export function bestDeposit(room: Room): Deposit | null {
     const deposits = room.find(FIND_DEPOSITS);
@@ -167,6 +167,23 @@ export class RoomIntel {
 // Rewalker imports nothing: it asks here for a blind room's keepers.
 defaultRewalker().blindSKInfo = roomName => new SKInfo(Memory.rooms[roomName]?.intel?.sk || []);
 
+// ...and for the route cost of a room out of sight, from what intel last
+// saw of it: a stronghold (deployed invader core) or another player's base
+// cost as with vision, a foreign reservation likewise, our own rooms are
+// cheap; null (no intel, or nothing notable) leaves it to the guess.
+export function blindRoomCost(roomName: string): number | null {
+    const intel = RoomIntel.get(roomName);
+    if (!intel) return null;
+    const cost = Rewalker.routeCost;
+    if (intel.coreLvl > 0) return cost.invaderCore;
+    const owner = intel.owner;
+    if (!owner) return null;
+    const rcl = intel.rcl || 0;
+    if (owner === whoami()) return rcl >= 3 ? cost.myClaimed : cost.myReserved;
+    return rcl > 0 ? cost.hostileClaimed : cost.hostileReserved;
+}
+defaultRewalker().blindRoomCost = blindRoomCost;
+
 export function updateIntel(room: Room) {
     const intel = RoomIntel.get(room.name);
     if (!intel) {
@@ -205,14 +222,16 @@ function updateIntelMem(mem: RoomIntelMem, room: Room) {
     const controller = room.controller;
     if (controller) {
         if (mem.ctrl === undefined) mem.ctrl = controller.pos.xy;
+        // Owned, else reserved (rcl 0), else nobody's: a lapsed reservation
+        // or a lost room drops the key, so owner/rcl never go stale.
         const owner = controller.owner;
+        const res = controller.reservation;
         if (owner) {
             mem.owner = [userIdx(owner.username), controller.level];
+        } else if (res) {
+            mem.owner = [userIdx(res.username), 0];
         } else {
-            const res = controller.reservation;
-            if (res) {
-                mem.owner = [userIdx(res.username), 0];
-            }
+            delete mem.owner;
         }
     }
 

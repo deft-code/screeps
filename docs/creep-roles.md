@@ -27,7 +27,7 @@ TypeScript classes each `extends` the previous one for typing, but at runtime
 Creep
  ├─ CreepExtra   (creep.ts)      @extender  partsByType, activeByType, info/fullInfo (bodyInfo), hostile/assault, weight, bodyCost, spawnTime, hurts, toString(link)
  └─ CreepRole    (creep.role.ts) @injecter  run/after dispatch, home/team/teamRoom/atTeam/atHome, checkMem/checkId/checkFlag, taskTask, boosts (taskNeedBoost/taskBoost*), nearSpawn, idleImmortal (renew at an adjacent spawn when the pool is full; stores memory.ecap on first call and stops renewing once room capacity exceeds it)
-     └─ CreepMove    (creep.move.ts)    moveDir/movePos/moveNear/moveRange/moveTarget (Rewalker), moveRoom, taskMoveRoom, taskMoveFlag, moveSpot, fleeHostiles/idleFlee, idleRetreat, actionHospital, moveBump
+     └─ CreepMove    (creep.move.ts)    moveDir/movePos/moveNear/moveRange/moveTarget (Rewalker), moveRoom, taskMoveRoom, taskMoveFlag, moveSpot, fleeHostiles/idleFlee (optional maxRooms lets a flight cross an exit on Rewalker matrices, never into a hostile-claimed room), idleRetreat, actionHospital, moveBump
          └─ CreepCarry  (creep.carry.ts)  transfer/withdraw/pickup families: idleTransfer*, taskTransfer*, goTransfer, idleWithdrawExtra, idleRecharge, taskRecharge(Limit), taskWithdraw*, goWithdraw, idleNom/idleNomNom, taskPickup*, goPickup, taskDrop
              └─ CreepHarvest (creep.harvest.ts)  goHarvest
                  └─ CreepBuild (creep.build.ts)  idleBuild, taskBuildOrdered/Structs/Sites/..., goBuild (builds from buildRange: 3, 2 within 3 of the edge, 1 within 2)

@@ -114,7 +114,7 @@ ask the terminal to `requestMineral`/`autoBuy`. `needs(orig)` walks
 
 `updateIntel(room)` runs for every visible room from `strat.init()` and writes
 `Memory.rooms[x].intel = { last, owner: [userIdx, rcl], core?, power?, deposit?, src?: xy[], ctrl?: xy, min?: xy, thor?: [xy, amount] }`
-(`src`/`ctrl` are the packed source and controller positions, written once; `RoomIntel.srcPos`/`ctrlPos`/`srcXYs`/`ctrlXY` read them)
+(`owner` is dropped once the controller is neither owned nor reserved; `src`/`ctrl` are the packed source and controller positions, written once; `RoomIntel.srcPos`/`ctrlPos`/`srcXYs`/`ctrlXY` read them)
 plus the shared `Memory.intel = { users, recs, recExpire }` (highway rooms with
 deposits/power banks). `roomKind(name)` classifies Hwy / Portal / SourceKeeper /
 Regular from coordinates. `RoomIntel.get(name)` is the read API (`owner`,

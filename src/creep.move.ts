@@ -2,7 +2,7 @@ import * as lib from 'lib';
 import { injecter } from 'roomobj';
 import { CreepRole } from 'creep.role';
 import { errStr, dirStr } from 'debug';
-import { defaultRewalker } from 'Rewalker';
+import { defaultRewalker, Rewalker } from 'Rewalker';
 
 type HasPos = { pos: RoomPosition };
 type ObjPos = RoomPosition | HasPos;
@@ -91,12 +91,20 @@ export class CreepMove extends CreepRole {
   }
 
   // Step away until every creep is at least `range` away; `range` may be a
-  // per-creep function.
-  idleFlee(creeps: Creep[], range: number | ((c: Creep) => number)) {
+  // per-creep function. The search stays in this room unless `maxRooms` is
+  // more than 1: then a larger range can carry the flight over an exit,
+  // through the Rewalker's matrices for the rooms beyond, never into a room
+  // that costs as much as a hostile base to route through (its towers are
+  // worse than whatever is being fled; a chaos in W23S4 fled into the
+  // Nidoran base next door, Sept 2026).
+  idleFlee(creeps: Creep[], range: number | ((c: Creep) => number), maxRooms = 1) {
     const rangeOf = typeof range === 'number' ? () => range : range
     const room = this.room
     const callback = (roomName: string) => {
       if (roomName !== room.name) {
+        if (maxRooms > 1 && rewalker._getRoomCost(roomName) < Rewalker.routeCost.hostileClaimed) {
+          return rewalker.getMatrix(roomName)
+        }
         console.log('Unexpected room', roomName)
         return false
       }
@@ -121,6 +129,7 @@ export class CreepMove extends CreepRole {
     const ret = PathFinder.search(
       this.pos, _.map(creeps, creep => ({ pos: creep.pos, range: rangeOf(creep) })), {
       flee: true,
+      maxRooms,
       roomCallback: callback
     })
 

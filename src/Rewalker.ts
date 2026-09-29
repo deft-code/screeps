@@ -145,6 +145,11 @@ export function matrixAvoid(mat: CostMatrix, pos: RoomPosition, range: number, b
 
 // The engine's Source Keeper user (creeps/keepers/pretick.js in the engine).
 export const kKeeperUser = 'Source Keeper'
+// applySK: cost added per ring of the avoid around a known keeper tile
+// (range 3: 50, 100, 150) and around a resource whose keeper is unseen
+// (range 4: 40 .. 160). Stays under the 254 clamp with plain terrain.
+const kSKRing = 50
+const kSKBlindRing = 40
 
 // Where a keeper room's Source Keepers stand. A keeper walks once from its
 // lair to a tile beside the source or mineral it guards and stays there for
@@ -491,8 +496,10 @@ const ROUTE_ALLY_RESERVED = 4
 const ROUTE_NORMAL = 5
 const ROUTE_ALLY_CLAIMED = 6
 const ROUTE_SK = 7
-const ROUTE_HOSTILE_RESERVED = 8
-const ROUTE_HOSTILE_CLAIMED = 10
+const ROUTE_HOSTILE_RESERVED = ROUTE_SK
+// A base with towers, or a stronghold: a two-room detour is always worth it.
+const ROUTE_HOSTILE_CLAIMED = 25
+const ROUTE_INVADER_CORE = ROUTE_HOSTILE_CLAIMED
 
 // PathFinder budget per room on the route. Measured: a plain three-room walk
 // at plainCost 2 needs ~1800 ops, a room carrying a flat +3 penalty ~6700.
@@ -539,6 +546,27 @@ export class Rewalker {
         this._blindSKInfo = fn
     }
 
+    // The route cost of a room out of sight, from whatever the caller
+    // remembers of it (intel.ts: its owner, a stronghold), or null to fall
+    // back on guessRoomCost. Vision-derived costs live on the heap, so
+    // without this every push sends creeps through a tower room at the
+    // plain-room price until something sees it again.
+    _blindRoomCost: (roomName: string) => number | null = () => null
+    get blindRoomCost(): (roomName: string) => number | null {
+        return this._blindRoomCost
+    }
+    set blindRoomCost(fn: (roomName: string) => number | null) {
+        this._blindRoomCost = fn
+    }
+
+    // The route cost table, for blindRoomCost callbacks.
+    static readonly routeCost = {
+        myClaimed: ROUTE_MY_CLAIMED, myReserved: ROUTE_MY_RESERVED, highway: ROUTE_HIGHWAY,
+        allyReserved: ROUTE_ALLY_RESERVED, normal: ROUTE_NORMAL, allyClaimed: ROUTE_ALLY_CLAIMED,
+        sk: ROUTE_SK, hostileReserved: ROUTE_HOSTILE_RESERVED, hostileClaimed: ROUTE_HOSTILE_CLAIMED,
+        invaderCore: ROUTE_INVADER_CORE,
+    }
+
     // The keepers of a room as Rewalker knows them: recalculated from
     // vision while any is unknown, the blind callback asked for the gaps
     // that remain. A room never seen is the callback's answer alone.
@@ -551,14 +579,18 @@ export class Rewalker {
 
     // The keeper layer of a keeper room's matrix: range 3 around each known
     // keeper tile, or, with vision, range 4 around a resource whose keeper
-    // has not been seen yet (`resources` in SKInfo memory order).
+    // has not been seen yet (`resources` in SKInfo memory order). A keeper
+    // does 100 a tick at range 3 (10 RANGED_ATTACK), so the outer ring
+    // costs kSKRing per tile and each ring in adds another: at the default
+    // 10 the ring cost 12 and a 15-tile detour lost to two tiles through it
+    // (200 hits off every chaos walking W25S7 to W25S6, Sept 2026).
     applySK(mat: CostMatrix, roomName: string, sk: SKInfo, resources: RoomObject[] = []) {
         for (let i = 0; i < 4; i++) {
             const xy = sk.memory[i]
             if (xy !== 0) {
-                matrixAvoid(mat, fromXY(xy, roomName), 3)
+                matrixAvoid(mat, fromXY(xy, roomName), 3, kSKRing, kSKRing)
             } else if (resources[i]) {
-                matrixAvoid(mat, resources[i].pos, 4)
+                matrixAvoid(mat, resources[i].pos, 4, kSKBlindRing, kSKBlindRing)
             }
         }
     }
@@ -739,6 +771,12 @@ export class Rewalker {
 
     _calcRoomCost(room: Room): number {
         let cost = ROUTE_NORMAL
+        // A deployed invader core (level 1 and up: a stronghold with its
+        // towers and ramparts; a level 0 core in a reserved room only
+        // fights back when attacked) costs as much as a hostile base.
+        const core = _.any(room.find(FIND_HOSTILE_STRUCTURES),
+            s => s.structureType === STRUCTURE_INVADER_CORE && (s as StructureInvaderCore).level > 0)
+        if (core) return ROUTE_INVADER_CORE
         if (room.controller) {
             const ctrl = room.controller
             if (ctrl.my) return ctrl.level >= 3 ? ROUTE_MY_CLAIMED : ROUTE_MY_RESERVED
@@ -867,6 +905,8 @@ export class Rewalker {
     _getRoomCost(roomName: string): number {
         const info = this._getRoomInfo(roomName)
         if (info) return info.cost
+        const blind = this.blindRoomCost(roomName)
+        if (blind !== null) return blind
         return this.guessRoomCost(roomName)
     }
 

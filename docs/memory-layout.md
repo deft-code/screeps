@@ -37,7 +37,9 @@ ours already standing for the room is adopted when the id is missing or stale.
                      windDown?: true, tombs?: { "asrc0": tick },      // set by windDown(); tick = expected tombstone decay
                      when?: { wolf: tick },                           // paceCreeps: tick the last paced egg was laid
                      sparkjoy?: tick,                                 // Swipe: next sparkJoy look at the home stores
-                     doze?: [[xy, roomName], ...] } }                 // Bulldoze: tiles to clear, the first is the destination
+                     doze?: [[xy, roomName], ...],                    // Bulldoze: tiles to clear, the first is the destination
+                     player?, reserved?, claimed?, bad?,              // Nidoran: the target player and its rooms from intel; reserved rooms no route reaches
+                     active?, since?, scanned? } }                    // Nidoran: the room the chaos creeps work, when picked, last intel scan
   "Remote W27S9 W26S8": { ..., metas?: { W27S9: ["rsrc_608", "rroad_W27S9_608"], W26S9: [...] },  // room -> metas the mission planned (rroads hold traffic entries)
                           planned?: tick,                             // present once planning was attempted; windDown removes the metas
                           legSteps?: 115 }                            // longest planned source leg, one-way trucker trip
@@ -55,7 +57,7 @@ After spawn: `nest = spawnName`, `home = roomName`. Roles then add:
 `task` (legacy `{task, id?, flag?, first?, resource?, max?, spot?}`), `task2`
 (`{name, args, id?}`), `_walk` (Rewalker `[destXY, destRoom, [xy, room, dirs], incomplete?]`),
 `srcid/contid/linkid` (srcer), `struct` (ctrl), `repairid`, `spawnid`, `ecap` (room capacity at the first `idleImmortal`; renewing stops once the room exceeds it),
-`noboost` (Bulldozer: a lab refused it, stop asking), `idle`/`decomm` (Razer: ticks with nothing to do; decommissioning, walking back to its spawn to be recycled), `contid` (Trucker: the remote container it is heading to load from), `stray` (Chemist: the load in hand was gathered off the floor and goes to the storage), `boosts[]`, `debug` (expiry tick), `spot`, `start`, `team`.
+`noboost` (Bulldozer: a lab refused it, stop asking), `idle`/`decomm` (Razer: ticks with nothing to do; decommissioning, walking back to its spawn to be recycled), `retreat`/`fled` (Chaos: the owned room it walks into once hurt or old; the tick it last fled), `contid` (Trucker: the remote container it is heading to load from), `stray` (Chemist: the load in hand was gathered off the floor and goes to the storage), `boosts[]`, `debug` (expiry tick), `spot`, `start`, `team`.
 Legacy team eggs used `{ team: flagName, egg: { team, body, laid, spawn, priority, ... } }`
 and are no longer created; `Mission.hatchEggs` treats any `nest !== "egg"` as
 a stuck egg and resets it.
@@ -74,7 +76,7 @@ delete by hand: it restarts from empty.
 ### `Memory.rooms[name]`
 | field | writer | live | shape |
 |---|---|---|---|
-| `intel` | `intel.ts` | yes | `{ last, enabled?, owner?: [userIdx, rcl], core?: [lvl, expire], power?: [xy, amount, expire], deposit?: [xy, cooldown, expire], src?: xy[], ctrl?: xy, min?: xy, thor?: [xy, amount], sk?: xy[4], portal? }` (`src`/`ctrl`/`min` written once on first sight, `thor` rewritten every visit and deleted when the thorium is gone, `sk` keeper rooms only: the Source Keeper standing tile per source and mineral sorted by id, 0 until seen, a copy of `Rewalker.skInfo(room)` every visible tick; `RoomIntel.srcPos`/`ctrlPos`/`minPos`/`thorPos`/`thorAmount`/`sk` read them) |
+| `intel` | `intel.ts` | yes | `{ last, enabled?, owner?: [userIdx, rcl], core?: [lvl, expire], power?: [xy, amount, expire], deposit?: [xy, cooldown, expire], src?: xy[], ctrl?: xy, min?: xy, thor?: [xy, amount], sk?: xy[4], portal? }` (`src`/`ctrl`/`min` written once on first sight, `thor` rewritten every visit and deleted when the thorium is gone, `owner` deleted when the controller is neither owned nor reserved, `sk` keeper rooms only: the Source Keeper standing tile per source and mineral sorted by id, 0 until seen, a copy of `Rewalker.skInfo(room)` every visible tick; `RoomIntel.srcPos`/`ctrlPos`/`minPos`/`thorPos`/`thorAmount`/`sk` read them) |
 | `meta` | `metastruct.ts` | yes | `{ name?: string, metas: MetaMem[], traffic?: TrafficPlanMem, keep?, drop?, roadkeep?, roaddrop?: xy[], rampart?, constructedWall?: {xy: MAXHITS} }`; `name` is the genesis flag's name (stamped by every `runGenesis` pass) and names the room's spawns; `MetaMem.retire?: {xy: rcl}` retires a tile from that RCL; `MetaMem.traffic?: [{src, dest, range?, rcl, swamp?, swampCost?}]` are stored traffic entries (`rroad_*`; `src: -1` is the room's traffic origin); `traffic` is the manager's road plan, a `MetaMem` named `traffic` with `structs.road` by level plus `sig` (input hash, `""` = replan pending), `at` (tick) and `fail?: string[]`; see [metastruct.md](metastruct.md) |
 | `links` | `struct.link.ts` | yes | `{ [xy]: { mode: "^"|"+"|"-"|"="|"x" } }` (old entries may still say `"src"`/`"sink"`) |
 | `labs` | `struct.lab.js` | yes | `{ current?: resource, order?: labId[], [labId]: { note, planType?, boost?, boostTime? } }` |
