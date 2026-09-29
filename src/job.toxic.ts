@@ -183,6 +183,12 @@ export class Toxic extends Guard {
         return null;
     }
 
+    // Guard.healCreep gives way to these; a toxic picks its own fights
+    // (harass: assaulters first), so nothing interrupts its healing.
+    fighters(): Creep[] {
+        return [];
+    }
+
     harass(): Task2Ret {
         if (this.hostiles.length) {
             this.mode = "bait";

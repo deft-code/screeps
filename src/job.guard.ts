@@ -33,6 +33,8 @@ const kHoldRange = 3;
 const kEngageRange = 2;
 const kEngageMeleeRange = 3;
 const kEngageFatiguedRange = 2;
+// A body with any of these was built to fight (Guard.isDisarmed).
+const kCombatParts: BodyPartConstant[] = [ATTACK, RANGED_ATTACK, HEAL];
 
 declare global {
     interface CreepMemory {
@@ -98,8 +100,8 @@ export class Guard extends JobRole {
             // Fight whatever is in the way rather than walking through it,
             // except Source Keepers: they stay by their lair, and engaging one
             // from range 3 parks the guard there for good.
-            const enemy = this.pos.findClosestByRange((c.room.enemies || []).filter(e => !e.keeper));
-            if (enemy && this.pos.inRangeTo(enemy, 3)) return this.engage(enemy);
+            const enemy = this.pickEnemy((c.room.enemies || []).filter(e => !e.keeper));
+            if (enemy && this.pos.inRangeTo(enemy, 3) && !this.healFirst(enemy)) return this.engage(enemy);
             // Blind: walk to the room. With vision the fight is picked from
             // here (arena) and the Rewalker carries the guard to it.
             if (!Game.rooms[this.mission.roomName]) return this.moveRoom(this.mission.roomName);
@@ -113,19 +115,57 @@ export class Guard extends JobRole {
             return this.kite(melee);
         }
         if (melees.length === 1) return this.duel(melees[0]);
-        const enemies = arena.enemies || [];
-        const enemy = this.pos.findClosestByRange(enemies) || enemies[0];
-        if (enemy) return this.hunt(enemy);
-
-        // role.guard.js taskGuardHealRoom: patch up a hurt friendly (JobCreep.pickHurt).
+        // Armed enemies and disarmed fighters, then a hurt friendly
+        // (role.guard.js taskGuardHealRoom, JobCreep.pickHurt), then civilians.
+        const enemy = this.pickEnemy(arena.enemies || []);
+        if (enemy && !this.isCivilian(enemy)) return this.hunt(enemy);
         const hurt = this.pickHurt();
         if (hurt) return this.healCreep(hurt);
+        if (enemy) return this.hunt(enemy);
 
         // Nothing to fight or heal seen from outside: go and stand watch.
         if (away) return this.moveRoom(this.mission.roomName);
 
         // role.guard.js movePeace(team): hold near the room centre.
         return this.hold();
+    }
+
+    // A fighter that cannot fight right now: no active ATTACK or
+    // RANGED_ATTACK (not Creep.hostile) but a body built with ATTACK,
+    // RANGED_ATTACK or HEAL parts. Its weapons are broken, or it is a
+    // healer; either way it is worth more dead than a hauler or a scout,
+    // and a broken one is armed again as soon as it is healed.
+    isDisarmed(enemy: Creep): boolean {
+        if (enemy.hostile) return false;
+        return _.any(kCombatParts, part => (enemy as CreepMove).partsByType.get(part));
+    }
+
+    // Unarmed and not a disarmed fighter: haulers, harvesters, scouts.
+    isCivilian(enemy: Creep): boolean {
+        return !enemy.hostile && !this.isDisarmed(enemy);
+    }
+
+    // Healing one of ours outranks a civilian target: true when `enemy` is a
+    // civilian and a friendly in the guard's room is hurt.
+    healFirst(enemy: Creep): boolean {
+        return this.isCivilian(enemy) && !!this.pickHurt();
+    }
+
+    // Anything that outranks healing: an armed enemy or a disarmed fighter.
+    fighters(): Creep[] {
+        return (this.arena.enemies || []).filter(e => !this.isCivilian(e));
+    }
+
+    // The enemy to fight: the closest one, civilians left out while a
+    // disarmed fighter is among them. Armed enemies are ranked by range
+    // against the disarmed ones as before.
+    pickEnemy(enemies: Creep[]): Creep | null {
+        if (!enemies.length) return null;
+        let pool = enemies;
+        if (_.any(enemies, e => this.isDisarmed(e))) {
+            pool = enemies.filter(e => !this.isCivilian(e));
+        }
+        return this.pos.findClosestByRange(pool) || pool[0];
     }
 
     shouldRetreat(): boolean {
@@ -160,6 +200,11 @@ export class Guard extends JobRole {
     hunt(target: Creep): Task2Ret {
         if (!this.inArena(target)) return "start";
         if ((this.arena.melees || []).length) return "start";
+        // A civilian is dropped for a disarmed fighter that shows up (or
+        // an enemy whose weapons break) while it is being chased.
+        if (this.isCivilian(target) && _.any(this.arena.enemies || [], e => this.isDisarmed(e))) return "start";
+        // ...and for a hurt friendly.
+        if (this.healFirst(target)) return "start";
         this.engage(target);
         return "wait";
     }
@@ -222,12 +267,14 @@ export class Guard extends JobRole {
         return true;
     }
 
-    // role.guard.js taskGuardHeal: only while no melee is in the room.
+    // role.guard.js taskGuardHeal: only while no melee is in the room and
+    // no armed enemy or disarmed fighter is in the arena (they outrank it).
     @task
     healCreep(target: Creep): Task2Ret {
         const c = this.cc;
         if (target.pos.roomName !== this.pos.roomName) return "start";
         if ((c.room.melees || []).length) return "start";
+        if (this.fighters().length) return "start";
         if (target.hits >= target.hitsMax) return "start";
         const near = this.pos.isNearTo(target);
         if (near && c.heal(target) === OK) c.intents.melee = target;
