@@ -195,11 +195,19 @@ export class Guard extends JobRole {
     }
 
     // Shoot the target and close to kEngageRange (a melee target: meleeHold,
-    // see kite); every tick both, so it keeps closing while it fires.
+    // see kite); every tick both, so it keeps closing while it fires. A
+    // target that cannot hurt us (no active ATTACK or RANGED_ATTACK:
+    // Creep.hostile) is chased instead (moveChase): up to it and then a
+    // step at it every tick, so it is followed the tick it moves and never
+    // slips out of range.
     engage(target: Creep): Task2Ret {
         const range = this.pos.getRangeTo(target);
-        const hold = target.melee ? this.meleeHold(target) : kEngageRange;
         if (range <= 3) this.shoot(target, range);
+        if (!target.hostile) {
+            this.moveChase(target);
+            return "wait";
+        }
+        const hold = target.melee ? this.meleeHold(target) : kEngageRange;
         if (range > hold) this.moveTarget(target, hold);
         return "wait";
     }
