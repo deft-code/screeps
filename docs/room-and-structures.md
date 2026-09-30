@@ -14,7 +14,20 @@ cached strat. `NullStrat` -> `ClaimedStrat` when the controller becomes ours,
 -> `ActiveStrat` when metas appear; `ActiveStrat` -> `ClaimedStrat` on claim,
 -> `NullStrat` when its metas are removed (a Remote mission's `windDown`).
 The outgoing strat `kill()`s itself in `replace()` so only one process per
-room survives. `ClaimedStrat.evolve()` returns `null`.
+room survives. `ClaimedStrat.evolve()` swaps to whatever
+`Memory.rooms[name].strat` names (see below), else returns `null`.
+
+**Per-room override.** `registerStrat(name, ctor)` registers a `ClaimedStrat`
+subclass; `setRoomStrat(room, name | null)` writes or deletes
+`Memory.rooms[room].strat`. `makeStrat` and `ClaimedStrat.evolve()` both
+consult it, so the swap happens on the next `room.strat` access and survives
+resets. An unknown name warns and runs `ClaimedStrat`. The one registered
+override is `thorclaimed` (`ThorStrat`, `src/strat.thor.ts`): `ClaimedStrat`
+with ramparts capped at 1M `maxHits`; set by the `Thorhub` mission while it
+runs, cleared by its `windDown()`, and self-clearing once the room is no
+longer ours. A strat-level cap also sidesteps the MetaManager's per-tile
+rampart tier cache, which bakes in the RCL at first evaluation until the next
+plan save.
 
 | | `NullStrat` | `ActiveStrat` | `ClaimedStrat` |
 |---|---|---|---|

@@ -68,6 +68,7 @@ import 'ms.once';
 import 'ms.paveall';
 import 'ms.startup';
 import 'ms.hub';
+import 'ms.thorhub';
 import 'ms.selloff';
 import 'ms.experiment';
 import 'ms.balance';

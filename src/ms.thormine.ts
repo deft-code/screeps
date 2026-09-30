@@ -34,6 +34,9 @@ interface ThormineMemory extends MissionMemory {
     // mined-out thorium mineral vanishes from the room (Season 11), so this
     // is how "mined out" is told apart from "never had thorium".
     thoriumSeen?: boolean
+    // Teardown is opt-in: with this unset or false the mission idles once
+    // the thorium is exhausted. Set from the console via `teardownEnabled`.
+    teardownEnabled?: boolean
     // Set once teardown begins; only ever moves forward.
     teardown?: {
         phase: Phase
@@ -58,9 +61,13 @@ interface ThormineMemory extends MissionMemory {
 //     transfer for to the destination room's terminal. Skipped when the
 //     destination is this room or has no terminal we can see.
 //
-// Teardown. Once the mineral is exhausted (mineralAmount 0, whatever its
-// regeneration timer says), the terminal holds no thorium and no thoreater
-// is left, the mission dismantles the room in phases (memory.teardown.phase):
+// Teardown is off by default. Turn it on from the console:
+//   getService('Thormine W26S8').teardownEnabled = true   // false switches it off again
+// With it off the mission just idles once the thorium is gone (status shows
+// `exhausted`). With it on, once the mineral is exhausted (mineralAmount 0,
+// whatever its regeneration timer says), the terminal holds no thorium and no
+// thoreater is left, the mission dismantles the room in phases
+// (memory.teardown.phase):
 //   missions  windDown() every other mission homed here (getRoomName("home")
 //             is this room, or roomName is with no home: Hub, Startup, Farm,
 //             Remote, Reactor, ReactorDepot, ...); clear the room's meta plan
@@ -100,6 +107,18 @@ export class Thormine extends Mission {
         return this.mem.teardown?.phase || null;
     }
 
+    // Whether the mission may tear the room down once its thorium is
+    // exhausted. Off by default; survives resets in mission memory.
+    get teardownEnabled(): boolean {
+        return !!this.mem.teardownEnabled;
+    }
+
+    set teardownEnabled(on: boolean) {
+        const was = this.teardownEnabled;
+        this.mem.teardownEnabled = !!on;
+        if (was !== this.teardownEnabled) debug.log(this.name, "teardown", on ? "enabled" : "disabled");
+    }
+
     run(): Priority {
         if (this.windingDown) return super.run();
         const room = this.room;
@@ -114,7 +133,7 @@ export class Thormine extends Mission {
                 }
                 this.mine(room);
                 this.ship(room);
-                if (this.exhausted(room)) this.beginTeardown();
+                if (this.teardownEnabled && this.exhausted(room)) this.beginTeardown();
             }
         }
         super.run();
@@ -405,7 +424,8 @@ export class Thormine extends Mission {
     status(): string {
         const mineral = this.mineral;
         const td = this.mem.teardown;
-        const tear = td ? ` TEARDOWN:${td.phase}(${Game.time - td.since}) wound:${(td.wound || []).length}` : "";
+        const tear = td ? ` TEARDOWN:${td.phase}(${Game.time - td.since}) wound:${(td.wound || []).length}`
+            : ` teardown:${this.teardownEnabled ? "on" : "off"}${this.room && this.exhausted(this.room) ? " exhausted" : ""}`;
         const gate = this.closed ? ` closed:${this.closed}` : ` spots:${this.spots}`;
         return super.status() + ` visible:${!!this.room} thorium:${mineral?.mineralAmount ?? "-"}` +
             ` terminal:${this.stock} dest:${this.destName}${gate}${tear}`;

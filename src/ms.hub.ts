@@ -102,8 +102,8 @@ export class Hub extends Mission {
         this.nJobs(Ctrl, 1);
 
         room.storage && this.nJobs(HubJob, 1);
-        this.nJobs(Upgrader, Math.max(Upgrader.want(room), this.pileUpgraders(room)));
-        this.nJobs(CtrlHauler, CtrlHauler.want(this));
+        this.nJobs(Upgrader, this.nUpgraders(room));
+        this.nJobs(CtrlHauler, this.nCtrlHaulers());
         this.nJobs(Chemist, Chemist.want(room));
 
         super.run();
@@ -144,6 +144,25 @@ export class Hub extends Mission {
         return _.sum(room.find(FIND_DROPPED_RESOURCES, {
             filter: r => r.resourceType === RESOURCE_ENERGY,
         }), r => r.amount);
+    }
+
+    // Upgraders wanted: Upgrader.want (storage surplus below RCL8) or one for
+    // a big pile. Subclasses (Thorhub) override to lay none.
+    nUpgraders(room: Room): number {
+        return Math.max(Upgrader.want(room), this.pileUpgraders(room));
+    }
+
+    // CtrlHaulers wanted: CtrlHauler.want (storage surplus, empty ctrl
+    // container). Subclasses (Thorhub) override to lay none.
+    nCtrlHaulers(): number {
+        return CtrlHauler.want(this);
+    }
+
+    // Energy capacity the Ctrl job sizes its body to, or null for Ctrl.spawn's
+    // own rule (full size until the storage is under the reserve, small at
+    // RCL8). Subclasses (Thorhub) pin it small.
+    ctrlCap(room: Room): number | null {
+        return null;
     }
 
     // One upgrader while some pile in the room holds kPileUpgrade energy.

@@ -8,6 +8,7 @@ import { updateIntel } from "intel";
 import { runFactory } from "struct.factory";
 import { exec, Priority, Process } from "process";
 import { hasMetas } from "metastruct";
+import * as debug from "debug";
 
 declare global {
     interface Memory {
@@ -15,6 +16,9 @@ declare global {
     }
     interface RoomMemory {
         nstructs?: number
+        // Name of a registered strat (registerStrat) an owned room runs in
+        // place of ClaimedStrat. Set by missions through setRoomStrat.
+        strat?: string
     }
     interface Room {
         strat: IStrat
@@ -88,6 +92,44 @@ function legacyInit(room: Room) {
 }
 
 const cache = new Map<string, IStrat>();
+
+// ---- per-room strat override ----
+//
+// An owned room runs ClaimedStrat unless Memory.rooms[name].strat names a
+// registered replacement (a ClaimedStrat subclass: strat.thor.ts). Missions
+// set it with setRoomStrat(room, name) and clear it with setRoomStrat(room,
+// null); ClaimedStrat.evolve() swaps the running strat to match on the next
+// room.strat access. Unknown names fall back to ClaimedStrat with a warning.
+
+type StratCtor = new (roomName: string) => IStrat;
+const stratTypes = new Map<string, StratCtor>();
+
+export function registerStrat(name: string, ctor: StratCtor) {
+    if (stratTypes.has(name)) debug.warn("strat double registry", name);
+    stratTypes.set(name, ctor);
+}
+
+export function setRoomStrat(roomName: string, name: string | null) {
+    const mem = Memory.rooms[roomName] = Memory.rooms[roomName] || {} as RoomMemory;
+    if ((mem.strat || null) === name) return;
+    if (name) {
+        if (!stratTypes.has(name)) debug.warn("setRoomStrat unknown strat", name, "for", roomName);
+        mem.strat = name;
+    } else {
+        delete mem.strat;
+    }
+    debug.log("room strat", roomName, "->", name || "default");
+}
+
+// The class an owned room should be running right now.
+function claimedStratFor(roomName: string): StratCtor {
+    const name = Memory.rooms[roomName]?.strat;
+    if (!name) return ClaimedStrat;
+    const ctor = stratTypes.get(name);
+    if (ctor) return ctor;
+    if (Game.time % 100 === 0) debug.warn("unknown strat", name, "for", roomName, "; running ClaimedStrat");
+    return ClaimedStrat;
+}
 
 export class NullStrat extends Process implements IStrat {
     name = 'nullstrat';
@@ -206,10 +248,16 @@ export function GetStrat(room: Room): IStrat {
 let cpu = 0;
 let nhits = 0;
 
-class ClaimedStrat extends NullStrat implements IStrat {
+export class ClaimedStrat extends NullStrat implements IStrat {
     name = "claimedstrat"
-    // Inherits NullStrat.evolve otherwise, which would re-create itself forever.
-    evolve(): null { return null }
+    // Swap to the strat Memory.rooms[name].strat asks for (or back to plain
+    // ClaimedStrat once it is cleared). Never NullStrat.evolve, which would
+    // re-create a ClaimedStrat forever.
+    evolve(): IStrat | null {
+        const want = claimedStratFor(this.roomName);
+        if (want === this.constructor) return null;
+        return this.replace(new want(this.roomName));
+    }
     init() {
         super.init();
         if (this.room.controller?.level === 8) {
@@ -254,7 +302,8 @@ class ClaimedStrat extends NullStrat implements IStrat {
 
 function makeStrat(room: Room): IStrat {
     if (room.controller && room.controller.my) {
-            return new ClaimedStrat(room.name);
+        const ctor = claimedStratFor(room.name);
+        return new ctor(room.name);
     }
     if (hasMetas(room.name)) return new ActiveStrat(room.name);
     return new NullStrat(room.name);

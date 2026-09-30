@@ -74,6 +74,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     invader core with a level, and one found (or a creep dying in such a room whose intel shows a core) sets
          │                                                     pauseUntil = now + 2500 and purges every egg but scouts (Mission.purgeEggs keep-list); while paused
          │                                                     paceJobs(Scout, 1400) still runs (Reactor.whilePaused hook), so passing scouts renew the pause until the core is gone
+         ├─ Thorhub          @register  (ms.thorhub.ts)        "Thorhub <room>"; Hub subclass for a temporary Thormine room: nUpgraders() = 0, nCtrlHaulers() = 0 and ctrlCap() = RCL2Energy (Ctrl.spawn honours a mission's ctrlCap), everything else Hub; setRoomStrat(room, "thorclaimed") while running, cleared on windDown.
          ├─ Thormine         @register  (ms.thormine.ts)       "Thormine <room> [dest]"; mines <room>'s thorium into its terminal and ships it to [dest] (default W25S7).
          │                                                     With the room visible: nJobs(Thoreater, spots), spots = walkable tiles beside the thorium mineral
          │                                                     (spots.ts terrain minus obstacle structures), only while the mineral has thorium left, an extractor

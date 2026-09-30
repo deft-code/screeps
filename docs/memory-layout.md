@@ -83,6 +83,7 @@ delete by hand: it restarts from empty.
 | `centroid` | `spots.ts` | yes | packed xy of the mean non-wall tile (`roomCentroid`), never expires |
 | `spots` | `room.ts` | yes (read) | `{ [name]: xy }` manual standing spots; metastruct points are the usual source |
 | `containers` | `struct.container.js` | yes | `{ [id]: { v: 2, mode: "src"|"sink"|"hub" } }` |
+| `strat` | `strat.ts` (`setRoomStrat`), `strat.thor.ts` | yes | name of a registered strat override for an owned room (`"thorclaimed"`); absent = `ClaimedStrat` |
 | `nstructs`, `thostiles`, `tassaulters`, `tenemies`, `hostilestime`, `assaulterstime`, `enemiestime` | `strat.ts` | yes | hostile presence ratchets |
 | `bestSpots` | `source.js` | yes (read) | `{ [srcNote]: [x, y] }` manual override of best harvest tile |
 | `role` | manual | yes (read) | overrides `room.role` |
