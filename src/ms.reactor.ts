@@ -238,6 +238,11 @@ export class Reactor extends Mission {
     get leadTicks(): number {
         return kLeadTicks;
     }
+    // Runners kept alive at once (nJobs): enough to deliver 1 thorium per
+    // tick, each delivering tripLoad per runnerCycle ticks.
+    get runnerCount(): number {
+        return this.runnerCycle / this.runnerClass.tripLoad;
+    }
     // Warboys mine: a thorium mineral with an extractor and thorium left.
     homeHasThorium(home: Room): boolean {
         return !!thoriumMineral(home);
@@ -259,7 +264,7 @@ export class Reactor extends Mission {
         const stored = RESOURCE_THORIUM && reactor.store[RESOURCE_THORIUM] || 0;
         const atLanding = stored - this.leadTicks + inboundThorium();
         if (atLanding + runner.tripLoad > kReactorCapacity) return null;
-        const n = Math.min(this.maxRunnersArg, this.runnerCycle / runner.tripLoad);
+        const n = Math.min(this.maxRunnersArg, this.runnerCount);
         return this.nJobs(runner as unknown as typeof MyCreep, n);
     }
 

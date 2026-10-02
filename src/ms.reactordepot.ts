@@ -75,6 +75,16 @@ export class ReactorDepot extends Reactor {
         return kLeadTicks;
     }
 
+    // Always one warrunner, its replacement laid while it still has
+    // kLeadTicks to live. The duty cycle (300 / 450 of a runner) would pace
+    // one egg per 2250 ticks, but a runner ages 3x while loaded and lasts
+    // three trips, about 900 ticks: 0.6 thorium a tick against a burn of 1
+    // (Oct 2026). One runner at a time delivers ~1.8; fuel()'s landing check
+    // holds the next egg back while the reactor is too full for it.
+    get runnerCount(): number {
+        return 1 + kLeadTicks / CREEP_LIFE_TIME;
+    }
+
     // Thorium in the home terminal, 0 without one or without vision.
     get depot(): number {
         const term = this.getRoom("home")?.terminal;

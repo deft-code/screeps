@@ -66,7 +66,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     extractor on a thorium mineral with thorium left, the core is visible with a reactor in it and no armed hostile (room.hostiles),
          │                                                     and a full load will still fit when it lands: store - 600 (lead ticks) + thorium inbound from every Reactor mission's warboys and eggs + 450 <= 1000
          │   └─ ReactorDepot @register  (ms.reactordepot.ts)  "ReactorDepot <room> [cap]"; Reactor with the runner hooks overridden: runnerClass Warrunner
-         │                                                     (loads from the home terminal instead of mining), runnerCycle 300, leadTicks 300, and homeHasThorium =
+         │                                                     (loads from the home terminal instead of mining), runnerCycle 300, leadTicks 300, runnerCount 1.2 (always one runner, replaced with 300 TTL left; Oct 2026), and homeHasThorium =
          │                                                     the home terminal holds > 1000 thorium (status `depot:<n>`). Scout, probe, guard, immortan and the
          │                                                     invader-core pause are inherited; inboundThorium counts both missions' runners against the reactor.
          │                                                     Keeps Rewalker.getRoute(home, core) in memory.route (refreshed every 500 ticks) with its SK rooms in
@@ -74,7 +74,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     invader core with a level, and one found (or a creep dying in such a room whose intel shows a core) sets
          │                                                     pauseUntil = now + 2500 and purges every egg but scouts (Mission.purgeEggs keep-list); while paused
          │                                                     paceJobs(Scout, 1400) still runs (Reactor.whilePaused hook), so passing scouts renew the pause until the core is gone
-         ├─ Thorhub          @register  (ms.thorhub.ts)        "Thorhub <room>"; Hub subclass for a temporary Thormine room: nUpgraders() = 0, nCtrlHaulers() = 0 and ctrlCap() = RCL2Energy (Ctrl.spawn honours a mission's ctrlCap), everything else Hub; setRoomStrat(room, "thorclaimed") while running, cleared on windDown.
+         ├─ Thorhub          @register  (ms.thorhub.ts)        "Thorhub <room>"; Hub subclass for a temporary Thormine room: nUpgraders() = 0 and nCtrlHaulers() = 0 from RCL6 (Hub's rules up to RCL5), and ctrlCap() = full capacity up to RCL5, RCL2Energy from RCL6 (Ctrl.spawn honours a mission's ctrlCap), everything else Hub; setRoomStrat(room, "thorclaimed") while running, cleared on windDown.
          ├─ Thormine         @register  (ms.thormine.ts)       "Thormine <room> [dest]"; mines <room>'s thorium into its terminal and ships it to [dest] (default W25S7).
          │                                                     With the room visible: nJobs(Thoreater, spots), spots = walkable tiles beside the thorium mineral
          │                                                     (spots.ts terrain minus obstacle structures), only while the mineral has thorium left, an extractor
@@ -214,7 +214,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       space (memory.dropid), then the next; every transfer passes what fits; null when home has no space
      └─ JobRole              bridge to legacy roles: start() calls creep.run()/after() (job.role.ts)
          ├─ Worker  @register              (job.worker.ts)
-         ├─ Ctrl    @register              (job.ctrl.ts)   boosts XGH2O, ecap rules
+         ├─ Ctrl    @register              (job.ctrl.ts)   boosts XGH2O, ecap rules; spawns only with the room full (energyAvailable >= min(capacity, 5000))
          ├─ Hub     @register              (job.hub.ts)    needs storage + meta 'hub' spot
          ├─ Hauler  @register  priority 9  (job.hauler.ts) energy = min(2500, ecap/2)
          ├─ CtrlHauler @register priority -1 (job.ctrlhauler.ts) storage -> Meta_ctrl container shuttle; body 'hauler' (<= 1500 energy, local);
@@ -258,7 +258,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                then @task harvest (home thorium mineral); then deliver (transfers whatever fits each tick, only while reactor.my, waits otherwise)
          │                                                and back to gathering; a partial load is delivered when nothing is left to gather; never suicides
          │   └─ Warrunner @register        (job.warrunner.ts) Warboy without WORK: 9 CARRY / 9 MOVE (900 energy, the same 450 load) from a "home" spawn; @task load withdraws
-         │                                                what fits from the home terminal (planTravel from beside it), then Warboy's deliver/scavenge/leave-early rules;
+         │                                                what fits from the home terminal (planTravel from beside it), but only once our visible reactor will have room for the full load at landing (store - planned walk + 450 <= 1000), idling within 2 of the terminal until then (at home and too old for the loaded walk, @task retire puts any thorium back in the terminal and recycles at the nearest spawn), then Warboy's deliver/scavenge/leave-early rules;
          │                                                a partial load goes when the terminal runs dry; empty with an empty terminal it waits within 2 of the terminal
          ├─ Cleanup   @register            (job.cleanup.ts)  Thormine teardown sweeper, `cleanupBody(energyAvailable)` = energyDef CARRY,CARRY,MOVE interleaved up to 50 parts from the mission room's spawn (>= 150 energy); moves energy into the
          │                                                terminal from the first non-empty tier: dropped -> tombstones/ruins -> storage/container/link -> towers (only while the room's

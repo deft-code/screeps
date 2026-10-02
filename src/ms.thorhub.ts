@@ -12,14 +12,19 @@ import "strat.thor";
 //
 // Everything Hub does (Reboot, srcers or haulers, Worker, Ctrl, Hub creep,
 // CtrlHauler, Chemist) except:
-//   - Ctrl is always the RCL2-sized body (ctrlCap = RCL2Energy), enough to
-//     keep the controller from downgrading, whatever the storage holds.
-//   - No upgraders, neither for a storage surplus nor for a big pile.
-//   - No ctrlhaulers: the small ctrl draws from storage or its container.
+//   - Ctrl is full size up to RCL5, whatever the storage holds, so the room
+//     reaches RCL6 (terminal, extractor) quickly; from RCL6 it is always the
+//     RCL2-sized body (ctrlCap = RCL2Energy), enough to keep the controller
+//     from downgrading.
+//   - Upgraders and ctrlhaulers by Hub's rules up to RCL5; from RCL6 no
+//     upgraders, neither for a storage surplus nor for a big pile, and no
+//     ctrlhaulers: the small ctrl draws from storage or its container.
 //   - The room runs the "thorclaimed" strat (strat.thor.ts: ramparts capped
 //     at 1M hits) while the mission runs; windDown() puts the default back,
 //     and the strat drops itself once the room is unclaimed.
 // Swap a room over with windDown() on its Hub and scheduleService of this.
+const kGrowUntil = 5;
+
 @register
 export class Thorhub extends Hub {
     run(): Priority {
@@ -32,19 +37,26 @@ export class Thorhub extends Hub {
         super.windDown();
     }
 
+    // Still growing toward RCL6: Hub's rules for the controller creeps apply.
+    get growing(): boolean {
+        return (this.room?.controller?.level || 0) <= kGrowUntil;
+    }
+
     nUpgraders(room: Room): number {
-        return 0;
+        return this.growing ? super.nUpgraders(room) : 0;
     }
 
     nCtrlHaulers(): number {
-        return 0;
+        return this.growing ? super.nCtrlHaulers() : 0;
     }
 
     ctrlCap(room: Room): number | null {
+        if (this.growing) return room.energyCapacityAvailable;
         return RCL2Energy;
     }
 
     status(): string {
-        return super.status() + ` thorhub:small-ctrl,no-upgraders,no-ctrlhaulers strat:${Memory.rooms[this.roomName]?.strat || "default"}`;
+        const mode = this.growing ? "growing" : "small-ctrl,no-upgraders,no-ctrlhaulers";
+        return super.status() + ` thorhub:${mode} strat:${Memory.rooms[this.roomName]?.strat || "default"}`;
     }
 }

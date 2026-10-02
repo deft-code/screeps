@@ -17,7 +17,7 @@ import { findReactors, thoriumMineral } from "reactor";
 // standing tile, see ticksToReactor), padded by kTravelBuffer ticks, and
 // scaled by kLoadedAging because a creep carrying 100..999 thorium loses 3
 // ticks to live per tick. Before any plan exists kDefaultTravel stands in.
-const kTravelBuffer = 50;
+export const kTravelBuffer = 50;
 const kLoadedAging = 3;
 const kDefaultTravel = 300;
 // Leave early when the reactor's remaining fuel has fallen to the planned

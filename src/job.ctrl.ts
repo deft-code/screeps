@@ -4,12 +4,19 @@ import { kebabCase } from "lodash";
 import { register } from "mycreep";
 import { Mission } from "mission";
 
+// Room energy at which a ctrl may spawn even if the room holds more.
+const kFullEnough = 5000;
 
 @register
 export class Ctrl extends JobRole {
     spawn(spawns: StructureSpawn[]): [StructureSpawn| null, BodyPartConstant[]] {
         const room = this.mission.room;
         if (!room) return [null, []];
+
+        // Wait for a full room, so a room still refilling never gets a
+        // smaller ctrl than it could have had. No ctrl body costs more than
+        // kFullEnough, so a bigger room need not fill past that.
+        if (room.energyAvailable < Math.min(room.energyCapacityAvailable, kFullEnough)) return [null, []];
 
         // A mission may pin the size (Hub.ctrlCap; Thorhub keeps it small).
         // Otherwise full size while the room has no storage (all energy is
