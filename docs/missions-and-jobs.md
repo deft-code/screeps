@@ -11,7 +11,7 @@ flag-driven "team" system ([legacy-systems.md](legacy-systems.md)).
 ```
 Process                      run(): Priority; kill()           (process.ts)
  └─ Service                  named by a command string, e.g. "Swipe W5N8 W6N8"
-     ├─ Balance      @register  (ms.balance.ts)   "Balance"; no creeps. Rooms come from addRoom(room)/removeRoom(room) (Memory.balance.rooms).
+     ├─ Balance      @register  (ms.balance.ts)   "Balance"; no creeps. Rooms come from addRoom(room)/removeRoom(room) (Memory.balance.rooms); setMineralRoom(room) (Memory.balance.minerals) makes the other terminals send that room their non-thorium minerals and compounds.
      │                                            Each tick no listed terminal is on cooldown: the fullest sends half the gap to the
      │                                            emptiest when the gap is at least 5k, shrunk to what it can pay with the transfer fee.
      ├─ Selloff      @register  (ms.selloff.ts)   "Selloff <room>"; no creeps, so a purple flag "Selloff_<room>" may run it.
@@ -136,6 +136,8 @@ Process                      run(): Priority; kill()           (process.ts)
          ├─ Once             @register  (ms.once.ts)           "Once <Job> <room> [count]"; lays an egg of the job whenever none is alive until count
                                                               (args[3], default 1) have been laid (memory.laid), winds down once the last has spawned,
                                                               kills and deschedules itself when the creep and its tombstone are gone
+         ├─ Always           @register  (ms.always.ts)         "Always <Job> <room> [perLife]"; Once that never winds down: paceNJobs(job, perLife
+                                                              (args[3], default 1)), one egg per lifetime, never while one is unhatched; windDown() to stop
          ├─ PaveAll          @register  (ms.paveall.ts)        "PaveAll <room>"; paceJobs(Paver, 1400) while Game.constructionSites has any of ours in the
                                                               room (works without vision), windDown() once none are left; requested by Remote and Startup
          └─ Startup          @register  (ms.startup.ts)        "Startup <room>"; claims and boots a room: nJobs(Scout, 1) while the room is invisible;
@@ -310,6 +312,7 @@ scheduleService('Raze W27S4 W27S5')  // args[1]=room to clear, args[2]=home (spa
 scheduleService('Nidoran W23S4')     // args[1]=seed room (its reserver/owner is the target player unless args[2] names one); paired Chaos dismantlers rotate through the player's reserved rooms within 2 hops
 scheduleService('Once Scout W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down
 scheduleService('Once Toxic W25S5 3')  // optional args[3]=count: that many creeps one after another (memory.laid), then winds down
+scheduleService('Always Mini W28S4')   // args[1]=job class, args[2]=room; one creep per lifetime for good (optional args[3]=per lifetime); windDown() stops it
 scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown, skipping orders that pay less per unit than the shipping energy is worth (transfer rate x energy buy-order price); under 25k terminal energy keeps one 10k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)
 scheduleService('Furiosa')           // power creep Furiosa; picks a home power spawn room into Memory.furiosa.home
 scheduleService('Balance'); getService('Balance').addRooms('W26S8', 'W25S7')  // no args; rooms via addRoom/addRooms/removeRoom (Memory.balance.rooms); fullest terminal sends half the energy gap to the emptiest when the gap is >= 5k and none is on cooldown

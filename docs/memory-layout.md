@@ -16,8 +16,9 @@ the creep was last spawned in (`MyPowerCreep.spawn`), alongside `swipe` state.
 
 ### `Memory.balance` (`ms.balance.ts`)
 
-`{ rooms: string[] }`: the rooms whose terminals the `Balance` service levels
-energy across; edited by `addRoom`/`removeRoom` on the service.
+`{ rooms: string[], minerals?: string }`: the rooms whose terminals the
+`Balance` service levels energy across (edited by `addRoom`/`removeRoom` on
+the service) and the room that collects their minerals (`setMineralRoom`).
 
 ### `Memory.selloff` (`ms.selloff.ts`)
 

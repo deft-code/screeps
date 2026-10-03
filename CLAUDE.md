@@ -45,7 +45,7 @@ flags in the game are metastruct genesis/child flags (genesis `Home` W26S8,
 while scheduled: the table is `Memory.scheduler.services` as of Sept 2026, so
 read that key rather than trusting this list. `Farm`, `GrowFarm` (a Farm that
 evolves into `Remote` at 800 home energy capacity, 1300 if the farm controller
-has one free tile), `Once`, `Swipe`, the `Experiment` road-weight
+has one free tile), `Once`, `Always` (`Once` that keeps one creep of the job alive for good), `Swipe`, the `Experiment` road-weight
 comparison (purple flag `Experiment` plus child `dest_Experiment`), the
 `Selloff <room>` terminal-selling service and the `Balance` terminal energy
 leveller (rooms via `getService('Balance').addRoom(room)`) are not scheduled and run only by

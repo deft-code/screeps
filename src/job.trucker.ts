@@ -59,8 +59,10 @@ export class Trucker extends JobRole {
         return this.mission as Remote;
     }
 
+    // The mission's home room (its spawn room failing that), else the room
+    // of the spawn that made us (JobCreep.getHomeRoomName).
     get homeName(): string {
-        return this.mission.getRoomName("home")!;
+        return this.getHomeRoomName();
     }
 
     start(): Task2Ret {

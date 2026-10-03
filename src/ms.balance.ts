@@ -12,6 +12,8 @@ declare global {
         balance?: {
             // Rooms whose terminals share energy (addRoom / removeRoom).
             rooms: string[]
+            // Room whose terminal collects the others' minerals (setMineralRoom).
+            minerals?: string
         }
     }
 }
@@ -26,6 +28,12 @@ declare global {
 //   getService('Balance').addRooms('W26S8', 'W25S7')
 //   getService('Balance').addRoom('W27S5')
 //   getService('Balance').removeRoom('W25S7')
+//   getService('Balance').setMineralRoom('W25S7')   // no argument: off
+//
+// With a mineral room set, every other listed terminal also sends it all of
+// its minerals and compounds (anything but energy and thorium, which
+// Thormine ships), one resource of TERMINAL_MIN_SEND or more per cooldown,
+// ahead of the energy levelling.
 //
 // Rooms without vision or without a terminal we own are skipped (logged
 // every kLogPace ticks), so a room may be added before its terminal stands.
@@ -80,8 +88,47 @@ export class Balance extends Service {
         return amount >= TERMINAL_MIN_SEND ? amount : 0;
     }
 
+    // Console: the room whose terminal collects every other listed terminal's
+    // minerals and compounds; no argument (or null) turns that off.
+    setMineralRoom(roomName: string | null = null): string | null {
+        if (roomName) this.memory.minerals = roomName;
+        else delete this.memory.minerals;
+        return this.memory.minerals || null;
+    }
+
+    // Every terminal but the mineral room's, off cooldown, sends one resource
+    // there: anything but energy (levelled below) and thorium (Thormine's),
+    // TERMINAL_MIN_SEND or more of it, as much as the destination has room
+    // for and the sender's energy pays the fee on. True when something went.
+    gatherMinerals(terms: StructureTerminal[]): boolean {
+        const dest = this.memory.minerals;
+        const hub = dest ? Game.rooms[dest]?.terminal : null;
+        if (!dest || !hub?.my) return false;
+        let sent = false;
+        for (const term of terms) {
+            if (term.id === hub.id || term.cooldown > 0) continue;
+            const res = _.find(Object.keys(term.store) as ResourceConstant[], r =>
+                r !== RESOURCE_ENERGY && r !== RESOURCE_THORIUM && term.store[r] >= TERMINAL_MIN_SEND);
+            if (!res) continue;
+            let amount = Math.min(term.store[res], hub.store.getFreeCapacity(res) || 0);
+            const cost = Game.market.calcTransactionCost(amount, term.room.name, dest);
+            if (cost > term.store.energy) amount = Math.floor(amount * term.store.energy / cost);
+            if (amount < TERMINAL_MIN_SEND) continue;
+            const err = term.send(res, amount, dest, this.name);
+            if (err !== OK) {
+                debug.log(this.name, "send failed", err, amount, res, term.room.name, "->", dest);
+            } else {
+                debug.log(this.name, "sent", amount, res, term.room.name, "->", dest);
+                sent = true;
+            }
+        }
+        return sent;
+    }
+
     run(): Priority {
         const terms = this.terminals();
+        // A terminal that just sent minerals shows no cooldown until next tick.
+        if (this.gatherMinerals(terms)) return "low";
         if (terms.length < 2) return "low";
         if (_.any(terms, t => t.cooldown > 0)) return "low";
 
@@ -111,6 +158,6 @@ export class Balance extends Service {
             const term = Game.rooms[name]?.terminal;
             return `${name}:${term?.my ? term.store.energy : "-"}`;
         });
-        return super.status() + " terminals " + (levels.join(",") || "none");
+        return super.status() + " terminals " + (levels.join(",") || "none") + ` minerals:${this.memory.minerals || "-"}`;
     }
 }
