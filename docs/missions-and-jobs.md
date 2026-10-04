@@ -138,7 +138,7 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               kills and deschedules itself when the creep and its tombstone are gone
          ├─ Always           @register  (ms.always.ts)         "Always <Job> <room> [perLife]"; Once that never winds down: paceNJobs(job, perLife
                                                               (args[3], default 1)), one egg per lifetime, never while one is unhatched; windDown() to stop
-         ├─ Xfer             @register  (ms.xfer.ts)           "Xfer <to> <from> [n]"; nJobs(Fedex, n (args[3], default 2)) from the <from> ("home", args[2]) room's spawns, carrying
+         ├─ Xfer             @register  (ms.xfer.ts)           "Xfer <to> <from> [n]"; paceNJobs(Fedex, n (args[3], default 2)) from the <from> ("home", args[2]) room's spawns, carrying
                                                               energy from its storage to <to>; windDown() once the home storage is under 50k energy (0 with
                                                               memory.takeitall, set by `takeitall = true`) or <to>'s storage is over 75% full
          ├─ PaveAll          @register  (ms.paveall.ts)        "PaveAll <room>"; paceJobs(Paver, 1400) while Game.constructionSites has any of ours in the

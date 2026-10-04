@@ -8,7 +8,7 @@ import { Fedex } from "job.fedex";
 const kHomeFloor = 50000;
 // ...or the mission room's storage is fuller than this fraction.
 const kDestFull = 0.75;
-// Fedexes kept alive unless the command names a count.
+// Fedexes laid per lifetime unless the command names a count.
 const kDefaultCount = 2;
 
 interface XferMemory extends MissionMemory {
@@ -20,10 +20,11 @@ interface XferMemory extends MissionMemory {
 // Carry energy from one room's storage to another room on foot.
 //
 //   scheduleService('Xfer W27S4 W29S4')     // args[1]=room to fill, args[2]=room to take from ("home")
-//   scheduleService('Xfer W27S4 W29S4 3')   // optional args[3]=fedexes kept alive (default 2)
+//   scheduleService('Xfer W27S4 W29S4 3')   // optional args[3]=fedexes per lifetime (default 2)
 //   getService('Xfer W27S4 W29S4').takeitall = true   // drain the home storage to 0
 //
-// Keeps args[3] fedexes (job.fedex.ts) alive from the home room's spawns.
+// Lays args[3] fedexes (job.fedex.ts) per lifetime from the home room's
+// spawns (paceNJobs: one egg every 1500 / n ticks, so n alive at a time).
 // It runs until the home storage holds under 50k energy (nothing at all with
 // takeitall) or the mission room's storage is more than 75% full, then winds
 // down: no more eggs, the fedexes deliver what they carry and recycle, and
@@ -100,7 +101,7 @@ export class Xfer extends Mission {
             this.windDown();
             return super.run();
         }
-        this.nJobs(Fedex, this.count);
+        this.paceNJobs(Fedex, this.count);
         super.run();
         return "normal";
     }

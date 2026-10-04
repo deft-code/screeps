@@ -40,7 +40,7 @@ Status legend:
 | `src/ms.always.ts` | REACHABLE | 2026 | `"Always <Job> <room> [perLife]"`: keeps one creep of a job in the room for good, one egg per lifetime (`paceNJobs`); `windDown()` stops it. |
 | `src/ms.paveall.ts` | REACHABLE | 2026 | `"PaveAll <room>"`: a paver every 1400 ticks while we have construction sites in the room, then winds down. Remote and Startup request it for unowned road rooms. |
 | `src/job.harvester.ts` | REACHABLE | 2026 | Harvester job for Remote: claims an rsrc meta, drop-mines on its container tile, builds/repairs the container. |
-| `src/ms.xfer.ts` | REACHABLE | 2026 | `"Xfer <to> <from> [n]"`: keeps n (default 2) fedexes carrying energy from `<from>`'s storage to `<to>`; winds down once the home storage is under 50k energy (0 with `takeitall`) or the target storage is over 75% full. |
+| `src/ms.xfer.ts` | REACHABLE | 2026 | `"Xfer <to> <from> [n]"`: lays n (default 2) fedexes per lifetime carrying energy from `<from>`'s storage to `<to>`; winds down once the home storage is under 50k energy (0 with `takeitall`) or the target storage is over 75% full. |
 | `src/job.fedex.ts` | REACHABLE | 2026 | Fedex job for Xfer (extends Trucker): CARRY, MOVE x 25; home storage -> mission room storage (else terminal, containers, any energy structure, controller pile); recycles in the mission room when too old for another round trip. |
 | `src/job.trucker.ts` | REACHABLE | 2026 | Trucker job for Remote: rsrc containers -> home storage (or, with none, home containers by most free space; `JobCreep.unloadHome`), paced by the source regen / haul rate. |
 | `src/job.paver.ts` | REACHABLE | 2026 | Paver job for Once: harvest, build any site, repair roads/containers in the mission room. |
