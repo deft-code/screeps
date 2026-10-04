@@ -7,6 +7,7 @@ import { Reboot } from "job.reboot";
 import { Upgrader } from "job.upgrader";
 import { CtrlHauler } from "job.ctrlhauler";
 import { Chemist } from "job.chemist";
+import { suppressMicro, suppressPup } from "suppress";
 import { defaultRewalker, toXY } from "Rewalker";
 import * as debug from "debug";
 
@@ -54,7 +55,8 @@ interface HubMemory extends MissionMemory {
 // kHaulerScale of dropped energy over kEnergyTolerance, max kMaxHaulers);
 // one Worker; one Ctrl; one
 // Hub once the room has storage (Hub.spawn also waits for the 'hub' spot);
-// and one Chemist (job.chemist.ts) while the room has a terminal and a lab.
+// and one Chemist (job.chemist.ts) while the room has a terminal and a lab;
+// a Micro and Pups against unarmed enemy creeps (suppress.ts).
 // Everything spawns "local", and nothing is laid until the room has a spawn
 // of its own: until then the Startup mission's pioneers (spawned elsewhere,
 // homed here) carry the room; both can run until Startup winds down at RCL4.
@@ -105,6 +107,11 @@ export class Hub extends Mission {
         this.nJobs(Upgrader, this.nUpgraders(room));
         this.nJobs(CtrlHauler, this.nCtrlHaulers());
         this.nJobs(Chemist, Chemist.want(room));
+
+        // Unarmed enemies in the room: a micro after 50 ticks of them, pups
+        // against their healing (suppress.ts, shared with Farm and Remote).
+        suppressMicro(this);
+        suppressPup(this);
 
         super.run();
         return "critical";

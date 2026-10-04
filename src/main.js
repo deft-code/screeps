@@ -74,6 +74,7 @@ import 'ms.selloff';
 import 'ms.experiment';
 import 'ms.balance';
 import 'ms.furiosa';
+import 'ms.xfer';
 import "service.flag";
 
 import "job.hauler";

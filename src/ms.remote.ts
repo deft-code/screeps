@@ -95,6 +95,8 @@ export class Remote extends Farm {
         } else {
             // All may lay an egg in the same tick, in team.ts teamRemote
             // order; the two wolf rules share the wolf pace.
+            this.suppressMicro();
+            this.suppressPup();
             this.suppressMini();
             this.suppressGuard();
             this.suppressWolf();

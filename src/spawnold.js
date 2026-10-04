@@ -61,7 +61,15 @@ export function run() {
   }
 }
 
+// Spawns in rooms we own. An unclaimed room's spawn stays in Game.spawns
+// (W27S5's Forth, Oct 2026) but cannot spawn: the pools below leave it out,
+// else eggs wait on it for good.
+export function liveSpawns(all) {
+  return _.filter(all, s => s.room.controller && s.room.controller.my)
+}
+
 export function closeSpawns(all, tname) {
+  all = liveSpawns(all)
   const mdist = _(all)
     .map(s => routes.dist(tname, s.pos.roomName))
     .min()
@@ -70,6 +78,7 @@ export function closeSpawns(all, tname) {
 }
 
 export function remoteSpawns(all, tname) {
+  all = liveSpawns(all)
   const mdist = _(all)
     .map(s => routes.dist(tname, s.pos.roomName))
     .filter(d => d > 0)
@@ -81,7 +90,7 @@ export function remoteSpawns(all, tname) {
 }
 
 export function maxSpawns(all, tname) {
-  const close = _.filter(all, s => routes.dist(tname, s.pos.roomName) <= 10)
+  const close = _.filter(liveSpawns(all), s => routes.dist(tname, s.pos.roomName) <= 10)
   const mlvl = _.max(close.map(s => s.room.controller.level))
   const lvl = _.filter(close, s => s.room.controller.level >= mlvl)
   const mspawn = _.min(lvl, s => routes.dist(tname, s.pos.roomName))
@@ -93,6 +102,7 @@ export function findSpawns(allSpawns, roomName, eggMem) {
   //const allSpawns = _.shuffle(Game.spawns)
   const tname = roomName;
   //const tname = Game.flags[eggMem.team].pos.roomName
+  allSpawns = liveSpawns(allSpawns)
 
   let spawns = []
   switch (eggMem.spawn) {

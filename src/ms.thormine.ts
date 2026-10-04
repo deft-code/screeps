@@ -52,8 +52,8 @@ interface ThormineMemory extends MissionMemory {
 //   scheduleService('Thormine W26S8 W25S7')   // optional args[2]=room to ship it to
 //
 // Each tick with the room visible:
-//   - nJobs(Thoreater, spots): one miner per walkable tile beside the thorium
-//     mineral, but only while the mineral has thorium left, an extractor
+//   - nJobs(Thoreater, spots - 1, at least 1): a miner for every walkable
+//     tile beside the thorium mineral but one, and only while the mineral has thorium left, an extractor
 //     stands on it and the room has a terminal of ours. With the gate closed
 //     no egg is laid and the living miners finish their loads.
 //   - ship(): whenever the terminal is off cooldown and holds at least
@@ -197,7 +197,14 @@ export class Thormine extends Mission {
             if (Game.time % kLogPace === 0) debug.log(this.name, "waiting on", closed, "in", room.name);
             return null;
         }
-        return this.nJobs(Thoreater, this.spots);
+        return this.nJobs(Thoreater, this.nMiners);
+    }
+
+    // One miner fewer than the spots, at least one: the extractor's cooldown
+    // leaves a full ring of miners idle in turn (W29S4, Oct 2026), and the
+    // free tile lets a loaded one leave without shuffling the rest.
+    get nMiners(): number {
+        return Math.max(1, this.spots - 1);
     }
 
     // The destination's terminal when it can take a shipment from `room`.

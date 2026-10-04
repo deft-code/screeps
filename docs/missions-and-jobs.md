@@ -76,7 +76,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     paceJobs(Scout, 1400) still runs (Reactor.whilePaused hook), so passing scouts renew the pause until the core is gone
          ├─ Thorhub          @register  (ms.thorhub.ts)        "Thorhub <room>"; Hub subclass for a temporary Thormine room: nUpgraders() = 0 and nCtrlHaulers() = 0 from RCL6 (Hub's rules up to RCL5), and ctrlCap() = full capacity up to RCL5, RCL2Energy from RCL6 (Ctrl.spawn honours a mission's ctrlCap), everything else Hub; setRoomStrat(room, "thorclaimed") while running, cleared on windDown.
          ├─ Thormine         @register  (ms.thormine.ts)       "Thormine <room> [dest]"; mines <room>'s thorium into its terminal and ships it to [dest] (default W25S7).
-         │                                                     With the room visible: nJobs(Thoreater, spots), spots = walkable tiles beside the thorium mineral
+         │                                                     With the room visible: nJobs(Thoreater, max(1, spots - 1)), spots = walkable tiles beside the thorium mineral
          │                                                     (spots.ts terrain minus obstacle structures), only while the mineral has thorium left, an extractor
          │                                                     stands on it and the room has a terminal of ours (status shows `closed:<reason>` otherwise, log every 500 ticks);
          │                                                     ship(): terminal off cooldown with >= TERMINAL_MIN_SEND (100) thorium -> terminal.send to [dest] (must be another
@@ -138,12 +138,16 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               kills and deschedules itself when the creep and its tombstone are gone
          ├─ Always           @register  (ms.always.ts)         "Always <Job> <room> [perLife]"; Once that never winds down: paceNJobs(job, perLife
                                                               (args[3], default 1)), one egg per lifetime, never while one is unhatched; windDown() to stop
+         ├─ Xfer             @register  (ms.xfer.ts)           "Xfer <to> <from> [n]"; nJobs(Fedex, n (args[3], default 2)) from the <from> ("home", args[2]) room's spawns, carrying
+                                                              energy from its storage to <to>; windDown() once the home storage is under 50k energy (0 with
+                                                              memory.takeitall, set by `takeitall = true`) or <to>'s storage is over 75% full
          ├─ PaveAll          @register  (ms.paveall.ts)        "PaveAll <room>"; paceJobs(Paver, 1400) while Game.constructionSites has any of ours in the
                                                               room (works without vision), windDown() once none are left; requested by Remote and Startup
          └─ Startup          @register  (ms.startup.ts)        "Startup <room>"; claims and boots a room: nJobs(Scout, 1) while the room is invisible;
                                                               nJobs(Claimer, 1, 600) while the controller is not ours and owned rooms < GCL, and meanwhile
                                                               paceNJobs(Pioneer, 2) if nobody owns or reserves the room and it has saved metas (`canPioneerEarly`;
-                                                              ActiveStrat places the road/container sites, status shows `early`);
+                                                              ActiveStrat places the road/container sites, status shows `early`), and nJobs(Guard, 1) while an
+                                                              enemy creep (room.enemies, armed or not) is in the unowned room;
                                                               while ours and below RCL4, paceNJobs(Pioneer, 2) (hardcoded kPioneers per lifetime) and nJobs(Guard, 1) while the room has no tower,
                                                               spawned outside the room; at RCL4 windDown(): pioneers live
                                                               out their lives, then the mission kills and deschedules itself. Distinct from
@@ -195,6 +199,9 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.js for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
      │                       when empty); loads from a container in the remote room picked by pickCont(): the ones holding a full load (our free capacity), else those over 50, else any, and within that tier the cheapest walk (Rewalker.planWalk over all), cached in memory.contid while it stays in the best tier, and walked to from any room once the remote is in view, so a route that crosses another room is not undone by a walk to the room centre (sweeps dropped energy), once more than half full unloads
      │                       at home until empty (JobCreep.unloadHome); after() idleNom picks up adjacent energy
+     ├─ Fedex    @register   (job.fedex.ts) extends Trucker for Xfer; CARRY, MOVE x 25 sized to the home room's capacity, home spawns only; in the home room fills to full from the storage;
+     │                       anywhere else any load latches deposit mode: unloadHome(mission room) (storage, terminal, containers), else taskTransferResources, else the controller pile;
+     │                       empty in the mission room with ttl under 2 x memory.tripLeg + 30 it recycles at a spawn there; while the mission winds down it delivers, then recycles
      ├─ Bulldozer @register  (job.bulldozer.ts) 2 WORK per MOVE (33W/17M at full energy); boosts XZH2O at home when a lab has it ready (never waits); planWalk over mission.dozePositions() at range 1, @task doze(xy, room) dismantles the tile (rampart first)
      ├─ Razer    @register   (job.razer.ts) the Bulldozer body (job.bulldozer dozerSpawn, spawns nearest home); in the Raze room @task dismantle the dozeableStruct with the cheapest walk
      │                       (planWalk; rampart on the tile first), then walks onto the foreign sites (job.scout stompable); idle kIdleTicks (10) -> memory.decomm, @task decomm walks to
@@ -236,6 +243,8 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 with nothing to do hold() drifts to within 3 of spots.roomCentroid, but only after 3 idle ticks
          │                                                 (memory.gidle) so a friendly flickering on an exit draws it over instead of resetting it;
          │                                                 body 'guard' via "remote": room capacity >= 550, energyDef scales T/RA pairs to energy available (spawning.md)
+         ├─ Micro @register                (job.micro.ts)  [RANGED_ATTACK, MOVE] from the nearest spawn; suppress.ts suppressMicro (Farm, Remote, Hub, Thorhub): paceNJobs(Micro, 1) once tenemies >= 50 with no hostiles; targets only enemies without RANGED_ATTACK
+         ├─ Pup @register                  (job.pup.ts)    Wolf with memory.size ATTACK + MOVE pairs; suppress.ts suppressPup (same missions): paceNJobs(Pup, 3) while enemies with HEAL and no hostiles are in the room, size = ceil(heal power / ATTACK_POWER / 2) set on the egg
          │   └─ Mini @register             (job.mini.ts)   Guard on the fixed 'mini' body [RANGED_ATTACK, MOVE, MOVE, HEAL], still via "close"
          │   └─ Toxic @register            (job.toxic.ts)  bait-and-trap skirmisher on the 'mini' body via "close", spawned by Once; mode machine in
          │                                                 memory.tmode: travel (start) -> bait (hold range 5 from the nearest hostile, idleFlee when
@@ -268,8 +277,9 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                the spawn when the refund (body cost x life left) is >= 300, else suicide (a dropped refund pile would restart the sweep). looseEnergy(room) (same tiers) is what the mission sizes and ends the phase by
          ├─ Thoreater @register            (job.thoreater.ts) Season 11 thorium miner for Thormine; energyDef body 2 WORK : 1 CARRY, one MOVE per two parts, from a spawn in the
          │                                                mission room with >= 650 energy (RCL6: 14 WORK / 7 CARRY / 11 MOVE); @task harvest the room's thorium mineral only while
-         │                                                the next intent (active WORK x HARVEST_MINERAL_POWER) fits in the store, so nothing spills on the tile; @task deposit into the
-         │                                                room terminal when full for the next intent or ticksToLive < 3 x (PathFinder walk from the harvest tile to the terminal + 20),
+         │                                                the next intent (active WORK x HARVEST_MINERAL_POWER) fits in the store, whatever fills it (energy handed over by another creep included), so nothing
+         │                                                spills on the tile; @task deposit the whole store (thorium first, until empty) into the
+         │                                                room terminal when full for the next intent, when anything but thorium is aboard, or ticksToLive < 3 x (PathFinder walk from the harvest tile to the terminal + 20),
          │                                                3 the aging of a creep carrying 100+ thorium; the walk is memoized per tile in memory.travel;
          │                                                too old for another loaded walk and empty it waits within 2 of the terminal; mineral mined out (mineralAmount 0)
          │                                                and store empty: @task recycle at the nearest spawn in the room (suicide with none); after(): idleNomType(thorium) while it fits
@@ -312,6 +322,7 @@ scheduleService('Raze W27S4 W27S5')  // args[1]=room to clear, args[2]=home (spa
 scheduleService('Nidoran W23S4')     // args[1]=seed room (its reserver/owner is the target player unless args[2] names one); paired Chaos dismantlers rotate through the player's reserved rooms within 2 hops
 scheduleService('Once Scout W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down
 scheduleService('Once Toxic W25S5 3')  // optional args[3]=count: that many creeps one after another (memory.laid), then winds down
+scheduleService('Xfer W27S4 W29S4')    // args[1]=room to fill, args[2]=room to take energy from (home), optional args[3]=fedexes (default 2); getService(...).takeitall = true drains the storage to 0
 scheduleService('Always Mini W28S4')   // args[1]=job class, args[2]=room; one creep per lifetime for good (optional args[3]=per lifetime); windDown() stops it
 scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown, skipping orders that pay less per unit than the shipping energy is worth (transfer rate x energy buy-order price); under 25k terminal energy keeps one 10k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)
 scheduleService('Furiosa')           // power creep Furiosa; picks a home power spawn room into Memory.furiosa.home

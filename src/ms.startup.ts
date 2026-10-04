@@ -98,7 +98,9 @@ export interface StartupMemory extends MissionMemory {
 // unowned with our sites in view, as Remote does.
 //
 // An invader core in the mission room draws one Wolf (job.wolf.ts) per
-// kCorePace ticks until it is gone (Farm.suppressInvaderCore). While GCL is
+// kCorePace ticks until it is gone (Farm.suppressInvaderCore), and an enemy
+// creep in the unowned room (room.enemies, armed or not) keeps one Guard
+// there while it stays. While GCL is
 // full and someone else's reservation stands on the controller (the one an
 // invader core leaves behind blocks our construction sites, so the road
 // never starts), Reservers (job.reserver.ts) are paced against it the Farm
@@ -138,6 +140,9 @@ export class Startup extends Mission {
             if (Game.time % kLogPace === 0) debug.log(this.name, "waiting: room has no controller");
         } else if (!controller.my) {
             this.suppressInvaderCore(room);
+            // One guard while an enemy creep is in the room (room.enemies:
+            // armed or not), so a squatter cannot keep the claimer out.
+            if (room.enemies.length) this.nJobs(Guard, 1);
             if (this.gclFull) {
                 this.reserve(room, controller);
                 this.planRoad(controller);

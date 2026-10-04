@@ -13,6 +13,8 @@ import type { Thormine } from "ms.thormine";
 //   - it harvests only while the next harvest intent fits in its store. A
 //     harvest yields WORK parts x HARVEST_MINERAL_POWER; anything over the
 //     free capacity spills on the tile, where it ages the creep for nothing.
+//     Whatever fills the store counts, energy another creep handed over
+//     included: it is unloaded into the terminal like the thorium.
 //   - it sets off for the terminal once its ticks to live would not cover the
 //     walk at kLoadedAging ticks of life per tick, the walk PathFinder-planned
 //     from the harvest tile (memoized per tile) plus kTravelBuffer.
@@ -94,9 +96,15 @@ export class Thoreater extends JobCreep {
         return this.ticksToLive < this.depositTtl;
     }
 
-    // Carrying thorium and either full for the next intent or too old to keep mining.
+    // Anything aboard and either no room for the next harvest, too old to
+    // keep mining, or some of it is not thorium (energy another creep handed
+    // us): that goes straight to the terminal rather than riding along and
+    // cutting every load short. Never harvest into a store that cannot take
+    // the whole yield: the rest would spill on the tile. Once deposit starts
+    // it runs until the store is empty (the task persists).
     get shouldDeposit(): boolean {
-        return this.thorium > 0 && (this.wouldSpill || this.tooOld);
+        const used = this.c.store.getUsedCapacity();
+        return used > 0 && (this.wouldSpill || this.tooOld || used > this.thorium);
     }
 
     get terminal(): StructureTerminal | null {
@@ -139,7 +147,7 @@ export class Thoreater extends JobCreep {
         // Too old for another loaded walk: park beside the terminal, out of
         // the way of the mining spots, and hand over whatever is aboard.
         if (this.tooOld) {
-            if (this.thorium > 0) return this.deposit();
+            if (this.c.store.getUsedCapacity()) return this.deposit();
             if (!this.pos.inRangeTo(terminal, 2)) this.moveTarget(terminal, 2);
             return "wait";
         }
@@ -175,7 +183,7 @@ export class Thoreater extends JobCreep {
 
     @task
     harvest(mineral: Mineral): Task2Ret {
-        if (this.shouldDeposit) return "start";
+        if (this.shouldDeposit || this.wouldSpill) return "start";
         if (!mineral.mineralAmount) return "start";
         const err = this.c.harvest(mineral);
         if (err === ERR_NOT_IN_RANGE) {
@@ -200,9 +208,12 @@ export class Thoreater extends JobCreep {
         this.cc.idleNomType(RESOURCE_THORIUM);
     }
 
+    // Empty the whole store into the terminal, thorium first, one resource a
+    // tick, and keep at it until nothing is left: energy another creep handed
+    // over goes too, so the store is clear for mining.
     @task
     deposit(): Task2Ret {
-        if (!this.thorium) return "start";
+        if (!this.c.store.getUsedCapacity()) return "start";
         const terminal = this.terminal;
         if (!terminal) {
             this.log("no terminal in", this.mission.roomName);
@@ -212,15 +223,16 @@ export class Thoreater extends JobCreep {
             this.moveTarget(terminal, 1);
             return "wait";
         }
-        // transfer with no amount is ERR_FULL unless the whole load fits.
         const T = RESOURCE_THORIUM!;
-        const amount = Math.min(this.thorium, terminal.store.getFreeCapacity(T) || 0);
+        const res = this.thorium > 0 ? T : _.find(Object.keys(this.c.store) as ResourceConstant[], r => this.c.store[r] > 0)!;
+        // transfer with no amount is ERR_FULL unless the whole load fits.
+        const amount = Math.min(this.c.store[res], terminal.store.getFreeCapacity(res) || 0);
         if (amount <= 0) {
             this.log("terminal full", terminal);
             return "wait";
         }
-        const err = this.c.transfer(terminal, T, amount);
-        if (err !== OK) this.log("transfer failed", err, amount, terminal);
+        const err = this.c.transfer(terminal, res, amount);
+        if (err !== OK) this.log("transfer failed", err, amount, res, terminal);
         return "wait";
     }
 }

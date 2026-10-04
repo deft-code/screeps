@@ -2,6 +2,7 @@ import { getMyCreep, MyCreep } from "mycreep";
 import * as debug from "debug";
 import {daemon, Priority, Process} from "process";
 import { noteSpawned } from "spawnload";
+import { liveSpawns } from "spawnold";
 
 declare global {
   interface CreepMemory {
@@ -157,7 +158,9 @@ export function runSpawns() {
 
 
   const usedEnergy = new Map<string, number>();
-  const spawns = _.shuffle(Game.spawns);
+  // Only spawns in rooms we own: an unclaimed room's spawn lingers in
+  // Game.spawns but cannot spawn (spawnold.liveSpawns).
+  const spawns = _.shuffle(liveSpawns(_.values<StructureSpawn>(Game.spawns)));
 
   const start = Game.time;
   for (let mycreep of eggs) {

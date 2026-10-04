@@ -5,6 +5,7 @@ import { Scout } from "job.scout";
 import { Wolf } from "job.wolf";
 import { Guard } from "job.guard";
 import { Mini } from "job.mini";
+import { suppressMicro, suppressPup } from "suppress";
 import { Reserver } from "job.reserver";
 import { whoami } from "Rewalker";
 import { getSpots } from "spots";
@@ -17,7 +18,6 @@ const kReserverLife = CREEP_CLAIM_LIFE_TIME - 50;
 // the room for this many consecutive ticks (strat.ts ratchet,
 // memory.thostiles) before a guard, then a wolf, is sent. A brief visit is
 // left to the towers at home; a stay earns a guard, a camp the heavier wolf.
-const kMicroEnemyTicks = 5;
 const kMiniHostileTicks = 10;
 const kGuardHostileTicks = 100;
 const kWolfHostileTicks = 300;
@@ -76,6 +76,8 @@ export class Farm extends Mission {
             // a mini for any enemy, a guard then a wolf for armed hostiles, a
             // wolf for the core (sharing the wolf pace), and a reserver to
             // contest a foreign reservation.
+            this.suppressMicro();
+            this.suppressPup();
             this.suppressMini();
             this.suppressGuard();
             this.suppressWolf();
@@ -140,12 +142,14 @@ export class Farm extends Mission {
         return Math.min(max, sourceCapacity / farmerRate);
     }
 
-    suppressNano() {
-        const t = this.room!.memory.tenemies || 0;
-        if (t < kMicroEnemyTicks) return null;
-        return null;
-        // TODO implment Micro Range + Move with only targeting of non-ranged creeps.
-        //return this.paceNJobs(Micro, 1);
+    // Unarmed enemies: a micro after 50 ticks of them, pups against their
+    // healing (suppress.ts, shared with Hub).
+    suppressMicro() {
+        return suppressMicro(this);
+    }
+
+    suppressPup() {
+        return suppressPup(this);
     }
 
     // team.ts suppressMini: any enemy creep in the room (scouts included)
