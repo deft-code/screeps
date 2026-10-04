@@ -59,18 +59,12 @@ export class Trucker extends JobRole {
         return this.mission as Remote;
     }
 
-    // The mission's home room (its spawn room failing that), else the room
-    // of the spawn that made us (JobCreep.getHomeRoomName).
-    get homeName(): string {
-        return this.getHomeRoomName();
-    }
-
     start(): Task2Ret {
         const c = this.cc;
         if (c.idleRetreat(CARRY) || c.fleeHostiles()) return "wait";
 
         // More than half full, or holding energy while the containers have
-        // run dry: go home and unload until empty (JobCreep.unloadHome:
+        // run dry: go home (JobCreep.homeName) and unload until empty (JobCreep.unloadHome:
         // storage, terminal, else home containers).
         if (this.unloadLatch(c.store.getUsedCapacity() > c.store.getFreeCapacity() || this.dry())) {
             return this.unloadHome(this.homeName) || this.dropHome();

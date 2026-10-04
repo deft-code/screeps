@@ -40,7 +40,7 @@ const rewalker = defaultRewalker();
 //           piles, tombstones, stores, then harvest) until full.
 //   forage  the mission room is a Source Keeper room or has no source, so
 //           energy must come from elsewhere: walk the Rewalker route back
-//           toward the spawn room (memory.home) and, in every room on the way,
+//           toward the spawn room (JobCreep.homeName) and, in every room on the way,
 //           take the nearest energy: dropped piles, tombstones and ruins,
 //           stores we may withdraw from, or a source to harvest (sources in
 //           SK rooms are ignored, and nothing within kLairRange of a keeper
@@ -86,10 +86,6 @@ export class Paver extends JobRole {
 
     get full(): boolean {
         return this.c.store.getFreeCapacity() === 0;
-    }
-
-    get homeName(): string {
-        return this.memory.home || Game.spawns[this.memory.nest]?.room.name || this.mission.roomName;
     }
 
     // Can the mission room feed a paver? Not an SK room, and it has a source.

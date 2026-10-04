@@ -25,21 +25,19 @@ export class Warrunner extends Warboy {
     static readonly tripLoad = _.filter(Warrunner.body, part => part === CARRY).length * CARRY_CAPACITY;
 
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        const homeName = this.mission.getRoomName("home");
-        if (!homeName) return [null, []];
+        const homeName = this.homeName;
         const homeSpawns = spawns.filter(s => s.room.name === homeName && s.room.energyAvailable >= Warrunner.cost);
         if (!homeSpawns.length) return [null, []];
         return [_.sample(homeSpawns), Warrunner.body];
     }
 
     get homeTerminal(): StructureTerminal | null {
-        const home = this.mission.getRoom("home");
-        return home?.terminal || null;
+        return Game.rooms[this.homeName]?.terminal || null;
     }
 
     start(): Task2Ret {
         if (!RESOURCE_THORIUM) return "wait";
-        const homeName = this.mission.getRoomName("home");
+        const homeName = this.homeName;
         // At home, too old for another trip and not already walking a full
         // load out (that one left in time and has the buffer to land): unload
         // and recycle. The mission lays the replacement before this.
@@ -49,7 +47,7 @@ export class Warrunner extends Warboy {
         const loot = this.findLoot();
         if (loot) return this.scavenge(loot);
 
-        if (homeName && this.pos.roomName !== homeName) {
+        if (this.pos.roomName !== homeName) {
             // Carrying something already: the trip is worth more than a top-up.
             if (this.thorium > 0) return this.deliver();
             return this.moveRoom(homeName);

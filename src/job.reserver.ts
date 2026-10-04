@@ -15,10 +15,6 @@ export class Reserver extends JobRole {
         return this.closeSpawn(spawns, { body: "reserver" });
     }
 
-    get homeName(): string | null {
-        return this.mission.getRoomName("home");
-    }
-
     start(): Task2Ret {
         const room = Game.rooms[this.mission.roomName];
         const controller = room?.controller;

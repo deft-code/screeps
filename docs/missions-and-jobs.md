@@ -213,7 +213,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       within 2 (linear) of the mission room, dismantles an adjacent chaosTarget (most hits first) when the melee/range (WORK) intents are free; a road being dismantled is also stepped onto (plain move) so a chaos never sits on an exit tile
      ├─ Konmari  @register   (job.konmari.ts) CARRY/MOVE pairs like Swiper; loads worthless resources (catalyzed boosts excepted) from the home storage then terminal, walks towards the
      │                       Swipe target and drops 20 units per tick while outside the home room; empty -> home for more; nothing worthless left -> suicide
-     ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs from the spawns nearest home (JobCreep.getHomeRoomName: mission
+     ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs from the spawns nearest home (JobCreep.homeName: mission
      │                       "home", else "spawn", else the nest's room, else a random spawn's, so "Once Swiper <room>" works), sized to energy on hand (max 50 parts);
      │                       loots the Swipe target: @task withdrawFrom the cheapest-path non-own structure with anything in its store (Rewalker.planWalk over all candidates), one resource at a time in random order
      │                       (nuker excluded; rampart-covered ones skipped 1500 ticks via memory.skip) until full, or until the room is empty and it holds anything,

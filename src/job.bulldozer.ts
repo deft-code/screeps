@@ -80,10 +80,6 @@ export class Bulldozer extends JobCreep {
         return dozerSpawn(spawns, this.homeName);
     }
 
-    get homeName(): string {
-        return this.mission.getRoomName("home")!;
-    }
-
     get targets(): RoomPosition[] {
         const m = this.mission as unknown as DozerMission;
         return m.dozePositions ? m.dozePositions() : [];

@@ -15,16 +15,12 @@ export class Farmer extends JobRole {
         return this.closeSpawn(spawns, { body: "farmer" });
     }
 
-    get homeName(): string | null {
-        return this.mission.getRoomName("home");
-    }
-
     get farmName(): string {
         return this.mission.roomName;
     }
 
     get home(): Room | null {
-        return this.mission.getRoom("home");
+        return Game.rooms[this.homeName] || null;
     }
 
     // Typed view of the legacy prototype mixins (CreepRepair is the top of the TS chain).
@@ -54,12 +50,12 @@ export class Farmer extends JobRole {
 
         if (this.at(this.farmName)) {
             if (this.farm()) return "wait";
-            return this.moveRoom(this.homeName!);
+            return this.moveRoom(this.homeName);
         }
 
         // In transit: full creeps head home, everything else heads to the farm.
         if (!c.store.getFreeCapacity()) {
-            return this.moveRoom(this.homeName!);
+            return this.moveRoom(this.homeName);
         }
         return this.moveRoom(this.farmName);
     }

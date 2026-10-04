@@ -36,8 +36,9 @@ export class JobCreep extends MyCreep {
     // "spawn" room, else the room of the spawn it came from (memory.nest,
     // "egg" until it hatches), else any spawn's room, picked at random (a
     // mission such as Once names neither; an egg then spawns anywhere and
-    // the nest answers from then on).
-    getHomeRoomName(): string {
+    // the nest answers from then on). Never null: a job that needs to know
+    // whether the mission names a home asks mission.getRoomName("home").
+    get homeName(): string {
         const mission = this.mission;
         const named = mission?.getRoomName("home") || mission?.getRoomName("spawn");
         if (named) return named;

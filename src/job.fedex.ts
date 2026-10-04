@@ -52,7 +52,8 @@ export class Fedex extends Trucker {
         return this.mission.getRoomName("home")!;
     }
 
-    // Trucker's "home" is where it unloads: for a fedex the mission room.
+    // Overrides JobCreep.homeName: a trucker's home is where it unloads, and
+    // for a fedex that is the mission room (the mission's "home" is srcName).
     get homeName(): string {
         return this.mission.roomName;
     }

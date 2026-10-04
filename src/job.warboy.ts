@@ -68,8 +68,7 @@ export class Warboy extends JobCreep {
     static readonly tripLoad = _.filter(Warboy.body, part => part === CARRY).length * CARRY_CAPACITY;
 
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        const homeName = this.mission.getRoomName("home");
-        if (!homeName) return [null, []];
+        const homeName = this.homeName;
         const homeSpawns = spawns.filter(s => s.room.name === homeName && s.room.energyAvailable >= Warboy.cost);
         if (!homeSpawns.length) return [null, []];
         return [_.sample(homeSpawns), Warboy.body];
@@ -133,14 +132,13 @@ export class Warboy extends JobCreep {
         const loot = this.findLoot();
         if (loot) return this.scavenge(loot);
 
-        const mineral = thoriumMineral(this.mission.getRoom("home"));
+        const mineral = thoriumMineral(Game.rooms[this.homeName]);
         if (mineral) return this.harvest(mineral);
 
         // Nothing left to gather: a partial load is still worth the trip.
         if (this.thorium > 0) return this.deliver();
 
-        const homeName = this.mission.getRoomName("home");
-        if (homeName && this.pos.roomName !== homeName) return this.moveRoom(homeName);
+        if (this.pos.roomName !== this.homeName) return this.moveRoom(this.homeName);
         // Home is visible and its thorium is gone (or its extractor is): nothing left to do.
         this.dlog("no thorium to run");
         return "wait";

@@ -59,10 +59,6 @@ export class Guard extends JobRole {
         return this.remoteSpawn(spawns, { body: "guard" });
     }
 
-    get homeName(): string | null {
-        return this.mission.getRoomName("home");
-    }
-
     // The room whose enemies the guard fights: the mission room while it is
     // visible (from anywhere), else the room the guard is in.
     get arena(): Room {
@@ -185,7 +181,6 @@ export class Guard extends JobRole {
         // Back to work once healed below the threshold (it self-heals on the way).
         if (this.cc.hurts < kRetreatHurts) return "start";
         const homeName = this.homeName;
-        if (!homeName) return "wait";
         const ctrl = Game.rooms[homeName]?.controller;
         if (ctrl) {
             this.moveTarget(ctrl, 3);

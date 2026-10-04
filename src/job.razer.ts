@@ -43,7 +43,7 @@ function safeModed(room: Room): boolean {
 @register
 export class Razer extends JobCreep {
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        return dozerSpawn(spawns, this.getHomeRoomName());
+        return dozerSpawn(spawns, this.homeName);
     }
 
     get roomName(): string {
@@ -111,7 +111,7 @@ export class Razer extends JobCreep {
     originSpawn(): StructureSpawn | null {
         const nest = Game.spawns[this.memory.nest];
         if (nest) return nest;
-        const home = Game.rooms[this.getHomeRoomName()];
+        const home = Game.rooms[this.homeName];
         if (!home) return null;
         return _.first(home.find(FIND_MY_SPAWNS)) || null;
     }

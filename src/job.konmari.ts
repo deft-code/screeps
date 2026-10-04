@@ -27,10 +27,6 @@ export class Konmari extends JobCreep {
         return [spawn, energyDef({ move: 1, per: [CARRY], energy } as any)];
     }
 
-    get homeName(): string {
-        return this.mission.getRoomName("home")!;
-    }
-
     get atHome(): boolean {
         return this.pos.roomName === this.homeName;
     }

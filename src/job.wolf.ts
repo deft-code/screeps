@@ -3,7 +3,7 @@ import { register, task, Task2Ret } from "mycreep";
 import { CreepRole } from "creep.role";
 
 // Port of role.wolf.js (2017 flag-team era) to the 2022 mission/job system.
-// A melee creep spawned in the mission's "home" room. It walks to the mission
+// A melee creep spawned near the mission room. It walks to the mission
 // room, kills whatever enemy creeps it meets on the way or in the room, then
 // tears down any invader core. Farm and Remote lay one through
 // paceJobs(Wolf, 1500) while a core stands (team.ts suppressInvaderCore) and
@@ -19,10 +19,6 @@ export class Wolf extends JobRole {
         // See docs/spawning.md "Body definitions". Offroad creep: spawns fine from
         // whatever spawns are nearest the mission room.
         return this.closeSpawn(spawns, { body: "wolf" });
-    }
-
-    get homeName(): string | null {
-        return this.mission.getRoomName("home");
     }
 
     // Typed view of the prototype mixins this job leans on (intents, hurts, melee, activeByType).
@@ -65,11 +61,10 @@ export class Wolf extends JobRole {
 
     // role.wolf.js idleRetreat(TOUGH): a wolf has no TOUGH, so it retreated
     // whenever it had lost 100 hits. Keep fighting while more than half alive
-    // and still armed. A mission without a home room (Once) has nowhere to
-    // retreat to, so its wolf fights to the end.
+    // and still armed. It retreats to JobCreep.homeName: the mission's home
+    // room, else the room it was spawned in.
     shouldRetreat(): boolean {
         const c = this.cc;
-        if (!this.homeName) return false;
         if (!c.melee) return true;
         return c.hurts >= 100 && c.hurts > c.hits;
     }
@@ -79,7 +74,6 @@ export class Wolf extends JobRole {
         const c = this.cc;
         if (c.melee && c.hurts < 100) return "start";
         const homeName = this.homeName;
-        if (!homeName) return "wait";
         const ctrl = Game.rooms[homeName]?.controller;
         if (ctrl) {
             this.moveTarget(ctrl, 3);

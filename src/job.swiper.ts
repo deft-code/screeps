@@ -66,10 +66,6 @@ export class Swiper extends JobCreep {
         return [spawn, energyDef({ move: 1, per: [CARRY], energy } as any)];
     }
 
-    get homeName(): string {
-        return this.getHomeRoomName();
-    }
-
     get home(): Room | undefined {
         return Game.rooms[this.homeName];
     }
