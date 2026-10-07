@@ -158,6 +158,11 @@ export class Remote extends Farm {
         return _.compact(names.filter(n => /^rsrc_/.test(n)).sort().map(n => man.getMeta(n))) as MetaStructure[];
     }
 
+    // The metas the Harvesters claim (job.harvester HarvestMission).
+    sourceMetas(): MetaStructure[] {
+        return this.rsrcMetas();
+    }
+
     // team.ts harvester(): one harvester per source per lifetime. Civilians
     // in a remote die to combat, so they are paced rather than replaced:
     // one egg every (lifetime - walk) / sources ticks, which slightly

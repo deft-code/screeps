@@ -58,7 +58,7 @@ mission metas). Base metas build theirs from their own memory with
 moved storage moves every road; mission legs use `kOrigin` for their home-room
 entry too:
 
-| meta | `traffic()` (all `rcl = swamp = kTrafficLevel`) |
+| meta | `traffic()` (`rcl = swamp = kTrafficLevel` unless noted) |
 |---|---|
 | hub | origin -> terminal, range 1 (origin *is* the storage) |
 | cap | origin -> xy, range 2 |
@@ -66,10 +66,11 @@ entry too:
 | extna / extnb / extnc | origin -> xy, range 1 / 2 / 3 |
 | asrc / bsrc | origin -> myspot (the container), range 1 |
 | min | origin -> xy, range 1 |
+| reactor | origin -> extractor (the thorium), range 1, `rcl kNoRoad, swamp kTrafficLevel`: swamp tiles only |
 | ctrl | origin -> ctrl spot, range 1 |
 | wall | origin -> xy, range 0 |
 | rroad | `mem.traffic` (the mission legs, 2.5) |
-| rsrc, reactor, tripod, shield, nuke | none |
+| rsrc, tripod, shield, nuke | none |
 
 `MetaManager.trafficOrigin()` = the planned storage site, else the genesis
 flag (`Game.flags[memory.name]`) when it is in the room, else none (a room

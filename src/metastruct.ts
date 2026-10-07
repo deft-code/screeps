@@ -9,7 +9,7 @@ import * as debug from "debug";
 import { RoomIntel } from "intel";
 import {
     TrafficMem, TrafficResult, kPathRoad, kPathPlain, kPathSwamp, kPlannedRoad, kTrafficLevel, kTrafficBucket,
-    kTrafficHeadroom, kOrigin, trafficMatrix, planTraffic, validTraffic, describeTraffic, hashString,
+    kTrafficHeadroom, kOrigin, kNoRoad, trafficMatrix, planTraffic, validTraffic, describeTraffic, hashString,
 } from "metatraffic";
 
 declare global {
@@ -2014,7 +2014,10 @@ class Meta_min extends MetaStructure {
 class Meta_reactor extends MetaStructure {
     // Season 11: an extractor over the thorium mineral, nothing else. Warboys
     // (job.warboy) carry the thorium straight to the sector core, so there is
-    // no container and no road destination. Flag on or beside the thorium.
+    // no container. Flag on or beside the thorium. Asks for a road from the
+    // traffic origin to a tile beside the thorium (where the thoreaters
+    // stand), laid on swamp tiles only: the walk is short and the swamps are
+    // what slows a loaded thoreater, so plain tiles stay bare.
     static plan(f: FlagExtra, man: MetaManager) {
         const min = flagMineral(f, 1, m => m.mineralType === RESOURCE_THORIUM);
         if (!min) {
@@ -2025,6 +2028,11 @@ class Meta_reactor extends MetaStructure {
         mem.priority = kReactorPriority;
         addMemStruct(mem, STRUCTURE_EXTRACTOR, kMineralLevel, min.pos.xy);
         return new this(mem, man);
+    }
+    traffic(): TrafficMem[] {
+        const dest = this.getSite(STRUCTURE_EXTRACTOR);
+        if (!dest) return [];
+        return [{ src: kOrigin, dest, range: 1, rcl: kNoRoad, swamp: kTrafficLevel }];
     }
 }
 

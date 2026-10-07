@@ -149,7 +149,9 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               ActiveStrat places the road/container sites, status shows `early`), and nJobs(Guard, 1) while an
                                                               enemy creep (room.enemies, armed or not) is in the unowned room;
                                                               while ours and below RCL4, paceNJobs(Pioneer, 2) (hardcoded kPioneers per lifetime) and nJobs(Guard, 1) while the room has no tower,
-                                                              spawned outside the room; at RCL4 windDown(): pioneers live
+                                                              spawned outside the room; while ours and below RCL3 (kHarvesterRCL), nJobs(Harvester, one per
+                                                              asrc/bsrc meta of the room: `sourceMetas()`, none until genesis has planned) from the home room,
+                                                              drop-mining on the planned container tiles; at RCL3 no more are laid and the living ones work on; at RCL4 windDown(): pioneers live
                                                               out their lives, then the mission kills and deschedules itself. Distinct from
                                                               the `Startup` job class (separate registries).
                                                               "Startup <room> [home]": while not ours and GCL is full (owned rooms >= gcl.level) no
@@ -192,7 +194,8 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       walk the Rewalker route toward memory.home taking the nearest piles >= 50, tombstones, ruins, our stores or a
      │                       non-SK source in each room, nothing within 5 of a lair; taskRechargeHarvest at home as last resort; full -> work);
      │                       after(): idleNom + idleBuild|idleRepairAny; spawned by PaveAll
-     ├─ Harvester @register  (job.harvester.ts) port of role.harvester.js for Remote; 6W/1C/3M from "home" (falls back to the nearest spawns) (floor 3W/1C/2M); claims an rsrc meta
+     ├─ Harvester @register  (job.harvester.ts) port of role.harvester.js for Remote (and Startup below RCL3); 6W/1C/3M from "home" (falls back to the nearest spawns) (floor 3W/1C/2M); claims a source meta
+     │                       from the mission's `sourceMetas()` (HarvestMission: Remote's rsrc metas, Startup's asrc/bsrc metas; targetid() = the source, myspot = the container tile)
      │                       (memory.rsrc; if all are claimed it shadows the harvester with the fewest ticks to live), stands on the
      │                       container tile drop-mining; builds the container site and repairs the container, withdrawing from it for that;
      │                       after() idles (nom/build/repair) only while inside the mission room

@@ -6,9 +6,10 @@ import { Claimer } from "job.claimer";
 import { Guard } from "job.guard";
 import { Wolf } from "job.wolf";
 import { Reserver } from "job.reserver";
+import { Harvester, HarvestMission } from "job.harvester";
 import { whoami } from "Rewalker";
 import { getSpots } from "spots";
-import { getMetaManager } from "metastruct";
+import { getMetaManager, MetaStructure } from "metastruct";
 import { Meta_rroad } from "metaremote";
 import { pathTraffic, FarTarget } from "metatraffic";
 import { RoadPlanner } from "roadplan";
@@ -19,6 +20,10 @@ import * as debug from "debug";
 
 // RCL at which the assisted room is on its own and the mission winds down.
 const kDoneRCL = 4;
+// While ours below this RCL, one Harvester per source (the genesis asrc/bsrc
+// metas) drop-mines beside the pioneers; from here the Hub's own srcers take
+// the sources and no more harvesters are laid (the living ones work on).
+const kHarvesterRCL = 3;
 // Pioneers per creep lifetime below kDoneRCL, before and after the claim.
 const kPioneers = 2;
 // Ticks between "not ours" log lines while waiting for the room.
@@ -108,9 +113,16 @@ export interface StartupMemory extends MissionMemory {
 // reservers alive can already strip it and while armed hostiles are in the
 // room. With GCL free the claimer handles it instead.
 @register
-export class Startup extends Mission {
+export class Startup extends Mission implements HarvestMission {
     get roomName(): string {
         return this.args[1];
+    }
+
+    // The genesis source metas (asrc/bsrc) of the mission room: what the
+    // Harvesters claim (job.harvester). None until the room's genesis flag
+    // has planned.
+    sourceMetas(): MetaStructure[] {
+        return getMetaManager(this.roomName).metas.filter(m => m.role === "asrc" || m.role === "bsrc");
     }
 
     get smem(): StartupMemory {
@@ -156,6 +168,7 @@ export class Startup extends Mission {
             this.windDown();
         } else {
             this.paceNJobs(Pioneer, kPioneers);
+            if (controller.level < kHarvesterRCL) this.nJobs(Harvester, this.sourceMetas().length);
             if (!room.findStructs(STRUCTURE_TOWER).length) this.nJobs(Guard, 1);
         }
         if (this.building()) this.drawRoad();

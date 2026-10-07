@@ -2,7 +2,7 @@ import { JobRole } from "job.role";
 import { register, Task2Ret } from "mycreep";
 import { CreepRepair } from "creep.repair";
 import { getMetaManager, MetaStructure } from "metastruct";
-import type { Remote } from "ms.remote";
+import type { Mission } from "mission";
 import { findSpawns } from "spawnold";
 import { fromXY } from "Rewalker";
 
@@ -13,10 +13,18 @@ declare global {
     }
 }
 
+// A mission that lays harvesters: one source meta per source it wants
+// mined, each answering targetid() with the source and myspot with the
+// container tile (Meta_rsrc for Remote, Meta_asrc/bsrc for Startup).
+export interface HarvestMission extends Mission {
+    sourceMetas(): MetaStructure[]
+}
+
 // Port of role.harvester.js (team.ts harvester/harvestaga) for the Remote
-// mission. Spawns in the home room, walks to the remote, claims an rsrc meta
-// (metaremote.ts) and stands on its container tile drop-mining the source:
-// harvest overflow lands in the container. Builds the container site first;
+// mission (Startup lays them too, below RCL3). Spawns in the home room,
+// walks to the mission room, claims a source meta (sourceMetas) and stands
+// on its container tile drop-mining the source: harvest overflow lands in
+// the container. Builds the container site first;
 // once it stands, harvesting comes first and building/repairing around the
 // spot (the container included) fills the ticks when creep and container
 // are both full. Never carries energy away; that is the trucker's job.
@@ -64,11 +72,11 @@ export class Harvester extends JobRole {
         return this.c as CreepRepair;
     }
 
-    get remote(): Remote {
-        return this.mission as Remote;
+    get harvestMission(): HarvestMission {
+        return this.mission as HarvestMission;
     }
 
-    // The rsrc meta this creep works, if it still exists.
+    // The source meta this creep works, if it still exists.
     get meta(): MetaStructure | null {
         const name = this.c.memory.rsrc;
         if (!name) return null;
@@ -105,15 +113,15 @@ export class Harvester extends JobRole {
     }
 
     spot(meta: MetaStructure): RoomPosition {
-        return fromXY(meta.getSpot("rsrc"), this.mission.roomName);
+        return fromXY(meta.myspot, this.mission.roomName);
     }
 
-    // Claim a free rsrc meta (recorded in memory). If all are claimed, return
+    // Claim a free source meta (recorded in memory). If all are claimed, return
     // the one whose current harvester has the fewest ticks to live, unclaimed.
     claim(): MetaStructure | null {
-        const metas = this.remote.rsrcMetas();
+        const metas = this.harvestMission.sourceMetas();
         if (!metas.length) return null;
-        const others = this.remote.roleCreeps("harvester").filter(h => h.name !== this.name);
+        const others = this.harvestMission.roleCreeps("harvester").filter(h => h.name !== this.name);
         const owner = new Map<string, Creep>();
         for (const h of others) {
             const name = Memory.creeps[h.name]?.rsrc;
