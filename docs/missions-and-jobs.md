@@ -164,6 +164,14 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               8/12/24, harvest spots and keeper lairs dear, rooms other players own impassable), kept in
                                                               memory.road as a Rewalker `Path`, replanned every 500 ticks and drawn (yellow dashed) while
                                                               the mission room has >= 2 of our construction sites; `replanRoad()` drops it; status adds `gcl:` and `road:<tiles> via:<rooms>`.
+                                                              While GCL is full and the room is free (no owner, no reservation) it sets the room's prebuild level
+                                                              (MetaManager.setPrebuild(kTrafficLevel), ManagerMem.prebuild, status `prebuild:3`): ActiveStrat then
+                                                              places and the pavers keep every planned road up to that level, not just the level-0 stub, so the
+                                                              genesis roads go in ahead of the claim; cleared when GCL has room, someone else holds the controller,
+                                                              the room is ours, or at windDown. While prebuilding, paceJobs(Reserver, reserveHoldPace(room)) holds the
+                                                              reservation exactly as Remote does (job.reserver.ts: 225 ticks, 450 above 450 ticks held, none above
+                                                              1000, at least 500/controller spots; none with armed hostiles). Our own reservation no longer blocks
+                                                              `canPioneerEarly` or the prebuild (a foreign one still does).
                                                               Only the head of the path, the tiles within 3 (kRoadRange) of the controller, becomes road
                                                               (since 26 Sept 2026; sources and the way home are the genesis metas' business): one traffic
                                                               entry in a `Meta_rroad` named `rroad_<room>_startup` in the mission room (tracked in

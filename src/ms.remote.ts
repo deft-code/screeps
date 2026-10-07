@@ -2,9 +2,8 @@ import { Mission, MissionMemory } from "mission";
 import { Farm } from "ms.farm";
 import { register, Priority, Service } from "process";
 import { Scout } from "job.scout";
-import { Reserver } from "job.reserver";
-import { whoami, coordsFromXY } from "Rewalker";
-import { getSpots } from "spots";
+import { Reserver, reserveHoldPace } from "job.reserver";
+import { coordsFromXY } from "Rewalker";
 import { getMetaManager, MetaStructure } from "metastruct";
 import { Harvester } from "job.harvester";
 import { Trucker } from "job.trucker";
@@ -13,15 +12,6 @@ import { RemotePlanner } from "metaremote";
 import { PaveAll } from "ms.paveall";
 import * as debug from "debug";
 
-// team.ts reserve(): a reserver every 225 ticks holds a room's reservation;
-// slow to 450 once ours is above 450 ticks and stop above 1000.
-const kReservePace = 225;
-const kReservePaceSlow = 450;
-const kReserveSlowAt = 450;
-const kReserveStopAt = 1000;
-// Reservers stand next to the controller, so never pace them faster than the
-// free tiles around it can absorb: at least kReserveSpotPace / spots ticks apart.
-const kReserveSpotPace = 500;
 // Ticks between "waiting" log lines while the spawn room has no spawn.
 const kLogPace = 100;
 // Walking allowance per room of route distance when pacing civilians.
@@ -115,27 +105,13 @@ export class Remote extends Farm {
 
     // team.ts reserve() (line 693): keep the controller reserved for us. Farm
     // only lays reservers to undo a foreign (invader core) reservation; here
-    // they are paced continuously. A foreign reservation needs no special
-    // case: the Reserver job attacks it when reserveController is refused.
+    // they are paced continuously (job.reserver reserveHoldPace). A foreign
+    // reservation needs no special case: the Reserver job attacks it when
+    // reserveController is refused.
     reserve() {
-        const room = this.room!;
-        if (room.hostiles.length) return null;
-        const controller = room.controller;
-        if (!controller || controller.owner) return null;
-
-        let pace = kReservePace;
-        const res = controller.reservation;
-        if (res && res.username === whoami()) {
-            if (res.ticksToEnd > kReserveStopAt) return null;
-            if (res.ticksToEnd > kReserveSlowAt) pace = kReservePaceSlow;
-        }
-        pace = Math.max(pace, this.reserveSpotPace());
+        const pace = reserveHoldPace(this.room!);
+        if (pace === null) return null;
         return this.paceJobs(Reserver, pace);
-    }
-
-    reserveSpotPace(): number {
-        const nspots = getSpots(this.room!.controller!.pos).length || 1;
-        return Math.floor(kReserveSpotPace / nspots);
     }
 
     // Truckers have nothing to haul until a container in the room holds

@@ -186,7 +186,12 @@ and terminal, and the rings wrap both.
   survives that. No vision needed; that is how Remote/Startup removal and the
   Thormine teardown clear their roads. A room whose kOrigin entries cannot
   resolve (no storage, no genesis flag) drops its plan on its next upkeep pass.
-- `commitTraffic` replaces `memory.traffic`, clears the maxHits cache, and
+- `commitTraffic` replaces `memory.traffic` (each level's tiles sorted by
+  range to the nearest source, `sortTraffic`, so `makeSite`, which takes a
+  level's first free tile, lays the roads around the sources first; sources
+  are the asrc/bsrc metas' tiles, else the ones in view; `sorted` marks the
+  plan and the manager sorts an unmarked plan once when it loads), clears the
+  maxHits cache, and
   removes our road construction sites on tiles the new plan dropped (unless
   another meta still plans a road there), through `Game.constructionSites`, so
   vision is not needed. Dropped built roads are left to decay, as retired roads

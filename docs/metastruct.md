@@ -246,8 +246,11 @@ planned structure instead of hiding built ones).
 ## Upkeep (`MetaManager.run()`, every tick for owned rooms; `runUnowned()` every 10 ticks from `ActiveStrat`)
 
 `runUnowned()` keeps the two-site gate and only calls `makeSite` for
-containers and roads. In a room we do not own (`roomLevel` 0) `makeSite`
-never purges on `ERR_RCL_NOT_ENOUGH`. Both start with `updateTraffic()`
+containers (level 0) and roads up to `unownedLevel` (`ManagerMem.prebuild`,
+else 0; Startup sets it to `kTrafficLevel` while GCL is full and the room is
+free, so the genesis roads are built ahead of the claim; `ActiveStrat.maxHits`
+keeps the built ones at that level too). In a room we do not own (`roomLevel`
+0) `makeSite` never purges on `ERR_RCL_NOT_ENOUGH`. Both start with `updateTraffic()`
 (see Traffic); a pass that replans the traffic places no site.
 
 Every `kRetirePace` (10) ticks, first clears one retired tile (below). Skips when more than 2 of the room's construction sites exist. Then in order:

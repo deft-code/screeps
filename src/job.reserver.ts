@@ -1,5 +1,37 @@
 import { JobRole } from "job.role";
 import { register, task, Task2Ret } from "mycreep";
+import { whoami } from "Rewalker";
+import { getSpots } from "spots";
+
+// team.ts reserve(): a reserver every kReservePace ticks holds a room's
+// reservation for us; slow to kReservePaceSlow once ours is above
+// kReserveSlowAt ticks and stop above kReserveStopAt. Reservers stand next
+// to the controller, so never pace them faster than the free tiles around
+// it can absorb: at least kReserveSpotPace / spots ticks apart. Shared by
+// Remote (always) and Startup (while prebuilding a free room ahead of its
+// claim).
+const kReservePace = 225;
+const kReservePaceSlow = 450;
+const kReserveSlowAt = 450;
+const kReserveStopAt = 1000;
+const kReserveSpotPace = 500;
+
+// Ticks between reservers to hold the room's reservation, or null for none
+// now: armed hostiles in the room, no controller, someone owns it, or ours
+// already runs past kReserveStopAt.
+export function reserveHoldPace(room: Room): number | null {
+    if (room.hostiles.length) return null;
+    const controller = room.controller;
+    if (!controller || controller.owner) return null;
+    let pace = kReservePace;
+    const res = controller.reservation;
+    if (res && res.username === whoami()) {
+        if (res.ticksToEnd > kReserveStopAt) return null;
+        if (res.ticksToEnd > kReserveSlowAt) pace = kReservePaceSlow;
+    }
+    const nspots = getSpots(controller.pos).length || 1;
+    return Math.max(pace, Math.floor(kReserveSpotPace / nspots));
+}
 
 // Port of role.reserver.js (2017 flag-team era) to the 2022 mission/job system.
 // Spawns in the mission's "home" room, walks straight to the mission room's

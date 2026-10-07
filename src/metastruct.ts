@@ -376,6 +376,11 @@ interface ManagerMem {
     // The room's name for itself: the genesis flag's name, stamped by
     // runGenesis. New spawns are named after it (MetaManager.spawnNames).
     name?: string
+    // Unowned room: plan level up to which ActiveStrat places the planned
+    // road sites and keeps the built roads repaired (maxHits), instead of
+    // roomLevel's 0. Startup sets it (kTrafficLevel) while GCL is full and
+    // the room is free, so the genesis roads go in ahead of the claim.
+    prebuild?: number
     keep?: number[]
     drop?: number[]
     roadkeep?: number[]
@@ -417,6 +422,10 @@ interface TrafficPlanMem extends MetaMem {
     at?: number
     // Entries whose search reached no goal (describeTraffic).
     fail?: string[]
+    // Each level's tiles are ordered by range to the nearest source
+    // (MetaManager.sortTraffic). Plans from before Oct 2026 are sorted once
+    // when the manager loads.
+    sorted?: boolean
 }
 type MetaRetire = {
     [xy: number]: number
@@ -473,6 +482,10 @@ export class MetaManager {
         this.metas.sort(metaOrder);
         for (const meta of this.metas) {
             if (meta.migrate()) Game.rooms[name]?.log(meta.name, "meta memory migrated");
+        }
+        // One-time fix for plans saved before the sort existed.
+        if (metaMem.traffic && !metaMem.traffic.sorted && this.sortTraffic(metaMem.traffic)) {
+            Game.rooms[name]?.log("traffic plan sorted by source range");
         }
         this.save();
         this.birth = Game.time
@@ -585,7 +598,24 @@ export class MetaManager {
         if (!room) return false;
         if (this.updateTraffic()) return true;
         if (room.find(FIND_MY_CONSTRUCTION_SITES).length > 2) return false;
-        return this.makeSite(STRUCTURE_CONTAINER) || (!this.trafficStale && this.makeSite(STRUCTURE_ROAD));
+        return this.makeSite(STRUCTURE_CONTAINER) || (!this.trafficStale && this.makeSite(STRUCTURE_ROAD, this.unownedLevel));
+    }
+
+    // The plan level an unowned room builds and repairs roads up to
+    // (memory.prebuild, else 0).
+    get unownedLevel(): number {
+        return this.memory.prebuild || 0;
+    }
+
+    // Set (or with null clear) memory.prebuild. The maxHits caches are
+    // flushed when it changes, since they encode the old level.
+    setPrebuild(level: number | null) {
+        const cur = this.memory.prebuild;
+        if ((level ?? undefined) === cur) return;
+        if (level === null) delete this.memory.prebuild;
+        else this.memory.prebuild = level;
+        this.clearHitsCache();
+        Game.rooms[this.name]?.log("prebuild level", cur, "->", level);
     }
 
     getMeta(name: string): MetaStructure | null {
@@ -806,6 +836,36 @@ export class MetaManager {
         return out;
     }
 
+    // The room's source tiles: the asrc/bsrc metas' tiles (known without
+    // vision), else the sources in view.
+    sourceTiles(): number[] {
+        const metas = this.metas.filter(m => m.role === "asrc" || m.role === "bsrc").map(m => m.mem.xy);
+        if (metas.length) return metas;
+        return (Game.rooms[this.name]?.find(FIND_SOURCES) || []).map(s => toXY(s.pos));
+    }
+
+    // Order each level's road tiles by range to the nearest source, nearest
+    // first (stable: ties keep the planner's order), so makeSite, which takes
+    // a level's first free tile, lays the roads around the sources before
+    // the rest. False, and the plan untouched, when the room has no known
+    // source. Sets mem.sorted.
+    sortTraffic(mem: TrafficPlanMem): boolean {
+        const srcs = this.sourceTiles().map(coordsFromXY);
+        if (!srcs.length) return false;
+        const roads = mem.structs[STRUCTURE_ROAD];
+        if (roads) {
+            const range = (xy: number) => {
+                const [x, y] = coordsFromXY(xy);
+                return _.min(srcs.map(([sx, sy]) => Math.max(Math.abs(sx - x), Math.abs(sy - y))));
+            };
+            for (const lvl of _.keys(roads)) {
+                roads[lvl as PlanLevel] = _.sortBy(roads[lvl as PlanLevel]!, range);
+            }
+        }
+        mem.sorted = true;
+        return true;
+    }
+
     // Store a new plan and remove our road sites on the tiles it dropped.
     // Dropped built roads are left to decay (maxHits no longer keeps them).
     // Returns the number of sites removed.
@@ -814,6 +874,7 @@ export class MetaManager {
         mem.sig = sig;
         mem.at = Game.time;
         for (const [xy, lvl] of result.roads) addMemStruct(mem, STRUCTURE_ROAD, lvl as PlanLevel, xy);
+        this.sortTraffic(mem);
         if (result.fail.length) mem.fail = result.fail.map(describeTraffic);
         this.memory.traffic = mem;
         this.traffic = new TrafficPlan(mem, this);
@@ -903,14 +964,17 @@ export class MetaManager {
         return _.any(threats, h => !h.keeper);
     }
 
-    makeSite(stype: BuildableStructureConstant): boolean {
+    // A site for `stype` from the first planned meta that has a free tile
+    // for it at a level up to `maxLvl` (the room's level by default), else
+    // an optional (kAllLvls) one. True when a site was created.
+    makeSite(stype: BuildableStructureConstant, maxLvl: number = Number(roomLevel(Game.rooms[this.name]))): boolean {
         const room = Game.rooms[this.name];
         if (!room) return false;
         if (this.hostileHold(room, stype)) return false;
         const planned = this.planned();
         let blocker: blocker = null;
         for (const meta of planned) {
-            const [free, newblocker] = meta.findSite(stype, room);
+            const [free, newblocker] = meta.findSite(stype, room, maxLvl);
             if (free) {
                 const ret = this.createSite(free, stype);
                 if (ret === OK) return true;
@@ -1333,11 +1397,10 @@ export class MetaStructure {
         );
     }
 
-    findSite(stype: BuildableStructureConstant, room: Room): [RoomPosition | null, Structure | ConstructionSite | null] {
+    findSite(stype: BuildableStructureConstant, room: Room, max: number = Number(roomLevel(room))): [RoomPosition | null, Structure | ConstructionSite | null] {
         const lvls = this.mem.structs[stype];
         if (!lvls) return [null, null];
 
-        const max = roomLevel(room);
         for (let lvl = 0; lvl <= max; lvl++) {
             const [free, blocker] = this.findXys(lvls[lvl as PlanLevel], stype, room);
             if (free || blocker) {

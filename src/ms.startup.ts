@@ -5,13 +5,13 @@ import { Scout } from "job.scout";
 import { Claimer } from "job.claimer";
 import { Guard } from "job.guard";
 import { Wolf } from "job.wolf";
-import { Reserver } from "job.reserver";
+import { Reserver, reserveHoldPace } from "job.reserver";
 import { Harvester, HarvestMission } from "job.harvester";
 import { whoami } from "Rewalker";
 import { getSpots } from "spots";
 import { getMetaManager, MetaStructure } from "metastruct";
 import { Meta_rroad } from "metaremote";
-import { pathTraffic, FarTarget } from "metatraffic";
+import { pathTraffic, FarTarget, kTrafficLevel } from "metatraffic";
 import { RoadPlanner } from "roadplan";
 import { remoteSpawns } from "spawnold";
 import { PaveAll } from "ms.paveall";
@@ -24,6 +24,12 @@ const kDoneRCL = 4;
 // metas) drop-mines beside the pioneers; from here the Hub's own srcers take
 // the sources and no more harvesters are laid (the living ones work on).
 const kHarvesterRCL = 3;
+// While GCL is full and the room is free (nobody owns or reserves it), the
+// room's MetaManager places its planned road sites up to this level ahead of
+// the claim (ManagerMem.prebuild): every road the genesis metas' traffic
+// plans (kTrafficLevel), so the pioneers and pavers build the base's roads
+// while the controller waits for GCL.
+const kPrebuildLevel = kTrafficLevel;
 // Pioneers per creep lifetime below kDoneRCL, before and after the claim.
 const kPioneers = 2;
 // Ticks between "not ours" log lines while waiting for the room.
@@ -102,6 +108,17 @@ export interface StartupMemory extends MissionMemory {
 // The mission room gets a "PaveAll <room>" (ms.paveall.ts) while it is
 // unowned with our sites in view, as Remote does.
 //
+// While GCL is full and the room is free (nobody owns it, nobody but us
+// reserves it), the mission also sets the room's prebuild level
+// (MetaManager.setPrebuild, kPrebuildLevel): ActiveStrat then places every
+// planned road up to that level, not just the level-0 stub, so the genesis
+// base's roads go in ahead of the claim. Cleared (back to level 0) once GCL
+// has room, someone else holds the controller, the room is ours or the
+// mission winds down. While prebuilding it holds the room's reservation
+// with Reservers paced as Remote paces its own (job.reserver
+// reserveHoldPace), so the sources yield 3000 for the pioneers and pavers
+// and nobody else can reserve the room from under the roads.
+//
 // An invader core in the mission room draws one Wolf (job.wolf.ts) per
 // kCorePace ticks until it is gone (Farm.suppressInvaderCore), and an enemy
 // creep in the unowned room (room.enemies, armed or not) keeps one Guard
@@ -162,11 +179,14 @@ export class Startup extends Mission implements HarvestMission {
             } else {
                 this.claim();
             }
+            this.setPrebuild(this.gclFull && this.isFree(controller));
+            if (this.prebuilding) this.holdReservation(room);
             if (this.canPioneerEarly(controller)) this.paceNJobs(Pioneer, kPioneers);
         } else if (controller.level >= kDoneRCL) {
             debug.log(this.name, "reached RCL", controller.level);
             this.windDown();
         } else {
+            this.setPrebuild(false);
             this.paceNJobs(Pioneer, kPioneers);
             if (controller.level < kHarvesterRCL) this.nJobs(Harvester, this.sourceMetas().length);
             if (!room.findStructs(STRUCTURE_TOWER).length) this.nJobs(Guard, 1);
@@ -177,12 +197,36 @@ export class Startup extends Mission implements HarvestMission {
         return "normal";
     }
 
+    // The mission room's prebuild level: kPrebuildLevel while `on`, else
+    // cleared (MetaManager.setPrebuild is a no-op when unchanged).
+    setPrebuild(on: boolean) {
+        getMetaManager(this.roomName).setPrebuild(on ? kPrebuildLevel : null);
+    }
+
+    get prebuilding(): boolean {
+        return getMetaManager(this.roomName).unownedLevel > 0;
+    }
+
+    // Nobody owns the room and nobody but us reserves it.
+    isFree(controller: StructureController): boolean {
+        return !controller.owner && !this.foreignReservation(controller);
+    }
+
+    // Keep the free room reserved for us while prebuilding, paced as Remote
+    // paces its reservers.
+    holdReservation(room: Room) {
+        const pace = reserveHoldPace(room);
+        if (pace === null) return null;
+        return this.paceJobs(Reserver, pace);
+    }
+
     // Pioneers ahead of the claim need sources they may harvest (nobody owns
-    // or reserves the room) and something to build: only saved metas get
-    // sites in an unowned room, and only roads and containers. Our own road
-    // metas do not count: the road is the pavers' job.
+    // the room, nobody but us reserves it) and something to build: only
+    // saved metas get sites in an unowned room, and only roads and
+    // containers. Our own road metas do not count: the road is the pavers'
+    // job.
     canPioneerEarly(controller: StructureController): boolean {
-        if (controller.owner || controller.reservation) return false;
+        if (!this.isFree(controller)) return false;
         const ours = this.smem.roadMetas?.[this.roomName] || [];
         return _.any(getMetaManager(this.roomName).metas, m => !_.contains(ours, m.name));
     }
@@ -354,6 +398,7 @@ export class Startup extends Mission implements HarvestMission {
     windDown() {
         super.windDown();
         this.removeRoadMetas();
+        this.setPrebuild(false);
     }
 
     get road(): Path | null {
@@ -397,9 +442,10 @@ export class Startup extends Mission implements HarvestMission {
             ? ` road:${mem.road[2].length}${mem.roadIncomplete ? "!" : ""} via:${(mem.roadRooms || []).join(">")} home:${this.homeName}`
             : "";
         const metas = mem.roadMetas ? ` metas:${_.keys(mem.roadMetas).length}` : "";
+        const prebuild = this.prebuilding ? ` prebuild:${kPrebuildLevel}` : "";
         const core = ctrl && !ctrl.my && this.room!.findStructs(STRUCTURE_INVADER_CORE).length ? " core!" : "";
         const res = ctrl && !ctrl.my ? this.foreignReservation(ctrl) : null;
         const reserved = res ? ` reserved:${res.username}/${res.ticksToEnd}` : "";
-        return super.status() + ` rcl:${lvl === undefined ? "?" : lvl}/${kDoneRCL}${early}${gcl}${road}${metas}${core}${reserved}`;
+        return super.status() + ` rcl:${lvl === undefined ? "?" : lvl}/${kDoneRCL}${early}${gcl}${road}${metas}${prebuild}${core}${reserved}`;
     }
 }

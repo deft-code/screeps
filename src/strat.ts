@@ -195,10 +195,13 @@ export class NullStrat extends Process implements IStrat {
 // Ticks between site-placement passes in an ActiveStrat room.
 const kActiveUpkeep = 10;
 
-// An unclaimed room that has metas in memory, planned by a mission (Remote).
-// Places their container and road sites while we have vision, and gives the
-// planned roads/containers full maxHits so creeps repair only those. Evolves
-// back to NullStrat once the metas are removed, so the leftovers decay.
+// An unclaimed room that has metas in memory, planned by a mission (Remote)
+// or a genesis flag ahead of a claim (Startup). Places their container and
+// road sites while we have vision, and gives the planned roads/containers
+// full maxHits so creeps repair only those. Level 0 of the plan, except
+// roads up to the room's prebuild level (ManagerMem.prebuild, set by
+// Startup while GCL is full). Evolves back to NullStrat once the metas are
+// removed, so the leftovers decay.
 export class ActiveStrat extends NullStrat implements IStrat {
     name = "activestrat";
     offset = _.random(kActiveUpkeep - 1);
@@ -217,7 +220,7 @@ export class ActiveStrat extends NullStrat implements IStrat {
         if (stype === STRUCTURE_ROAD || stype === STRUCTURE_CONTAINER) {
             const room = this.room;
             if (!room) return 0;
-            return room.meta.maxHits(stype, xy, 0);
+            return room.meta.maxHits(stype, xy, stype === STRUCTURE_ROAD ? room.meta.unownedLevel : 0);
         }
         return super.maxHits(stype, xy);
     }
