@@ -262,7 +262,9 @@ destructive `wipe`/`worldWipe`/`scalp`/`purgeWalls` helpers.
 (`nest`, `home`, `task`, `task2`, `_walk`), `Memory.rooms[x].{intel, meta,
 links, labs, spots, containers}`, `Memory.intel`, `Memory.flags[genesis].newer`,
 `Memory.spawns[name]` (spawn telemetry, `spawnload.ts`; read it with
-`spawnLoads()`), `Memory.debug`. Shapes in [docs/memory-layout.md](docs/memory-layout.md).
+`spawnLoads()`), `Memory.Rewalker.rooms[x].{sk, cost}` (what blind walks know of
+keeper tiles and route costs, written by `Rewalker.gatherIntel` from `strat.init`),
+`Memory.debug`. Shapes in [docs/memory-layout.md](docs/memory-layout.md).
 
 ## Known traps (full list in docs/known-issues.md)
 

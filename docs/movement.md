@@ -96,10 +96,13 @@ to a tile beside its resource and stands there attacking within range 3, so
 source and ordinary mineral sorted by id, `0` until a keeper has been seen
 there. Each `RoomInfo` keeps one and, every visible tick while an entry is
 still `0`, fills the zeros from the keepers standing beside their resources
-(`SKInfo.recalc`) and then from `Rewalker.blindSKInfo(roomName)`: a callback
-that `intel.ts` sets to read `Memory.rooms[x].intel.sk`, since Rewalker
-imports nothing (the default knows nothing). Intel in turn stores a copy of
-`Rewalker.skInfo(roomName)` each visible tick, so the two agree. With vision
+(`SKInfo.recalc`) and then from `Rewalker.blindSKInfo(roomName)`, which reads
+`Memory.Rewalker.rooms[x].sk`. `Rewalker.gatherIntel(room)` (called from
+`strat.init` for every visible room, after `updateIntel`) writes that copy
+whenever the heap's `SKInfo` changes, so the two agree. Until Oct 2026 the
+copy lived in `Memory.rooms[x].intel.sk` behind callbacks `intel.ts` set on
+the Rewalker; it is Rewalker's own memory now (`Rewalker.memory()`, which
+makes `Memory.Rewalker` on first use and can be overridden). With vision
 the matrix gets a range 3 avoid at every known tile (50 per ring: 50, 100, 150 on top of the terrain, since a keeper does 100 a tick at range 3 and the old 10 let a 12-cost ring beat a 15-tile detour) and a range 4 avoid (40 per ring)
 around a resource whose keeper is still unknown (`applySK`). The snapshot in
 `RoomInfo.mat` is taken before that layer, so without vision it is laid
@@ -109,15 +112,23 @@ answer alone.
 
 Route costs for `Game.map.findRoute` (`routeCallback`): own claimed 1, own
 reserved 2, highway 3, ally reserved 4, normal 5, ally claimed 6, SK 7,
-hostile reserved 7 (as SK), hostile claimed 25, and 25 for any room holding a
-deployed invader core (level 1 and up, whatever its controller); a room where
-we were recently killed costs +20 for 2000 ticks. `isAllied` only treats `SYSTEM_USERNAME` as allied.
-Routes are cached 500 ticks per unordered room pair. Those costs come from
-vision and live on the heap; a room out of sight (or every room after a push)
-is asked of `Rewalker.blindRoomCost(roomName)`, a callback `intel.ts` sets to
-read the room's intel (a deployed invader core or another player's base 25,
-a foreign reservation 7, our own rooms 1/2; null otherwise), and only then
-guessed from its name (`guessRoomCost`: highway, SK, normal).
+hostile reserved 7 (as SK), hostile claimed 25 when the room has a tower
+(a towerless foreign claim costs 7, as a reservation, since Oct 2026), and 25
+for any room holding a deployed invader core (level 1 and up, whatever its
+controller); a room where we were recently killed costs +20 for 2000 ticks.
+`isAllied` only treats `SYSTEM_USERNAME` as allied. Routes are cached 500
+ticks per unordered room pair. `calcRoomCost(room)` returns the cost with a
+`ttl` (how long to trust it blind: 20000 for a base, the collapse timer for
+a core, the reservation's `ticksToEnd`, 2000 for a murder) and a visible
+room's `RoomInfo` recomputes it every 50 ticks (a murder holds its +20 for
+the whole 2000; until Oct 2026 `until` held a duration, so the cost was
+recomputed every tick and the hold never held). Those costs live on the
+heap; `gatherIntel` writes `[cost, expire]` to `Memory.Rewalker.rooms[x].cost`
+whenever a visible room's cost differs from its name's guess and drops the
+entry when it no longer does, and a room out of sight (or every room after a
+push) is asked of `Rewalker.blindRoomCost(roomName)`, which returns that
+entry while it has not expired, and only then guessed from its name
+(`guessRoomCost`: highway, SK, normal).
 
 ## `routes.dist(from, to)`
 

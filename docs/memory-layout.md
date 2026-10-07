@@ -77,7 +77,7 @@ delete by hand: it restarts from empty.
 ### `Memory.rooms[name]`
 | field | writer | live | shape |
 |---|---|---|---|
-| `intel` | `intel.ts` | yes | `{ last, enabled?, owner?: [userIdx, rcl], core?: [lvl, expire], power?: [xy, amount, expire], deposit?: [xy, cooldown, expire], src?: xy[], ctrl?: xy, min?: xy, thor?: [xy, amount], sk?: xy[4], center?: xy, portal? }` (`src`/`ctrl`/`min` written once on first sight, `thor` rewritten every visit and deleted when the thorium is gone, `owner` deleted when the controller is neither owned nor reserved, `sk` keeper rooms only: the Source Keeper standing tile per source and mineral sorted by id, 0 until seen, a copy of `Rewalker.skInfo(room)` every visible tick; `RoomIntel.srcPos`/`ctrlPos`/`minPos`/`thorPos`/`thorAmount`/`sk` read them; `center` is the room centre from `findRoomCenter` over `src` and `ctrl`, computed and cached on the first `RoomIntel.centerXY`/`centerPos` read, never expires, `recenter()` redoes it) |
+| `intel` | `intel.ts` | yes | `{ last, enabled?, owner?: [userIdx, rcl], core?: [lvl, expire], power?: [xy, amount, expire], deposit?: [xy, cooldown, expire], src?: xy[], ctrl?: xy, min?: xy, thor?: [xy, amount], center?: xy, portal? }` (`src`/`ctrl`/`min` written once on first sight, `thor` rewritten every visit and deleted when the thorium is gone, `owner` deleted when the controller is neither owned nor reserved; `RoomIntel.srcPos`/`ctrlPos`/`minPos`/`thorPos`/`thorAmount` read them; the keeper tiles that were `sk` here until Oct 2026 live in `Memory.Rewalker`; `center` is the room centre from `findRoomCenter` over `src` and `ctrl`, computed and cached on the first `RoomIntel.centerXY`/`centerPos` read, never expires, `recenter()` redoes it) |
 | `meta` | `metastruct.ts` | yes | `{ name?: string, metas: MetaMem[], traffic?: TrafficPlanMem, keep?, drop?, roadkeep?, roaddrop?: xy[], rampart?, constructedWall?: {xy: MAXHITS} }`; `name` is the genesis flag's name (stamped by every `runGenesis` pass) and names the room's spawns; `MetaMem.retire?: {xy: rcl}` retires a tile from that RCL; `MetaMem.traffic?: [{src, dest, range?, rcl, swamp?, swampCost?}]` are stored traffic entries (`rroad_*`; `src: -1` is the room's traffic origin); `traffic` is the manager's road plan, a `MetaMem` named `traffic` with `structs.road` by level plus `sig` (input hash, `""` = replan pending), `at` (tick) and `fail?: string[]`; see [metastruct.md](metastruct.md) |
 | `links` | `struct.link.ts` | yes | `{ [xy]: { mode: "^"|"+"|"-"|"="|"x" } }` (old entries may still say `"src"`/`"sink"`) |
 | `labs` | `struct.lab.js` | yes | `{ current?: resource, order?: labId[], [labId]: { note, planType?, boost?, boostTime? } }` |
@@ -89,6 +89,18 @@ delete by hand: it restarts from empty.
 | `role` | manual | yes (read) | overrides `room.role` |
 | `keeper` | `room.keeper.js` | dead | old planner `{ plans: {stype: xy[]}, last, lastStructs, rcl }` |
 | `stalls` | `matrix.js` | dead | per-creep stall tracking |
+
+### `Memory.Rewalker` (`Rewalker.ts`)
+
+```
+{ rooms: { [roomName]: { sk?: xy[4],          // keeper rooms: the Source Keeper standing tile per source and ordinary mineral sorted by id, 0 until seen (SKInfo memory)
+                         cost?: [cost, expire] } } }   // route cost while it differs from guessRoomCost (a base, a stronghold, a reservation, a murder) and the tick it stops being trusted
+```
+
+`Rewalker.memory()` makes it on first use (override it to store elsewhere).
+`Rewalker.gatherIntel(room)` writes both keys each visible tick (`strat.init`)
+and deletes a room entry with nothing left in it; `blindSKInfo`/`blindRoomCost`
+read them for rooms out of sight, `blindRoomCost` deleting an expired `cost`.
 
 ### `Memory.intel` (`intel.ts`)
 ```

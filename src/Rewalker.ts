@@ -160,8 +160,8 @@ const kSKBlindRing = 40
 // (thorium is left out: it vanishes when mined out, which would shift the
 // indexes), or 0 (never a real xy) until a keeper has been seen there.
 // Rewalker keeps one per RoomInfo (Rewalker.skInfo returns it) and, for
-// any entry still 0, asks its blindSKInfo callback (intel.ts answers from
-// Memory.rooms[x].intel.sk, which it fills from skInfo).
+// any entry still 0, asks blindSKInfo: the copy gatherIntel keeps in
+// Memory.Rewalker.rooms[x].sk while the room is visible.
 export class SKInfo {
     readonly memory: number[]
 
@@ -501,6 +501,42 @@ const ROUTE_HOSTILE_RESERVED = ROUTE_SK
 const ROUTE_HOSTILE_CLAIMED = 25
 const ROUTE_INVADER_CORE = ROUTE_HOSTILE_CLAIMED
 
+// How long a room's cost is trusted without vision (Memory.Rewalker.rooms
+// [x].cost, gatherIntel) and, on the heap, how often a visible room's cost
+// is recomputed. A base or stronghold stays for ages, so kClaimedTTL is
+// long and every visit refreshes it; a reservation expires with itself; a
+// room where we were killed costs +20 for kMurderTTL.
+const kClaimedTTL = 20000
+const kMurderTTL = 2000
+const kCostRecheck = 50
+
+// Memory.Rewalker: what a blind walk needs of rooms out of sight, written
+// by gatherIntel each visible tick (strat.init) and read by blindSKInfo /
+// blindRoomCost. `sk` is the SKInfo memory of a keeper room (see SKInfo);
+// `cost` is [route cost, expire tick] for a room whose cost differs from
+// what its name suggests (guessRoomCost): a base, a stronghold, a
+// reservation, a murder.
+export interface RewalkerRoomMem {
+    sk?: number[]
+    cost?: [number, number]
+}
+export interface RewalkerMem {
+    rooms: { [roomName: string]: RewalkerRoomMem }
+}
+declare global {
+    interface Memory {
+        Rewalker?: RewalkerMem
+    }
+}
+
+export interface RoomCost {
+    cost: number
+    // Ticks the cost is good for without vision.
+    ttl: number
+    // One of ours died here recently: cost carries +20 and holds for ttl.
+    murder: boolean
+}
+
 // PathFinder budget per room on the route. Measured: a plain three-room walk
 // at plainCost 2 needs ~1800 ops, a room carrying a flat +3 penalty ~6700.
 const kOpsPerRoom = 4000
@@ -535,31 +571,68 @@ export class Rewalker {
         return owned.owner.username === SYSTEM_USERNAME
     }
 
-    // What is known of a keeper room's keepers without vision (intel.ts
-    // sets this; Rewalker itself imports nothing). The default knows
-    // nothing.
-    _blindSKInfo: (roomName: string) => SKInfo = () => new SKInfo([])
-    get blindSKInfo(): (roomName: string) => SKInfo {
-        return this._blindSKInfo
-    }
-    set blindSKInfo(fn: (roomName: string) => SKInfo) {
-        this._blindSKInfo = fn
+    // Rewalker's memory, Memory.Rewalker by default, made on first use.
+    // Override to keep it elsewhere.
+    memory(): RewalkerMem {
+        if (!Memory.Rewalker) Memory.Rewalker = { rooms: {} }
+        return Memory.Rewalker
     }
 
-    // The route cost of a room out of sight, from whatever the caller
-    // remembers of it (intel.ts: its owner, a stronghold), or null to fall
+    roomMemory(roomName: string, create: true): RewalkerRoomMem
+    roomMemory(roomName: string, create?: false): RewalkerRoomMem | undefined
+    roomMemory(roomName: string, create = false): RewalkerRoomMem | undefined {
+        const rooms = this.memory().rooms
+        if (create && !rooms[roomName]) rooms[roomName] = {}
+        return rooms[roomName]
+    }
+
+    // Once a tick per visible room (strat.init): remember what a later
+    // blind walk through it needs. Keeper rooms: the keeper tiles as the
+    // heap knows them (skInfo recalculates from vision while any is
+    // unknown), written when they change. Every room: its route cost when
+    // it differs from the name's guess (a base with towers, a stronghold, a
+    // foreign reservation, a recent kill of ours), with the tick it expires;
+    // a room back to its guessed cost forgets the entry.
+    gatherIntel(room: Room) {
+        const name = room.name
+        const info = this._getRoomInfo(name)!
+        const mem = this.roomMemory(name, true)
+        if (info.lairs) {
+            const sk = info.sk.memory
+            if (sk.some(xy => xy !== 0) && !_.isEqual(mem.sk, sk)) mem.sk = sk.slice()
+        }
+        if (info.cost === this.guessRoomCost(name)) {
+            delete mem.cost
+        } else if (!mem.cost || mem.cost[0] !== info.cost || mem.cost[1] !== info.expire) {
+            // expire is fixed when the cost is computed (every kCostRecheck
+            // ticks, or at the kill for a murder), so this writes rarely.
+            mem.cost = [info.cost, info.expire]
+        }
+        if (mem.sk === undefined && mem.cost === undefined) delete this.memory().rooms[name]
+    }
+
+    // What is known of a keeper room's keepers without vision: the copy
+    // gatherIntel kept. A room never seen yields all zeros.
+    blindSKInfo(roomName: string): SKInfo {
+        return new SKInfo(this.roomMemory(roomName)?.sk || [])
+    }
+
+    // The route cost of a room out of sight, from what gatherIntel kept of
+    // it while it was visible, or null (nothing kept, or expired) to fall
     // back on guessRoomCost. Vision-derived costs live on the heap, so
-    // without this every push sends creeps through a tower room at the
-    // plain-room price until something sees it again.
-    _blindRoomCost: (roomName: string) => number | null = () => null
-    get blindRoomCost(): (roomName: string) => number | null {
-        return this._blindRoomCost
-    }
-    set blindRoomCost(fn: (roomName: string) => number | null) {
-        this._blindRoomCost = fn
+    // without this every push would send creeps through a tower room at
+    // the plain-room price until something saw it again.
+    blindRoomCost(roomName: string): number | null {
+        const mem = this.roomMemory(roomName)
+        if (!mem || !mem.cost) return null
+        if (mem.cost[1] < Game.time) {
+            delete mem.cost
+            return null
+        }
+        return mem.cost[0]
     }
 
-    // The route cost table, for blindRoomCost callbacks.
+    // The route cost table, for callers comparing _getRoomCost results.
     static readonly routeCost = {
         myClaimed: ROUTE_MY_CLAIMED, myReserved: ROUTE_MY_RESERVED, highway: ROUTE_HIGHWAY,
         allyReserved: ROUTE_ALLY_RESERVED, normal: ROUTE_NORMAL, allyClaimed: ROUTE_ALLY_CLAIMED,
@@ -761,49 +834,43 @@ export class Rewalker {
         return ROUTE_NORMAL
     }
 
-    calcRoomCost(room: Room): [number, number] {
-        const cost = this._calcRoomCost(room)
+    calcRoomCost(room: Room): RoomCost {
+        const base = this._calcRoomCost(room)
         if (this._checkMurder(room)) {
-            return [cost + 20, 2000]
+            return { cost: base.cost + 20, ttl: kMurderTTL, murder: true }
         }
-        return [cost, TOMBSTONE_DECAY_PER_PART * 25]
+        return base
     }
 
-    _calcRoomCost(room: Room): number {
-        let cost = ROUTE_NORMAL
+    _calcRoomCost(room: Room): RoomCost {
+        const rc = (cost: number, ttl = kClaimedTTL): RoomCost => ({ cost, ttl: Math.max(1, ttl), murder: false })
         // A deployed invader core (level 1 and up: a stronghold with its
         // towers and ramparts; a level 0 core in a reserved room only
-        // fights back when attacked) costs as much as a hostile base.
-        const core = _.any(room.find(FIND_HOSTILE_STRUCTURES),
-            s => s.structureType === STRUCTURE_INVADER_CORE && (s as StructureInvaderCore).level > 0)
-        if (core) return ROUTE_INVADER_CORE
+        // fights back when attacked) costs as much as a hostile base, until
+        // it collapses.
+        const core = _.find(room.find(FIND_HOSTILE_STRUCTURES),
+            s => s.structureType === STRUCTURE_INVADER_CORE && (s as StructureInvaderCore).level > 0) as StructureInvaderCore | undefined
+        if (core) return rc(ROUTE_INVADER_CORE, core.effectTTL(EFFECT_COLLAPSE_TIMER) || kClaimedTTL)
         if (room.controller) {
             const ctrl = room.controller
-            if (ctrl.my) return ctrl.level >= 3 ? ROUTE_MY_CLAIMED : ROUTE_MY_RESERVED
-            if (ctrl.reservation) {
-                if (ctrl.reservation.username == whoami()) return ROUTE_MY_RESERVED
-                if (this.isAllied({ owner: ctrl.reservation })) {
-                    cost = ROUTE_ALLY_RESERVED
-                } else {
-                    cost = ROUTE_HOSTILE_RESERVED
-                }
-            }
+            if (ctrl.my) return rc(ctrl.level >= 3 ? ROUTE_MY_CLAIMED : ROUTE_MY_RESERVED)
             if (ctrl.owner) {
-                if (this.isAllied(ctrl as IsOwned)) {
-                    cost = ROUTE_ALLY_CLAIMED
-                } else {
-                    cost = ROUTE_HOSTILE_CLAIMED
-                }
+                if (this.isAllied(ctrl as IsOwned)) return rc(ROUTE_ALLY_CLAIMED)
+                // Another player's base: with towers a two-room detour is
+                // always worth it; a towerless claim only costs as a
+                // foreign reservation does.
+                const towers = _.any(room.find(FIND_HOSTILE_STRUCTURES), s => s.structureType === STRUCTURE_TOWER)
+                return rc(towers ? ROUTE_HOSTILE_CLAIMED : ROUTE_HOSTILE_RESERVED)
             }
-        } else {
-            const sk = _.any(room.find(FIND_STRUCTURES), s => s.structureType === STRUCTURE_KEEPER_LAIR)
-            if (sk) {
-                cost = ROUTE_SK
-            } else {
-                cost = ROUTE_HIGHWAY
+            if (ctrl.reservation) {
+                if (ctrl.reservation.username == whoami()) return rc(ROUTE_MY_RESERVED, ctrl.reservation.ticksToEnd)
+                if (this.isAllied({ owner: ctrl.reservation })) return rc(ROUTE_ALLY_RESERVED, ctrl.reservation.ticksToEnd)
+                return rc(ROUTE_HOSTILE_RESERVED, ctrl.reservation.ticksToEnd)
             }
+            return rc(ROUTE_NORMAL)
         }
-        return cost
+        const sk = _.any(room.find(FIND_STRUCTURES), s => s.structureType === STRUCTURE_KEEPER_LAIR)
+        return rc(sk ? ROUTE_SK : ROUTE_HIGHWAY)
     }
 
     _checkMurder(room: Room): boolean {
@@ -1286,6 +1353,10 @@ class RoomInfo {
     time = 0
     creeps = new Map<string, CreepInfo>()
     cost = 0
+    // The tick the cost stops being trusted without vision (gatherIntel
+    // stores it), set when the cost is computed.
+    expire = 0
+    // Recompute the cost at this tick.
     until = 0
     needMat = false
     mat: number[] = []
@@ -1299,10 +1370,14 @@ class RoomInfo {
 
         this.time = Game.time
 
-        if (this.until < Game.time) {
-            const [cost, until] = rewalker.calcRoomCost(room)
-            this.cost = cost
-            this.until = until
+        if (this.until <= Game.time) {
+            const rc = rewalker.calcRoomCost(room)
+            this.cost = rc.cost
+            this.expire = Game.time + rc.ttl
+            // A murder holds its +20 for the whole ttl; anything else is
+            // looked at again soon (until Sept 2026 `until` held a duration,
+            // so this ran every tick and the hold never held).
+            this.until = rc.murder ? this.expire : Game.time + kCostRecheck
         }
         this.skUpdate(room, rewalker)
 

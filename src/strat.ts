@@ -5,6 +5,7 @@ import { runTowers } from "struct.tower";
 import { runLinks } from "struct.link";
 import { theRadar } from "radar";
 import { updateIntel } from "intel";
+import { defaultRewalker } from "Rewalker";
 import { runFactory } from "struct.factory";
 import { exec, Priority, Process } from "process";
 import { hasMetas } from "metastruct";
@@ -150,6 +151,7 @@ export class NullStrat extends Process implements IStrat {
     init() {
         legacyInit(this.room);
         updateIntel(this.room);
+        defaultRewalker().gatherIntel(this.room);
     }
     run(): Priority { return "low" }
     spawnEnergy(): SpawnEnergy[] | undefined { return undefined; }

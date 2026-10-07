@@ -1,4 +1,4 @@
-import { fromXY, coordsToXY, coordsFromXY, defaultRewalker, SKInfo, Rewalker, whoami } from "Rewalker";
+import { fromXY, coordsToXY, coordsFromXY } from "Rewalker";
 
 export function bestDeposit(room: Room): Deposit | null {
     const deposits = room.find(FIND_DEPOSITS);
@@ -30,10 +30,6 @@ interface RoomIntelMem {
     // from the room once mined out, so a visit without one deletes the key:
     // no key after first sight means none left (or never any).
     thor?: [number, number]
-    // Keeper rooms: where each Source Keeper stands (Rewalker's SKInfo
-    // memory; 0 until seen), a copy of what Rewalker.skInfo learns while
-    // the room is visible.
-    sk?: number[]
     // Packed xy of the room centre (findRoomCenter over src and ctrl),
     // computed on first ask; terrain, sources and controller never change,
     // so it only expires when src or ctrl is first recorded.
@@ -162,11 +158,6 @@ export class RoomIntel {
     get thorAmount(): number {
         return this.mem.thor ? this.mem.thor[1] : 0;
     }
-    // The keepers known to stand in the room; all zeros outside keeper rooms.
-    get sk(): SKInfo {
-        return new SKInfo(this.mem.sk || []);
-    }
-
     // The room centre (findRoomCenter), cached in intel memory on first ask.
     get centerXY(): number {
         if (this.mem.center === undefined) this.mem.center = findRoomCenter(this);
@@ -252,26 +243,6 @@ export function roomCenterPos(roomName: string): RoomPosition {
     return RoomIntel.get(roomName)?.centerPos || new RoomPosition(25, 25, roomName);
 }
 
-// Rewalker imports nothing: it asks here for a blind room's keepers.
-defaultRewalker().blindSKInfo = roomName => new SKInfo(Memory.rooms[roomName]?.intel?.sk || []);
-
-// ...and for the route cost of a room out of sight, from what intel last
-// saw of it: a stronghold (deployed invader core) or another player's base
-// cost as with vision, a foreign reservation likewise, our own rooms are
-// cheap; null (no intel, or nothing notable) leaves it to the guess.
-export function blindRoomCost(roomName: string): number | null {
-    const intel = RoomIntel.get(roomName);
-    if (!intel) return null;
-    const cost = Rewalker.routeCost;
-    if (intel.coreLvl > 0) return cost.invaderCore;
-    const owner = intel.owner;
-    if (!owner) return null;
-    const rcl = intel.rcl || 0;
-    if (owner === whoami()) return rcl >= 3 ? cost.myClaimed : cost.myReserved;
-    return rcl > 0 ? cost.hostileClaimed : cost.hostileReserved;
-}
-defaultRewalker().blindRoomCost = blindRoomCost;
-
 export function updateIntel(room: Room) {
     const intel = RoomIntel.get(room.name);
     if (!intel) {
@@ -335,7 +306,6 @@ function updateIntelMem(mem: RoomIntelMem, room: Room) {
     const kind = roomKind(room.name)
     // Strongholds live in SK rooms; Season 11 sector cores (the Portal kind,
     // x5y5) can hold one too, guarding the reactor.
-    if (kind === Kind.SourceKeeper) mem.sk = defaultRewalker().skInfo(room.name).memory.slice();
     if (kind === Kind.SourceKeeper || kind === Kind.Portal) {
         const core = _.first(room.findStructs(STRUCTURE_INVADER_CORE));
         if (core) {
