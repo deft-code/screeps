@@ -142,7 +142,11 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               energy from its storage to <to>; windDown() once the home storage is under 50k energy (0 with
                                                               memory.takeitall, set by `takeitall = true`) or <to>'s storage is over 75% full
          ├─ PaveAll          @register  (ms.paveall.ts)        "PaveAll <room>"; paceJobs(Paver, 1400) while Game.constructionSites has any of ours in the
-                                                              room (works without vision), windDown() once none are left; requested by Remote and Startup
+                                                              room (works without vision), windDown() once none are left; requested by Remote and Startup;
+                                                              50 ticks (kDonateIdle) after the sites ran out (memory.idleSince, status `idle:`), every paver with
+                                                              more than 100 TTL (kDonateTTL) is donated (Mission.donateCreep) to the adjacent room's PaveAll
+                                                              (describeExits) that is active (not winding down, with sites) with the most sites, if any;
+                                                              sites back while winding down -> revive(): windDown, tombs and idleSince cleared, pace timer kept
          └─ Startup          @register  (ms.startup.ts)        "Startup <room>"; claims and boots a room: nJobs(Scout, 1) while the room is invisible;
                                                               nJobs(Claimer, 1, 600) while the controller is not ours and owned rooms < GCL, and meanwhile
                                                               paceNJobs(Pioneer, 2) if nobody owns or reserves the room and it has saved metas (`canPioneerEarly`;

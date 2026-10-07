@@ -114,6 +114,20 @@ export abstract class Mission extends Service {
         return moved;
     }
 
+    // Hand one egg, hatch or creep by name over to `other`, as donateRole
+    // does for a whole role. False when the name is not in this mission.
+    donateCreep(name: string, other: Mission): boolean {
+        if (other === this) return false;
+        for (const list of ["eggs", "hatch", "creeps"] as const) {
+            if (!_.remove(this.memory[list], n => n === name).length) continue;
+            Memory.creeps[name].mission = other.name;
+            other.memory[list].push(name);
+            debug.log(this.name, "donated", name, "to", other.name);
+            return true;
+        }
+        return false;
+    }
+
     // donateRole for every role this mission has an egg, hatch or creep of.
     // Returns the moved names.
     donateAll(other: Mission): string[] {
