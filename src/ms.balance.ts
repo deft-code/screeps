@@ -35,8 +35,10 @@ declare global {
 // Thormine ships), one resource of TERMINAL_MIN_SEND or more per cooldown,
 // ahead of the energy levelling.
 //
-// Rooms without vision or without a terminal we own are skipped (logged
-// every kLogPace ticks), so a room may be added before its terminal stands.
+// Rooms without vision, without a terminal we own, or whose terminal is
+// inactive (an unclaimed room keeps our structures: W27S5, Oct 2026; a send
+// into such a terminal destroys the energy) are skipped (logged every
+// kLogPace ticks), so a room may be added before its terminal stands.
 @register
 export class Balance extends Service {
     get memory(): NonNullable<Memory["balance"]> {
@@ -62,15 +64,15 @@ export class Balance extends Service {
         return this.rooms;
     }
 
-    // Our terminal in each listed room that is visible and has one.
+    // Our active terminal in each listed room that is visible and has one.
     terminals(): StructureTerminal[] {
         const terms: StructureTerminal[] = [];
         for (const name of this.rooms) {
             const term = Game.rooms[name]?.terminal;
-            if (term?.my) {
+            if (term?.my && term.isActive()) {
                 terms.push(term);
             } else if (Game.time % kLogPace === 0) {
-                debug.log(this.name, "no terminal of ours in", name);
+                debug.log(this.name, term?.my ? "inactive terminal in" : "no terminal of ours in", name);
             }
         }
         return terms;
@@ -103,7 +105,7 @@ export class Balance extends Service {
     gatherMinerals(terms: StructureTerminal[]): boolean {
         const dest = this.memory.minerals;
         const hub = dest ? Game.rooms[dest]?.terminal : null;
-        if (!dest || !hub?.my) return false;
+        if (!dest || !hub?.my || !hub.isActive()) return false;
         let sent = false;
         for (const term of terms) {
             if (term.id === hub.id || term.cooldown > 0) continue;
@@ -156,7 +158,7 @@ export class Balance extends Service {
     status(): string {
         const levels = this.rooms.map(name => {
             const term = Game.rooms[name]?.terminal;
-            return `${name}:${term?.my ? term.store.energy : "-"}`;
+            return `${name}:${!term?.my ? "-" : term.isActive() ? term.store.energy : "inactive"}`;
         });
         return super.status() + " terminals " + (levels.join(",") || "none") + ` minerals:${this.memory.minerals || "-"}`;
     }

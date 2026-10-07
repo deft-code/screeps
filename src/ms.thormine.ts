@@ -282,9 +282,12 @@ export class Thormine extends Mission {
     // ---- teardown ----
 
     // Mined out (seen, now gone or empty), nothing banked, nobody still carrying.
+    // Thorium below TERMINAL_MIN_SEND can never ship (send refuses it), so
+    // such a remainder counts as empty and goes down with the terminal: 40
+    // units held W29S4's teardown shut for good, Oct 2026.
     exhausted(room: Room): boolean {
         if (!this.minedOut) return false;
-        if (this.stock > 0) return false;
+        if (this.stock >= TERMINAL_MIN_SEND) return false;
         const mem = this.memory;
         return !mem.eggs.length && !mem.hatch.length && !mem.creeps.length;
     }

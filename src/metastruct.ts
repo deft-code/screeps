@@ -1857,9 +1857,19 @@ const kSrcExtensionLevel: PlanLevel = 3;
 // spawn is what the first energy must go into, not a container.
 const kSrcContainerLevel: PlanLevel = 2;
 const kSrcContainerFreeLevel = 3;
+// Links unlock at RCL5 with two allowed (CONTROLLER_STRUCTURES.link), three
+// at RCL6. The RCL5 pair goes to asrc and the hub; bsrc's link waits for
+// RCL6, where it outranks the ctrl link by meta priority (103 over 0), so a
+// room without a bsrc gives ctrl the third link instead. Before Oct 2026
+// asrc and bsrc both took the RCL5 pair and the hub waited.
+const kSrcLinkLevel: PlanLevel = 5;
+const kBsrcLinkLevel: PlanLevel = 6;
 
 @registerMeta
 class Meta_asrc extends MetaStructure {
+    // The level the link is planned at; Meta_bsrc raises it.
+    static linkLevel: PlanLevel = kSrcLinkLevel;
+
     static plan(f: FlagExtra, man: MetaManager) {
         const storep = storageOrParent(f, man);
         if (!storep) return null;
@@ -1925,7 +1935,7 @@ class Meta_asrc extends MetaStructure {
             }
         }
         f.log("link", linkp);
-        addMemStruct(mem, STRUCTURE_LINK, 5, linkp.xy);
+        addMemStruct(mem, STRUCTURE_LINK, this.linkLevel, linkp.xy);
         for (const ep of adj) {
             if (ep.isEqualTo(linkp)) continue;
             addMemStruct(mem, STRUCTURE_EXTENSION, kSrcExtensionLevel, ep.xy);
@@ -1951,6 +1961,10 @@ class Meta_asrc extends MetaStructure {
         };
         move(STRUCTURE_EXTENSION, 2, kSrcExtensionLevel);
         move(STRUCTURE_CONTAINER, 3, kSrcContainerLevel);
+        // The link follows the class's level (bsrc's moved to RCL6, Oct 2026).
+        const linkLevel = (this.constructor as typeof Meta_asrc).linkLevel;
+        move(STRUCTURE_LINK, kSrcLinkLevel, linkLevel);
+        move(STRUCTURE_LINK, kBsrcLinkLevel, linkLevel);
         return changed;
     }
 
@@ -2014,7 +2028,9 @@ class Meta_asrc extends MetaStructure {
 }
 
 @registerMeta
-class Meta_bsrc extends Meta_asrc { }
+class Meta_bsrc extends Meta_asrc {
+    static linkLevel: PlanLevel = kBsrcLinkLevel;
+}
 
 // Minerals need an extractor on the mineral tile (RCL6) and something to
 // carry the yield. The single per-room extractor allowance is spent by
@@ -2101,8 +2117,10 @@ class Meta_reactor extends MetaStructure {
 
 const kCtrlContainerLevel: PlanLevel = 2;
 // Links unlock at RCL5 (CONTROLLER_STRUCTURES.link) but the two RCL5 links go
-// to the asrc/bsrc metas; the ctrl link is the third, at RCL6. The container is
-// retired the same level, then decays unrepaired.
+// to the asrc and hub metas; the ctrl link is planned at RCL6 like bsrc's and
+// loses to it by priority, so it is built at RCL6 only in a room without a
+// bsrc, else at RCL7 (four links). The container is retired at this level,
+// then decays unrepaired.
 const kCtrlLinkLevel: PlanLevel = 6;
 
 @registerMeta
