@@ -32,7 +32,7 @@ import { toXY } from "Rewalker";
 //           (Guard.after) until full, then travel again.
 //   harass  no hostiles in the room: engage the nearest assaulter (an unarmed
 //           enemy with more than one WORK or HEAL, room.assaulters); else heal
-//           a hurt friendly; else hold within 5 of the room's centroid
+//           a hurt friendly; else hold within 5 of the room's centre
 //           (Guard.hold: only after 3 idle ticks). Hostiles arriving switch it
 //           back to bait.
 // Guard.after() adds the opportunistic shot and heal every tick in any mode.

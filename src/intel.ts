@@ -1,4 +1,4 @@
-import { fromXY, defaultRewalker, SKInfo, Rewalker, whoami } from "Rewalker";
+import { fromXY, coordsToXY, coordsFromXY, defaultRewalker, SKInfo, Rewalker, whoami } from "Rewalker";
 
 export function bestDeposit(room: Room): Deposit | null {
     const deposits = room.find(FIND_DEPOSITS);
@@ -34,6 +34,10 @@ interface RoomIntelMem {
     // memory; 0 until seen), a copy of what Rewalker.skInfo learns while
     // the room is visible.
     sk?: number[]
+    // Packed xy of the room centre (findRoomCenter over src and ctrl),
+    // computed on first ask; terrain, sources and controller never change,
+    // so it only expires when src or ctrl is first recorded.
+    center?: number
 }
 
 declare global {
@@ -162,6 +166,90 @@ export class RoomIntel {
     get sk(): SKInfo {
         return new SKInfo(this.mem.sk || []);
     }
+
+    // The room centre (findRoomCenter), cached in intel memory on first ask.
+    get centerXY(): number {
+        if (this.mem.center === undefined) this.mem.center = findRoomCenter(this);
+        return this.mem.center;
+    }
+    get centerPos(): RoomPosition {
+        return fromXY(this.centerXY, this.name);
+    }
+    // Compute the centre again and recache it.
+    recenter(): number {
+        return this.mem.center = findRoomCenter(this);
+    }
+}
+
+// The centre of a room for base placement, as a packed xy: the walkable
+// tile with the smallest summed Chebyshev range to the room's sources and
+// controller (the intel's src and ctrl), kept clear of them and of walls.
+// Terrain and intel only, so it works without vision.
+//
+// Pass 1 scans x,y in [kCenterEdge, 49-kCenterEdge]: wall tiles, tiles
+// within kCenterAvoid of a source or the controller and tiles with a wall
+// within range 1 are skipped; the rest are scored and the tied minimum
+// kept. While more than one tile ties, the wall check widens by one and the
+// list is filtered to tiles with no wall on that ring (closer rings were
+// checked by earlier passes). A ring that empties the list is one too far:
+// the previous list stands and the tile nearest 25,25 by Manhattan distance
+// (first found) is the centre. Off-room tiles count as wall, so the
+// widening always ends. A room with no candidate at all (nothing walkable
+// off the edges) gets 25,25.
+// Measured Sept 2026: 0.3-1 cpu in rooms with sources, 1.5-3 in highway
+// rooms (every tile ties, so the ring passes filter a long list).
+const kCenterEdge = 4;
+const kCenterAvoid = 2;
+
+export function findRoomCenter(intel: RoomIntel): number {
+    const terrain = Game.map.getRoomTerrain(intel.name);
+    const pts = intel.srcXYs.map(coordsFromXY);
+    if (intel.ctrlXY !== null) pts.push(coordsFromXY(intel.ctrlXY));
+    const wall = (x: number, y: number) =>
+        x < 0 || y < 0 || x > 49 || y > 49 || !!(terrain.get(x, y) & TERRAIN_MASK_WALL);
+    // A wall on the ring at exactly Chebyshev range r of x,y.
+    const wallOnRing = (x: number, y: number, r: number) => {
+        for (let d = -r; d <= r; d++) {
+            if (wall(x + d, y - r) || wall(x + d, y + r) || wall(x - r, y + d) || wall(x + r, y + d)) return true;
+        }
+        return false;
+    };
+
+    let centers: Array<[number, number]> = [];
+    let sum = Infinity;
+    for (let x = kCenterEdge; x <= 49 - kCenterEdge; x++) {
+        scan: for (let y = kCenterEdge; y <= 49 - kCenterEdge; y++) {
+            if (wall(x, y) || wallOnRing(x, y, 1)) continue;
+            let d = 0;
+            for (const [px, py] of pts) {
+                const r = Math.max(Math.abs(px - x), Math.abs(py - y));
+                if (r <= kCenterAvoid) continue scan;
+                d += r;
+            }
+            if (d < sum) {
+                sum = d;
+                centers = [[x, y]];
+            } else if (d === sum) {
+                centers.push([x, y]);
+            }
+        }
+    }
+
+    for (let r = 2; centers.length > 1; r++) {
+        const next = centers.filter(([x, y]) => !wallOnRing(x, y, r));
+        if (!next.length) break;
+        centers = next;
+    }
+
+    if (!centers.length) return coordsToXY(25, 25);
+    const [x, y] = _.min(centers, ([x, y]) => Math.abs(x - 25) + Math.abs(y - 25));
+    return coordsToXY(x, y);
+}
+
+// The room centre for a caller that may lack intel (a room never seen):
+// RoomIntel.centerPos, else 25,25.
+export function roomCenterPos(roomName: string): RoomPosition {
+    return RoomIntel.get(roomName)?.centerPos || new RoomPosition(25, 25, roomName);
 }
 
 // Rewalker imports nothing: it asks here for a blind room's keepers.
@@ -208,7 +296,13 @@ export function userIdx(username: string): number {
 function updateIntelMem(mem: RoomIntelMem, room: Room) {
     mem.last = Game.time;
 
-    if (!mem.src) mem.src = room.find(FIND_SOURCES).map(s => s.pos.xy);
+    // The centre is computed from src and ctrl, so learning either for the
+    // first time (intel older than those fields, or a centre asked for
+    // blind before the first visit) drops the cached one.
+    if (!mem.src) {
+        mem.src = room.find(FIND_SOURCES).map(s => s.pos.xy);
+        delete mem.center;
+    }
 
     const minerals = room.find(FIND_MINERALS);
     const thor = _.find(minerals, m => m.mineralType === RESOURCE_THORIUM);
@@ -221,7 +315,10 @@ function updateIntelMem(mem: RoomIntelMem, room: Room) {
 
     const controller = room.controller;
     if (controller) {
-        if (mem.ctrl === undefined) mem.ctrl = controller.pos.xy;
+        if (mem.ctrl === undefined) {
+            mem.ctrl = controller.pos.xy;
+            delete mem.center;
+        }
         // Owned, else reserved (rcl 0), else nobody's: a lapsed reservation
         // or a lost room drops the key, so owner/rcl never go stale.
         const owner = controller.owner;

@@ -135,7 +135,7 @@ Status legend:
 | `src/Rewalker.ts` | LIVE | 2019 | Pathing/walking engine. |
 | `src/routes.ts` | LIVE (`dist`) | 2019 | Room distance cache; `isHostile`. |
 | `src/matrix.js` | DEAD | 2017 | Cost matrices for teams. |
-| `src/spots.ts` | DEAD | 2020 | Neighbour scoring used by `team.ts`. |
+| `src/spots.ts` | LIVE | 2020 | `getSpots`: walkable tiles beside a source/controller, used by `job.reserver`, `ms.farm`, `ms.startup`, `ms.thormine` (and dead `team.ts`). |
 | `src/FindRoute.ts`, `src/PriorityQueue.js` | ORPHAN | 2022 | Custom findRoute. |
 
 ## Legacy orchestration and misc

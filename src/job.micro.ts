@@ -2,6 +2,7 @@ import { JobRole } from "job.role";
 import { register, Task2Ret } from "mycreep";
 import { CreepRepair } from "creep.repair";
 import { closeSpawns } from "spawnold";
+import { roomCenterPos } from "intel";
 
 // The cheapest answer to an unarmed enemy loitering in a mission's room
 // (a scout, a hauler, a lone healer): one RANGED_ATTACK and one MOVE, 200
@@ -72,7 +73,7 @@ export class Micro extends JobRole {
     }
 
     hold(): Task2Ret {
-        const center = new RoomPosition(25, 25, this.pos.roomName);
+        const center = roomCenterPos(this.pos.roomName);
         if (!this.pos.inRangeTo(center, 3)) this.movePos(center, 3);
         return "wait";
     }

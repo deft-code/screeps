@@ -2,6 +2,7 @@ import { JobRole } from "job.role";
 import { register, task, Task2Ret } from "mycreep";
 import { CreepRole } from "creep.role";
 import { EnemyCreep } from "creep.enemy";
+import { roomCenterPos } from "intel";
 
 // Port of role.wolf.js (2017 flag-team era) to the 2022 mission/job system.
 // A melee creep spawned near the mission room. It walks to the mission
@@ -248,7 +249,7 @@ export class Wolf extends JobRole {
     }
 
     hold(): Task2Ret {
-        const center = new RoomPosition(25, 25, this.pos.roomName);
+        const center = roomCenterPos(this.pos.roomName);
         if (this.pos.inRangeTo(center, 3)) return "wait";
         this.movePos(center, 3);
         return "wait";

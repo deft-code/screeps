@@ -1,7 +1,7 @@
 import { JobRole } from "job.role";
 import { register, task, Task2Ret } from "mycreep";
 import { CreepMove } from "creep.move";
-import { roomCentroid } from "spots";
+import { roomCenterPos } from "intel";
 
 // Port of role.guard.js (2017 flag-team era) to the 2022 mission/job system.
 // A ranged skirmisher with a heal part, spawned in the mission's "home" room.
@@ -20,7 +20,7 @@ import { roomCentroid } from "spots";
 const kRetreatHurts = 100;
 // idleFlee range when kiting a melee enemy.
 const kKiteRange = 5;
-// hold(): ticks with nothing to do before drifting to the room centroid. A
+// hold(): ticks with nothing to do before drifting to the room centre. A
 // friendly flickering across an exit (in view one tick, gone the next) keeps
 // resetting the count, so the guard stays put and nudges toward it instead of
 // pacing back to the middle every other tick.
@@ -282,8 +282,9 @@ export class Guard extends JobRole {
     }
 
     // Nothing to do: after kHoldIdle idle ticks, drift to within range of the
-    // room centroid (spots.roomCentroid). An exit tile is left at once: standing
-    // on it carries the guard back out, so gidle would never get past 1.
+    // room centre (intel.roomCenterPos). An exit tile is left at once:
+    // standing on it carries the guard back out, so gidle would never get
+    // past 1.
     hold(range = kHoldRange): Task2Ret {
         this.holding = true;
         const { x, y } = this.pos;
@@ -291,7 +292,7 @@ export class Guard extends JobRole {
         const idle = (this.memory.gidle || 0) + 1;
         this.memory.gidle = idle;
         if (idle < kHoldIdle && !onExit) return "wait";
-        const center = roomCentroid(this.pos.roomName);
+        const center = roomCenterPos(this.pos.roomName);
         if (this.pos.inRangeTo(center, range)) return "wait";
         this.movePos(center, range);
         return "wait";
