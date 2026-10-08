@@ -5,6 +5,7 @@ import { getSpots } from "spots";
 import { getMetaManager } from "metastruct";
 import { Thoreater } from "job.thoreater";
 import { Cleanup, kCleanupCost, looseEnergy } from "job.cleanup";
+import { Mode } from "struct.link";
 
 // Where the mined thorium is shipped unless the command names another room.
 const kDefaultDest = "W25S7";
@@ -281,13 +282,15 @@ export class Thormine extends Mission {
 
     // ---- teardown ----
 
-    // Mined out (seen, now gone or empty), nothing banked, nobody still carrying.
-    // Thorium below TERMINAL_MIN_SEND can never ship (send refuses it), so
-    // such a remainder counts as empty and goes down with the terminal: 40
-    // units held W29S4's teardown shut for good, Oct 2026.
+    // Mined out (seen, now gone or empty), the terminal holding nothing but
+    // energy, nobody still carrying. A remainder under TERMINAL_MIN_SEND
+    // cannot ship by itself (send refuses it); top it up from the
+    // destination so the next cooldown ships the lot back:
+    //   Game.rooms.W25S7.terminal.send('T', 100, 'W29S4')
+    // (40 thorium and 53 GO held W29S4 shut until that, Oct 2026).
     exhausted(room: Room): boolean {
         if (!this.minedOut) return false;
-        if (this.stock >= TERMINAL_MIN_SEND) return false;
+        if (_.any(Object.keys(room.terminal?.store || {}), res => res !== RESOURCE_ENERGY && room.terminal!.store[res as ResourceConstant] > 0)) return false;
         const mem = this.memory;
         return !mem.eggs.length && !mem.hatch.length && !mem.creeps.length;
     }
@@ -318,6 +321,7 @@ export class Thormine extends Mission {
     teardown(room: Room) {
         this.shipAll(room);
         this.unplan(room);
+        this.teardownLinks(room);
         switch (this.phase) {
             case "missions":
                 if (this.windDownHomed()) this.setPhase("cleanup");
@@ -357,6 +361,24 @@ export class Thormine extends Mission {
             debug.log(this.name, "TEARDOWN: winding down", m.name);
         }
         return live.length === 0;
+    }
+
+    // Pool the room's link energy beside the terminal for the cleanup creeps:
+    // the hub link (within 2 of the terminal, else of the storage) receives
+    // (sink), every other link sends all it holds (dump). Link modes live in
+    // Memory.rooms[x].links; written only when they differ.
+    teardownLinks(room: Room) {
+        const links = room.findStructs(STRUCTURE_LINK) as StructureLink[];
+        if (links.length < 2) return;
+        const anchor = room.terminal || room.storage;
+        const hub = anchor ? _.find(links, l => l.pos.inRangeTo(anchor, 2)) : null;
+        for (const link of links) {
+            const want = link === hub ? Mode.sink : Mode.dump;
+            if (link.mode !== want) {
+                debug.log(this.name, "TEARDOWN: link", link.pos, link.mode, "->", want);
+                link.mode = want;
+            }
+        }
     }
 
     // Stop the room from building: drop its meta plan, remove its flags and

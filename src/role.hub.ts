@@ -9,6 +9,15 @@ import { CreepCarry } from "creep.carry";
 const kTerminalMinerals = 150000;
 const kTerminalPerResource = 5000;
 
+declare global {
+    interface CreepMemory {
+        // Hub override: fill the terminal with energy from storage until it
+        // holds this much, ignoring storageBalance's ratios (set from the
+        // console, e.g. for a room being drained: Memory.creeps.hub1.fillTerminal = 50000).
+        fillTerminal?: number
+    }
+}
+
 
 @injecter(Creep)
 export class CreepHub extends CreepCarry {
@@ -69,6 +78,10 @@ export class CreepHub extends CreepCarry {
         }
 
         let [batt, sink, activeBalance] = storageBalance(store, term);
+        const fill = this.memory.fillTerminal;
+        if (fill && store && term && term.store.energy < fill && store.store.energy) {
+            [batt, sink, activeBalance] = [store, term, true];
+        }
 
         if (sink && !sink.store.getFreeCapacity()) return false;
 

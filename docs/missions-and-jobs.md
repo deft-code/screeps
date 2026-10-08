@@ -11,7 +11,7 @@ flag-driven "team" system ([legacy-systems.md](legacy-systems.md)).
 ```
 Process                      run(): Priority; kill()           (process.ts)
  └─ Service                  named by a command string, e.g. "Swipe W5N8 W6N8"
-     ├─ Balance      @register  (ms.balance.ts)   "Balance"; no creeps. Rooms come from addRoom(room)/removeRoom(room) (Memory.balance.rooms); setMineralRoom(room) (Memory.balance.minerals) makes the other terminals send that room their non-thorium minerals and compounds.
+     ├─ Balance      @register  (ms.balance.ts)   "Balance"; no creeps. Rooms come from addRoom(room)/removeRoom(room) (Memory.balance.rooms); setMineralRoom(room) (Memory.balance.minerals) makes the other terminals send that room their non-thorium minerals and compounds (one resource per cooldown, as much as energy and the hub's room allow, but never a partial send that would strand under TERMINAL_MIN_SEND; the terminal holds the lot until it can send all of it).
      │                                            Each tick no listed terminal is on cooldown: the fullest sends half the gap to the
      │                                            emptiest when the gap is at least 5k, shrunk to what it can pay with the transfer fee.
      ├─ Selloff      @register  (ms.selloff.ts)   "Selloff <room>"; no creeps, so a purple flag "Selloff_<room>" may run it.

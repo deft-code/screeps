@@ -18,8 +18,11 @@ export interface MissionMemory {
     // Set by windDown(). The mission stops laying eggs and only shepherds
     // its remaining creeps until they and their tombstones are gone.
     windDown?: boolean
-    // creep name -> tick its tombstone is expected to have decayed.
-    tombs?: { [name: string]: number }
+    // creep id -> tick its tombstone is expected to have decayed. Keyed by
+    // id since Oct 2026: names are role+integer and get reused by other
+    // missions, and a live namesake kept W29S4's wound-down missions, and
+    // its teardown, waiting for good. Old entries keyed by name still expire.
+    tombs?: { [id: string]: number }
     // role -> tick its last paced egg was laid (paceCreeps).
     when?: { [role: string]: number }
     // Swipe: tick of the next sparkJoy look at the home stores.
@@ -228,12 +231,13 @@ export abstract class Mission extends Service {
         this.memory.eggs = kept;
     }
 
-    // Record when each living creep's tombstone would decay if it died now.
+    // Record when each living creep's tombstone would decay if it died now
+    // (keyed by creep id).
     watchTombs() {
         const tombs = this.memory.tombs = this.memory.tombs || {};
         for (const name of this.memory.creeps) {
             const c = Game.creeps[name];
-            if (c) tombs[name] = Game.time + 1 + c.body.length * TOMBSTONE_DECAY_PER_PART;
+            if (c) tombs[c.id] = Game.time + 1 + c.body.length * TOMBSTONE_DECAY_PER_PART;
         }
     }
 
@@ -242,15 +246,22 @@ export abstract class Mission extends Service {
     expireTombs() {
         const tombs = this.memory.tombs;
         if (!tombs) return;
-        for (const name of _.keys(tombs)) {
-            if (Game.creeps[name]) continue;
-            const tomb = _.find(_.flatten(_.map(Game.rooms, r => r.find(FIND_TOMBSTONES))),
-                t => t.creep.name === name);
-            if (tomb) {
-                tombs[name] = Game.time + tomb.ticksToDecay;
+        const all = _.flatten(_.map(Game.rooms, r => r.find(FIND_TOMBSTONES)));
+        for (const key of _.keys(tombs)) {
+            // A legacy entry is keyed by name: it is ours only while the
+            // creep of that name belongs to this mission.
+            const byName = Game.creeps[key];
+            if (byName) {
+                if (byName.memory.mission === this.name) continue;
+            } else if (Game.getObjectById(key as Id<Creep>)) {
                 continue;
             }
-            if (Game.time >= tombs[name]) delete tombs[name];
+            const tomb = _.find(all, t => t.creep.id === key || (byName === undefined && t.creep.name === key));
+            if (tomb) {
+                tombs[key] = Game.time + tomb.ticksToDecay;
+                continue;
+            }
+            if (Game.time >= tombs[key]) delete tombs[key];
         }
     }
 

@@ -101,7 +101,10 @@ export class Balance extends Service {
     // Every terminal but the mineral room's, off cooldown, sends one resource
     // there: anything but energy (levelled below) and thorium (Thormine's),
     // TERMINAL_MIN_SEND or more of it, as much as the destination has room
-    // for and the sender's energy pays the fee on. True when something went.
+    // for and the sender's energy pays the fee on. A partial send that would
+    // leave under TERMINAL_MIN_SEND behind is not made: that remainder could
+    // never ship, so the terminal waits until its energy (or the hub's room)
+    // covers the whole lot. True when something went.
     gatherMinerals(terms: StructureTerminal[]): boolean {
         const dest = this.memory.minerals;
         const hub = dest ? Game.rooms[dest]?.terminal : null;
@@ -112,10 +115,15 @@ export class Balance extends Service {
             const res = _.find(Object.keys(term.store) as ResourceConstant[], r =>
                 r !== RESOURCE_ENERGY && r !== RESOURCE_THORIUM && term.store[r] >= TERMINAL_MIN_SEND);
             if (!res) continue;
-            let amount = Math.min(term.store[res], hub.store.getFreeCapacity(res) || 0);
+            const have = term.store[res];
+            let amount = Math.min(have, hub.store.getFreeCapacity(res) || 0);
             const cost = Game.market.calcTransactionCost(amount, term.room.name, dest);
             if (cost > term.store.energy) amount = Math.floor(amount * term.store.energy / cost);
             if (amount < TERMINAL_MIN_SEND) continue;
+            if (amount < have && have - amount < TERMINAL_MIN_SEND) {
+                if (Game.time % kLogPace === 0) debug.log(this.name, term.room.name, "holds", have, res, "until it can send all of it");
+                continue;
+            }
             const err = term.send(res, amount, dest, this.name);
             if (err !== OK) {
                 debug.log(this.name, "send failed", err, amount, res, term.room.name, "->", dest);
