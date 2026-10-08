@@ -3,6 +3,7 @@ import { register, Task2Ret } from "mycreep";
 import { CreepRepair } from "creep.repair";
 import { closeSpawns } from "spawnold";
 import { roomCenterPos } from "intel";
+import { EnemyCreep } from "creep.enemy";
 
 // The cheapest answer to an unarmed enemy loitering in a mission's room
 // (a scout, a hauler, a lone healer): one RANGED_ATTACK and one MOVE, 200
@@ -18,6 +19,8 @@ import { roomCenterPos } from "intel";
 // Distance kept from ranged enemies and from a melee target.
 const kFleeRange = 5;
 const kKiteRange = 3;
+// Ticks a target out of sight is still waited for where it was last seen.
+const kRemember = 100;
 
 @register
 export class Micro extends JobRole {
@@ -42,18 +45,26 @@ export class Micro extends JobRole {
         return (this.cc.room.enemies || []).filter(e => !e.keeper);
     }
 
+    // The latest target and where it was last seen (heap only: a global
+    // reset forgets it, which costs nothing but a walk to the centre).
+    lastTarget: EnemyCreep | null = null;
+
     start(): Task2Ret {
         const c = this.cc;
         const enemies = this.enemies;
         const ranged = enemies.filter(e => e.getActiveBodyparts(RANGED_ATTACK) > 0);
         const target = this.pos.findClosestByRange(enemies.filter(e => !e.getActiveBodyparts(RANGED_ATTACK)));
-        if (target) this.shoot(target);
+        if (target) {
+            this.shoot(target);
+            if (this.lastTarget?.id !== target.id) this.lastTarget = new EnemyCreep(target);
+            else this.lastTarget.pos;
+        }
 
         if (ranged.length && c.idleFlee(ranged, kFleeRange)) return "wait";
         if (!target) {
             if (ranged.length) return "wait";
             if (this.pos.roomName !== this.mission.roomName) return this.moveRoom(this.mission.roomName);
-            return this.hold();
+            return this.lurk() || this.hold();
         }
         if (target.melee) {
             if (c.idleFlee([target], kKiteRange)) return "wait";
@@ -70,6 +81,27 @@ export class Micro extends JobRole {
         const err = c.rangedAttack(target);
         if (err === OK) c.intents.range = target;
         else this.log("rangedAttack failed", err, target);
+    }
+
+    // A target that slipped out of sight lately: wait beside the tile it was
+    // last seen on in this room instead of drifting back to the centre. A
+    // scout bouncing on an exit is visible only every other tick, and until
+    // Oct 2026 the micro stepped toward it and back to the centre in turn
+    // (micro10, W27S5) and never closed. Range 1 of an exit tile is the
+    // tile beside it: the scout's next bounce lands within shooting range.
+    // Given up kRemember ticks after the last sighting, or when the target
+    // was last seen in another room (lastSeen stays the recorded tile).
+    lurk(): Task2Ret {
+        const t = this.lastTarget;
+        if (!t) return false;
+        if (Game.time - t.seenAt > kRemember) {
+            this.lastTarget = null;
+            return false;
+        }
+        const last = t.lastSeen;
+        if (last.roomName !== this.pos.roomName) return false;
+        if (!this.pos.inRangeTo(last, 1)) this.movePos(last, 1);
+        return "wait";
     }
 
     hold(): Task2Ret {

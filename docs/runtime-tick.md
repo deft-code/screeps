@@ -65,7 +65,7 @@ metas in memory, else `NullStrat`; `evolve()` swaps between them
 
 `shed.run` stops early if CPU used exceeds 300 or the bucket is low. A room whose
 `init()` was skipped has no `room.hostiles` array, and its strat `run()` will
-throw in `runTowers`; `runRow` catches and defers it.
+throw in `runTowers`; `runRow` catches and defers it. The catch logs the process by `name`, not `toString()`: a `status()` that throws there would escape the loop and strand every later process of the row outside the table (they stay in `processes`, so `lsProcess` still lists them with a row) until the next global reset.
 
 ### `process.runAll()` (`src/process.ts:159`)
 

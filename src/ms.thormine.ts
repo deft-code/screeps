@@ -126,6 +126,8 @@ export class Thormine extends Mission {
         if (room) {
             if (this.phase) {
                 this.teardown(room);
+                // The done phase kills this mission (Mission.kill drops its memory).
+                if (this.dead) return "kill";
             } else {
                 const mineral = this.mineral;
                 if (mineral && mineral.mineralAmount > 0 && !this.mem.thoriumSeen) {
@@ -335,7 +337,6 @@ export class Thormine extends Mission {
             case "done":
                 debug.log(this.name, "TEARDOWN complete;", this.roomName, "unclaimed; killing");
                 this.kill();
-                delete Memory.missions[this.name];
                 return;
         }
     }
@@ -455,6 +456,8 @@ export class Thormine extends Mission {
 
     status(): string {
         const mineral = this.mineral;
+        // A killed mission has no memory; status() must still not throw.
+        if (!this.mem) return super.status() + " (memory gone)";
         const td = this.mem.teardown;
         const tear = td ? ` TEARDOWN:${td.phase}(${Game.time - td.since}) wound:${(td.wound || []).length}`
             : ` teardown:${this.teardownEnabled ? "on" : "off"}${this.room && this.exhausted(this.room) ? " exhausted" : ""}`;

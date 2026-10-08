@@ -91,14 +91,30 @@ export function location(skip = 1) {
   return `${pos.file}:${pos.line}#${pos.func}`;
 }
 
+// Every argument as the string the console would print, but a toString()
+// that throws (a mission whose memory is gone, mid-kill) yields a marker
+// instead of killing the log line and whatever called it: in Oct 2026 one
+// such throw escaped runRow's catch and stranded half the process table.
+export function safeArgs(args: any[]): string[] {
+  return args.map(arg => {
+    if (arg === null || arg === undefined || typeof arg !== 'object' && typeof arg !== 'function') return String(arg);
+    try {
+      return String(arg);
+    } catch (err) {
+      const kind = (arg && arg.constructor && arg.constructor.name) || typeof arg;
+      return `<${kind}: toString threw: ${String(err)}>`;
+    }
+  });
+}
+
 export function dlog(...str: any[]) {
   if(Memory.debug) {
-    console.logUnsafe(location(2), ...str);
+    console.logUnsafe(location(2), ...safeArgs(str));
   }
 }
 
 export function log(...str: any[]) {
-  console.logUnsafe(location(2), ...str);
+  console.logUnsafe(location(2), ...safeArgs(str));
 }
 
 let warnTime = Game.time;
@@ -113,7 +129,7 @@ export function warn( ...str: any[]) {
   if (warned.has(loc)) return;
 
   warned.add(loc);
-  console.logUnsafe(loc, ...str);
+  console.logUnsafe(loc, ...safeArgs(str));
 }
 
 export function errStr(err: ScreepsReturnCode) {
@@ -180,7 +196,7 @@ export abstract class Debuggable {
 
   dlog(...str: any[]) {
     if (this.debug) {
-      console.logUnsafe(location(2), this, ...str)
+      console.logUnsafe(location(2), ...safeArgs([this, ...str]))
     }
   }
 
@@ -189,12 +205,12 @@ export abstract class Debuggable {
   }
 
   log(...str: any[]) {
-    console.logUnsafe(location(2), this, ...str)
+    console.logUnsafe(location(2), ...safeArgs([this, ...str]))
   }
 
   errlog(err: ScreepsReturnCode, ...str: any[]): ScreepsReturnCode {
     if (err !== OK) {
-      console.logUnsafe(location(2), this, errStr(err), JSON.stringify(err), ...str);
+      console.logUnsafe(location(2), ...safeArgs([this, errStr(err), JSON.stringify(err), ...str]));
     }
     return err;
   }

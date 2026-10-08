@@ -3,6 +3,7 @@ import { register, task, Task2Ret } from "mycreep";
 import { CreepRole } from "creep.role";
 import { EnemyCreep } from "creep.enemy";
 import { roomCenterPos } from "intel";
+import { atExit } from "Rewalker";
 
 // Port of role.wolf.js (2017 flag-team era) to the 2022 mission/job system.
 // A melee creep spawned near the mission room. It walks to the mission
@@ -166,9 +167,12 @@ export class Wolf extends JobRole {
     // Nothing to fight here: go after the latest target. True while the
     // chase is on.
     //   - Visible (some other vision shows it in another room): walk to it.
-    //   - Out of sight, last seen on or beside a room edge: it left by that
-    //     exit, so step over it (crossing). In the room beyond, still not
-    //     seeing it, give up.
+    //   - Out of sight, last seen on an exit tile: EnemyCreep.pos already
+    //     answers the tile across the exit, so walk there like any other
+    //     room; beside that tile without seeing it, give up.
+    //   - Out of sight, last seen beside a room edge: it left by that exit,
+    //     so step over it (crossing). In the room beyond, still not seeing
+    //     it, give up.
     //   - Out of sight, last seen anywhere else: walk there; beside the
     //     tile without seeing it (dead, or gone for good) give up.
     pursue(): boolean {
@@ -188,8 +192,10 @@ export class Wolf extends JobRole {
             return true;
         }
         const exit = exitTile(last);
-        if (!exit) {
-            if (this.pos.isNearTo(last)) return this.forget();
+        // An exit tile as `last` is the far side of the exit it left by
+        // (EnemyCreep.pos): a plain destination, not another exit to cross.
+        if (!exit || atExit(last)) {
+            if (this.pos.inRangeTo(last, 1)) return this.forget();
             this.moveChase(target);
             return true;
         }

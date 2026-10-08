@@ -204,8 +204,14 @@ function runRow(priority: Priority, minBucket: number) {
                 if (proc.dead) processes.delete(proc);
                 else { table[next].push(proc); processes.set(proc, next); }
             } catch (err) {
-                debug.log(proc, err, (err as { stack: string }).stack);
-                Game.notify((err as { stack: string }).stack, 30);
+                // Log by name, never by toString(): a status() that throws
+                // (a mission whose memory is gone) would escape this catch
+                // mid-row and strand every later process in the row outside
+                // the table for good (Thormine W29S4's teardown ending, Oct
+                // 2026: the Farm W28S7 W29S7 farmers froze).
+                const stack = (err as { stack?: string })?.stack || String(err);
+                debug.log(proc.name, err, stack);
+                Game.notify(stack, 30);
                 if (proc.dead) processes.delete(proc);
                 else deferred.push(proc);
             }

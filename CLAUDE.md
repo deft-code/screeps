@@ -215,6 +215,17 @@ Debugging the live game (patterns that worked):
   judge a creep by position, store and TTL across ticks instead.
 - The log lines above the result are greppable by their `file:line#func` tag,
   e.g. `| grep "#runGenesis"` shows the planned `mem:` JSON after a YELLOW.
+- Multi-statement probes: wrap in an IIFE and return `JSON.stringify(...)`:
+  `echo '(function(){ ... return JSON.stringify(o); })()' | npx gulp console | grep "^< "`.
+- Two console calls land ~3 ticks apart with `sleep 10` between them; longer
+  sleeps are blocked by the tool, so sample in separate calls instead.
+- `Game.creeps.x.debug = N` stores an expiry tick (`Memory.creeps.x.debug = Game.time+N`);
+  writing a small number into `Memory.creeps.x.debug` directly is already expired.
+- A creep that moves when `require('mycreep').getMyCreep(name).run()` is called from the
+  console but never on its own means its mission is not being run: check
+  `Memory.missions[m].hatch` (a hatched creep stuck there) and `require('process').Process.all()`.
+- Bash heredocs holding big Python edit scripts with mixed quotes fail to parse in Git Bash;
+  write the script to the scratchpad with Write and run `python -I <path>`.
 
 ## Console essentials
 
@@ -230,6 +241,9 @@ getService('Reactor W25S7').windDown()        // purge eggs, run creeps to death
 scheduleService('Reactor W25S7')              // bring it back
 Game.rooms.W25S7.createFlag(30, 29, 'reactor_Port', COLOR_GREY, COLOR_GREY)  // child flag, then YELLOW, check log, GREEN
 createFlagAt('W30S4', 25, 25, 'Loot', COLOR_ORANGE, COLOR_CYAN)   // any room, vision or not; genesis passes run blind too
+Memory.creeps.hub1.fillTerminal = 50000       // hub creep fills the terminal from storage to this energy, ignoring storageBalance
+getService('Thormine W29S4').teardownEnabled = true   // teardown gate; stranded minerals: top up from dest (see Thormine row)
+require('intel').RoomIntel.get('W24S8').centerPos     // room centre (findRoomCenter), cached in intel.center; recenter() redoes it
 ```
 
 Genesis flags reset themselves to CYAN (secondary `4`) when a command is done.
@@ -293,6 +307,16 @@ keeper tiles and route costs, written by `Rewalker.gatherIntel` from `strat.init
 - `room.enemies` includes Source Keepers and unarmed scouts; `room.hostiles` is
   the armed subset. Gate spawning on `hostiles`, and filter `creep.keeper` for
   anything walking through an SK room.
+- Creep names (`role` + integer) are reused the moment a creep dies, across
+  missions. Key any per-creep state that outlives the creep by `id`, never by
+  name (mission tombs did, Oct 2026, and stalled a teardown for 1500 ticks).
+- `terminal.send` to a terminal in a room we unclaimed returns OK and the
+  resources vanish: structures there stay `my` but `isActive()` is false.
+  Filter on `isActive()` before sending or balancing.
+- If every creep of one mission freezes while others move, the mission's
+  process fell out of the run table (a throw escaping `runRow`, fixed Oct
+  2026 for `toString()`); `lsProcess` still shows it with a row. A push
+  rebuilds the table.
 
 ## Legacy and orphans
 

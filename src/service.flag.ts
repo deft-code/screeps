@@ -56,9 +56,7 @@ export class FlagService extends Process {
         }
         if (_.isFunction(proc.windDown)) {
             debug.log("purple flag", flag.name, "names a Mission, refusing:", cmd);
-            proc.kill();
-            const mem = Memory.missions[cmd];
-            if (mem && !mem.creeps.length && !mem.eggs.length && !mem.hatch.length) delete Memory.missions[cmd];
+            proc.kill(); // Mission.kill drops its memory
             return this.failPurple(flag);
         }
         debug.log("purple flag", flag.name, "spawned", cmd);

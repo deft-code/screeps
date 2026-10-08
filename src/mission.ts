@@ -160,11 +160,21 @@ export abstract class Mission extends Service {
         }
         debug.log(this.name, "evolved into", cmd);
         this.kill();
-        delete Memory.missions[this.name];
         return other;
     }
 
+    // Killing a mission drops its memory too, so no subclass has to remember
+    // the order; run() and status() below tolerate the memory being gone.
+    kill() {
+        super.kill();
+        delete Memory.missions[this.name];
+    }
+
     run(): Priority {
+        // Killed this tick (a subclass that kills itself before calling
+        // super.run()), or memory gone: nothing to run. Until Oct 2026 this
+        // read the deleted memory and threw (Thormine W29S4's teardown end).
+        if (this.dead || !this.memory) return "kill";
         if (this.windingDown) return this.runWindDown();
         this.hatchEggs();
         this.spawnHatches();
@@ -173,12 +183,13 @@ export abstract class Mission extends Service {
     }
 
     get windingDown(): boolean {
-        return !!this.memory.windDown;
+        return !!this.memory?.windDown;
     }
 
     status(): string {
         const mem = this.memory;
         let out = super.status();
+        if (!mem) return out + " (memory gone)";
         if (this.windingDown) out += ` windDown tombs:${_.size(mem.tombs || {})}`;
         return out + ` eggs:${mem.eggs.length} hatch:${mem.hatch.length} creeps:${mem.creeps.length}`;
     }
@@ -203,7 +214,6 @@ export abstract class Mission extends Service {
         if (!mem.eggs.length && !mem.hatch.length && !mem.creeps.length && _.isEmpty(mem.tombs)) {
             debug.log(this.name, "wound down, killing");
             this.kill();
-            delete Memory.missions[this.name];
             return "kill";
         }
         return super.run();
