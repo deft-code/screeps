@@ -40,6 +40,8 @@ const kCorePause = 1500;
 export interface ReactorMemory extends MissionMemory {
     // Lay nothing until this tick.
     pauseUntil?: number
+    // Set by pause(): lay nothing at all (scouts included) until resume().
+    held?: boolean
     // creep name -> room it was last seen in, for creepDied.
     seen?: { [name: string]: string }
 }
@@ -112,8 +114,31 @@ export class Reactor extends Mission {
         return this.memory as ReactorMemory;
     }
 
+    // Paused by hand (pause() from the console), until resume().
+    get held(): boolean {
+        return !!this.mem.held;
+    }
+
     get paused(): boolean {
-        return (this.mem.pauseUntil || 0) > Game.time;
+        return this.held || (this.mem.pauseUntil || 0) > Game.time;
+    }
+
+    // Stop laying anything, drop the eggs already queued, and shepherd the
+    // living creeps to their deaths. Survives global resets (mission memory).
+    //
+    //   getService('ReactorDepot W25S7').pause()
+    //   getService('ReactorDepot W25S7').resume()
+    pause() {
+        if (this.held) return;
+        this.mem.held = true;
+        this.purgeEggs();
+        debug.log(this.name, "paused by hand; resume() to lay again");
+    }
+
+    resume() {
+        if (!this.held) return;
+        delete this.mem.held;
+        debug.log(this.name, "resumed");
     }
 
     run(): Priority {
@@ -121,8 +146,9 @@ export class Reactor extends Mission {
         this.noteRooms();
         this.watch();
         if (this.paused) {
-            // Shepherd the living, lay nothing (but what whilePaused allows).
-            this.whilePaused();
+            // Shepherd the living, lay nothing (but what whilePaused allows
+            // for a core pause; a manual hold lays nothing at all).
+            if (!this.held) this.whilePaused();
             super.run();
             return "normal";
         }
@@ -298,7 +324,7 @@ export class Reactor extends Mission {
     status(): string {
         const r = this.reactors[0];
         const state = r ? ` owner:${r.owner?.username ?? "-"} work:${r.continuousWork}` : "";
-        const pause = this.paused ? ` paused:${this.mem.pauseUntil! - Game.time}` : "";
+        const pause = this.held ? " held" : this.paused ? ` paused:${this.mem.pauseUntil! - Game.time}` : "";
         return super.status() + ` core:${this.roomName} visible:${!!this.room} reactors:${this.reactors.length}${state}${pause}`;
     }
 }

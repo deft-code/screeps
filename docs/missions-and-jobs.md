@@ -332,6 +332,8 @@ scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that
 scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
 scheduleService('ReactorDepot W25S7')  // args[1]=home room; Reactor fed by warrunners from the home terminal while it holds > 1000 thorium
 scheduleService('ReactorDepot W25S7 2')  // optional args[2]=cap on warrunners
+getService('ReactorDepot W25S7').pause()  // Reactor and subclasses: lay nothing at all, purge eggs, shepherd the living; Memory.missions[x].held survives resets
+getService('ReactorDepot W25S7').resume() // clears the hold; status() shows `held` while paused this way (`paused:<n>` is the invader-core pause)
 scheduleService('Thormine W26S8')    // args[1]=owned room with thorium, extractor and terminal; miners fill the terminal, terminal ships to W25S7
 scheduleService('Thormine W26S8 W22S7')  // optional args[2]=room to ship the thorium to instead
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)

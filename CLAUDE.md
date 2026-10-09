@@ -27,12 +27,12 @@ return                                 # the rest of the function is dead
 | process | how it gets there | does |
 |---|---|---|
 | `Hub <room>` missions (W26S8, W25S7) | `scheduleService('Hub W25S7')`, then `Memory.scheduler.services`, replayed by `Service.boot()` at every global reset; **never constructed in code** | lays eggs for asrc/bsrc/hauler (1-3 by dropped energy)/worker/ctrl/hub/upgrader/ctrlhauler from the room's own spawns and runs those creeps |
-| `Thorhub <room>` missions (W27S4, W29S7) | scheduled, same way | `Hub` for a temporary thorium room: plain Hub with a full-size ctrl up to RCL5; from RCL6 an RCL2-sized ctrl and no upgraders or ctrlhaulers; runs the room on the `thorclaimed` strat (`strat.thor.ts`, ramparts capped at 1M) via `setRoomStrat` |
+| `Thorhub <room>` missions (W27S4, W29S7, W24S7) | scheduled, same way | `Hub` for a temporary thorium room: plain Hub with a full-size ctrl up to RCL5; from RCL6 an RCL2-sized ctrl and no upgraders or ctrlhaulers; runs the room on the `thorclaimed` strat (`strat.thor.ts`, ramparts capped at 1M) via `setRoomStrat` |
 | `GlobalRespawn` mission | **not scheduled** since Sept 2026 (evolved into `Hub W26S8`); schedule it by hand after a respawn | the Hub loop plus `max(1, 6-rcl)` startups and a fixed 2 haulers, in `Game.spawns.Home`'s room; `evolve('Hub <room>')` it once the room stands |
 | `Remote <farm> <home> [spawn]` missions | scheduled, same way | remote sources: harvester/trucker/reserver/scout, plus guard/mini/wolf against hostiles and invader cores |
 | `Reactor <home>` missions | not scheduled as of 22 Sept 2026 (replaced by `ReactorDepot W25S7`); `scheduleService('Reactor W26S8')` brings one back | Season 11 scoring: scout, warboys (thorium runners), immortan (reactor claimer), guard at the sector core, plus one toxic (bait-and-trap mini) per lifetime while an armed enemy without HEAL is there |
-| `ReactorDepot <home> [cap]` mission | scheduled (`ReactorDepot W25S7`, since 22 Sept 2026), same way | `Reactor` with warrunners in place of warboys: they load thorium from the home terminal (laid only while it holds over 1000) and carry it to the reactor; scout, guard, immortan and the core pause are inherited |
-| `Thormine <room> [dest]` missions (W27S5 exhausted with teardown off, W29S4 tearing down, W29S7 waiting on an extractor; `getService(x).status()` for the current state) | scheduled, same way | one thoreater per walkable tile beside the room's thorium but one (at least one) (only with thorium left, an extractor on it and a terminal); they mine into the terminal, which ships to `dest` (default W25S7) every cooldown. Teardown is **off by default** (`getService('Thormine W27S5').teardownEnabled = true` turns it on, persisted in mission memory); with it on, once the thorium is exhausted and the terminal holds nothing but energy it **tears the room down** (a mineral remainder under `TERMINAL_MIN_SEND` cannot ship by itself: top it up from the destination terminal and the next cooldown ships it back): winds down every mission homed there, drains all energy into the terminal with `cleanup` creeps, ships it, destroys every structure and unclaims (`abortTeardown()` works until destruction starts) |
+| `ReactorDepot <home> [cap]` mission | scheduled (`ReactorDepot W25S7`, since 22 Sept 2026; **paused by hand since 9 Oct 2026**, `resume()` restarts it), same way | `Reactor` with warrunners in place of warboys: they load thorium from the home terminal (laid only while it holds over 1000) and carry it to the reactor; scout, guard, immortan and the core pause are inherited. `pause()` (persisted as `held` in mission memory) lays nothing at all, scouts included, and purges the eggs; `status()` shows `held`; `resume()` clears it |
+| `Thormine <room> [dest]` missions (W29S7 and W27S4 scheduled as of 9 Oct 2026, both with teardown off; W27S5 and W29S4 are done and descheduled; `getService(x).status()` for the current state) | scheduled, same way | one thoreater per walkable tile beside the room's thorium but one (at least one) (only with thorium left, an extractor on it and a terminal); they mine into the terminal, which ships to `dest` (default W25S7) every cooldown. Teardown is **off by default** (`getService('Thormine W27S5').teardownEnabled = true` turns it on, persisted in mission memory); with it on, once the thorium is exhausted and the terminal holds nothing but energy it **tears the room down** (a mineral remainder under `TERMINAL_MIN_SEND` cannot ship by itself: top it up from the destination terminal and the next cooldown ships it back): winds down every mission homed there, drains all energy into the terminal with `cleanup` creeps, ships it, destroys every structure and unclaims (`abortTeardown()` works until destruction starts) |
 | `Startup <room> [home]` mission (W24S7, genesis `Front`) | scheduled, same way | claiming another room: scout, claimer, pioneers, one harvester per asrc/bsrc meta while owned below RCL3, guard until it has a tower (and, while unowned, one guard whenever an enemy creep is in the room). With GCL full it plans (and draws, yellow dashed) a Rewalker-costed road from the controller to the home spawn instead of laying a claimer, but keeps only the tiles within 3 of the controller as an `rroad_<room>_startup` traffic entry (stub end to controller) that the room's MetaManager turns into road (the rest of the room is the genesis metas' job), and sends pavers to the room while it is unowned with sites, and while the room is free sets its prebuild level so ActiveStrat places every planned road up to level 3 ahead of the claim and holds the reservation with reservers paced like Remote's; a foreign reservation draws reservers while GCL is full; an invader core in the room draws a wolf every 1500 ticks |
 | `ClaimedStrat` per owned room | `room.strat` constructor `exec`s itself | towers, safe mode, labs, links, metastruct construction (traffic replans included), factory |
 | `FlagService` daemon | `@daemon` at import | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
@@ -48,7 +48,7 @@ purple service flags. Missions exist only while scheduled: the table is
 so read that key rather than trusting this list. Also scheduled as of Oct
 2026: `Balance` (terminal energy leveller; rooms via
 `getService('Balance').addRoom(room)`), `Always Guard W24S8 2`, `GrowFarm W29S6
-W29S7` and `Farm W28S7 W29S7`. Run only by command string or a purple flag:
+W29S7` and `GrowFarm W23S7 W24S7` (`Farm W28S7 W29S7` was evolved into a `Remote` on 7 Oct 2026). Run only by command string or a purple flag:
 `Farm`, `GrowFarm` (a Farm that evolves into `Remote` at 800 home energy
 capacity, 1300 if the farm controller has one free tile), `Once`, `Always`
 (`Once` that keeps one creep of the job alive for good), `Swipe`, the
@@ -238,6 +238,7 @@ Game.flags.genesis.setColor(COLOR_ORANGE, COLOR_YELLOW)      // plan metas; GREE
 getService('Reactor W26S8').status()          // getService = Service.getType; null once killed
 getService('Reactor W26S8').layEgg('warboy')  // one extra egg (lowercased job class); nJobs never culls it
 getService('Reactor W25S7').windDown()        // purge eggs, run creeps to death, kill + deschedule
+getService('ReactorDepot W25S7').pause()      // lay nothing (scouts included), purge eggs, keep the mission; resume() undoes it
 scheduleService('Reactor W25S7')              // bring it back
 Game.rooms.W25S7.createFlag(30, 29, 'reactor_Port', COLOR_GREY, COLOR_GREY)  // child flag, then YELLOW, check log, GREEN
 createFlagAt('W30S4', 25, 25, 'Loot', COLOR_ORANGE, COLOR_CYAN)   // any room, vision or not; genesis passes run blind too
@@ -257,8 +258,8 @@ destructive `wipe`/`worldWipe`/`scalp`/`purgeWalls` helpers.
 
 - Owned rooms: `W26S8` RCL7 (spawn `Home`, genesis `Home`), `W25S7` RCL7
   (`Port`), `W27S4` RCL5 (`Wind`, a Thorhub), `W29S7` RCL4 (`Rote`, a
-  Thorhub) and `W29S4` RCL6 (being torn down by `Thormine W29S4`). `W24S7`
-  (`Front`) is the current `Startup`; GCL 5/5. The sector core is `W25S5`
+  Thorhub) and `W29S4` torn down and unclaimed on 7 Oct 2026. `W24S7` (`Front`) is RCL2 under
+  `Startup W24S7` plus `Thorhub W24S7`; GCL 5/5. The sector core is `W25S5`
   (an x5y5 room is `Kind.Portal` in `intel.ts`). The reactor is fed by
   `ReactorDepot W25S7` (warrunners from the W25S7 terminal, which the
   Thormines fill); neither `Reactor` mission is scheduled. The walk to the

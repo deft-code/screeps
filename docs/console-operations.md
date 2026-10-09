@@ -23,6 +23,7 @@ lsService()                                  // names (command strings) of every
 statusServices()                             // `name [status()]` (Process.toString) of every live Service, as an array
 getService(lsService().find(n => n.startsWith('Remote'))).windDown()   // names feed getService
 getService('Farm W25S8 W26S8').evolve('Farm W25S8 W25S7')   // reschedule under new args, moving every egg/creep; kills the old one
+getService('ReactorDepot W25S7').pause()     // Reactor missions only: lay nothing, purge eggs, keep the mission scheduled; resume() undoes it
 lsProcess()                                  // print every live process: daemons, room strats, services; name [status()]
 scheduleService('GlobalRespawn')             // global helper for P.Service.schedule
 scheduleService('Hub W25S7')                 // GlobalRespawn's loop (no startups) for another owned room, from its own spawns
