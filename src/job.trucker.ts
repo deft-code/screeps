@@ -1,5 +1,5 @@
 import { JobRole } from "job.role";
-import { register, Task2Ret } from "mycreep";
+import { register, Task2Ret, getMyCreep } from "mycreep";
 import { CreepRepair } from "creep.repair";
 import { closeSpawns } from "spawnold";
 import { energyDef } from "spawn";
@@ -205,23 +205,28 @@ export class Trucker extends JobRole {
         return c.goTransfer(target as XferStruct, RESOURCE_ENERGY, false);
     }
 
-    // Hand energy to an adjacent creep of ours that has CARRY and WORK (a
-    // worker, paver, harvester...) and room for it. One transfer per tick,
-    // the emptiest neighbour first. Lives here for now; meant for
-    // creep.carry.ts once every job wants it.
+    // Hand energy to an adjacent creep of ours that will take it: each
+    // neighbour's job says how much through MyCreep.donatable() (by default
+    // a creep with WORK parts takes what it has room for; Thoreater, Farmer
+    // at home and Pioneer away from their room take none). One transfer per
+    // tick, the neighbour that takes the most first. Lives here for now;
+    // meant for creep.carry.ts once every job wants it.
     idleShare(): string | false {
         const c = this.cc;
         if (c.intents.transfer) return false;
         const carried = c.store.energy;
         if (!carried) return false;
-        const target = _(this.pos.findInRange(FIND_MY_CREEPS, 1))
-            .filter(o => o.name !== c.name
-                && o.getActiveBodyparts(CARRY) > 0
-                && o.getActiveBodyparts(WORK) > 0
-                && o.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
-            .max(o => o.store.getFreeCapacity(RESOURCE_ENERGY)) as Creep | number;
-        if (!(target instanceof Creep)) return false;
-        const amount = Math.min(carried, target.store.getFreeCapacity(RESOURCE_ENERGY));
+        const wants = new Map<string, number>();
+        for (const o of this.pos.findInRange(FIND_MY_CREEPS, 1)) {
+            if (o.name === c.name) continue;
+            const n = getMyCreep(o.name).donatable();
+            if (n > 0) wants.set(o.name, n);
+        }
+        if (!wants.size) return false;
+        const name = _.max(Array.from(wants.keys()), k => wants.get(k)!) as string;
+        const target = Game.creeps[name];
+        if (!target) return false;
+        const amount = Math.min(carried, wants.get(name)!);
         const err = c.transfer(target, RESOURCE_ENERGY, amount);
         if (err !== OK) return false;
         c.intents.transfer = target;

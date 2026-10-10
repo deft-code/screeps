@@ -143,6 +143,16 @@ export class MyCreep extends debug.Debuggable {
         this.log("Spoiled Egg!");
     }
 
+    // Energy this creep will take as a hand-out from a passing hauler
+    // (Trucker.idleShare): a creep with WORK parts takes whatever it has room
+    // for, anything else takes none. Jobs override it to refuse at the
+    // wrong time or place (Thoreater, Farmer at home, Pioneer away).
+    donatable(): number {
+        const c = this.c;
+        if (!c || !c.getActiveBodyparts(WORK)) return 0;
+        return c.store.getFreeCapacity(RESOURCE_ENERGY);
+    }
+
     spawningRun() {}
 
     init(): boolean { return true }

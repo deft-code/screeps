@@ -83,9 +83,16 @@ export class Harvester extends JobRole {
         return getMetaManager(this.mission.roomName).getMeta(name);
     }
 
-    start(): Task2Ret {
+    // Danger check before anything else each tick; true when it moved the
+    // creep (or holds it) and nothing else should happen. Skharvester
+    // replaces it with keeper rules.
+    flee(): boolean {
         const c = this.cc;
-        if (c.idleRetreat(WORK) || c.fleeHostiles()) return "wait";
+        return !!(c.idleRetreat(WORK) || c.fleeHostiles());
+    }
+
+    start(): Task2Ret {
+        if (this.flee()) return "wait";
 
         // Claim from wherever the creep is (metas and claims live in memory)
         // and walk straight to the spot. Walking to the room centre first
@@ -121,7 +128,7 @@ export class Harvester extends JobRole {
     claim(): MetaStructure | null {
         const metas = this.harvestMission.sourceMetas();
         if (!metas.length) return null;
-        const others = this.harvestMission.roleCreeps("harvester").filter(h => h.name !== this.name);
+        const others = this.harvestMission.roleCreeps(this.role).filter(h => h.name !== this.name);
         const owner = new Map<string, Creep>();
         for (const h of others) {
             const name = Memory.creeps[h.name]?.rsrc;

@@ -16,6 +16,12 @@ const kMaxPairs = 6;
 //   memory.home to the spawning room and roleBootstrap works in `home`.
 @register
 export class Pioneer extends Startup {
+    // Takes hand-outs only in the room it was sent to build.
+    donatable(): number {
+        if (this.pos.roomName !== this.mission.roomName) return 0;
+        return super.donatable();
+    }
+
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         const pool = findSpawns(spawns, this.mission.roomName, { spawn: "remote" }) as StructureSpawn[];
         const spawn = _.first(pool);

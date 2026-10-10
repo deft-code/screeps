@@ -15,13 +15,22 @@ Three generations of movement code exist. Only **Rewalker** is live.
 
 `defaultRewalker()` returns the module singleton. Main calls:
 
-- `walkTo(creep, destPos, range=1): WalkReturnCode` -> a `DirectionConstant`
+- `walkTo(creep, destPos, range=1, ignoreSK=false): WalkReturnCode` -> a `DirectionConstant`
   (1-8) when a move was issued, `OK` when already in range (and `_walk` memory
   is cleared), or an `ERR_*`. `creep.move.ts` wraps this: `moveTarget` returns
-  a `"move N@pos"` string while walking and `false` on arrival.
-- `planWalk(creep, goals)`, `getRoute`, `getRouteSet`, `getRouteDist`,
-  `getMatrix(roomName)`, `getStuckTicks(creep)`. `planWalk` issues no move
+  a `"move N@pos"` string while walking and `false` on arrival, and passes
+  `!!creep.memory.rewalksk` as `ignoreSK` (as do `JobCreep.movePos`/`walkRange`).
+- `planWalk(creep, goals, ignoreSK=false)`, `getRoute`, `getRouteSet`, `getRouteDist`,
+  `getMatrix(roomName, ignoreSK=false)`, `getStuckTicks(creep)`. `planWalk` issues no move
   but overwrites `creep.memory._walk`, which the next `walkTo` builds on.
+- `ignoreSK`: plan keeper rooms on a matrix without their keeper layer
+  (`applyKeepers`: lair rings and keeper rings), for a creep sent at the
+  keepers (Skhunter sets `memory.rewalksk`). Only a keeper room
+  (`isKeeperRoom`: lairs seen, keepers known, or blind intel) gets that
+  second matrix, cached for the tick under the room name plus an `SK`
+  suffix; every other room answers its one matrix either way. Without it a
+  walk to a keeper's side swept the whole room (2 a tile against 200+ in
+  the rings) inside its op budget and stopped short (Oct 2026).
 - Creep-free plans: `planRoad(from, goals, {maxCost}?)`, `planOffRoad`,
   `planSwamp` for a body that keeps full speed on roads only (plains 2, swamps
   10), on plains (1/5), or everywhere (1/1). They return a `PlanResult`
@@ -82,7 +91,7 @@ so the replan happens early. A walk whose start and goal share a room but
 whose path leaves it is logged (`Rewalker intra-room walk leaves ...`) with
 the rooms, cost and ops, since that only happens when the room's own tiles
 were made expensive. Room matrices (`calcMatrix`) mark: foreign ramparts and all
-non-walkable structures `0xFF`, roads `1`, keeper lairs avoided at range 3,
+non-walkable structures `0xFF`, roads `1`, keeper lairs avoided at range 3 (by `applyKeepers`, with the keeper rings; `calcMatrix` leaves the lair tile alone),
 stuck creeps `10+ticks` capped at `kMyStuckCap` 50 (own, since `bump()` can
 move them) or `100+ticks` uncapped (others), hostile melee/ranged
 avoided at range 2/4 (own and system creeps are skipped; until Sept 2026 our
@@ -104,7 +113,7 @@ copy lived in `Memory.rooms[x].intel.sk` behind callbacks `intel.ts` set on
 the Rewalker; it is Rewalker's own memory now (`Rewalker.memory()`, which
 makes `Memory.Rewalker` on first use and can be overridden). With vision
 the matrix gets a range 3 avoid at every known tile (50 per ring: 50, 100, 150 on top of the terrain, since a keeper does 100 a tick at range 3 and the old 10 let a 12-cost ring beat a 15-tile detour) and a range 4 avoid (40 per ring)
-around a resource whose keeper is still unknown (`applySK`). The snapshot in
+around a resource whose keeper is still unknown (`applyKeepers`, which also rings the lairs). The snapshot in
 `RoomInfo.mat` is taken before that layer, so without vision it is laid
 again from the cached `SKInfo`, the callback asked only for entries still
 `0` (a known tile is never replaced). A room never seen gets the callback's

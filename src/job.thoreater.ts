@@ -73,6 +73,11 @@ export class Thoreater extends JobCreep {
         return this.c as CreepCarry;
     }
 
+    // Never takes energy off a passing hauler: its store is for thorium.
+    donatable(): number {
+        return 0;
+    }
+
     get thorium(): number {
         return RESOURCE_THORIUM ? this.c.store[RESOURCE_THORIUM] || 0 : 0;
     }

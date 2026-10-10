@@ -111,14 +111,16 @@ export class JobCreep extends MyCreep {
         return this.moveDir(this.pos.getDirectionTo(target.pos));
     }
 
+    // Both walks honour memory.rewalksk (creep.move.ts): keeper rooms
+    // without their keeper layer.
     movePos(pos: RoomPosition, range: number): Task2Ret {
-        const ret = rewalker.walkTo(this.c, pos, range);
+        const ret = rewalker.walkTo(this.c, pos, range, !!this.memory.rewalksk);
         if (ret === OK) return "start";
         return "wait";
     }
 
     walkRange(target: HasPos) {
-        return rewalker.walkTo(this.c, target.pos, 3);
+        return rewalker.walkTo(this.c, target.pos, 3, !!this.memory.rewalksk);
     }
 
     // Latch for unloadHome: true from the tick `begin` holds until the creep

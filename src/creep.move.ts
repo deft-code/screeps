@@ -9,6 +9,15 @@ type ObjPos = RoomPosition | HasPos;
 
 const rewalker = defaultRewalker();
 
+declare global {
+  interface CreepMemory {
+    // Walk keeper rooms on matrices without their keeper layer
+    // (Rewalker walkTo/planWalk ignoreSK): a creep sent at the keepers.
+    // Missing means false.
+    rewalksk?: boolean
+  }
+}
+
 @injecter(Creep)
 export class CreepMove extends CreepRole {
   moveDir(dir: DirectionConstant) {
@@ -34,7 +43,7 @@ export class CreepMove extends CreepRole {
 
   moveTarget(target: ObjPos, opts: { range: number }) {
     const pos = lib.getPos(target);
-    const ret = rewalker.walkTo(this as unknown as Creep, pos, opts.range);
+    const ret = rewalker.walkTo(this as unknown as Creep, pos, opts.range, !!this.memory.rewalksk);
     switch (ret) {
       case ERR_TIRED:
       case ERR_BUSY:

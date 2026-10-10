@@ -28,6 +28,12 @@ export class Farmer extends JobRole {
         return this.c as CreepRepair;
     }
 
+    // Takes hand-outs on the farm, none at home: there it is unloading.
+    donatable(): number {
+        if (this.pos.roomName === this.homeName) return 0;
+        return super.donatable();
+    }
+
     at(roomName: string | null): boolean {
         return !!roomName && this.pos.roomName === roomName;
     }

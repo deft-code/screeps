@@ -115,15 +115,7 @@ export class Chemist extends JobRole {
 
         const held = _.find(Object.keys(c.store) as ResourceConstant[], r => c.store[r] > 0);
         if (!held) delete this.memory.stray;
-        if (held) {
-            const sink = this.sinkFor(held);
-            if (sink) return this.fill(sink, held);
-            const depots = this.memory.stray ? this.depots.slice().reverse() : this.depots;
-            const depot = _.find(depots, d => d.store.getFreeCapacity() > 0);
-            if (depot) return this.stash(depot);
-            this.log("nowhere to put", held);
-            return "wait";
-        }
+        if (held) return this.deliver(held);
 
         const drain = _.find(this.labs, l => l.mineralType && l.mineralDrain());
         if (drain) return this.drain(drain);
@@ -154,6 +146,19 @@ export class Chemist extends JobRole {
 
         // Nothing to do: keep off the spawn's doorstep.
         if (room.terminal) this.walkRange(room.terminal);
+        return "wait";
+    }
+
+    // Put `held` (something in hand) where it goes: a sink that wants it
+    // (fill), else a depot with room (stash; storage first for a gathered
+    // load). Shared with Hubminecart.
+    deliver(held: ResourceConstant): Task2Ret {
+        const sink = this.sinkFor(held);
+        if (sink) return this.fill(sink, held);
+        const depots = this.memory.stray ? this.depots.slice().reverse() : this.depots;
+        const depot = _.find(depots, d => d.store.getFreeCapacity() > 0);
+        if (depot) return this.stash(depot);
+        this.log("nowhere to put", held);
         return "wait";
     }
 

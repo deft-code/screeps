@@ -145,10 +145,12 @@ export function matrixAvoid(mat: CostMatrix, pos: RoomPosition, range: number, b
 
 // The engine's Source Keeper user (creeps/keepers/pretick.js in the engine).
 export const kKeeperUser = 'Source Keeper'
-// applySK: cost added per ring of the avoid around a known keeper tile
+// applyKeepers: cost added per ring of the avoid around a known keeper tile
 // (range 3: 50, 100, 150) and around a resource whose keeper is unseen
 // (range 4: 40 .. 160). Stays under the 254 clamp with plain terrain.
 const kSKRing = 50
+// Cache key suffix of a keeper room's matrix built without its keeper layer.
+const kSKlessSuffix = 'SK'
 const kSKBlindRing = 40
 
 // Where a keeper room's Source Keepers stand. A keeper walks once from its
@@ -657,7 +659,19 @@ export class Rewalker {
     // costs kSKRing per tile and each ring in adds another: at the default
     // 10 the ring cost 12 and a 15-tile detour lost to two tiles through it
     // (200 hits off every chaos walking W25S7 to W25S6, Sept 2026).
-    applySK(mat: CostMatrix, roomName: string, sk: SKInfo, resources: RoomObject[] = []) {
+    //
+    // applyKeepers is the whole keeper layer in one place: with vision the
+    // lairs' rings too (range 3 at 50 plus 5 per ring in, and a 5 ring at
+    // range 4), so a snapshot (RoomInfo.mat) carries none of it and a walk
+    // with ignoreSK (getMatrix) skips all of it.
+    applyKeepers(mat: CostMatrix, roomName: string, sk: SKInfo, room: Room | null = null) {
+        if (room) {
+            for (const lair of room.find(FIND_STRUCTURES, { filter: s => s.structureType === STRUCTURE_KEEPER_LAIR })) {
+                matrixAvoid(mat, lair.pos, 3, 50, 5)
+                matrixAvoid(mat, lair.pos, 4, 0, 5)
+            }
+        }
+        const resources = room ? SKInfo.resources(room) : []
         for (let i = 0; i < 4; i++) {
             const xy = sk.memory[i]
             if (xy !== 0) {
@@ -669,8 +683,10 @@ export class Rewalker {
     }
 
     // Return index of plan destination or ERR_* constant.
-    planWalk(c: Creep | PowerCreep, goals: Goal[]): number {
-        const step = new Step(c, c.pos, 1, this)
+    // `ignoreSK` (planWalk and walkTo): plan on keeper rooms' matrices
+    // without their keeper layer, for a creep sent at the keepers.
+    planWalk(c: Creep | PowerCreep, goals: Goal[], ignoreSK = false): number {
+        const step = new Step(c, c.pos, 1, this, ignoreSK)
         const clean = goals.map(cleanGoal)
         const [i, path] = step.planSteps(c.pos, clean, CREEP_LIFE_TIME)
         step.path = path
@@ -685,7 +701,7 @@ export class Rewalker {
     // * Direction [1,8] of creep's move
     // * OK (0) when already in range of destination
     // * error code (,0) when move fails
-    walkTo(c: Creep | PowerCreep, dest: RoomPosition, range = 1): WalkReturnCode {
+    walkTo(c: Creep | PowerCreep, dest: RoomPosition, range = 1, ignoreSK = false): WalkReturnCode {
         //console.log(Game.time, "Rewalker.walkTo", c.pos, range);
         if (c.pos.inRangeTo(dest, range)) {
             delete c.memory._walk
@@ -693,7 +709,7 @@ export class Rewalker {
         }
         if (c instanceof Creep && c.fatigue > 0) return ERR_TIRED
 
-        const step = new Step(c, dest, range, this)
+        const step = new Step(c, dest, range, this, ignoreSK)
         return step.walkTo()
     }
 
@@ -717,26 +733,40 @@ export class Rewalker {
         return this._matCache.matrixes
     }
 
-    getMatrix(roomName: string): CostMatrix {
+    // The room's matrix for this tick. With `ignoreSK` a keeper room's
+    // matrix is built without its keeper layer (applyKeepers) and cached
+    // apart, under the room name plus kSKlessSuffix; any other room answers
+    // its one ordinary matrix either way.
+    getMatrix(roomName: string, ignoreSK = false): CostMatrix {
+        if (ignoreSK && !this.isKeeperRoom(roomName)) return this.getMatrix(roomName)
         const cache = this._cache
-        let mat = cache.get(roomName)
+        const key = ignoreSK ? roomName + kSKlessSuffix : roomName
+        let mat = cache.get(key)
         if (!mat) {
             const info = this._getRoomInfo(roomName)
             if (!info) {
                 // Never seen: only what intel knows of its keepers.
                 const sk = this.blindSKInfo(roomName)
-                if (sk.xys.length > 0) {
+                if (sk.xys.length > 0 && !ignoreSK) {
                     mat = new PathFinder.CostMatrix()
-                    this.applySK(mat, roomName, sk)
+                    this.applyKeepers(mat, roomName, sk)
                 } else {
                     mat = RoomInfo._null
                 }
             } else {
-                mat = info.newMatrix(roomName, this)
+                mat = info.newMatrix(roomName, this, ignoreSK)
             }
-            cache.set(roomName, mat)
+            cache.set(key, mat)
         }
         return mat
+    }
+
+    // Whether the Rewalker takes `roomName` for a keeper room: lairs seen,
+    // keepers known, or the blind intel naming keeper tiles.
+    isKeeperRoom(roomName: string): boolean {
+        const info = this._getRoomInfo(roomName)
+        if (info && (info.lairs || info.sk.xys.length > 0)) return true
+        return this.blindSKInfo(roomName).xys.length > 0
     }
 
     calcMatrix(room: Room, mat: CostMatrix) {
@@ -761,8 +791,8 @@ export class Rewalker {
                     // Weight is determined by what's underneath
                     break
                 case STRUCTURE_KEEPER_LAIR:
-                    matrixAvoid(mat, struct.pos, 3, 50, 5);
-                    matrixAvoid(mat, struct.pos, 4, 0, 5);
+                    // The keeper layer (applyKeepers) rings it; the tile
+                    // itself is a wall.
                     break
                 default:
                     mat.set(x, y, 0xff)
@@ -795,7 +825,7 @@ export class Rewalker {
             }
             // Danger zones are for creeps that can hurt us; our own guards
             // and minis must not repel our paths (FIND_CREEPS includes them).
-            // Source Keepers are covered by the room's SKInfo (applySK).
+            // Source Keepers are covered by the room's SKInfo (applyKeepers).
             if (creep.my || this.isAllied(creep)) continue
             if (creep.owner.username === kKeeperUser) continue
             if (creep.getActiveBodyparts(RANGED_ATTACK)) {
@@ -982,7 +1012,11 @@ export class Rewalker {
     }
 
     get roomCallback(): (roomName: string) => boolean | CostMatrix {
-        return roomName => this.getMatrix(roomName)
+        return this.roomCallbackFor(false)
+    }
+
+    roomCallbackFor(ignoreSK: boolean): (roomName: string) => boolean | CostMatrix {
+        return roomName => this.getMatrix(roomName, ignoreSK)
     }
 
     // Creep-free path plans through the same route and cost matrices a
@@ -1010,11 +1044,11 @@ export class Rewalker {
     // costs, an ops budget scaled by the route to goals[0] (the true
     // destination; any others lie nearer), and the route-restricted rooms.
     // `goals` must already be clean.
-    _search(from: RoomPosition, goals: Goal[], terrain: MoveTerrain, maxCost?: number): PlanResult {
+    _search(from: RoomPosition, goals: Goal[], terrain: MoveTerrain, maxCost?: number, ignoreSK = false): PlanResult {
         const [plainCost, swampCost] = kTerrainCosts[terrain]
         const rooms = this.getRouteDist(from.roomName, goals[0].pos.roomName)
         const ret = PathFinder.search(from, goals, {
-            roomCallback: this.restrictedRoomCallback(from, goals),
+            roomCallback: this.restrictedRoomCallback(from, goals, ignoreSK),
             plainCost,
             swampCost,
             maxCost,
@@ -1031,10 +1065,10 @@ export class Rewalker {
         }
     }
 
-    restrictedRoomCallback(pos: RoomPosition, goals: Goal[]): (roomName: string) => boolean | CostMatrix {
+    restrictedRoomCallback(pos: RoomPosition, goals: Goal[], ignoreSK = false): (roomName: string) => boolean | CostMatrix {
         // Short distance walks don't usually exceed the 16 room limit.
         if (this.getRouteDist(pos.roomName, goals[0].pos.roomName) <= 4) {
-            return this.roomCallback
+            return this.roomCallbackFor(ignoreSK)
         }
 
         const set = new Set<string>()
@@ -1047,7 +1081,7 @@ export class Rewalker {
         }
         return roomName => {
             if (!set.has(roomName)) return false
-            return this.getMatrix(roomName)
+            return this.getMatrix(roomName, ignoreSK)
         }
     }
 }
@@ -1059,7 +1093,9 @@ class Step {
     constructor(public readonly creep: Creep | PowerCreep,
         public dest: RoomPosition,
         public range: number,
-        public readonly rewalker: Rewalker) {
+        public readonly rewalker: Rewalker,
+        // Walk on keeper rooms' matrices without their keeper layer.
+        public readonly ignoreSK = false) {
         const mem = creep.memory._walk
         if (mem) {
             this.prev = fromXY(mem[0], mem[1])
@@ -1304,7 +1340,7 @@ class Step {
     // Whether the creep can arrive in time is the job's call, not the
     // walk's.
     planSteps(pos: RoomPosition, goals: Array<Goal>, maxCost: number): [number, Path] {
-        const ret = this.rewalker._search(pos, goals, moveTerrain(this.creep), maxCost)
+        const ret = this.rewalker._search(pos, goals, moveTerrain(this.creep), maxCost, this.ignoreSK)
         this.incomplete = ret.incomplete
 
         // A walk that starts and ends in one room should stay in it. Leaving
@@ -1441,7 +1477,7 @@ class RoomInfo {
 
     static _hotMat: CostMatrix | null = null
     static _null = new PathFinder.CostMatrix()
-    newMatrix(roomName: string, rewalker: Rewalker): CostMatrix {
+    newMatrix(roomName: string, rewalker: Rewalker, ignoreSK = false): CostMatrix {
         const room = Game.rooms[roomName]
 
         if (!room) {
@@ -1450,9 +1486,9 @@ class RoomInfo {
             this.needMat = true
             if (!this.sk.complete) this.sk.update(rewalker.blindSKInfo(roomName))
             let mat = this.mat.length > 0 ? matrixDeserialize(this.mat) : null
-            if (this.sk.xys.length > 0) {
+            if (this.sk.xys.length > 0 && !ignoreSK) {
                 if (!mat) mat = new PathFinder.CostMatrix()
-                rewalker.applySK(mat, roomName, this.sk)
+                rewalker.applyKeepers(mat, roomName, this.sk)
             }
             return mat || RoomInfo._null
         }
@@ -1477,7 +1513,7 @@ class RoomInfo {
             return RoomInfo._null
         }
         // this.sk is current: update() ran skUpdate this tick.
-        if (this.lairs) rewalker.applySK(mat, roomName, this.sk, SKInfo.resources(room))
+        if (this.lairs && !ignoreSK) rewalker.applyKeepers(mat, roomName, this.sk, room)
         return mat
     }
 }

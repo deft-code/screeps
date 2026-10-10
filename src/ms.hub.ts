@@ -7,6 +7,8 @@ import { Reboot } from "job.reboot";
 import { Upgrader } from "job.upgrader";
 import { CtrlHauler } from "job.ctrlhauler";
 import { Chemist } from "job.chemist";
+import { Hubminer } from "job.hubminer";
+import { Hubminecart } from "job.hubminecart";
 import { suppressMicro, suppressPup } from "suppress";
 import { defaultRewalker, toXY } from "Rewalker";
 import * as debug from "debug";
@@ -56,6 +58,10 @@ interface HubMemory extends MissionMemory {
 // one Worker; one Ctrl; one
 // Hub once the room has storage (Hub.spawn also waits for the 'hub' spot);
 // and one Chemist (job.chemist.ts) while the room has a terminal and a lab;
+// one Hubminer (job.hubminer.ts) while the Meta_min extractor stands on a
+// non-thorium mineral with something left in it (Hubminer.want), and its
+// Hubminecarts (job.hubminecart.ts): one while the mineral container holds
+// anything, two past half full (Hubminecart.want);
 // a Micro and Pups against unarmed enemy creeps (suppress.ts).
 // Everything spawns "local", and nothing is laid until the room has a spawn
 // of its own: until then the Startup mission's pioneers (spawned elsewhere,
@@ -107,6 +113,8 @@ export class Hub extends Mission {
         this.nJobs(Upgrader, this.nUpgraders(room));
         this.nJobs(CtrlHauler, this.nCtrlHaulers());
         this.nJobs(Chemist, Chemist.want(room));
+        this.nJobs(Hubminer, Hubminer.want(room));
+        this.nJobs(Hubminecart, Hubminecart.want(room));
 
         // Unarmed enemies in the room: a micro after 50 ticks of them, pups
         // against their healing (suppress.ts, shared with Farm and Remote).
