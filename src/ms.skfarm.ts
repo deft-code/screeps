@@ -3,6 +3,7 @@ import { register, Priority } from "process";
 import { Skhunter } from "job.skhunter";
 import { Skvulture } from "job.skvulture";
 import { Skharvester } from "job.skharvester";
+import { Sktrucker } from "job.sktrucker";
 import { Scout } from "job.scout";
 import { HarvestMission } from "job.harvester";
 import { getMetaManager, MetaStructure } from "metastruct";
@@ -13,7 +14,9 @@ import * as debug from "debug";
 // spawned in the home room walks to the keeper room and kills its Source
 // Keepers one at a time; one Skvulture (job.skvulture.ts) follows it and
 // hauls the piles and tombstones home; kHarvesters Skharvesters
-// (job.skharvester.ts) mine the sources from the rsrc metas below. Each is
+// (job.skharvester.ts) mine the sources from the rsrc metas below, and
+// Sktruckers (job.sktrucker.ts) carry their containers home, as many as
+// there are containers holding kTruckEnergy or more. Each is
 // paced, one egg per kPace ticks (paceNJobs(x, n, kPace): n eggs per kPace),
 // so a death costs the rest of that lifetime rather than keeping the spawn
 // busy; kPace is a lifetime less the spawn and walk, so the next one lands
@@ -25,8 +28,7 @@ import * as debug from "debug";
 // With vision it works out a standing spot for each source and mineral:
 // the walkable tile beside it with the greatest Manhattan distance from
 // the nearest keeper lair (spots). They live on the mission instance only
-// (computed once per global reset, never in Memory) and are drawn every
-// tick the room is in view: a yellow ring and the resource's label.
+// (computed once per global reset, never in Memory); status() lists them.
 //
 // Each source spot becomes an rsrc meta (Meta_rsrc, metaremote.ts: the
 // container on the spot, targetid() the source) in the room's MetaManager
@@ -39,6 +41,8 @@ import * as debug from "debug";
 // this many ticks.
 const kPace = 1450;
 const kHarvesters = 3;
+// A container holding this much energy earns a trucker in the pace count.
+const kTruckEnergy = 500;
 
 interface SkSpot {
     // What is mined there and where it is.
@@ -110,16 +114,6 @@ export class SkFarm extends Mission implements HarvestMission {
         return spots;
     }
 
-    drawSpots() {
-        const room = this.room;
-        if (!room) return;
-        for (const s of this.spots) {
-            room.visual.circle(s.pos, { radius: 0.45, stroke: "yellow", fill: "transparent", strokeWidth: 0.1 });
-            const label = s.kind === "source" ? "src" : (Game.getObjectById(s.id as Id<Mineral>)?.mineralType || "min");
-            room.visual.text(`${label} ${s.dist}`, s.pos.x, s.pos.y - 0.6, { color: "yellow", font: 0.5 });
-        }
-    }
-
     // The rsrc metas for the source spots, made or moved as needed.
     ensureMetas() {
         const room = this.room;
@@ -147,6 +141,14 @@ export class SkFarm extends Mission implements HarvestMission {
             .map(s => man.getMeta(`rsrc_${Game.getObjectById(s.id as Id<Source>)?.pos.xy}`))) as MetaStructure[];
     }
 
+    // The containers standing on the source spots (the harvesters' drops).
+    containers(): StructureContainer[] {
+        const room = this.room;
+        if (!room) return [];
+        return _.compact(this.sourceMetas().map(m => _.find(room.unpackPos(m.myspot).lookFor(LOOK_STRUCTURES),
+            s => s.structureType === STRUCTURE_CONTAINER))) as StructureContainer[];
+    }
+
     // Drop the metas and their container sites on the way out.
     removeMetas() {
         const man = getMetaManager(this.roomName);
@@ -172,11 +174,11 @@ export class SkFarm extends Mission implements HarvestMission {
     run(): Priority {
         if (this.windingDown) return super.run();
         if (!this.room) this.nJobs(Scout, 1);
-        this.drawSpots();
         this.ensureMetas();
         this.paceNJobs(Skhunter, 1, kPace);
         this.paceNJobs(Skvulture, 1, kPace);
         this.paceNJobs(Skharvester, kHarvesters, kPace);
+        this.paceNJobs(Sktrucker, this.containers().filter(k => k.store.energy >= kTruckEnergy).length, kPace);
         super.run();
         return "normal";
     }

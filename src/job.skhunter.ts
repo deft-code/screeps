@@ -53,14 +53,17 @@ declare global {
 
 @register
 export class Skhunter extends JobCreep {
-    // 25 MOVE, 3 HEAL, 21 ATTACK, 1 HEAL: 3930 energy, 50 parts. MOVEs first
-    // so it keeps its speed while it loses teeth; the last HEAL outlives the
-    // ATTACKs so a hunter beaten to its last parts still heals.
+    // 25 MOVE, 20 ATTACK, 5 HEAL: 4100 energy, 50 parts (plan F of the Oct
+    // 2026 stub simulation, scratchpad skhunter_sim.py). A keeper's damage
+    // eats the body from the front: the MOVEs go first, then ATTACKs, and
+    // every HEAL comes out of the fight alive, so the walk away heals at the
+    // full 60 a tick from the first tick. With 3 of the 4 HEALs in the
+    // middle (3930) they died on the fight's last ticks and recovery crawled
+    // up from 12 a tick: 86 ticks to kill and walk 25 tiles against 72.
     static readonly body: BodyPartConstant[] = [
         ..._.times(25, () => MOVE),
-        HEAL, HEAL, HEAL,
-        ..._.times(21, () => ATTACK),
-        HEAL,
+        ..._.times(20, () => ATTACK),
+        ..._.times(5, () => HEAL),
     ] as BodyPartConstant[];
 
     static readonly cost = _.sum(Skhunter.body, part => BODYPART_COST[part]);
