@@ -145,6 +145,19 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               kills and deschedules itself when the creep and its tombstone are gone
          ├─ Always           @register  (ms.always.ts)         "Always <Job> <room> [perLife]"; Once that never winds down: paceNJobs(job, perLife
                                                               (args[3], default 1)), one egg per lifetime, never while one is unhatched; windDown() to stop
+         ├─ Capture          @register  (ms.capture.ts)        "Capture <room>"; takes a room with Crows (job.crow.ts). First run picks the owned RCL7+ room with a spawn nearest the target by
+         │                                                     route (routes.dist) and keeps it (memory.home; "home" and "spawn" aliases, so every egg spawns there); the staging room (memory.staging)
+         │                                                     is route[1] of Rewalker.getRoute(target, home). Flags: Capture (CaptureN when taken; a free one already in the target room is adopted;
+         │                                                     memory.flag) at roomCenterPos(target), red, and its child staging_<flag> (grey/red) 5 tiles into the staging room along a PathFinder path
+         │                                                     from the target centre to the home centre over the Rewalker route and matrices (the staging centre when the path misses the room);
+         │                                                     each is re-created when gone and moved back only when found outside its room, so hand-placed spots stand; kill() removes both.
+         │                                                     Power = active RANGED_ATTACK x RANGED_ATTACK_POWER (no boosts, no towers); the enemy's is measured from the target room's
+         │                                                     non-keeper enemies while visible and kept in memory.power for blind ticks. recruit(): one crow egg at a time while
+         │                                                     ourPower (living crows' active parts + a full crow per hatch and egg) <= enemyPower, so an empty room draws one crow.
+         │                                                     Mode (memory.mode, Crow.init drops the task on a change): staging -> attack when the crows within 5 of the staging flag outgun the
+         │                                                     enemy (stagedPower > enemyPower); attack -> staging when the crows in the target or staging room (availablePower) fall under half the
+         │                                                     enemy's. Vision: the home observer (within OBSERVER_RANGE) each tick on the target while unseen, else the staging room while unseen,
+         │                                                     else the target's unseen neighbours in turn; no observer: nJobs(Scout, 1) while the target is unseen. status(): mode, rooms, flags, powers
          ├─ Xfer             @register  (ms.xfer.ts)           "Xfer <to> <from> [n]"; paceNJobs(Fedex, n (args[3], default 2)) from the <from> ("home", args[2]) room's spawns, carrying
                                                               energy from its storage to <to>; windDown() once the home storage is under 50k energy (0 with
                                                               memory.takeitall, set by `takeitall = true`) or <to>'s storage is over 75% full
@@ -300,6 +313,11 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 the id goes bad (gone or no energy) as the largest energy pile or tombstone in the mission room; else follow the mission's Skhunter
          │                                                 within 2, else sit within 3 of the room centre; outside home, after() idleNoms energy within reach. laid by SkFarm (paceNJobs(Skvulture, 1, 1450))
          ├─ Pup @register                  (job.pup.ts)    Wolf with memory.size ATTACK + MOVE pairs; suppress.ts suppressPup (same missions): paceNJobs(Pup, 3) while enemies with HEAL and no hostiles are in the room, size = ceil(heal power / ATTACK_POWER / 2) set on the egg
+         │   └─ Crow @register             (job.crow.ts)   Capture's fighter: fixed 25 MOVE, 24 RANGED_ATTACK, 1 HEAL (5100, Crow.power = 240) from the home room's spawns only (the daemon
+         │                                                 waits for the energy); decide(): retreat (to the staging flag, range 2, not home) when hurt as Guard, else in staging mode stage():
+         │                                                 walk to within 2 of the staging flag (the staging room without one) and wait, chasing nothing (shots and heals within reach are
+         │                                                 Guard.after's opportunistic pass; potshots() leaves Source Keepers out, the staging room being a keeper room);
+         │                                                 in attack mode Guard.decide with hold() at range 3 of the mission flag in the target room instead of the room centre
          │   └─ Mini @register             (job.mini.ts)   Guard on the fixed 'mini' body [RANGED_ATTACK, MOVE, MOVE, HEAL], still via "close"
          │   └─ Toxic @register            (job.toxic.ts)  bait-and-trap skirmisher on the 'mini' body via "close", spawned by Once; mode machine in
          │                                                 memory.tmode: travel (start) -> bait (hold range 5 from the nearest hostile, idleFlee when
@@ -376,6 +394,7 @@ scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout
 scheduleService('Remote W5N8 W6N8 W7N8')  // optional args[3]=the only room its creeps spawn from (as Farm; idles `spawn-not-ready` while it has no spawn)
 scheduleService('PaveAll W5N8')      // a paver every 1400 ticks until the room has none of our sites (Remote/Startup schedule these)
 scheduleService('SkFarm W25S6 W25S7')  // args[1]=keeper room, args[2]=home (spawns); one Skhunter and one Skvulture, each one egg per 1450 ticks
+scheduleService('Capture W25S5')     // args[1]=target room; home (RCL7+, nearest) and staging (next room back) are picked on the first run; Capture/staging_Capture flags mark the target centre and the staging spot
 scheduleService('Raze W27S4 W27S5')  // args[1]=room to clear, args[2]=home (spawns nearest it); one Razer, winds down when it decommissions
 scheduleService('Nidoran W23S4')     // args[1]=seed room (its reserver/owner is the target player unless args[2] names one); paired Chaos dismantlers rotate through the player's reserved rooms within 2 hops
 scheduleService('Once Scout W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down

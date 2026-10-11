@@ -76,10 +76,12 @@ import 'ms.experiment';
 import 'ms.balance';
 import 'ms.furiosa';
 import 'ms.xfer';
+import 'ms.capture';
 import "service.flag";
 
 import "job.hauler";
 import "job.scout";
+import "job.crow";
 import "job.paver";
 import "job.toxic";
 import "job.razer";

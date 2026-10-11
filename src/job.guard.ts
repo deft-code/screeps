@@ -17,7 +17,7 @@ import { roomCenterPos } from "intel";
 
 // role.guard.js idleRetreat(TOUGH, RANGED_ATTACK): go home once this many
 // hits are lost, unless more than half alive with one of those parts active.
-const kRetreatHurts = 100;
+export const kRetreatHurts = 100;
 // idleFlee range when kiting a melee enemy.
 const kKiteRange = 5;
 // hold(): ticks with nothing to do before drifting to the room centre. A
@@ -301,11 +301,17 @@ export class Guard extends JobRole {
     // role.guard.js afterGuard: opportunistic ranged fire, then idleHeal
     // (self, then an adjacent friendly, then a ranged heal within 3, then
     // overheal under fire).
+    // What after() takes a shot at when nothing else used the ranged
+    // intent: every enemy in the room. Crow leaves Source Keepers out.
+    potshots(): Creep[] {
+        return this.c.room.enemies || [];
+    }
+
     after() {
         if (!this.c) return;
         const c = this.cc;
         if (!c.intents.range) {
-            const enemy = this.pos.findClosestByRange(c.room.enemies || []);
+            const enemy = this.pos.findClosestByRange(this.potshots());
             if (enemy) this.shoot(enemy, this.pos.getRangeTo(enemy));
         }
         if (c.intents.melee || !c.activeByType.get(HEAL)) return;
