@@ -79,13 +79,32 @@ terminal)` and `hubNeed(room)` drive the hub creep. `balanceSplit` (called
 from nowhere live) flips hub links to move energy between storage and
 terminal. Visuals: mode glyph and a cooldown arc on each link.
 
-## Labs (`src/struct.lab.js`)
+## Labs (`src/struct.lab.js`, `src/labplan.ts`)
 
 `runLabs(room)` (owned rooms): ensures `Memory.rooms[x].labs`, calls
-`terminal.autoReactAll()` every 500 ticks (picks the first boost below quota in
-`mineralPlan()`, resolves missing intermediates with `autoReact`, and
+`terminal.autoReactAll()` every 500 ticks unless the room is managed by a
+`LabPlan` (below) (autoReactAll picks the first boost below quota in
+`mineralPlan()`, resolves missing intermediates with `autoReact` without
+checking that the base minerals exist, and
 `setLabs(resource)`: `orderedLabs()[0..1]` get the two inputs, the rest the
 product), draws plan/mineral glyphs, and runs up to two reactions per tick.
+
+`LabPlan <room>` (`labplan.ts`, a scheduled Service; `LabPlan W25S7` since 11
+Oct 2026) is the stock-aware chooser: `Memory.labplan[room].plan` is an
+ordered list of `{res, quota}` (default XLHO2 3000, XGHO2 3000; console
+`add(res, quota, before?)`, `remove`, `setQuota`, `reset`, `replan`). Every
+100 ticks the first entry under quota (stock = terminal + storage) is walked
+down `Reactions` deepest first; a reaction is chosen only when both inputs
+are stocked at 300 or more, an intermediate under its quota (own entry, else
+2000) is made before the step above it, and an unmakeable one is skipped so
+the step above runs on what there is. Nothing makeable: next entry; nothing
+at all: every `planType` is cleared and the Chemist drains the labs. The
+choice is applied through `terminal.setLabs()` at once when the labs are
+idle, when the current product cannot run or has reached its quota, and
+otherwise only after 500 ticks. It sets `Memory.rooms[x].labs.managed`
+(cleared by `kill()`) to keep autoReactAll off. `status()` prints the
+current product, the plan with stocks, and the stock of every mineral in
+the plan's chains.
 `lab.planType`, `lab.boost` (15-tick claim), `mineralFill()`/`mineralDrain()`
 tell haulers/chemists what to move. `room.requestBoost(boost)` picks a lab
 via `findBoostLab`. Boost requests come from `CreepRole.doBoosts` for creeps

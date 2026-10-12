@@ -14,6 +14,14 @@ power creep on; pinned by a flag named `Furiosa`, else re-picked at random among
 our power spawns when unset or stale. `Memory.powerCreeps[name].home` is the room
 the creep was last spawned in (`MyPowerCreep.spawn`), alongside `swipe` state.
 
+### `Memory.labplan` (`labplan.ts`)
+
+`{ [room]: { plan: [{res, quota}], current?: resource | null, since?: tick, why?: string } }`:
+the `LabPlan <room>` service's priority list of lab products (console-edited,
+defaults to XLHO2 and XGHO2 at 3000), the product its labs are set to (null
+when cleared), when that was set and the reason. Survives resets; the
+service's `kill()` leaves it.
+
 ### `Memory.balance` (`ms.balance.ts`)
 
 `{ rooms: string[], minerals?: string }`: the rooms whose terminals the
@@ -80,7 +88,7 @@ delete by hand: it restarts from empty.
 | `intel` | `intel.ts` | yes | `{ last, enabled?, owner?: [userIdx, rcl], core?: [lvl, expire], power?: [xy, amount, expire], deposit?: [xy, cooldown, expire], src?: xy[], ctrl?: xy, min?: xy, thor?: [xy, amount], center?: xy, portal? }` (`src`/`ctrl`/`min` written once on first sight, `thor` rewritten every visit and deleted when the thorium is gone, `owner` deleted when the controller is neither owned nor reserved; `RoomIntel.srcPos`/`ctrlPos`/`minPos`/`thorPos`/`thorAmount` read them; the keeper tiles that were `sk` here until Oct 2026 live in `Memory.Rewalker`; `center` is the room centre from `findRoomCenter` over `src` and `ctrl`, computed and cached on the first `RoomIntel.centerXY`/`centerPos` read, never expires, `recenter()` redoes it) |
 | `meta` | `metastruct.ts` | yes | `{ name?: string, metas: MetaMem[], traffic?: TrafficPlanMem, keep?, drop?, roadkeep?, roaddrop?: xy[], rampart?, constructedWall?: {xy: MAXHITS} }`; `name` is the genesis flag's name (stamped by every `runGenesis` pass) and names the room's spawns; `MetaMem.retire?: {xy: rcl}` retires a tile from that RCL; `MetaMem.traffic?: [{src, dest, range?, rcl, swamp?, swampCost?}]` are stored traffic entries (`rroad_*`; `src: -1` is the room's traffic origin); `traffic` is the manager's road plan, a `MetaMem` named `traffic` with `structs.road` by level plus `sig` (input hash, `""` = replan pending), `at` (tick) and `fail?: string[]`; see [metastruct.md](metastruct.md) |
 | `links` | `struct.link.ts` | yes | `{ [xy]: { mode: "^"|"+"|"-"|"="|"x" } }` (old entries may still say `"src"`/`"sink"`) |
-| `labs` | `struct.lab.js` | yes | `{ current?: resource, order?: labId[], [labId]: { note, planType?, boost?, boostTime? } }` |
+| `labs` | `struct.lab.js`, `labplan.ts` | yes | `{ current?: resource, order?: labId[], managed?: true (a LabPlan chooses here; autoReactAll stays off), [labId]: { note, planType?, boost?, boostTime? } }` |
 | `spots` | `room.ts` | yes (read) | `{ [name]: xy }` manual standing spots; metastruct points are the usual source |
 | `containers` | `struct.container.js` | yes | `{ [id]: { v: 2, mode: "src"|"sink"|"hub" } }` |
 | `strat` | `strat.ts` (`setRoomStrat`), `strat.thor.ts` | yes | name of a registered strat override for an owned room (`"thorclaimed"`); absent = `ClaimedStrat` |

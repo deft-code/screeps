@@ -215,7 +215,8 @@ export function runLabs(room) {
     room.memory.labs = {}
     room.log('Creating memory for labs')
   }
-  if (room.terminal && room.terminal.my) {
+  // A LabPlan service (labplan.ts) chooses for a room it manages.
+  if (room.terminal && room.terminal.my && !room.memory.labs.managed) {
     room.terminal.autoReactAll()
   }
   const labs = room.orderedLabs()

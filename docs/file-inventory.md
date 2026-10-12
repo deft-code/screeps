@@ -119,7 +119,8 @@ Status legend:
 | `src/struct.ts`, `constructionsite.ts`, `tombs.js` | LIVE | 2017-20 | `note`/`toString`/`hurts`/`repairs`. |
 | `src/struct.link.ts` | LIVE | 2019 | Link modes, `runLinks`, `storageBalance`, `hubNeed`. |
 | `src/struct.tower.js` | LIVE | 2017 | `runTowers` (overheal branch broken). |
-| `src/struct.lab.js` | LIVE | 2017 | `runLabs`, `autoReactAll`, boosts. |
+| `src/struct.lab.js` | LIVE | 2017 | `runLabs`, `autoReactAll` (skipped in a room a `LabPlan` manages), boosts. |
+| `src/labplan.ts` | REACHABLE | 2026 | `"LabPlan <room>"`: stock-aware lab chooser; walks `Reactions` from a console-edited priority list of products and quotas (`Memory.labplan[room].plan`) and calls `terminal.setLabs()` with the deepest reaction whose inputs are stocked; holds a running product 500 ticks before switching. |
 | `src/struct.factory.ts` | LIVE | 2020 | `runFactory` (alloy). |
 | `src/struct.container.js`, `struct.controller.js` | LIVE | 2017 | `mode`; `resTicks/reservable`. |
 | `src/struct.terminal.js` | LIVE (helpers) / DEAD (`run`) | 2017 | Fill/drain thresholds used by hauler; market automation dead. |

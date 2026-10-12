@@ -77,6 +77,7 @@ import 'ms.balance';
 import 'ms.furiosa';
 import 'ms.xfer';
 import 'ms.capture';
+import 'labplan';
 import "service.flag";
 
 import "job.hauler";
