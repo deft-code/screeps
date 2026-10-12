@@ -90,6 +90,7 @@ import "job.skhunter";
 import "job.skvulture";
 import "job.skharvester";
 import "job.sktrucker";
+import "job.prospector";
 import "job.hubminer";
 import "job.hubminecart";
 import "job.harvester";

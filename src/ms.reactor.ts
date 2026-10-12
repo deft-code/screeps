@@ -7,6 +7,7 @@ import { Guard } from "job.guard";
 import { Toxic } from "job.toxic";
 import { Warboy } from "job.warboy";
 import { Warrunner } from "job.warrunner";
+import { Prospector, wantProspector } from "job.prospector";
 import { sectorCore, findReactors, thoriumMineral } from "reactor";
 import { RoomIntel } from "intel";
 import { MyCreep } from "mycreep";
@@ -27,6 +28,11 @@ const kLeadTicks = 600;
 // Keep an Immortan standing by while our reactor holds more thorium than
 // this: fuel worth re-claiming on the spot if someone takes the reactor.
 const kGuardAbove = 100;
+
+// One prospector (job.prospector.ts) per this many ticks mines the core's
+// ordinary mineral while wantProspector holds (no armed enemy, home under
+// 50k of it), as SkFarm paces its own.
+const kProspectPace = 1450;
 
 // One scout per this many ticks keeps the core in view between warboy trips;
 // a fresh one is laid before the last (1500-tick) one dies.
@@ -162,9 +168,16 @@ export class Reactor extends Mission {
             this.toxic();
             this.hold();
             this.fuel();
+            this.prospect();
         }
         super.run();
         return "normal";
+    }
+
+    // The core's ordinary mineral: one Prospector per kProspectPace from the
+    // home room while job.prospector's wantProspector holds.
+    prospect() {
+        if (wantProspector(this.room!, this.getRoom("home"))) this.paceNJobs(Prospector, 1, kProspectPace);
     }
 
     // Hooks for subclasses: something to check every tick before the pause

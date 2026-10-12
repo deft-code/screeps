@@ -4,6 +4,7 @@ import { Skhunter } from "job.skhunter";
 import { Skvulture } from "job.skvulture";
 import { Skharvester } from "job.skharvester";
 import { Sktrucker } from "job.sktrucker";
+import { Prospector, ProspectMission, wantProspector } from "job.prospector";
 import { Scout } from "job.scout";
 import { HarvestMission } from "job.harvester";
 import { getMetaManager, MetaStructure } from "metastruct";
@@ -37,6 +38,13 @@ import * as debug from "debug";
 // windDown() deletes them again and drops their container sites.
 //
 //   scheduleService('SkFarm W25S6 W25S7')   // args[1]=keeper room, args[2]=home room (spawns)
+//
+// The mineral: one Prospector (job.prospector.ts) per kPace, on the mineral
+// spot, while the room is visible with no armed non-keeper enemy, a Source
+// Keeper tombstone lies within kTombRange of the mineral (its keeper is
+// dead, so the spot is clear for a while; a room without lairs needs none)
+// and the home room's storage and terminal hold under 50k of it
+// (job.prospector.ts wantProspector, shared with Reactor).
 // One hunter and one vulture egg each, and kHarvesters harvester eggs, per
 // this many ticks.
 const kPace = 1450;
@@ -76,7 +84,7 @@ function manhattan(a: RoomPosition, b: RoomPosition): number {
 }
 
 @register
-export class SkFarm extends Mission implements HarvestMission {
+export class SkFarm extends Mission implements HarvestMission, ProspectMission {
     get roomName() {
         return this.args[1];
     }
@@ -134,6 +142,19 @@ export class SkFarm extends Mission implements HarvestMission {
         if (dirty) man.save();
     }
 
+    // The Prospector's standing tile (ProspectMission): the mineral spot.
+    mineralSpot(): RoomPosition | null {
+        return _.find(this.spots, s => s.kind === "mineral")?.pos || null;
+    }
+
+    // One prospector per kPace while the mineral is worth sending for
+    // (job.prospector.ts wantProspector: no armed non-keeper enemy, a keeper
+    // tombstone within 5 of the mineral, home under 50k of it).
+    prospect() {
+        const room = this.room;
+        if (room && wantProspector(room, this.getRoom("home"))) this.paceNJobs(Prospector, 1, kPace);
+    }
+
     // The metas the Skharvesters claim (HarvestMission).
     sourceMetas(): MetaStructure[] {
         const man = getMetaManager(this.roomName);
@@ -179,6 +200,7 @@ export class SkFarm extends Mission implements HarvestMission {
         this.paceNJobs(Skvulture, 1, kPace);
         this.paceNJobs(Skharvester, kHarvesters, kPace);
         this.paceNJobs(Sktrucker, this.containers().filter(k => k.store.energy >= kTruckEnergy).length, kPace);
+        this.prospect();
         super.run();
         return "normal";
     }
