@@ -442,6 +442,9 @@ type MetaStructs = {
 
 type blocker = Structure | ConstructionSite | null;
 
+// Ticks between "meta clash" log lines (MetaManager.protectedBlocker).
+const kClashPace = 100;
+
 function metaOrder(l: MetaStructure, r: MetaStructure) {
     if (r.priority === l.priority) {
         if (l.name < r.name) {
@@ -629,9 +632,39 @@ export class MetaManager {
 
     setMeta(meta: MetaStructure) {
         _.remove(this.metas, m => m.name === meta.name);
+        this.warnClashes(meta);
         this.trafficDirty = true;
         this.metas.push(meta);
         this.metas.sort(metaOrder);
+    }
+
+    // Names of the planned metas (the traffic plan included) that claim the
+    // tile (MetaStructure.claims), `except` left out.
+    claimants(xy: number, except?: string): string[] {
+        return this.planned().filter(m => m.name !== except && m.claims(xy)).map(m => m.name);
+    }
+
+    // Log every tile where `meta` plans a structure that another planned meta
+    // plans a different one on (ramparts and road-with-container excepted),
+    // so a genesis YELLOW shows the clash before GREEN commits it. Two plans
+    // on one tile otherwise fight over the site every tick (makeSite now
+    // refuses that, protectedBlocker) or build the wrong thing.
+    warnClashes(meta: MetaStructure) {
+        const others = this.planned().filter(m => m.name !== meta.name);
+        _.forEach(meta.mem.structs, (lvls, stype) => {
+            if (stype === STRUCTURE_RAMPART) return;
+            for (const xy of _.flatten(_.values(lvls!)) as number[]) {
+                for (const other of others) {
+                    _.forEach(other.mem.structs, (olvls, ostype) => {
+                        if (ostype === STRUCTURE_RAMPART || ostype === stype) return;
+                        if (canShare(stype as StructureConstant, ostype as StructureConstant)) return;
+                        if (!_.any(olvls!, xys => _.contains(xys!, xy))) return;
+                        const [x, y] = coordsFromXY(xy);
+                        debug.warn(this.name, "meta clash:", meta.name, stype, "and", other.name, ostype, "both planned at", `${x},${y}`);
+                    });
+                }
+            }
+        });
     }
 
     getSpot(name: string): RoomPosition | null {
@@ -973,6 +1006,7 @@ export class MetaManager {
         if (this.hostileHold(room, stype)) return false;
         const planned = this.planned();
         let blocker: blocker = null;
+        let blocked: MetaStructure | null = null;
         for (const meta of planned) {
             const [free, newblocker] = meta.findSite(stype, room, maxLvl);
             if (free) {
@@ -984,13 +1018,15 @@ export class MetaManager {
                 room.errlog(ret, "Failed  to create site", stype, free.xy, "blocker", newblocker);
             }
             if (!blocker && newblocker) {
+                if (this.protectedBlocker(newblocker, meta, stype)) continue;
                 room.log(`found blocker of ${stype} in ${meta.name} at ${newblocker}`);
                 blocker = newblocker;
+                blocked = meta;
             }
         }
 
         if (blocker) {
-            room.log("SITE BLOCKED!", stype, blocker);
+            room.log("SITE BLOCKED!", stype, blocker, "for", blocked?.name);
             return this.removeDestroy(blocker);
         }
 
@@ -1003,7 +1039,8 @@ export class MetaManager {
                 if (ret === ERR_RCL_NOT_ENOUGH) return roomLevel(room) ? this.purge(stype) : false;
                 room.errlog(ret, "Failed to create site", stype);
             }
-            if (!blocker) {
+            if (!blocker && newblocker) {
+                if (this.protectedBlocker(newblocker, meta, stype)) continue;
                 blocker = newblocker;
             }
         }
@@ -1013,6 +1050,28 @@ export class MetaManager {
         }
 
         return false;
+    }
+
+    // A blocker another planned meta put on the tile on purpose: a site or
+    // structure of a type that meta plans there at this RCL. Removing it
+    // would only have the two plans take turns on the tile, a site made and
+    // removed every other tick (Rote's hub road under the ctrl link, Oct
+    // 2026). The plan that sorts first (metaOrder) keeps the tile; when that
+    // is the other meta, the blocker stays, `wanting`'s structure goes
+    // unbuilt, and the clash is logged every kClashPace ticks. When
+    // `wanting` sorts first the blocker is removed as before.
+    protectedBlocker(blocker: Structure | ConstructionSite, wanting: MetaStructure, wanted: BuildableStructureConstant): boolean {
+        const room = Game.rooms[this.name];
+        if (!room) return false;
+        const stype = blocker.structureType as BuildableStructureConstant;
+        const xy = toXY(blocker.pos);
+        const rcl = Number(roomLevel(room));
+        const owner = _.find(this.planned(), m => m !== wanting && m.has(stype, rcl, xy));
+        if (!owner || metaOrder(owner, wanting) > 0) return false;
+        if (Game.time % kClashPace === 0) {
+            room.log(`meta clash at ${blocker.pos.x},${blocker.pos.y}: ${wanting.name} wants ${wanted}, ${owner.name} keeps its ${stype}`);
+        }
+        return true;
     }
 
     purgeOptional(stype: BuildableStructureConstant): boolean {
@@ -1358,6 +1417,13 @@ export class MetaStructure {
     hasAny(stype: BuildableStructureConstant, xy: number): boolean {
         //console.log(this.name, "has any checking", stype, xy);
         return _.any(this.mem.structs[stype]!, xys => _.contains(xys!, xy));
+    }
+
+    // Does this meta plan anything at all on the tile: a structure of any
+    // type at any level (roads included), or a standing spot.
+    claims(xy: number): boolean {
+        if (_.any(this.mem.points, p => p === xy)) return true;
+        return _.any(this.mem.structs, lvls => _.any(lvls!, xys => _.contains(xys!, xy)));
     }
 
     getSite(stype: BuildableStructureConstant): number | null {
@@ -2137,30 +2203,81 @@ class Meta_ctrl extends MetaStructure {
         const mem = MetaStructure.makeMem(f);
         // The controller, from the room or (blind) from intel.
         const ctrlPos = f.room?.controller?.pos || RoomIntel.get(man.name)?.ctrlPos || null;
+        let spot: number;
+        let prefer: number;
         if (ctrlPos && !ctrlPos.isEqualTo(f.pos)) {
             // Flag placed off the controller: stand on the flag, link on the next step to storage.
             if (ret.path.length < 1) return null;
             if (!ctrlPos.inRangeTo(f.pos, 3)) f.log("ctrl spot out of upgrade range", f.pos);
-            mem.points[calcRole(mem.name)] = toXY(f.pos);
-            addMemStruct(mem, STRUCTURE_LINK, kCtrlLinkLevel, ret.path[0].xy);
-            Meta_ctrl.addContainer(mem);
+            spot = toXY(f.pos);
+            prefer = ret.path[0].xy;
+        } else {
+            if (ret.path.length < 4) return null;
+            spot = ret.path[2].xy;
+            prefer = ret.path[3].xy;
+        }
+        mem.points[calcRole(mem.name)] = spot;
+        // Child flag RED: no link, the container stays for good (a room that
+        // keeps its links for the sources and the hub, or never reaches the
+        // ctrl link's level).
+        if (f.secondaryColor === COLOR_RED) {
+            Meta_ctrl.addContainer(mem, false);
             return new this(mem, man);
         }
-        if (ret.path.length < 4) return null;
-        mem.points[calcRole(mem.name)] = ret.path[2].xy;
-        addMemStruct(mem, STRUCTURE_LINK, kCtrlLinkLevel, ret.path[3].xy);
+        const link = Meta_ctrl.linkTile(man, mem.name, spot, prefer);
+        if (link === null) {
+            f.log("no free tile beside the ctrl spot for its link", fromXY(spot, man.name));
+            return null;
+        }
+        addMemStruct(mem, STRUCTURE_LINK, kCtrlLinkLevel, link);
         Meta_ctrl.addContainer(mem);
         return new this(mem, man);
     }
 
+    // The link's tile beside `spot`: `prefer` (the path step toward the
+    // storage) when no other meta claims it, else the free neighbour of the
+    // spot nearest the storage site (the room centre without one); null when
+    // every neighbour is wall or claimed. Other metas' planned roads count as
+    // claims: the path walks them cheaply, and a link planned on the hub's
+    // road tile had the two metas making and removing a site there every
+    // other tick (Rote, Oct 2026). `name` is this meta's own name, whose
+    // claims (an earlier plan being replaced) are ignored.
+    static linkTile(man: MetaManager, name: string, spot: number, prefer: number | null): number | null {
+        const free = (xy: number) => xy !== spot && !man.claimants(xy, name).length;
+        if (prefer !== null && free(prefer)) return prefer;
+        const [sx, sy] = coordsFromXY(spot);
+        const terrain = Game.map.getRoomTerrain(man.name);
+        const toward = man.getSite(STRUCTURE_STORAGE) || new RoomPosition(25, 25, man.name);
+        let best: number | null = null;
+        let bestRange = Infinity;
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                if (!dx && !dy) continue;
+                const x = sx + dx;
+                const y = sy + dy;
+                if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+                if (terrain.get(x, y) & TERRAIN_MASK_WALL) continue;
+                const xy = coordsToXY(x, y);
+                if (!free(xy)) continue;
+                const range = toward.getRangeTo(x, y);
+                if (range < bestRange) {
+                    best = xy;
+                    bestRange = range;
+                }
+            }
+        }
+        return best;
+    }
+
     // Upgrader buffer under the ctrl creep (container mode 'sink': haulers fill
     // it). Built from RCL kCtrlContainerLevel, retired once the link can be
-    // built; being a container it then decays rather than being destroyed.
+    // built (not when `retire` is false: the RED no-link plan keeps it);
+    // being a container it then decays rather than being destroyed.
     // Replaces role.ctrl.js structAtSpot.
-    static addContainer(mem: MetaMem) {
+    static addContainer(mem: MetaMem, retire = true) {
         const xy = mem.points[calcRole(mem.name)];
         addMemStruct(mem, STRUCTURE_CONTAINER, kCtrlContainerLevel, xy);
-        addMemRetire(mem, xy, Number(kCtrlLinkLevel));
+        if (retire) addMemRetire(mem, xy, Number(kCtrlLinkLevel));
     }
 
     // Metas planned before Sept 2026: move the link from RCL5 to kCtrlLinkLevel
@@ -2176,6 +2293,24 @@ class Meta_ctrl extends MetaStructure {
         if (!this.mem.structs[STRUCTURE_CONTAINER] && this.mem.points[calcRole(this.name)] !== undefined) {
             Meta_ctrl.addContainer(this.mem);
             changed = true;
+        }
+        // A link on a tile another meta plans (Rote's on the hub's road,
+        // Wind's on its factory, Oct 2026): move it to a free tile beside
+        // the spot (linkTile), as plan() would place it now.
+        const xys = this.mem.structs[STRUCTURE_LINK]?.[kCtrlLinkLevel as 6];
+        const spot = this.myspot;
+        if (xys?.length && spot && this.manager.claimants(xys[0], this.name).length) {
+            const moved = Meta_ctrl.linkTile(this.manager, this.name, spot, null);
+            const room = Game.rooms[this.manager.name];
+            if (moved !== null) {
+                room?.log(this.name, "link moved off", fromXY(xys[0], this.manager.name), "(claimed by",
+                    this.manager.claimants(xys[0], this.name).join(","), ") to", fromXY(moved, this.manager.name));
+                xys[0] = moved;
+                changed = true;
+            } else {
+                room?.log(this.name, "link at", fromXY(xys[0], this.manager.name), "clashes with",
+                    this.manager.claimants(xys[0], this.name).join(","), "and no tile beside the spot is free");
+            }
         }
         return changed;
     }

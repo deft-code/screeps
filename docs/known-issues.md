@@ -84,6 +84,18 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
 
 ## Fixed
 
+- **Two metas planning different structures on one tile fought over the
+  site every tick** (`src/metastruct.ts`, Oct 2026). Rote's `ctrl` link was
+  planned on a tile the `hub` meta plans a road on: the hub laid its road
+  site, the link's `makeSite` found it as a blocker and removed it, and so on
+  every other tick. `Meta_ctrl.plan` now puts the link on a tile no other
+  meta claims (`linkTile`, with `migrate()` moving saved links), `setMeta`
+  logs every clash between a new meta and the planned ones (`warnClashes`,
+  visible on a genesis YELLOW), and `makeSite` leaves a blocker alone when
+  the meta that planned it sorts ahead of the one wanting the tile
+  (`protectedBlocker`, logged every 100 ticks), so a remaining clash costs
+  one unbuilt structure and a log line instead of a site a tick.
+
 - **Console scheduling helpers** (`src/main.js:12-16`). `global.spawn =
   process.spawn` assigned `undefined` and `console.schedule =
   process.Service.shedule` was a typo. Replaced by `global.spawnService(cmd)`
