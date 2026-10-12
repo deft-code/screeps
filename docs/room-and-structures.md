@@ -110,6 +110,17 @@ tell haulers/chemists what to move. `room.requestBoost(boost)` picks a lab
 via `findBoostLab`. Boost requests come from `CreepRole.doBoosts` for creeps
 with `memory.boosts`.
 
+## Observer (`src/struct.observer.ts`)
+
+`observer.observeMax(roomName)`: `observeRoom` for any room on the map. The
+API's range check is the only one there is (the engine processor copies the
+intent's room name onto the observer unchecked and the driver grants the
+vision), and it is skipped while `this.effects` holds `PWR_OPERATE_OBSERVER`
+with ticks remaining, so the method lends the observer such an entry for the
+call and puts the original `effects` back. Ownership, room-name and RCL
+checks and the return code are `observeRoom`'s. Confirmed live Oct 2026;
+nothing calls it yet.
+
 ## Terminal (`src/struct.terminal.js`)
 
 Prototype helpers: `energyFill()` (< 50k), `energyDrain()` (> 60k), `sell`,

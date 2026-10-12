@@ -214,6 +214,11 @@ interface StructureLink {
 interface StructureNuker {
 }
 
+interface StructureObserver {
+    // struct.observer.ts: observeRoom with the range check sidestepped.
+    observeMax(roomName: string): ScreepsReturnCode
+}
+
 interface StructurePowerSpawn {
 }
 

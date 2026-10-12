@@ -132,6 +132,7 @@ import * as terminals from 'struct.terminal';
 import 'struct.container';
 import 'struct.controller';
 import 'struct.factory';
+import 'struct.observer';
 import 'struct.lab';
 import 'struct.link';
 import 'struct.tower';

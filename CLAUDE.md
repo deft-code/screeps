@@ -253,6 +253,7 @@ Game.rooms.W25S7.createFlag(30, 29, 'reactor_Port', COLOR_GREY, COLOR_GREY)  // 
 createFlagAt('W30S4', 25, 25, 'Loot', COLOR_ORANGE, COLOR_CYAN)   // any room, vision or not; genesis passes run blind too
 Memory.creeps.hub1.fillTerminal = 50000       // hub creep fills the terminal from storage to this energy, ignoring storageBalance
 getService('Thormine W29S4').teardownEnabled = true   // teardown gate; stranded minerals: top up from dest (see Thormine row)
+Game.rooms.W25S7.findStructs(STRUCTURE_OBSERVER)[0].observeMax('W40S7')  // observe any room, range be damned (struct.observer.ts; the server never checks)
 getService('LabPlan W25S7').add('XZHO2', 3000)   // lab targets: add(res, quota, before?), remove, setQuota, reset, replan; status() shows chain stocks
 require('intel').RoomIntel.get('W24S8').centerPos     // room centre (findRoomCenter), cached in intel.center; recenter() redoes it
 ```
