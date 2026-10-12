@@ -2,6 +2,7 @@ import { Mission } from "mission";
 import { MyCreep, task, Task2Ret } from "mycreep";
 import { Service } from "process";
 import { defaultRewalker, fromXY } from "Rewalker";
+import { healPick, hurtFriendlies, isFighter } from "heal";
 
 interface HasPos {
     pos: RoomPosition
@@ -175,20 +176,22 @@ export class JobCreep extends MyCreep {
     }
 
     // The friendly to heal, or null when none in the room is hurt. Sticks to
-    // the one picked before while it is still here and still hurt; otherwise
-    // the most damaged within kHealRange, else the most damaged in the room.
-    // Shared by Guard and Toxic.
+    // the one picked before while it is still here and still hurt, unless
+    // it is a civilian and a fighter is now hurt; otherwise fighters before
+    // civilians (heal.ts healPick), the most damaged within kHealRange, else
+    // the most damaged in the room. Shared by Guard, Crow and Toxic.
     pickHurt(): Creep | null {
         const mem = this.c.memory;
-        const kept = mem.healid && Game.getObjectById(mem.healid);
-        if (kept && kept.pos.roomName === this.pos.roomName && kept.hits < kept.hitsMax) return kept;
-        const hurt = this.c.room.find(FIND_MY_CREEPS).filter(f => f.hits < f.hitsMax);
+        const hurt = hurtFriendlies(this.c.room.find(FIND_MY_CREEPS));
         if (!hurt.length) {
             delete mem.healid;
             return null;
         }
+        const kept = mem.healid && Game.getObjectById(mem.healid);
+        if (kept && kept.pos.roomName === this.pos.roomName && kept.hits < kept.hitsMax
+            && (isFighter(kept) || !_.any(hurt, isFighter))) return kept;
         const near = hurt.filter(f => f.pos.inRangeTo(this.pos, kHealRange));
-        const pick = _.max(near.length ? near : hurt, f => f.hitsMax - f.hits);
+        const pick = healPick(near.length ? near : hurt)!;
         mem.healid = pick.id;
         return pick;
     }

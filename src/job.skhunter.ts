@@ -17,6 +17,8 @@ import { closeSpawns } from "spawnold";
 //      ranged heal on one within 3.
 //
 // Then the movement, picked fresh each tick unless a hunt is on:
+//   flee   a ranged enemy other than a keeper within kRangedFlee (4): step
+//          away until every one is 5 off (idleFlee), nothing else this tick.
 //   stalk  a keeper is alive: the one with the most hits is the target, the
 //          closest among equals (idle keepers all sit at full hits). Hold
 //          at range kStalkRange from it until full (see `full`), then hunt it.
@@ -41,6 +43,10 @@ import { closeSpawns } from "spawnold";
 
 // Hold this far from a keeper or its lair while healing up.
 const kStalkRange = 4;
+// A ranged enemy (not a keeper) within this range is fled to one beyond it
+// before anything else: a melee body cannot answer fire at range 3 and the
+// boosted invader waves bring ranged healers (Oct 2026).
+const kRangedFlee = 4;
 // Self-heal when an enemy is within this range even at full health.
 const kThreatRange = 3;
 
@@ -139,7 +145,20 @@ export class Skhunter extends JobCreep {
         return true;
     }
 
+    // Ranged enemies other than keepers in the hunter's room.
+    get rangedHostiles(): Creep[] {
+        return (this.cc.room.hostiles || []).filter(h => !h.keeper && h.getActiveBodyparts(RANGED_ATTACK) > 0);
+    }
+
     start(): Task2Ret {
+        // Fire first: a ranged enemy within kRangedFlee is fled to one beyond
+        // it, hunt or no hunt (the hunt lock in memory survives the flee).
+        const shooters = this.rangedHostiles;
+        if (_.any(shooters, s => this.pos.inRangeTo(s, kRangedFlee))) {
+            this.cc.idleFlee(shooters, kRangedFlee + 1);
+            return "wait";
+        }
+
         if (this.pos.roomName !== this.mission.roomName) return this.moveRoom(this.mission.roomName);
 
         // A hunt on: stay on it until the target is gone, whatever our hits.

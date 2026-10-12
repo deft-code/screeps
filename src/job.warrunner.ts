@@ -14,10 +14,10 @@ import { findReactors } from "reactor";
 export class Warrunner extends Warboy {
     // 9 CARRY and 9 MOVE (900 energy): the same 450 load as a warboy, so the
     // reactor's landing check (ms.reactor fuel) and aging tier stay the same,
-    // at full speed off the roads. CARRY last so the load is guarded.
-    static readonly body: BodyPartConstant[] = [
-        MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE,
-        CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY];
+    // at full speed off the roads. CARRY and MOVE alternate, so damage takes
+    // capacity and speed together (until 12 Oct 2026 every MOVE went first
+    // and a hurt runner was a loaded cripple).
+    static readonly body: BodyPartConstant[] = _.flatten(_.times(9, () => [CARRY, MOVE])) as BodyPartConstant[];
 
     static readonly cost = _.sum(Warrunner.body, part => BODYPART_COST[part]);
 
@@ -36,6 +36,8 @@ export class Warrunner extends Warboy {
     }
 
     start(): Task2Ret {
+        // Warboy.init fled a shooter this tick: nothing else.
+        if (this.fleeing) return "wait";
         if (!RESOURCE_THORIUM) return "wait";
         const homeName = this.homeName;
         // At home, too old for another trip and not already walking a full

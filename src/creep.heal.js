@@ -1,4 +1,9 @@
+const heal = require('heal')
+
 module.exports = class CreepHeal {
+  // Self first, then an adjacent hurt friendly, then one within ranged
+  // reach: fighters (ATTACK or RANGED_ATTACK parts) before civilians, the
+  // most hurt first (heal.ts healPick).
   idleHeal() {
     if (this.intents.melee) return false
 
@@ -6,10 +11,8 @@ module.exports = class CreepHeal {
       return this.goHeal(this, false)
     }
 
-    let creep = _(this.room.lookForAtRange(LOOK_CREEPS, this.pos, 1, true))
-      .map(spot => spot[LOOK_CREEPS])
-      .filter(creep => creep.my && creep.hurts)
-      .sample()
+    let creep = heal.healPick(heal.hurtFriendlies(
+      this.room.lookForAtRange(LOOK_CREEPS, this.pos, 1, true).map(spot => spot[LOOK_CREEPS])))
 
     if (creep) {
       return this.goHeal(creep, false)
@@ -23,10 +26,8 @@ module.exports = class CreepHeal {
       return false
     }
 
-    creep = _(this.room.lookForAtRange(LOOK_CREEPS, this.pos, 3, true))
-      .map(spot => spot[LOOK_CREEPS])
-      .filter(creep => creep.my && creep.hurts)
-      .sample()
+    creep = heal.healPick(heal.hurtFriendlies(
+      this.room.lookForAtRange(LOOK_CREEPS, this.pos, 3, true).map(spot => spot[LOOK_CREEPS])))
 
     if (creep) {
       return this.goRangedHeal(creep)

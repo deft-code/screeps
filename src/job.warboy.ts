@@ -34,6 +34,10 @@ declare global {
     }
 }
 
+// A ranged enemy other than a keeper within this range is fled to one
+// beyond it before anything else (init); shared with Warrunner.
+const kFleeRange = 4;
+
 // Ticks a 1:1 MOVE body needs from `from` to within `range` of `goal`: plains
 // and roads 1, swamps 5. Memoized per (from tile, goal tile) for the global.
 const pathTicks = new Map<string, number>();
@@ -125,7 +129,31 @@ export class Warboy extends JobCreep {
         }
     }
 
+    // Set by init() on a tick spent fleeing: start() then does nothing else.
+    fleeing = false;
+
+    // Ranged enemies other than keepers in the runner's room.
+    get shooters(): Creep[] {
+        return (this.cc.room.hostiles || []).filter(h => !h.keeper && h.getActiveBodyparts(RANGED_ATTACK) > 0);
+    }
+
+    // Before the task runs: a ranged enemy (not a keeper) within kFleeRange
+    // is fled to one beyond it, and the running task (a delivery, a load) is
+    // dropped for this tick so its walk does not override the flee; start()
+    // picks it up again next tick from the same state (shouldDeliver, the
+    // load in hand). An unarmed runner has nothing else to answer fire with.
+    init(): boolean {
+        this.fleeing = false;
+        const shooters = this.shooters;
+        if (!_.any(shooters, s => this.pos.inRangeTo(s, kFleeRange))) return true;
+        this.cc.idleFlee(shooters, kFleeRange + 1);
+        this.fleeing = true;
+        delete this.memory.task2;
+        return true;
+    }
+
     start(): Task2Ret {
+        if (this.fleeing) return "wait";
         if (!RESOURCE_THORIUM) return "wait";
         if (this.shouldDeliver) return this.deliver();
 

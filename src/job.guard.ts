@@ -2,6 +2,7 @@ import { JobRole } from "job.role";
 import { register, task, Task2Ret } from "mycreep";
 import { CreepMove } from "creep.move";
 import { roomCenterPos } from "intel";
+import { healPick, hurtFriendlies } from "heal";
 
 // Port of role.guard.js (2017 flag-team era) to the 2022 mission/job system.
 // A ranged skirmisher with a heal part, spawned in the mission's "home" room.
@@ -71,6 +72,17 @@ export class Guard extends JobRole {
         return name === this.arena.name || name === this.pos.roomName;
     }
 
+    // The arena's enemies and melees with Source Keepers left out: a guard
+    // is sent against players and invaders, and a keeper stays by its lair
+    // (SkFarm guards work in a keeper room, Oct 2026).
+    get arenaEnemies(): Creep[] {
+        return (this.arena.enemies || []).filter(e => !e.keeper);
+    }
+
+    get arenaMelees(): Creep[] {
+        return (this.arena.melees || []).filter(e => !e.keeper);
+    }
+
     // Typed view of the prototype mixins this job leans on (intents, hurts,
     // activeByType, partsByType, idleFlee).
     get cc(): CreepMove {
@@ -104,8 +116,7 @@ export class Guard extends JobRole {
         }
 
         // role.guard.js taskGuard: pick the fight by melee count.
-        const arena = this.arena;
-        const melees = arena.melees || [];
+        const melees = this.arenaMelees;
         if (melees.length > 1) {
             const melee = this.pos.findClosestByRange(melees) || melees[0];
             return this.kite(melee);
@@ -113,7 +124,7 @@ export class Guard extends JobRole {
         if (melees.length === 1) return this.duel(melees[0]);
         // Armed enemies and disarmed fighters, then a hurt friendly
         // (role.guard.js taskGuardHealRoom, JobCreep.pickHurt), then civilians.
-        const enemy = this.pickEnemy(arena.enemies || []);
+        const enemy = this.pickEnemy(this.arenaEnemies);
         if (enemy && !this.isCivilian(enemy)) return this.hunt(enemy);
         const hurt = this.pickHurt();
         if (hurt) return this.healCreep(hurt);
@@ -149,7 +160,7 @@ export class Guard extends JobRole {
 
     // Anything that outranks healing: an armed enemy or a disarmed fighter.
     fighters(): Creep[] {
-        return (this.arena.enemies || []).filter(e => !this.isCivilian(e));
+        return this.arenaEnemies.filter(e => !this.isCivilian(e));
     }
 
     // The enemy to fight: the closest one, civilians left out while a
@@ -194,10 +205,10 @@ export class Guard extends JobRole {
     @task
     hunt(target: Creep): Task2Ret {
         if (!this.inArena(target)) return "start";
-        if ((this.arena.melees || []).length) return "start";
+        if (this.arenaMelees.length) return "start";
         // A civilian is dropped for a disarmed fighter that shows up (or
         // an enemy whose weapons break) while it is being chased.
-        if (this.isCivilian(target) && _.any(this.arena.enemies || [], e => this.isDisarmed(e))) return "start";
+        if (this.isCivilian(target) && _.any(this.arenaEnemies, e => this.isDisarmed(e))) return "start";
         // ...and for a hurt friendly.
         if (this.healFirst(target)) return "start";
         this.engage(target);
@@ -209,7 +220,7 @@ export class Guard extends JobRole {
     @task
     duel(target: Creep): Task2Ret {
         if (!this.inArena(target)) return "start";
-        const nmelees = (this.arena.melees || []).length;
+        const nmelees = this.arenaMelees.length;
         if (nmelees > 1) return "start";
         if (!target.melee && nmelees) return "start";
         return this.kite(target);
@@ -268,7 +279,7 @@ export class Guard extends JobRole {
     healCreep(target: Creep): Task2Ret {
         const c = this.cc;
         if (target.pos.roomName !== this.pos.roomName) return "start";
-        if ((c.room.melees || []).length) return "start";
+        if (_.any(c.room.melees || [], m => !m.keeper)) return "start";
         if (this.fighters().length) return "start";
         if (target.hits >= target.hitsMax) return "start";
         const near = this.pos.isNearTo(target);
@@ -302,9 +313,9 @@ export class Guard extends JobRole {
     // (self, then an adjacent friendly, then a ranged heal within 3, then
     // overheal under fire).
     // What after() takes a shot at when nothing else used the ranged
-    // intent: every enemy in the room. Crow leaves Source Keepers out.
+    // intent: every enemy in the room but the Source Keepers.
     potshots(): Creep[] {
-        return this.c.room.enemies || [];
+        return (this.c.room.enemies || []).filter(e => !e.keeper);
     }
 
     after() {
@@ -319,15 +330,15 @@ export class Guard extends JobRole {
             if (c.heal(c) === OK) c.intents.melee = c;
             return;
         }
-        const near = c.room.lookForAtRange(LOOK_CREEPS, this.pos, 3, true)
-            .map(spot => spot[LOOK_CREEPS] as Creep)
-            .filter(f => f.my && f.hits < f.hitsMax);
-        const adjacent = near.find(f => this.pos.isNearTo(f));
+        // Fighters before civilians, the most hurt first (heal.ts).
+        const near = hurtFriendlies(c.room.lookForAtRange(LOOK_CREEPS, this.pos, 3, true)
+            .map(spot => spot[LOOK_CREEPS] as Creep));
+        const adjacent = healPick(near.filter(f => this.pos.isNearTo(f)));
         if (adjacent) {
             if (c.heal(adjacent) === OK) c.intents.melee = adjacent;
             return;
         }
-        const far = _.first(near);
+        const far = healPick(near);
         if (far && !c.intents.range) {
             if (c.rangedHeal(far) === OK) c.intents.melee = c.intents.range = far;
             return;

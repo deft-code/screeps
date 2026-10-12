@@ -1,4 +1,4 @@
-import { Mission } from "mission";
+import { Mission, MissionMemory } from "mission";
 import { register, Priority } from "process";
 import { Skhunter } from "job.skhunter";
 import { Skvulture } from "job.skvulture";
@@ -6,6 +6,8 @@ import { Skharvester } from "job.skharvester";
 import { Sktrucker } from "job.sktrucker";
 import { Prospector, ProspectMission, wantProspector } from "job.prospector";
 import { Scout } from "job.scout";
+import { Wolf } from "job.wolf";
+import { Guard } from "job.guard";
 import { HarvestMission } from "job.harvester";
 import { getMetaManager, MetaStructure } from "metastruct";
 import { Meta_rsrc } from "metaremote";
@@ -51,6 +53,13 @@ const kPace = 1450;
 const kHarvesters = 3;
 // A container holding this much energy earns a trucker in the pace count.
 const kTruckEnergy = 500;
+// Wolves kept alive (nJobs) while a healer invader is in the room.
+const kHealerWolves = 2;
+
+interface SkFarmMemory extends MissionMemory {
+    // Set by `harvesting = false`: no skharvester or sktrucker eggs.
+    noharvest?: boolean
+}
 
 interface SkSpot {
     // What is mined there and where it is.
@@ -87,6 +96,29 @@ function manhattan(a: RoomPosition, b: RoomPosition): number {
 export class SkFarm extends Mission implements HarvestMission, ProspectMission {
     get roomName() {
         return this.args[1];
+    }
+
+    get mem(): SkFarmMemory {
+        return this.memory as SkFarmMemory;
+    }
+
+    // Console toggle: lay skharvesters and sktruckers (the default) or not.
+    // Persisted in mission memory (noharvest); the living ones work on.
+    //   getService('SkFarm W25S6 W25S7').harvesting = false
+    get harvesting(): boolean {
+        return !this.mem.noharvest;
+    }
+
+    set harvesting(on: boolean) {
+        if (on) {
+            delete this.mem.noharvest;
+        } else {
+            this.mem.noharvest = true;
+            // Drop the harvester and trucker eggs already laid; every other role's stay.
+            const others = _.uniq(this.eggs.map(e => e.role)).filter(r => r !== "skharvester" && r !== "sktrucker");
+            this.purgeEggs(others);
+        }
+        debug.log(this.name, "harvesting", on ? "on" : "off");
     }
 
     getRoomName(alias = "") {
@@ -155,6 +187,34 @@ export class SkFarm extends Mission implements HarvestMission, ProspectMission {
         if (room && wantProspector(room, this.getRoom("home"))) this.paceNJobs(Prospector, 1, kPace);
     }
 
+    // An armed enemy other than a Source Keeper in the room (invaders, other
+    // players): no harvester is laid while one is there, since a fresh one
+    // would walk into the fight to flee it again.
+    get threatened(): boolean {
+        return _.any(this.room?.hostiles || [], h => !h.keeper);
+    }
+
+    // Invader creeps (the NPC) in the room with a HEAL part.
+    healerInvaders(): Creep[] {
+        return (this.room?.enemies || []).filter(e =>
+            !e.keeper && e.owner.username === "Invader" && e.getActiveBodyparts(HEAL) > 0);
+    }
+
+    // A wave with healers outlasts the hunter's one-at-a-time fight: keep
+    // kHealerWolves Wolves (job.wolf.ts, melee, keepers left alone) alive
+    // while a healer invader is in the room (until 12 Oct 2026 only an
+    // XLHO2-boosted one counted). nJobs, so a wolf that dies is replaced at
+    // once; nothing is laid once the wave is gone.
+    wolves() {
+        if (this.healerInvaders().length) this.nJobs(Wolf, kHealerWolves);
+    }
+
+    // One Guard (job.guard.ts, ranged skirmisher; it leaves keepers alone)
+    // from home while an armed non-keeper enemy is in the room.
+    guard() {
+        if (this.threatened) this.nJobs(Guard, 1);
+    }
+
     // The metas the Skharvesters claim (HarvestMission).
     sourceMetas(): MetaStructure[] {
         const man = getMetaManager(this.roomName);
@@ -198,9 +258,13 @@ export class SkFarm extends Mission implements HarvestMission, ProspectMission {
         this.ensureMetas();
         this.paceNJobs(Skhunter, 1, kPace);
         this.paceNJobs(Skvulture, 1, kPace);
-        this.paceNJobs(Skharvester, kHarvesters, kPace);
-        this.paceNJobs(Sktrucker, this.containers().filter(k => k.store.energy >= kTruckEnergy).length, kPace);
+        if (this.harvesting) {
+            if (!this.threatened) this.paceNJobs(Skharvester, kHarvesters, kPace);
+            this.paceNJobs(Sktrucker, this.containers().filter(k => k.store.energy >= kTruckEnergy).length, kPace);
+        }
         this.prospect();
+        this.wolves();
+        this.guard();
         super.run();
         return "normal";
     }
@@ -209,9 +273,10 @@ export class SkFarm extends Mission implements HarvestMission, ProspectMission {
     // or no vision.
     status(): string {
         const room = this.room;
-        if (!room) return super.status() + " no vision";
+        const harvest = this.harvesting ? "" : " harvesting:off";
+        if (!room) return super.status() + harvest + " no vision";
         const keepers = (room.enemies || []).filter(e => e.keeper);
         const spots = this.spots.map(s => `${s.kind[0]}@${s.pos.x},${s.pos.y}:${s.dist}`).join(" ");
-        return super.status() + ` keepers:${keepers.length}` + (keepers.length ? ` top:${_.max(keepers.map(k => k.hits))}` : "") + ` spots:${spots || "-"}`;
+        return super.status() + harvest + ` keepers:${keepers.length}` + (keepers.length ? ` top:${_.max(keepers.map(k => k.hits))}` : "") + ` spots:${spots || "-"}`;
     }
 }
