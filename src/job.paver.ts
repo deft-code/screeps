@@ -100,8 +100,7 @@ export class Paver extends JobRole {
 
     start(): Task2Ret {
         const c = this.cc;
-        // role.bootstrap.js taskRechargeHarvest and creep.oldrepair.js
-        // taskRepairRemote are JS mixins without typings.
+        // role.bootstrap.js taskRechargeHarvest is a JS mixin without typings.
         const legacy = c as any;
         if (c.idleRetreat(WORK) || c.fleeHostiles()) return "wait";
         // Empty: the build target is forgotten (taskTask would otherwise
@@ -153,7 +152,9 @@ export class Paver extends JobRole {
         if (this.pos.roomName !== this.mission.roomName) {
             return this.moveRoom(this.mission.roomName);
         }
-        this.cc.taskBuildAny() || legacy.taskRepairRemote();
+        // Nothing to build or worn past half: top up whatever is under its
+        // ceiling rather than stand idle.
+        this.cc.taskBuildAny() || this.cc.taskRepairOrdered() || this.cc.taskRepairOrdered(1);
         return "wait";
     }
 

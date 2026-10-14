@@ -31,7 +31,7 @@ Creep
          └─ CreepCarry  (creep.carry.ts)  transfer/withdraw/pickup families: idleTransfer*, taskTransfer*, goTransfer, idleWithdrawExtra, idleRecharge, taskRecharge(Limit), taskWithdraw*, goWithdraw, idleNom/idleNomNom, taskPickup*, goPickup, taskDrop
              └─ CreepHarvest (creep.harvest.ts)  goHarvest
                  └─ CreepBuild (creep.build.ts)  idleBuild, taskBuildOrdered/Structs/Sites/..., goBuild (builds from buildRange: 3, 2 within 3 of the edge, 1 within 2)
-                     └─ CreepRepair (creep.repair.ts)  idleRepairAny, taskRepairHurt/Ordered/Structs, taskRepair, goRepair; exports repairable()
+                     └─ CreepRepair (creep.repair.ts)  idleRepairAny, taskRepairOrdered (repairScale, repairPick), taskRepair, goRepair; exports repairable()
                          ├─ SrcerExtra  (role.src.ts)     roleAsrc/roleBsrc, afterAsrc/afterBsrc
                          └─ RoleMason   (role.mason.ts)   roleMason (+ a stray afterWorker)
              ├─ CreepHub    (role.hub.ts)     roleHub/afterHub
@@ -45,36 +45,53 @@ Legacy JS mixins merged by main.js's `mods` loop (lib.merge, overwrite on collis
  creep.attack.js  goAttack/goRangedAttack/goMassAttack/idleAttack/taskAttack...
  creep.dismantle.js  goDismantle/taskDismantle(Any)/idleDismantle
  creep.heal.js    goHeal/goRangedHeal/idleHeal
- creep.oldrepair.js  idleRepairRoad, taskRepairRemote/Wall, taskTurtleMode/Prep/Turtle
+ creep.oldrepair.js  idleRepairRoad, taskRepairWall, taskTurtleMode/Prep/Turtle
 
 ### Repair order (`taskRepairOrdered`, creep.repair.ts, Oct 2026)
 
-Worker, Mason, Farmer, Cart and Bootstrap repair through
-`taskRepairOrdered`, one task at a time:
+Worker, Mason, Farmer, Cart, Bootstrap and Paver repair through
+`taskRepairOrdered`, one task at a time (Oct 2026: the random-order
+`taskRepairHurt`/`taskRepairRemote`/`taskRepairStructs` are gone):
 
 1. The most damaged (lowest hits / hitsMax) of our own structures that do
    not decay (spawn, extension, tower, storage, link, ...): they only lose
    hits to attack, so they go first and are made whole (the task's cap is
    hitsMax, whatever a retired tile's meta says). Foreign structures, an
    invader core included, are never repaired.
-2. Otherwise the decaying structure lowest on the repair scale
-   (`repairScale`): `hits / room.maxHits(struct)`, with ramparts and walls
+2. Otherwise the nearest of the worse half of the decaying structures on
+   the repair scale (`repairPick`: every finite `repairScale` sorted, the
+   lower half kept rounding up, then `Rewalker.planWalk` to repair range
+   picks the cheapest walk among them and stores it; the lowest scale when
+   no walk is found). `repairScale` is `hits / room.maxHits(struct)`, with ramparts and walls
    read `kRampartBias` (0.1) lower so they win ties and near-ties. Left
-   out: anything at or over its `maxHits` (or with none), a road that has
-   lost less than one tick of the creep's repair, a container that has
-   lost 100k or less.
+   out: anything at or over its `maxHits` (or with none), a road or
+   container still above the `wear` fraction of its ceiling
+   (`taskRepairOrdered(wear = kWearFraction)`, half; the Paver falls back
+   to `taskRepairOrdered(1)`, anything under its ceiling, when the default
+   finds nothing and there is nothing to build): repair restores up to the creep's power a tick at 1
+   energy per 100 hits, so letting the wear build up makes each intent
+   count (until Oct 2026 the road gate was one tick of the creep's repair,
+   which with 8-16 WORK workers excluded every plain road above 3400 of
+   5000 for good). A road's `maxHits` is its own
+   terrain ceiling (5k plain, 25k swamp, 750k wall; `roadFullHits`), not
+   the flat `ROAD_HITS`, which until Oct 2026 read every swamp road as over
+   its ceiling and left them to decay.
 3. The task repairs up to `kRepairChunk` (100k) above where the structure
    started, never past `maxHits` (`taskRepair` keeps the bound in the task
    memory), then the pick is made again.
 
 Examples (max in brackets): a road at 2,500 [5,000] is 0.50, a container
-at 120k [250k] is 0.48, a rampart at 600k [1M] is 0.60 - 0.1 = 0.50: the
-container goes first, then road and rampart tie and the shuffle decides,
-and once either is repaired past the other it swaps. A rampart at 1.2M
+at 120k [250k] is 0.48, a rampart at 600k [1M] is 0.60 - 0.1 = 0.50, and a
+swamp road at 20k [25k] is 0.80: the worse half is the container and one of
+the tied pair (the shuffle breaks the tie), and whichever of those two is
+the shorter walk is repaired first; the swamp road waits until it is in
+the worse half. A rampart at 1.2M
 [1M] is never touched, however low the ramparts around it read. A road at
-4,990 [5,000] with a 100-hit repair is skipped (under one tick's worth).
-Five ramparts at 0.9 and one at 0.3 [1M]: the 0.3 one is worked in 100k
-chunks (0.3, 0.4, ...) until it passes 0.9, then they rotate. With hurt
+4,200 [5,000] is above half and waits; at 2,500 it joins the scale at 0.50.
+Five ramparts at 0.9 and one at 0.3 [1M]: the worse half is the 0.3 one
+and two of the 0.9 ones, and the nearest of those three is taken, so the
+0.3 one is not necessarily first; over a few tasks they all come up and
+even out. With hurt
 extensions present the lowest one is made whole first, then the next.
 
 Until Oct 2026 a task ran to `hits + 100k` whatever `maxHits` said and the

@@ -10,7 +10,7 @@ module.exports = class Paver {
 
     return this.moveRoom(this.team) ||
       this.taskBuildAny() ||
-      this.taskRepairRemote() ||
+      this.taskRepairOrdered() ||
       this.taskRechargeHarvest()
   }
 

@@ -27,10 +27,6 @@ module.exports = class CreepOldRepair {
     return what
   }
 
-  taskRepairRemote () {
-    return this.taskRepairStructs(this.room.findStructs(STRUCTURE_ROAD, STRUCTURE_CONTAINER))
-  }
-
   taskRepairWall (wall) {
     wall = this.checkId('repair wall', wall)
     if (!wall || wall.hurts <= 0) return false

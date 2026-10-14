@@ -127,13 +127,26 @@ function calcFullHits(stype: BuildableStructureConstant): number {
     return FullHits[stype] || 1000;
 }
 
-function translateMaxHits(stype: BuildableStructureConstant, hits: MAXHITS): number {
+// A road's full hits depend on its terrain: ROAD_HITS on plain, 5x on
+// swamp, 150x through a wall (CONSTRUCTION_COST_ROAD_*_RATIO). The flat
+// ROAD_HITS of FullHits read every swamp road as over its ceiling at 5000
+// of 25000, so none was ever repaired (W24S7, Oct 2026).
+function roadFullHits(roomName: string, xy: number): number {
+    const t = Game.map.getRoomTerrain(roomName).get(Math.floor(xy / 100), xy % 100);
+    if (t === TERRAIN_MASK_SWAMP) return ROAD_HITS * CONSTRUCTION_COST_ROAD_SWAMP_RATIO;
+    if (t === TERRAIN_MASK_WALL) return ROAD_HITS * CONSTRUCTION_COST_ROAD_WALL_RATIO;
+    return ROAD_HITS;
+}
+
+// The repair ceiling a MAXHITS value stands for; a road's Full depends on
+// the terrain under it (roadFullHits), hence the room and tile.
+function translateMaxHits(stype: BuildableStructureConstant, hits: MAXHITS, roomName: string, xy: number): number {
     switch (hits) {
         case MAXHITS.Unknown:
         case MAXHITS.Skip:
             return 0;
         case MAXHITS.Full:
-            return calcFullHits(stype);
+            return stype === STRUCTURE_ROAD ? roadFullHits(roomName, xy) : calcFullHits(stype);
         case MAXHITS.Low:
             return 100;
         case MAXHITS.Mid:
@@ -1190,13 +1203,12 @@ export class MetaManager {
     }
 
     maxHits(stype: BuildableStructureConstant, xy: number, rcl: number): number {
-        const mh = this.cachedMaxHits(stype, xy);
-        if(mh !== MAXHITS.Unknown) return translateMaxHits(stype, mh);
-
-        const newmh = this.maxHitsInner(stype, xy, rcl);
-        this.addMaxHits(stype, xy, newmh);
-
-        return translateMaxHits(stype, newmh);
+        let mh = this.cachedMaxHits(stype, xy);
+        if (mh === MAXHITS.Unknown) {
+            mh = this.maxHitsInner(stype, xy, rcl);
+            this.addMaxHits(stype, xy, mh);
+        }
+        return translateMaxHits(stype, mh, this.name, xy);
     }
 
     cachedMaxHits(stype: BuildableStructureConstant, xy: number): MAXHITS {

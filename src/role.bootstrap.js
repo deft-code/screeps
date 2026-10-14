@@ -36,9 +36,8 @@ module.exports = class CreepBootstrap {
       this.taskBuildStructs(STRUCTURE_TOWER) ||
       this.taskTurtleMode() ||
       this.taskBuildOrdered() ||
-      this.taskRepairHurt() ||
-      this.taskUpgradeRoom() ||
       this.taskRepairOrdered() ||
+      this.taskUpgradeRoom() ||
       this.taskCampSrcs()
   }
 
