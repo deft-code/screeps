@@ -20,10 +20,10 @@ import * as debug from "debug";
 // (job.skharvester.ts) mine the sources from the rsrc metas below, and
 // Sktruckers (job.sktrucker.ts) carry their containers home, as many as
 // there are containers holding kTruckEnergy or more. Each is
-// paced, one egg per kPace ticks (paceNJobs(x, n, kPace): n eggs per kPace),
-// so a death costs the rest of that lifetime rather than keeping the spawn
-// busy; kPace is a lifetime less the spawn and walk, so the next one lands
-// as the last dies. Harvesting the
+// paced (paceNJobs(x, n, kPace): n at a time, one egg per kPace / (n+1)
+// ticks while under that), so a death is replaced at the next rate tick
+// rather than keeping the spawn busy; kPace is a lifetime less the spawn and
+// walk, so the next one lands as the last dies. Harvesting the
 // freed sources comes in a later step. Without vision of the keeper room
 // one Scout (job.scout.ts, from the home room) parks there, as Farm does,
 // so status() and the next steps can read the room.

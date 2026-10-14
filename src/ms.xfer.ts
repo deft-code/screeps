@@ -26,7 +26,8 @@ interface XferMemory extends MissionMemory {
 //   getService('Xfer W27S4 W29S4').takeitall = true   // drain the home storage to 0
 //
 // Lays args[3] fedexes (job.fedex.ts) per lifetime from the home room's
-// spawns (paceNJobs: one egg every 1500 / n ticks, so n alive at a time).
+// spawns (paceNJobs: n alive at a time, one egg every 1500 / (n+1) ticks
+// while under that).
 // It runs until the home storage holds under 50k energy (nothing at all with
 // takeitall) or the mission room's storage is more than 75% full, then winds
 // down: no more eggs, the fedexes deliver what they carry and recycle, and

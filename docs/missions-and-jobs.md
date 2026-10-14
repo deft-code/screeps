@@ -507,9 +507,14 @@ skip straight to `super.run()`, so they lay no eggs while winding down. A new
 - `donate(ctor, other)` / `donateRole(role, other)` / `donateAll(other)`: move
   one role's, or every role's, eggs, hatches and creeps to mission `other`,
   repointing each creep's `memory.mission`; return the moved names.
-- `paceNJobs(ctor, n, life=1500)`: `paceJobs(ctor, life / n)`, i.e. `n` creeps
-  per lifetime as a rate; `n <= 0` lays nothing (`Farm` farmers, `Startup`
-  pioneers).
+- `paceNJobs(ctor, n, life=1500)` / `paceNCreeps(role, n, life)`: `n` of the
+  role at a time, paced. The rate is `life / (n+1)` (Oct 2026; was `life / n`)
+  so a replacement is laid before the oldest dies, and the head count is
+  capped as `nCreeps` caps it: nothing is laid while creeps + hatches + eggs
+  of the role already number `n`, so an early death is replaced at the next
+  rate tick and nothing is doubled. Below 1 it is the duty cycle `nCreeps`
+  uses (`paceCreeps(role, life / n)`, no cap); `n <= 0` lays nothing (`Farm`
+  farmers, `Startup` pioneers).
 - `paceCreeps(role, rate)` / `paceJobs(ctor, rate)`: port of `team.ts
   paceRole`. Lays at most one egg per `rate` ticks (tracked in
   `memory.when[role]`), never while one is unhatched, and does not replace a

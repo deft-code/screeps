@@ -363,12 +363,25 @@ export abstract class Mission extends Service {
         return this.paceCreeps(ctor.name.toLowerCase(), rate);
     }
 
-    // paceJobs with the rate derived from a count: `n` creeps per `life`
-    // ticks, so one egg every life / n ticks. `n` <= 0 lays nothing (paceCreeps
-    // rejects the non-finite rate).
+    // paceNCreeps for a job class.
     paceNJobs(ctor: typeof MyCreep, n: number, life: number = CREEP_LIFE_TIME) {
+        return this.paceNCreeps(ctor.name.toLowerCase(), n, life);
+    }
+
+    // paceCreeps with the rate derived from a head count: `n` of the role at
+    // a time. The rate runs at n+1 per `life` ticks (one egg every
+    // life / (n+1) ticks) so the replacement is on its way before the oldest
+    // dies, and the head count is capped as nCreeps caps it: nothing is laid
+    // while the role's creeps, hatches and eggs together number `n` or more,
+    // so an early death is replaced at the next rate tick and a long-lived
+    // creep is not doubled. Below 1 it is the duty cycle nCreeps uses: one
+    // egg per life / n ticks, no cap. `n` <= 0 lays nothing.
+    paceNCreeps(role: string, n: number, life: number = CREEP_LIFE_TIME) {
         if (n <= 0) return null;
-        return this.paceJobs(ctor, life / n);
+        if (n < 1) return this.paceCreeps(role, life / n);
+        const have = this.roleCreeps(role).length + this.roleHatches(role).length + this.roleEggs(role).length;
+        if (have >= n) return null;
+        return this.paceCreeps(role, life / (n + 1));
     }
 
     // Port of team.ts paceRole: lay at most one egg per `rate` ticks, and never
