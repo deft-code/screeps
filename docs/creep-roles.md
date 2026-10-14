@@ -46,6 +46,40 @@ Legacy JS mixins merged by main.js's `mods` loop (lib.merge, overwrite on collis
  creep.dismantle.js  goDismantle/taskDismantle(Any)/idleDismantle
  creep.heal.js    goHeal/goRangedHeal/idleHeal
  creep.oldrepair.js  idleRepairRoad, taskRepairRemote/Wall, taskTurtleMode/Prep/Turtle
+
+### Repair order (`taskRepairOrdered`, creep.repair.ts, Oct 2026)
+
+Worker, Mason, Farmer, Cart and Bootstrap repair through
+`taskRepairOrdered`, one task at a time:
+
+1. The most damaged (lowest hits / hitsMax) of our own structures that do
+   not decay (spawn, extension, tower, storage, link, ...): they only lose
+   hits to attack, so they go first and are made whole (the task's cap is
+   hitsMax, whatever a retired tile's meta says). Foreign structures, an
+   invader core included, are never repaired.
+2. Otherwise the decaying structure lowest on the repair scale
+   (`repairScale`): `hits / room.maxHits(struct)`, with ramparts and walls
+   read `kRampartBias` (0.1) lower so they win ties and near-ties. Left
+   out: anything at or over its `maxHits` (or with none), a road that has
+   lost less than one tick of the creep's repair, a container that has
+   lost 100k or less.
+3. The task repairs up to `kRepairChunk` (100k) above where the structure
+   started, never past `maxHits` (`taskRepair` keeps the bound in the task
+   memory), then the pick is made again.
+
+Examples (max in brackets): a road at 2,500 [5,000] is 0.50, a container
+at 120k [250k] is 0.48, a rampart at 600k [1M] is 0.60 - 0.1 = 0.50: the
+container goes first, then road and rampart tie and the shuffle decides,
+and once either is repaired past the other it swaps. A rampart at 1.2M
+[1M] is never touched, however low the ramparts around it read. A road at
+4,990 [5,000] with a 100-hit repair is skipped (under one tick's worth).
+Five ramparts at 0.9 and one at 0.3 [1M]: the 0.3 one is worked in 100k
+chunks (0.3, 0.4, ...) until it passes 0.9, then they rotate. With hurt
+extensions present the lowest one is made whole first, then the next.
+
+Until Oct 2026 a task ran to `hits + 100k` whatever `maxHits` said and the
+pick always found the lowest rampart again, so ramparts climbed for ever
+(66M in W25S7 against a 20M max) while roads waited.
  creep.work.js    idleEmergencyUpgrade, idleUpgrade, taskUpgrade(Room), goUpgradeController, taskReserve, idleHarvest, taskHarvestSpots, taskHarvest, taskCampSrc(s)
                   (taskHarvest remembers task.spot but adopts the current tile when bumped onto another source-adjacent one, so farmers do not walk back and re-bump)
  role.*.js (34 files)  roleXxx/afterXxx and role-private task helpers

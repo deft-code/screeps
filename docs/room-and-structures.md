@@ -23,7 +23,7 @@ subclass; `setRoomStrat(room, name | null)` writes or deletes
 consult it, so the swap happens on the next `room.strat` access and survives
 resets. An unknown name warns and runs `ClaimedStrat`. The one registered
 override is `thorclaimed` (`ThorStrat`, `src/strat.thor.ts`): `ClaimedStrat`
-with ramparts capped at 1M `maxHits`; set by the `Thorhub` mission while it
+with ramparts capped at 100k `maxHits` (1M until 14 Oct 2026); set by the `Thorhub` mission while it
 runs, cleared by its `windDown()`, and self-clearing once the room is no
 longer ours. A strat-level cap also sidesteps the MetaManager's per-tile
 rampart tier cache, which bakes in the RCL at first evaluation until the next

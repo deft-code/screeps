@@ -1,8 +1,10 @@
 import { ClaimedStrat, registerStrat, setRoomStrat } from "strat";
 import * as debug from "debug";
 
-// Rampart ceiling in a thorium room; the metas would ask for 5M at RCL6.
-const kRampartHits = 1000000;
+// Rampart ceiling in a thorium room; the metas would ask for 1M at RCL6
+// and more above. 1M until 14 Oct 2026: a room that gets torn down is not
+// worth the energy.
+const kRampartHits = 100000;
 
 // ClaimedStrat for a temporary thorium room (Thorhub sets it with
 // setRoomStrat(room, "thorclaimed")). Everything ClaimedStrat does, except
