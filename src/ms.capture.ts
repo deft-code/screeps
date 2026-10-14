@@ -7,6 +7,7 @@ import { roomCenterPos } from "intel";
 import { defaultRewalker } from "Rewalker";
 import { dist } from "routes";
 import * as debug from "debug";
+import { theRadar } from "radar";
 import type { CreepMove } from "creep.move";
 
 // Capture <room>: take a room off whoever holds it with a force of Crows
@@ -50,9 +51,11 @@ import type { CreepMove } from "creep.move";
 //
 // Vision: with an observer in the home room within OBSERVER_RANGE of the
 // target, each tick it observes the target room while that is out of
-// sight, else the staging room while that is, else one of the target's
-// neighbours in turn. Without one, nJobs(Scout, 1) from home while the
-// target is out of sight (the scout parks there).
+// sight, else the staging room while that is. Without one, nJobs(Scout, 1)
+// from home while the target is out of sight (the scout parks there). The
+// target's neighbours (describeExits) are asked of the radar every tick:
+// theRadar.observe while enemies have been in the target room
+// (memory.tenemies > 0), theRadar.observeBackground otherwise.
 type Mode = "staging" | "attack";
 
 interface CaptureMemory extends MissionMemory {
@@ -132,6 +135,7 @@ export class Capture extends Mission {
         this.measure();
         this.switchMode();
         if (!this.observe()) this.scout();
+        this.watchNeighbours();
         this.recruit();
         super.run();
         return "normal";
@@ -315,15 +319,22 @@ export class Capture extends Mission {
     }
 
     // The target room while out of sight, else the staging room while out
-    // of sight, else the target's unseen neighbours in turn; null when all
-    // of those are visible.
+    // of sight; null when both are visible.
     observeTarget(): string | null {
         if (!this.room) return this.roomName;
         const staging = this.mem.staging;
         if (staging && !Game.rooms[staging]) return staging;
-        const around = _.values<string>(Game.map.describeExits(this.roomName)).filter(n => !Game.rooms[n]);
-        if (!around.length) return null;
-        return around[Game.time % around.length];
+        return null;
+    }
+
+    // Ask the radar for the target's neighbours: as ordinary requests while
+    // enemies have been in the target room (the strat.ts tenemies ratchet),
+    // as background otherwise.
+    watchNeighbours() {
+        const around = _.values<string>(Game.map.describeExits(this.roomName));
+        if (!around.length) return;
+        if ((Memory.rooms[this.roomName]?.tenemies || 0) > 0) theRadar.observe(...around);
+        else theRadar.observeBackground(...around);
     }
 
     // No observer: a scout from home while the target is out of sight.

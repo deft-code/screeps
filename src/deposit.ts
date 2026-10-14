@@ -65,7 +65,8 @@ export function createDepositTeams() {
 
         const room = Game.rooms[roomName];
         if (!room) {
-            return theRadar.observe(roomName);
+            theRadar.observe(roomName);
+            return roomName;
         }
 
         room.log("new flag", teamName, intel.depositPos);

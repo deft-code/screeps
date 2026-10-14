@@ -31,7 +31,7 @@ plan save.
 
 | | `NullStrat` | `ActiveStrat` | `ClaimedStrat` |
 |---|---|---|---|
-| `init()` (from `main`) | `legacyInit` (hostile lists + ratchets), `updateIntel` | same | same, plus `theRadar.register(observer)` at RCL8 |
+| `init()` (from `main`) | `legacyInit` (hostile lists + ratchets), `updateIntel` | same | same, plus `theRadar.add(TObserver.make(observer))` at RCL8 |
 | `run()` (process row) | no-op, `"low"` | every 10 ticks (random offset) `room.meta.runUnowned()`: container and road sites only; skipped without vision or in a room someone else owns; `"low"` | `runTowers`, `popSafeMode`, `runLabs`, `runLinks`, `room.meta.run()`, `drawMinerals`, `runFactory`; `"normal"` |
 | `spawnEnergy()` | `undefined` | `undefined` | `room.meta.spawnEnergy()` |
 | `maxHits(stype, xy)` | roads and containers `0` (left to decay); walls/ramparts fixed table by RCL | roads and containers from `room.meta.maxHits(..., 0)`: full when a meta claims the tile, else `0`; rest as `NullStrat` | `room.meta.maxHits(...)` with CPU accounting |
@@ -119,7 +119,9 @@ vision), and it is skipped while `this.effects` holds `PWR_OPERATE_OBSERVER`
 with ticks remaining, so the method lends the observer such an entry for the
 call and puts the original `effects` back. Ownership, room-name and RCL
 checks and the return code are `observeRoom`'s. Confirmed live Oct 2026;
-nothing calls it yet.
+nothing calls it yet. The same method is ported onto the wrapper
+`TObserver` (`src/tstruct.observer.ts`, `TObserver.make(observer).observeMax(room)`),
+the first `TStruct` subclass of the wrapper migration; also unused so far.
 
 ## Terminal (`src/struct.terminal.js`)
 
@@ -150,7 +152,7 @@ ask the terminal to `requestMineral`/`autoBuy`. `needs(orig)` walks
 - `source.spots` / `source.bestSpot` (`source.js`): walkable neighbours scored
   by open tiles; used by `taskHarvestSpots`. Also gives `Source`/`Mineral` a
   `note` and `regenTTL` (PWR_REGEN_SOURCE effect).
-- `struct.ts`: `note` (`stype6` + xy), `toString()` link, `obstacle`, `hurts`,
+- `struct.ts`: `note` (`stype6` from `tstruct.ts` + xy), `toString()` link, `obstacle`, `hurts`,
   `repairs`. `constructionsite.ts`, `tombs.js`: `note`/`toString`.
 
 ## Intel and radar (`src/intel.ts`, `src/radar.ts`)

@@ -4,6 +4,7 @@ import { extender } from "roomobj";
 import { runTowers } from "struct.tower";
 import { runLinks } from "struct.link";
 import { theRadar } from "radar";
+import { TObserver } from "tstruct.observer";
 import { updateIntel } from "intel";
 import { defaultRewalker } from "Rewalker";
 import { runFactory } from "struct.factory";
@@ -267,7 +268,7 @@ export class ClaimedStrat extends NullStrat implements IStrat {
         super.init();
         if (this.room.controller?.level === 8) {
             const ob = _.first(this.room.findStructs(STRUCTURE_OBSERVER));
-            if (ob) theRadar.register(ob);
+            if (ob) theRadar.add(TObserver.make(ob));
         }
     }
     run(): Priority {

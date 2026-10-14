@@ -386,9 +386,7 @@ function drawStaleness(roomname, range) {
       const x = 25 + dx * 2;
       const y = 25 + dy * 2;
 
-      if (_.contains(theRadar.tick.targets, newname)) {
-        v.circle(x, y, { radius: 1 });
-      }
+      // (the radar no longer keeps the tick's targets; dead code anyway)
 
       v.text(stale, x, y, { stroke: c });
     }
@@ -428,6 +426,10 @@ function main() {
   run(rooms, 500, r => r.strat.init());
 
   process.runAll();
+
+  // Observers: serve the tick's observe requests (Capture's neighbours,
+  // deposit scouting), idle ones scan for stale rooms.
+  theRadar.run();
 
   return;
 

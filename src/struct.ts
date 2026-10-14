@@ -1,4 +1,5 @@
 import { extender } from 'roomobj';
+import { stype6 } from 'tstruct';
 
 declare global {
   interface Structure {
@@ -6,22 +7,6 @@ declare global {
     obstacle: boolean
     hurts: number
   }
-}
-
-export function stype6(stype: StructureConstant) {
-  switch (stype) {
-    case STRUCTURE_WALL:
-      return 'wall'
-    case STRUCTURE_EXTENSION:
-      return 'extn'
-    case STRUCTURE_STORAGE:
-      return 'store'
-    case STRUCTURE_TERMINAL:
-      return 'term'
-    case STRUCTURE_CONTAINER:
-      return 'contnr'
-  }
-  return stype.slice(0, 6)
 }
 
 @extender

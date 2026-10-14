@@ -1,5 +1,5 @@
 import { extender } from "roomobj";
-import { stype6 } from "struct";
+import { stype6 } from "tstruct";
 
 @extender
 export class ConstructionSiteExtra extends ConstructionSite {

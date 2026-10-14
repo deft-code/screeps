@@ -93,6 +93,7 @@ delete by hand: it restarts from empty.
 | `containers` | `struct.container.js` | yes | `{ [id]: { v: 2, mode: "src"|"sink"|"hub" } }` |
 | `strat` | `strat.ts` (`setRoomStrat`), `strat.thor.ts` | yes | name of a registered strat override for an owned room (`"thorclaimed"`); absent = `ClaimedStrat` |
 | `nstructs`, `thostiles`, `tassaulters`, `tenemies`, `hostilestime`, `assaulterstime`, `enemiestime` | `strat.ts` | yes | hostile presence ratchets |
+| `structs` | `tstruct.ts` | yes | `{ [note]: StructMemory }`: `TStruct.memory` keyed by `note` (`stype6` + packed xy, e.g. `obser3306`) so it survives a rebuild under a new id; `TStruct.delete()` drops it, which the `Registry` does once the structure has been gone for two collection periods. Nothing writes it yet. |
 | `bestSpots` | `source.js` | yes (read) | `{ [srcNote]: [x, y] }` manual override of best harvest tile |
 | `role` | manual | yes (read) | overrides `room.role` |
 | `keeper` | `room.keeper.js` | dead | old planner `{ plans: {stype: xy[]}, last, lastStructs, rcl }` |

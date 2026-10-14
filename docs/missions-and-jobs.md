@@ -158,7 +158,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     Mode (memory.mode, Crow.init drops the task on a change): staging -> attack when the crows within 5 of the staging flag outgun the
          │                                                     enemy (stagedPower > enemyPower); attack -> staging when the crows in the target or staging room (availablePower) fall under half the
          │                                                     enemy's. Vision: the home observer (within OBSERVER_RANGE) each tick on the target while unseen, else the staging room while unseen,
-         │                                                     else the target's unseen neighbours in turn; no observer: nJobs(Scout, 1) while the target is unseen. status(): mode, rooms, flags, powers
+         │                                                     no observer: nJobs(Scout, 1) while the target is unseen; the target's neighbours (describeExits) go to the radar every tick, theRadar.observe while memory.tenemies > 0 there, theRadar.observeBackground otherwise. status(): mode, rooms, flags, powers
          ├─ Xfer             @register  (ms.xfer.ts)           "Xfer <to> <from> [n]"; paceNJobs(Fedex, n (args[3], default 2)) from the <from> ("home", args[2]) room's spawns, carrying
                                                               energy from its storage to <to>; windDown() once the home storage is under 50k energy (0 with
                                                               memory.takeitall, set by `takeitall = true`) or <to>'s storage is over 75% full

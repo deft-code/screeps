@@ -41,6 +41,7 @@ if shard not in {shard2, shardSeason}: log "WRONG SHARD", return
 if shard2: genPixels()                      # bucket==10000 and >1500 ticks since reset
 run(rooms, 500, r => r.strat.init())        # shed.run: shuffled, CPU/bucket guarded
 process.runAll()
+theRadar.run()                              # observers: serve observe requests, idle ones scan (Oct 2026)
 return                                      # <-- everything below is dead
 ```
 
@@ -60,8 +61,10 @@ metas in memory, else `NullStrat`; `evolve()` swaps between them
   counters plus `*time` stamps (reset to 0 after 10 quiet ticks).
 - `updateIntel(room)`: writes `Memory.rooms[name].intel` (owner, RCL, invader
   core, highway deposits/power banks).
-- `ClaimedStrat` also registers RCL8 observers with `theRadar` (which only
-  fills a per-tick cache; its `run()` is dead).
+- `ClaimedStrat` also adds RCL8 observers to `theRadar` as `TObserver`
+  wrappers; `theRadar.run()` after `process.runAll()` serves the tick's
+  observe requests (Capture's neighbours, deposit scouting) with them and
+  sets idle ones scanning for stale rooms (`radar.ts`, live since Oct 2026).
 
 `shed.run` stops early if CPU used exceeds 300 or the bucket is low. A room whose
 `init()` was skipped has no `room.hostiles` array, and its strat `run()` will

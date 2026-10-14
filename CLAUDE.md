@@ -18,6 +18,7 @@ different eras, and only one is live.
 shard guard -> genPixels (shard2 only)
 run(rooms, 500, r => r.strat.init())   # hostile lists, updateIntel, Rewalker.gatherIntel per visible room
 process.runAll()                       # everything else happens here
+theRadar.run()                         # observers serve observe requests (Capture neighbours, deposits), idle ones scan stale rooms
 return                                 # the rest of the function is dead
 ```
 
@@ -35,15 +36,16 @@ return                                 # the rest of the function is dead
 | `SkFarm <room> <home>` mission (`SkFarm W25S6 W25S7`, since 9 Oct 2026) | scheduled, same way | Source Keeper farm: a scout while the keeper room is out of sight, then one skhunter, one skvulture, three skharvesters (none while an armed non-keeper enemy is in the room), one sktrucker per source container holding 500+ energy, and one prospector while a Source Keeper tombstone lies within 5 of the mineral with no armed enemy about and home holds under 50k of that mineral, all from the home room and paced per 1450 ticks (`paceNJobs(x, n, 1450)`), plus two wolves (`nJobs(Wolf, 2)`) while an Invader creep with a HEAL part is in the room and one guard (`nJobs(Guard, 1)`) while any armed non-keeper enemy is there; the hunter kills the keeper room's Source Keepers one at a time, the vulture hauls the piles and tombstones home. With vision it picks a spot per source and mineral (the tile beside it furthest from the nearest lair, heap only) and keeps an `rsrc` meta per source spot for the `skharvester`s |
 | `Thormine <room> [dest]` missions (W29S7 scheduled as of 11 Oct 2026 with teardown off; W27S5, W29S4 and W27S4 are done and descheduled; `getService(x).status()` for the current state) | scheduled, same way | one thoreater per walkable tile beside the room's thorium but one (at least one) (only with thorium left, an extractor on it and a terminal); they mine into the terminal, which ships to `dest` (default W25S7) every cooldown. Teardown is **off by default** (`getService('Thormine W27S5').teardownEnabled = true` turns it on, persisted in mission memory); with it on, once the thorium is exhausted and the terminal holds nothing but energy it **tears the room down** (a mineral remainder under `TERMINAL_MIN_SEND` cannot ship by itself: top it up from the destination terminal and the next cooldown ships it back): winds down every mission homed there, drains all energy into the terminal with `cleanup` creeps, ships it, destroys every structure and unclaims (`abortTeardown()` works until destruction starts) |
 | `Startup <room> [home]` mission (`Startup W28S8 W29S7` since 11 Oct 2026, waiting on GCL 6 to claim; W24S7, genesis `Front`, was claimed under it) | scheduled, same way | claiming another room: scout, claimer, pioneers, one harvester per asrc/bsrc meta while owned below RCL3, guard until it has a tower (and, while unowned, one guard whenever an enemy creep is in the room). With GCL full it plans (and draws, yellow dashed) a Rewalker-costed road from the controller to the home spawn instead of laying a claimer, but keeps only the tiles within 3 of the controller as an `rroad_<room>_startup` traffic entry (stub end to controller) that the room's MetaManager turns into road (the rest of the room is the genesis metas' job), and sends pavers to the room while it is unowned with sites, and while the room is free sets its prebuild level so ActiveStrat places every planned road up to level 3 ahead of the claim and holds the reservation with reservers paced like Remote's; a foreign reservation draws reservers while GCL is full; an invader core in the room draws a wolf every 1500 ticks |
-| `Capture <room>` mission (`Capture W25S5` scheduled 11 Oct 2026 as the first test) | scheduled, same way | takes a room with `crow`s (25 MOVE 24 RANGED_ATTACK 1 HEAL) from the nearest owned RCL7+ room (kept as home); a `Capture` flag at the target's intel centre and a `staging_Capture` child 5 tiles into the room before it on the route home (both left alone while in their rooms); one crow egg at a time while the crows' ranged power is not more than the enemy creeps' in the target room; crows wait at the staging flag until those within 5 of it outgun the enemy, then fight as guards and hold at the flag, falling back when the crows in the target or staging room drop under half the enemy's power; the home observer (else a scout) gives vision |
+| `Capture <room>` mission (`Capture W25S5` scheduled 11 Oct 2026 as the first test) | scheduled, same way | takes a room with `crow`s (25 MOVE 24 RANGED_ATTACK 1 HEAL) from the nearest owned RCL7+ room (kept as home); a `Capture` flag at the target's intel centre and a `staging_Capture` child 5 tiles into the room before it on the route home (both left alone while in their rooms); one crow egg at a time while the crows' ranged power is not more than the enemy creeps' in the target room; crows wait at the staging flag until those within 5 of it outgun the enemy, then fight as guards and hold at the flag, falling back when the crows in the target or staging room drop under half the enemy's power; the home observer (else a scout) gives vision of the target and staging rooms, and the target's neighbours are asked of the radar each tick (`observe` while `tenemies` > 0 there, else `observeBackground`, served by `theRadar.run` with the W25S7 observer) |
 | `LabPlan <room>` service (`LabPlan W25S7` since 11 Oct 2026) | scheduled, same way | stock-aware lab chooser (`labplan.ts`): walks the reaction chains of a console-edited priority list (`Memory.labplan[room].plan`, default XLHO2 then XGHO2 at 3000) and sets the labs to the deepest reaction whose two inputs are stocked in terminal + storage, idling them when nothing is makeable; keeps `struct.lab.js`'s autoReactAll off in that room |
 | `ClaimedStrat` per owned room | `room.strat` constructor `exec`s itself | towers, safe mode, labs, links, metastruct construction (traffic replans included), factory |
 | `FlagService` daemon | `@daemon` at import | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
 | `SpawnDaemon` | `@daemon` at import | turns eggs into `spawnCreep` |
 | `SpawnTelemetry` | `@daemon` at import (`spawnload.ts`) | per-spawn busy ticks and creeps started, 500-tick windows in `Memory.spawns`; `spawnLoads()` prints it |
 
-Consequences: no market automation, radar scanning, deposit farming, or flag
-"teams" run on this build even though their code loads. The only
+Consequences: no market automation, deposit farming, or flag
+"teams" run on this build even though their code loads (radar scanning does,
+since 13 Oct 2026). The only
 flags in the game are metastruct genesis/child flags (genesis `Home` W26S8,
 `Port` W25S7, `Forth` W27S5, `Wind` W27S4, `Rote` W29S7, `Front` W24S7) and
 purple service flags. Missions exist only while scheduled: the table is
@@ -86,7 +88,7 @@ main.js
  ├─ Rewalker.ts     movement engine (matrix.js is dead)
  ├─ cache.ts / debug.ts / roomobj.ts / lib.js / shed.ts   infrastructure
  ├─ reactor.ts      Season 11 helpers: sectorCore, findReactors, thoriumMineral, RESOURCE_THORIUM typing
- └─ intel.ts / radar.ts / market.ts / deposit.ts          intel is live; the rest only registers
+ └─ intel.ts / radar.ts / market.ts / deposit.ts          intel and radar are live; the rest only registers
 ```
 
 Docs: [missions-and-jobs](docs/missions-and-jobs.md),
@@ -276,7 +278,8 @@ destructive `wipe`/`worldWipe`/`scalp`/`purgeWalls` helpers.
   out), `W29S7` RCL6 (`Rote`, a Thorhub), `W24S7` RCL4 (`Front`, a Thorhub)
   and `W29S4` torn down and unclaimed on 7 Oct 2026; GCL 5/5. `Balance`
   levels W26S8, W25S7, W27S4 and W29S7 (added 13 Oct 2026). The sector core is `W25S5`
-  (an x5y5 room is `Kind.Portal` in `intel.ts`). The reactor is fed by
+  (an x5y5 room is `Kind.Portal` in `intel.ts`). The W25S7 observer is the
+  radar's only one; `radar.ts` run costs ~0.4 CPU a tick. The reactor is fed by
   `ReactorDepot W25S7` (warrunners from the W25S7 terminal, which the
   Thormines fill); neither `Reactor` mission is scheduled. The walk to the
   reactor is ~240 ticks from W26S8, ~120 from W25S7.
