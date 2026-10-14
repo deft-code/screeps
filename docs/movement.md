@@ -88,9 +88,13 @@ for walks over 4 rooms; shorter walks search unrestricted. A restricted
 search that comes back incomplete with ops to spare had nowhere left to go
 (`findRoute` picks rooms by exits alone; an exit walled off inside its room,
 W24S7's north exit behind two of its own extensions since Oct 2026, is one
-it cannot see): `_search` then runs the unrestricted search with the same
-budget, logs `Rewalker route A -> B dead ends ...`, and keeps whichever
-result is complete or longer. An incomplete
+it cannot see): `_search` then runs an unrestricted search with the same budget that
+still refuses the rooms the route costs call deadly (`unsafeRoomCallback`:
+`_getRoomCost` at `ROUTE_HOSTILE_CLAIMED` or more, so a hostile base with
+towers or a deployed core, by sight, by the cost `gatherIntel` kept in
+`Memory.Rewalker.rooms[x].cost` after an observation, or by name), logs
+`Rewalker route A -> B dead ends ...`, and keeps whichever result is
+complete or longer. An incomplete
 search is logged (`Rewalker incomplete path ...`), `Step.incomplete` is set
 (stored as `_walk[3]`), and only the first half of the partial path is walked
 so the replan happens early. A walk whose start and goal share a room but
@@ -132,7 +136,13 @@ hostile reserved 7 (as SK), hostile claimed 25 when the room has a tower
 for any room holding a deployed invader core (level 1 and up, whatever its
 controller); a room where we were recently killed costs +20 for 2000 ticks.
 `isAllied` only treats `SYSTEM_USERNAME` as allied. Routes are cached 500
-ticks per unordered room pair. `calcRoomCost(room)` returns the cost with a
+ticks per unordered room pair, and every cached route that starts, ends or
+passes through a room is dropped the moment that room's cost is recomputed
+to a different value (`purgeRoutes`, from `RoomInfo.update`, logged
+`Rewalker W18S6 route cost 5 -> 25: dropped N cached routes`; a first look
+compares against the blind or guessed cost), so a base's towers coming
+into view reroute the next plan instead of the one 500 ticks later.
+`calcRoomCost(room)` returns the cost with a
 `ttl` (how long to trust it blind: 20000 for a base, the collapse timer for
 a core, the reservation's `ticksToEnd`, 2000 for a murder) and a visible
 room's `RoomInfo` recomputes it every 50 ticks (a murder holds its +20 for

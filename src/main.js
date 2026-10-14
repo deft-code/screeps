@@ -79,6 +79,7 @@ import 'ms.xfer';
 import 'ms.xferstartup';
 import 'ms.capture';
 import 'ms.loot';
+import 'ms.stealreactor';
 import 'labplan';
 import "service.flag";
 
@@ -90,6 +91,7 @@ import "job.toxic";
 import "job.razer";
 import "job.canopener";
 import "job.looter";
+import "job.usurper";
 import "job.chaos";
 import "job.skhunter";
 import "job.skvulture";

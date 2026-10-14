@@ -1,5 +1,6 @@
-import { register } from "process";
+import { register, Service } from "process";
 import * as debug from "debug";
+import type { Capture } from "ms.capture";
 import { Reactor, ReactorMemory, RunnerClass } from "ms.reactor";
 import { Warrunner } from "job.warrunner";
 import { Scout } from "job.scout";
@@ -37,6 +38,11 @@ export interface ReactorDepotMemory extends ReactorMemory {
     routed?: number
     // Room whose invader core set the current pause, for status.
     coreRoom?: string
+    // The Capture mission of our core (`Capture <core>`), found once among
+    // the scheduled services and kept.
+    capture?: string
+    // We paused that capture because we went cold (syncCapture).
+    coldPaused?: boolean
 }
 
 const rewalker = defaultRewalker();
@@ -54,6 +60,14 @@ const rewalker = defaultRewalker();
 // purging the other eggs. Scouts keep walking the route (paceJobs while
 // paused), so their vision, or their death in a room whose intel shows a
 // core, renews the pause until the core is cleared or collapses.
+//
+// The core's Capture mission (`Capture <core>`, memory.capture once found
+// among the scheduled services) follows the depot: the tick the depot goes
+// cold (the home terminal at or under kDepotMin thorium with no warrunner
+// alive, hatching or queued, so the reactor is about to run dry) the
+// capture is paused, and the tick thorium is back over kDepotMin it is
+// resumed (syncCapture, every tick, held or not). Only a pause of ours is
+// undone (memory.coldPaused); one set by hand stays.
 //
 //   scheduleService('ReactorDepot W25S7')     // args[1]=home room: spawns and the terminal
 //   scheduleService('ReactorDepot W25S7 2')   // optional args[2]=cap on warrunners
@@ -117,8 +131,56 @@ export class ReactorDepot extends Reactor {
         return this.dmem.skRooms || [];
     }
 
-    // Every tick: look for an invader core in each visible SK room on the route.
+    // The Capture mission of our core: the scheduled `Capture <core>`,
+    // remembered once seen; null while none is scheduled or it is gone.
+    get capture(): Capture | null {
+        const mem = this.dmem;
+        if (!mem.capture) {
+            const name = `Capture ${this.roomName}`;
+            if (!_.contains(Memory.scheduler?.services || [], name)) return null;
+            mem.capture = name;
+            debug.log(this.name, "following capture", name);
+        }
+        const cap = Service.getType<Capture>(mem.capture);
+        if (!cap) {
+            delete mem.capture;
+            return null;
+        }
+        return cap;
+    }
+
+    // A warrunner alive, hatching or queued: thorium still on its way.
+    get runnersAbout(): boolean {
+        const role = Warrunner.name.toLowerCase();
+        return this.roleCreeps(role).length + this.roleHatches(role).length + this.roleEggs(role).length > 0;
+    }
+
+    // Out of thorium: nothing to load and nobody carrying any.
+    get cold(): boolean {
+        return this.depot <= kDepotMin && !this.runnersAbout;
+    }
+
+    // Pause the core's capture while cold, resume it once warm again.
+    syncCapture() {
+        const cap = this.capture;
+        if (!cap) return;
+        const mem = this.dmem;
+        if (this.cold) {
+            if (mem.coldPaused) return;
+            mem.coldPaused = true;
+            debug.log(this.name, "cold (depot", this.depot + "); pausing", cap.name);
+            cap.pause();
+        } else if (mem.coldPaused) {
+            delete mem.coldPaused;
+            debug.log(this.name, "warm again (depot", this.depot + "); resuming", cap.name);
+            cap.resume();
+        }
+    }
+
+    // Every tick: the capture follows the depot, and each visible SK room on
+    // the route is looked at for an invader core.
     watch() {
+        this.syncCapture();
         for (const roomName of this.skRooms) {
             const room = Game.rooms[roomName];
             if (!room) continue;
@@ -168,6 +230,7 @@ export class ReactorDepot extends Reactor {
         const mem = this.dmem;
         const route = ` route:${this.route.join(">")} sk:${(mem.skRooms || []).join(",") || "-"}`;
         const core = this.paused && mem.coreRoom ? ` core:${mem.coreRoom}` : "";
-        return super.status() + ` depot:${this.depot}` + route + core;
+        const cap = mem.capture ? ` capture:${mem.capture}${this.cold ? " cold" : ""}${mem.coldPaused ? " paused" : ""}` : "";
+        return super.status() + ` depot:${this.depot}` + route + core + cap;
     }
 }

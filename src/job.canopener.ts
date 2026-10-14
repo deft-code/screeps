@@ -1,6 +1,6 @@
 import { Razer } from "job.razer";
 import { register, Task2Ret } from "mycreep";
-import { fleeKeepers } from "job.skharvester";
+import { dodgeKeepers } from "job.skharvester";
 import type { CreepMove } from "creep.move";
 import type { Loot } from "ms.loot";
 
@@ -16,7 +16,10 @@ import type { Loot } from "ms.loot";
 // left (Loot.coveredRamparts, so vision is implied: it is standing there)
 // it decommissions: back to its origin spawn to be recycled (Razer.decomm).
 // It stomps nothing. Keepers and lairs about to spawn one are fled first
-// (fleeKeepers), as the farm creeps do.
+// (dodgeKeepers: no holding at range 6, it is passing through). With
+// several canopeners about, each leaves the ramparts another already
+// stands beside to it (targets()), so two do not chew on one rampart while
+// the next waits.
 const kUnits = 16;
 
 @register
@@ -42,13 +45,18 @@ export class Canopener extends Razer {
     }
 
     start(): Task2Ret {
-        if (fleeKeepers(this.cc)) return "wait";
+        if (dodgeKeepers(this.cc)) return "wait";
         return super.start();
     }
 
-    // The ramparts over the mission room's containers.
+    // The ramparts over the mission room's containers, less those another
+    // canopener of the mission is already beside (all of them when every
+    // one is taken).
     targets(): Structure[] {
-        return this.loot.coveredRamparts();
+        const all = this.loot.coveredRamparts();
+        const others = this.mission.roleCreeps(this.role).filter(o => o.name !== this.name && o.c);
+        const free = all.filter(r => !_.any(others, o => o.pos.isNearTo(r)));
+        return free.length ? free : all;
     }
 
     stomp(): Task2Ret | null {

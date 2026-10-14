@@ -59,6 +59,11 @@ import type { CreepMove } from "creep.move";
 type Mode = "staging" | "attack";
 
 interface CaptureMemory extends MissionMemory {
+    // Set by pause(): lay nothing (crows and scouts) until resume(). The
+    // flags stay and the living crows fight on. ReactorDepot sets and
+    // clears it for the capture of its core as its thorium runs out and
+    // comes back (ms.reactordepot.ts syncCapture).
+    held?: boolean
     // The RCL7+ room the crows spawn in, chosen once.
     home?: string
     // The room before the target on the route home.
@@ -114,6 +119,29 @@ export class Capture extends Mission {
         return this.mem?.mode || "staging";
     }
 
+    // Paused (pause() from the console or ReactorDepot), until resume().
+    get held(): boolean {
+        return !!this.mem?.held;
+    }
+
+    // Stop laying crows and scouts, drop the eggs already queued, keep the
+    // flags and shepherd the living crows. Survives global resets.
+    //
+    //   getService('Capture W25S5').pause()
+    //   getService('Capture W25S5').resume()
+    pause() {
+        if (this.held) return;
+        this.mem.held = true;
+        this.purgeEggs();
+        debug.log(this.name, "paused; resume() to lay again");
+    }
+
+    resume() {
+        if (!this.held) return;
+        delete this.mem.held;
+        debug.log(this.name, "resumed");
+    }
+
     get flag(): FlagExtra | null {
         const name = this.mem?.flag;
         return name && (Game.flags[name] as FlagExtra) || null;
@@ -134,6 +162,12 @@ export class Capture extends Mission {
         this.placeFlags();
         this.measure();
         this.switchMode();
+        if (this.held) {
+            // Lay nothing and leave the observer and radar alone; the
+            // living crows keep their mode.
+            super.run();
+            return "normal";
+        }
         if (!this.observe()) this.scout();
         this.watchNeighbours();
         this.recruit();
@@ -366,6 +400,7 @@ export class Capture extends Mission {
         if (!mem) return super.status();
         const seen = this.room ? "" : mem.powerAt === undefined ? "(never seen)" : `(seen ${Game.time - mem.powerAt} ago)`;
         return super.status()
+            + (this.held ? " held" : "")
             + ` mode:${this.mode} home:${mem.home || "-"} staging:${mem.staging || "-"}`
             + ` flag:${mem.flag || "-"}${this.flag ? "" : "(missing)"} stagingflag:${this.stagingFlag ? this.stagingFlag.pos : "-"}`
             + ` visible:${!!this.room} power:${this.ourPower}/${this.enemyPower}${seen}`

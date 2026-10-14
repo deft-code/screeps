@@ -29,6 +29,9 @@ import { CreepMove } from "creep.move";
 const kDanger = 5;
 const kSafe = 6;
 const kLairSoon = 4;
+// A keeper attacks within this range and never chases (Rewalker.ts SKInfo);
+// its ring in the walk matrices (applyKeepers) is the same 3.
+const kReach = 3;
 
 // The keeper rules every SK farm civilian follows (Skharvester, Sktrucker):
 // a Source Keeper within kDanger, or a lair within kDanger under kLairSoon
@@ -43,6 +46,29 @@ export function fleeKeepers(c: CreepMove): boolean {
         return true;
     }
     if (_.any(keepers, k => c.pos.inRangeTo(k, kSafe))) return true;
+    return dodgeLairs(c);
+}
+
+// The keeper rule for creeps passing through a keeper room rather than
+// working beside a keeper (Canopener, Looter): a keeper within its reach
+// (kReach) is fled to one past it, and a lair about to spawn as above. No
+// wider margin and no hold: fleeKeepers' hold at kSafe left canopener1
+// standing 6 from the keeper parked at W24S6 3,7 for 100 ticks, and a
+// flee at kDanger bounced it between 5 and 6 for ever, since the Rewalker
+// only prices tiles within kReach of a keeper (applyKeepers) and walked it
+// straight back in (Oct 2026). True when the creep fled this tick.
+export function dodgeKeepers(c: CreepMove): boolean {
+    const keepers = (c.room.enemies || []).filter(e => e.keeper);
+    if (_.any(keepers, k => c.pos.inRangeTo(k, kReach))) {
+        c.idleFlee(keepers, kReach + 1);
+        return true;
+    }
+    return dodgeLairs(c);
+}
+
+// A lair within kDanger under kLairSoon ticks from spawning a keeper is
+// fled to kSafe.
+function dodgeLairs(c: CreepMove): boolean {
     const lairs = (c.room.findStructs(STRUCTURE_KEEPER_LAIR) as StructureKeeperLair[])
         .filter(l => c.pos.inRangeTo(l, kDanger) && l.ticksToSpawn !== undefined && l.ticksToSpawn < kLairSoon);
     if (lairs.length) {

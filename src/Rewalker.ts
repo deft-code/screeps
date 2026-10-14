@@ -964,7 +964,22 @@ export class Rewalker {
     }
 
     _routesUpdated = 0
-    _routes = new Map<string, { when: number, route: Array<string>, noPath?: boolean }>()
+    _routes = new Map<string, { when: number, route: Array<string>, noPath?: boolean, start: string, end: string }>()
+
+    // Drop every cached route that runs through, starts or ends in
+    // `roomName`: its route cost just changed (RoomInfo.update), so those
+    // routes were found on a stale price. Until Oct 2026 a route stood for
+    // 500 ticks whatever a room turned out to be, so a walk planned before
+    // a base's towers were seen kept sending creeps through it.
+    purgeRoutes(roomName: string, before: number, after: number) {
+        let dropped = 0
+        for (const [key, entry] of this._routes) {
+            if (entry.start !== roomName && entry.end !== roomName && !_.includes(entry.route, roomName)) continue
+            this._routes.delete(key)
+            dropped++
+        }
+        if (dropped) console.log(`Rewalker ${roomName} route cost ${before} -> ${after}: dropped ${dropped} cached routes`)
+    }
     // [inner rooms from the lower-sorting name, flipped?, unreachable?]. An
     // adjacent pair and an unreachable one both have no inner rooms; the
     // third element tells them apart.
@@ -984,7 +999,7 @@ export class Rewalker {
             this._routesUpdated = Game.time
             const ret = Game.map.findRoute(start, end, { routeCallback: this.routeCallback })
             if (ret === ERR_NO_PATH) {
-                this._routes.set(key, { when: Game.time, route: [], noPath: true })
+                this._routes.set(key, { when: Game.time, route: [], noPath: true, start, end })
                 return [[], false, true]
             }
             let route = _.map(ret, e => e.room)
@@ -992,6 +1007,8 @@ export class Rewalker {
             const newEntry = {
                 when: Game.time,
                 route,
+                start,
+                end,
             }
             this._routes.set(key, newEntry)
             return [route, flip, false]
@@ -1058,11 +1075,14 @@ export class Rewalker {
         // The route is findRoute's, by exits alone; an exit walled off from
         // inside its room (W24S7's north exit sits behind two of its own
         // extensions, Oct 2026) leaves the restricted search exhausted well
-        // under its budget with nowhere to go. Search every room then: the
-        // route's cost penalties (keeper rooms) are the lesser evil.
+        // under its budget with nowhere to go. Search every room then (the
+        // route's cost penalties, keeper rooms, are the lesser evil), except
+        // the ones known to be deadly (unsafeRoomCallback): without that an
+        // usurper's fallback walked straight through Kalgen's towers in
+        // W18S6 (Oct 2026).
         if (ret.incomplete && rooms > 4 && ret.ops < maxOps) {
             const open = PathFinder.search(from, goals, {
-                roomCallback: this.roomCallbackFor(ignoreSK),
+                roomCallback: this.unsafeRoomCallback(ignoreSK),
                 plainCost,
                 swampCost,
                 maxCost,
@@ -1081,6 +1101,19 @@ export class Rewalker {
             cost: ret.cost,
             ops: ret.ops,
         }
+    }
+
+    // A room the route costs call deadly: a hostile base with towers or a
+    // deployed invader core (ROUTE_HOSTILE_CLAIMED and up), by sight, by
+    // what gatherIntel kept of it (Memory.Rewalker.rooms[x].cost, so an
+    // observed room counts while out of sight) or by its name.
+    unsafeRoom(roomName: string): boolean {
+        return this._getRoomCost(roomName) >= ROUTE_HOSTILE_CLAIMED
+    }
+
+    // Every room but the unsafe ones (unsafeRoom): the fallback of _search.
+    unsafeRoomCallback(ignoreSK: boolean): (roomName: string) => boolean | CostMatrix {
+        return roomName => this.unsafeRoom(roomName) ? false : this.getMatrix(roomName, ignoreSK)
     }
 
     restrictedRoomCallback(pos: RoomPosition, goals: Goal[], ignoreSK = false): (roomName: string) => boolean | CostMatrix {
@@ -1425,7 +1458,15 @@ class RoomInfo {
         this.time = Game.time
 
         if (this.until <= Game.time) {
+            // What the routes were priced with so far: this cost, or, for
+            // a room seen for the first time (expire still 0; it is not in
+            // _infos yet, so _getRoomCost would recurse into a fresh
+            // RoomInfo for ever), the blind or guessed one.
+            const before = this.expire
+                ? this.cost
+                : rewalker.blindRoomCost(room.name) ?? rewalker.guessRoomCost(room.name)
             const rc = rewalker.calcRoomCost(room)
+            if (rc.cost !== before) rewalker.purgeRoutes(room.name, before, rc.cost)
             this.cost = rc.cost
             this.expire = Game.time + rc.ttl
             // A murder holds its +20 for the whole ttl; anything else is

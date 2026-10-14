@@ -25,7 +25,9 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
    exist), so every Rewalker route into W24S6 from the south dead-ends;
    `Rewalker._search` now falls back to an unrestricted search (through
    W25S6) when the restricted one is exhausted. Moving those two extensions
-   would reopen the exit.
+   would reopen the exit. The fallback skips rooms the route costs call
+   deadly (a hostile base with towers such as Kalgen's W18S6, a deployed
+   core), so a dead-ended walk never cuts through one.
 5. **`room.turtle` and `room.wallMax` do not exist** (`src/creep.oldrepair.js`).
    `taskTurtleMode` is always false; `taskTurtlePrep` only triggers on safe mode
    at RCL3+; `taskRepairWall`/`idleRepairRoad` compare against `undefined`.

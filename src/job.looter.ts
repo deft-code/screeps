@@ -1,5 +1,6 @@
 import { Sktrucker } from "job.sktrucker";
 import { register, Task2Ret } from "mycreep";
+import { dodgeKeepers } from "job.skharvester";
 import type { Loot } from "ms.loot";
 
 // Empties the containers for the Loot mission (ms.loot.ts): a Sktrucker
@@ -9,11 +10,11 @@ import type { Loot } from "ms.loot";
 // its largest stack each tick. Full, or old with a load, it carries the
 // lot home (unloadHome: storage, else terminal, else a container); empty in
 // the home room under kRetireTTL ticks to live it hands its body back at
-// its origin spawn (recycleAt). Keepers are fled as the trucker does, and
-// armed non-keeper enemies within kFleeRange besides (an unarmed hauler).
+// its origin spawn (recycleAt). Keepers are fled (dodgeKeepers: no holding
+// at range 6, it is passing through); invader creeps are ignored, the
+// stronghold's leftover defenders hold their ramparts.
 // idleNom (after()) still picks up energy within reach on the way.
 const kRetireTTL = 100;
-const kFleeRange = 4;
 
 @register
 export class Looter extends Sktrucker {
@@ -25,17 +26,8 @@ export class Looter extends Sktrucker {
         return kRetireTTL;
     }
 
-    // Armed enemies other than keepers in the looter's room.
-    get shooters(): Creep[] {
-        return (this.cc.room.hostiles || []).filter(h => !h.keeper);
-    }
-
     flee(): boolean {
-        if (super.flee()) return true;
-        const shooters = this.shooters;
-        if (!_.any(shooters, s => this.pos.inRangeTo(s, kFleeRange))) return false;
-        this.cc.idleFlee(shooters, kFleeRange + 1);
-        return true;
+        return dodgeKeepers(this.cc);
     }
 
     get containers(): StructureContainer[] {

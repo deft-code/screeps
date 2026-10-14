@@ -67,7 +67,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     extractor on a thorium mineral with thorium left, the core is visible with a reactor in it and no armed hostile (room.hostiles),
          │                                                     and a full load will still fit when it lands: store - 600 (lead ticks) + thorium inbound from every Reactor mission's warboys and eggs + 450 <= 1000
          │                                                     paceNJobs(Prospector, 1, 1450) from home while job.prospector's wantProspector holds for the core (no armed non-keeper enemy, mineral left, home under 50k of it; the core has no lairs so no tombstone rule)
-         │   └─ ReactorDepot @register  (ms.reactordepot.ts)  "ReactorDepot <room> [cap]"; Reactor with the runner hooks overridden: runnerClass Warrunner
+         │   └─ ReactorDepot @register  (ms.reactordepot.ts)  "ReactorDepot <room> [cap]"; follows the core's `Capture <core>` (memory.capture, found among Memory.scheduler.services once): watch() -> syncCapture() pauses it the tick the depot is cold (depot <= 1000 thorium and no warrunner alive, hatching or queued: `cold`) and resumes it once warm, undoing only its own pause (memory.coldPaused); Reactor with the runner hooks overridden: runnerClass Warrunner
          │                                                     (loads from the home terminal instead of mining), runnerCycle 300, leadTicks 300, runnerCount 1.2 (always one runner, replaced with 300 TTL left; Oct 2026), and homeHasThorium =
          │                                                     the home terminal holds > 1000 thorium (status `depot:<n>`). Scout, probe, guard, immortan and the
          │                                                     invader-core pause are inherited; inboundThorium counts both missions' runners against the reactor.
@@ -89,7 +89,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     clear the room's metas (MetaManager.save), remove every flag in the room, cancel construction sites (repeated each tick);
          │                                                     cleanup: nJobs(Cleanup, energy outside the terminal / 2000, 1..4) while the spawn energy covers the 150 body; done under 50 loose, no sweeper, terminal < 100 or unable to afford a send;
          │                                                     ends under 50 energy outside the terminal, no cleanup alive/queued, terminal < 100 energy;
-         │                                                     destroy: up to 10 structures a tick, everything but roads/spawn/terminal first, then roads, then spawn and terminal,
+         │                                                     destroy: up to 10 structures a tick, everything but spawn/terminal first, then spawn and terminal (roads and ramparts are kept since 14 Oct 2026),
          │                                                     then controller.unclaim(); done: kill + drop memory. Throughout: shipAll() sends every terminal resource to [dest], energy last
          ├─ Farm             @register  (ms.farm.ts)           "Farm <farm> <home> [spawn]"; idles (no eggs, paced log, status `home-not-ready`) until <home> is ours and has a spawn or a
                                                               spawn construction site (`homeReady`; Remote overrides it to true); with [spawn] every creep comes from that room only
@@ -135,6 +135,11 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     their sites) for Skharvesters (sourceMetas, HarvestMission). status(): keepers alive, the top one's hits, the spots
          ├─ Raze             @register  (ms.raze.ts)           "Raze <room> [home]"; nJobs(Razer, 1) until the razer decommissions (memory.decomm) or the room is
          │                                                     visible with no dozeableStruct another player owns (FIND_HOSTILE_STRUCTURES), then windDown() (purges an unhatched egg)
+         ├─ StealReactor     @register  (ms.stealreactor.ts)   "StealReactor <core>" (Oct 2026, `StealReactor W15S5`): theRadar.observe(core) every tick; with vision judge()
+         │                                                     (reactor with thorium that is not ours, no creep with a CLAIM part, no armed non-keeper enemy: room.hostiles) sets memory.spawning; in
+         │                                                     spawn mode memory.home = the owned room with spawns nearest the core by Manhattan room distance (pickHome), the
+         │                                                     Rewalker route home -> core is radar-observed each tick, and nJobs(Usurper, 1) while the reactor did not read my at the last look (memory.ours) once every route room's intel
+         │                                                     staleness is under 50 (routeStale). status(): the judgement, mode, home, route length, stalest, usurper positions
          ├─ Loot             @register  (ms.loot.ts)           "Loot <room> [home]"; loots a beaten invader stronghold (Oct 2026, `Loot W24S6 W25S7`): nJobs(Scout, 1) without vision;
          │                                                     with it nJobs(Canopener, n) with n = containers under a rampart that is not ours (coveredRamparts: dozeableStruct on the
          │                                                     container's tile) and nJobs(Looter, 1) while an uncovered container (openContainers) holds anything, leftover invader
@@ -151,7 +156,7 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               kills and deschedules itself when the creep and its tombstone are gone
          ├─ Always           @register  (ms.always.ts)         "Always <Job> <room> [perLife]"; Once that never winds down: paceNJobs(job, perLife
                                                               (args[3], default 1)), one egg per lifetime, never while one is unhatched; windDown() to stop
-         ├─ Capture          @register  (ms.capture.ts)        "Capture <room>"; takes a room with Crows (job.crow.ts). First run picks the owned RCL7+ room with a spawn nearest the target by
+         ├─ Capture          @register  (ms.capture.ts)        "Capture <room>"; pause()/resume() (memory.held; status shows `held`): no crow or scout eggs, eggs purged, flags and living crows kept, observer and radar left alone; ReactorDepot drives it for its core; takes a room with Crows (job.crow.ts). First run picks the owned RCL7+ room with a spawn nearest the target by
          │                                                     route (routes.dist) and keeps it (memory.home; "home" and "spawn" aliases, so every egg spawns there); the staging room (memory.staging)
          │                                                     is route[1] of Rewalker.getRoute(target, home). Flags: Capture (CaptureN when taken; a free one already in the target room is adopted;
          │                                                     memory.flag) at roomCenterPos(target), red, and its child staging_<flag> (grey/red) 5 tiles into the staging room along a PathFinder path
@@ -316,7 +321,10 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 else withdraw from the farm container with the most energy (none: wait within 3 of the room centre); after(): idleNom outside home.
          │                                                 Overridable pieces for Looter: containers, loadOf, fetch, flee, retire, retireTTL
          │   └─ Looter  @register            (job.looter.ts) a Sktrucker for the Loot mission: containers = Loot.openContainers, loadOf = everything held, fetch withdraws the largest
-         │                                                 stack, flee adds armed non-keepers within 4 (idleFlee to 5), retireTTL 100, retire = home then JobCreep.recycleAt(originSpawn())
+         │                                                 stack, flee = dodgeKeepers only (invaders ignored), retireTTL 100, retire = home then JobCreep.recycleAt(originSpawn())
+         ├─ Usurper  @register             (job.usurper.ts) [MOVE x5, CLAIM] (850) from the StealReactor home (JobCreep.readySpawn); memory.usurp "claim": walk to the core, beside
+         │                                                 the reactor claimReactor until it reads my (report logs each code); "die": memory.grave = the first Kind.SourceKeeper
+         │                                                 exit room, memory.rewalksk on (walk drops the keeper layer), walk there and up to the nearest keeper; none: wait at the centre
          ├─ Prospector @register           (job.prospector.ts) mineral miner: [WORK, CARRY, MOVE, MOVE] units up to the home room's capacity (max 12), WORK first, CARRY, MOVEs
          │                                                 last (damage costs mining before speed; never slowed loaded), from the home room's spawns with the whole cost in hand; donatable 0;
          │                                                 memory.rewalksk and fleeKeepers (shared with Skharvester) when the mission room is a keeper room (intel.roomKind); goes home to unload
@@ -407,7 +415,8 @@ scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
 scheduleService('ReactorDepot W25S7')  // args[1]=home room; Reactor fed by warrunners from the home terminal while it holds > 1000 thorium
 scheduleService('ReactorDepot W25S7 2')  // optional args[2]=cap on warrunners
 getService('ReactorDepot W25S7').pause()  // Reactor and subclasses: lay nothing at all, purge eggs, shepherd the living; Memory.missions[x].held survives resets
-getService('ReactorDepot W25S7').resume() // clears the hold; status() shows `held` while paused this way (`paused:<n>` is the invader-core pause)
+getService('ReactorDepot W25S7').resume() // clears the hold; status() shows `held` while paused
+getService('Capture W25S5').pause()      // no crow or scout eggs, purge eggs, keep flags and crows; resume() undoes it (ReactorDepot does both for its core as thorium runs out and returns) this way (`paused:<n>` is the invader-core pause)
 scheduleService('Thormine W26S8')    // args[1]=owned room with thorium, extractor and terminal; miners fill the terminal, terminal ships to W25S7
 scheduleService('Thormine W26S8 W22S7')  // optional args[2]=room to ship the thorium to instead
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
@@ -416,6 +425,7 @@ scheduleService('PaveAll W5N8')      // a paver every 1400 ticks until the room 
 scheduleService('SkFarm W25S6 W25S7')  // args[1]=keeper room, args[2]=home (spawns); one Skhunter and one Skvulture, each one egg per 1450 ticks
 scheduleService('Capture W25S5')     // args[1]=target room; home (RCL7+, nearest) and staging (next room back) are picked on the first run; Capture/staging_Capture flags mark the target centre and the staging spot
 scheduleService('Raze W27S4 W27S5')  // args[1]=room to clear, args[2]=home (spawns nearest it); one Razer, winds down when it decommissions
+scheduleService('StealReactor W15S5')  // args[1]=another sector's core; one Usurper claims its reactor once the route is freshly observed
 scheduleService('Loot W24S6 W25S7')  // args[1]=beaten stronghold room, args[2]=home (spawns); canopeners open the containers, a looter empties them, winds down when all are empty
 scheduleService('Nidoran W23S4')     // args[1]=seed room (its reserver/owner is the target player unless args[2] names one); paired Chaos dismantlers rotate through the player's reserved rooms within 2 hops
 scheduleService('Once Scout W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down

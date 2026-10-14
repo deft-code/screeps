@@ -80,10 +80,12 @@ interface ThormineMemory extends MissionMemory {
 //             Next phase once under 50 energy is left outside the terminal,
 //             no cleanup is alive or queued and the terminal holds under 100
 //             or too little to afford one more send.
-//   destroy   up to 10 structures a tick: everything but roads, the terminal
-//             and the spawn first (walls and ramparts included), then roads,
-//             then the spawn and terminal. Construction sites keep being
-//             cancelled. With nothing but the controller left, unclaim it.
+//   destroy   up to 10 structures a tick: everything but the terminal and
+//             the spawn first (walls included), then the spawn and terminal.
+//             Roads and ramparts are left standing (since 14 Oct 2026: the
+//             next claim reuses the roads, and ownerless ramparts cost
+//             nothing). Construction sites keep being cancelled. With
+//             nothing but the controller, roads and ramparts left, unclaim.
 //   done      the mission kills itself and drops its memory.
 // Throughout teardown nothing is mined and the terminal ships everything it
 // holds to the destination, other resources first and energy last (energy
@@ -422,9 +424,11 @@ export class Thormine extends Mission {
         return false;
     }
 
-    // Phase 3; true once the controller has been unclaimed.
+    // Phase 3; true once the controller has been unclaimed. Roads and
+    // ramparts are kept.
     destroy(room: Room): boolean {
-        const all = room.find(FIND_STRUCTURES).filter(s => s.structureType !== STRUCTURE_CONTROLLER);
+        const keep = [STRUCTURE_CONTROLLER, STRUCTURE_ROAD, STRUCTURE_RAMPART] as StructureConstant[];
+        const all = room.find(FIND_STRUCTURES).filter(s => !_.contains(keep, s.structureType));
         if (!all.length) {
             const err = room.controller?.my ? room.controller.unclaim() : OK;
             if (err !== OK) {
@@ -434,12 +438,8 @@ export class Thormine extends Mission {
             return true;
         }
         const last = [STRUCTURE_SPAWN, STRUCTURE_TERMINAL] as StructureConstant[];
-        const group =
-            all.filter(s => s.structureType !== STRUCTURE_ROAD && !_.contains(last, s.structureType)).length ?
-                all.filter(s => s.structureType !== STRUCTURE_ROAD && !_.contains(last, s.structureType)) :
-            all.filter(s => s.structureType === STRUCTURE_ROAD).length ?
-                all.filter(s => s.structureType === STRUCTURE_ROAD) :
-                all;
+        const first = all.filter(s => !_.contains(last, s.structureType));
+        const group = first.length ? first : all;
         let n = 0;
         for (const s of group) {
             if (n >= kDestroyPerTick) break;
