@@ -79,8 +79,10 @@ export class RoomIntel {
     get powerEnabled() {
         return !!this.mem.enabled;
     }
+    // Ticks since the room was last seen; intel without `last` (NaN before
+    // Oct 2026, which no comparison matched) counts as never seen.
     get staleness() {
-        return Game.time - this.mem.last;
+        return Game.time - (this.mem.last || 0);
     }
     get coreLvl() {
         if (!this.mem.core) return 0;

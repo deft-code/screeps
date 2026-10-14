@@ -129,7 +129,7 @@ Status legend:
 | `src/struct.terminal.js` | LIVE (helpers) / DEAD (`run`) | 2017 | Fill/drain thresholds used by hauler; market automation dead. |
 | `src/room.keeper.js` | DEAD | 2017 | Old construction planner. |
 | `src/intel.ts` | LIVE | 2020 | Room intel, `roomKind`, coordinates. |
-| `src/radar.ts` | LIVE (register) / DEAD (`run`) | 2020 | Observer scanning. |
+| `src/radar.ts` | LIVE (register) / DEAD (`run`) | 2020 | Observer scanning: `observe(room)` requests queue on the heap until the next `run()`; `scan` picks the unseen or stalest open room in range (highways stale at 10 ticks, others at 100). |
 | `src/market.ts` | REACHABLE (swipeworth, Selloff) | 2020, rewritten 2026 | `buyOrderPriceEma(res)` (prices the tick, returns the `buy95` average), `bidUnits(res, minPrice)`, `getBuyOrderPrice`/`getSellOrderPrice` (+ `tryGet*`) tick prices over the best 10k units via `markethack`, energy by effective price, feeding the `Memory.market` averages. |
 | `src/swipeworth.ts` | REACHABLE (Swipe mission, Furiosa swipe) | 2026 | `worthSwiping(res, home)` / `minSwipePrice(home)`: a resource is worth looting when it sells for 2x what energy costs delivered to the home room; energy always; everything when there is no market. `worthless(res)`: the buy-order price's short moving average (`market.buyOrderPriceEma`, `buy95`) is under energy's; with a thin book, nobody bids energy's price or better (what swipers and Furiosa will not pick up off the ground). `junkIn(store)`: the worthless minus the catalyzed boosts (`X...`), what Konmari throws out. |
 | `src/job.konmari.ts` | REACHABLE (Swipe mission sparkJoy) | 2026 | Carries junk (worthless, catalyzed boosts excepted) out of the home stores and drops them 20 a tick outside the home room. |
