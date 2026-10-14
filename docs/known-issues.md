@@ -18,6 +18,14 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
    with a spurious "Creep Died!" log.
 4. **`Startup.spawn` / `Reboot.spawn` ignore the `spawns` argument** and use
    `_.sample(Game.spawns)`; fine with one room, wrong with several.
+5. **W24S7's north exit is walled off by its own base** (Oct 2026): the
+   terrain leaves a two-tile gap at 17,6 and 18,6 between the room and the
+   exit tiles at 6..17,0, and the `Front` metas put extensions on both.
+   `Game.map.findRoute` still routes through that exit (it only knows exits
+   exist), so every Rewalker route into W24S6 from the south dead-ends;
+   `Rewalker._search` now falls back to an unrestricted search (through
+   W25S6) when the restricted one is exhausted. Moving those two extensions
+   would reopen the exit.
 5. **`room.turtle` and `room.wallMax` do not exist** (`src/creep.oldrepair.js`).
    `taskTurtleMode` is always false; `taskTurtlePrep` only triggers on safe mode
    at RCL3+; `taskRepairWall`/`idleRepairRoad` compare against `undefined`.

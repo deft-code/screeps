@@ -84,7 +84,13 @@ with the costs of the creep's `moveTerrain`: `plainCost 2 / swampCost 10`, or
 aborted the search on the first node for a creep short on life and left it standing), unbounded for `plan*`; `maxOps` = `4000 * route rooms`, capped at 20000 (PathFinder's
 heuristic ignores `plainCost`, so slow creeps need several times the default
 2000). Rooms are limited to the `findRoute` set via `restrictedRoomCallback`
-for walks over 4 rooms; shorter walks search unrestricted. An incomplete
+for walks over 4 rooms; shorter walks search unrestricted. A restricted
+search that comes back incomplete with ops to spare had nowhere left to go
+(`findRoute` picks rooms by exits alone; an exit walled off inside its room,
+W24S7's north exit behind two of its own extensions since Oct 2026, is one
+it cannot see): `_search` then runs the unrestricted search with the same
+budget, logs `Rewalker route A -> B dead ends ...`, and keeps whichever
+result is complete or longer. An incomplete
 search is logged (`Rewalker incomplete path ...`), `Step.incomplete` is set
 (stored as `_walk[3]`), and only the first half of the partial path is walked
 so the replan happens early. A walk whose start and goal share a room but

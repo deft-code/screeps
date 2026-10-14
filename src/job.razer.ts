@@ -39,9 +39,14 @@ function safeModed(room: Room): boolean {
 // removes them. After kIdleTicks ticks with nothing left it decommissions:
 // back to the spawn that hatched it (memory.nest; else a spawn in the home
 // room) to be recycled, or suicide with no spawn to go to. The mission winds
-// down when it sees the razer decommission.
+// down when it sees the razer decommission. Canopener (job.canopener.ts)
+// narrows it to the ramparts over a stronghold's containers (targets(),
+// stomp(), idleTicks).
 @register
 export class Razer extends JobCreep {
+    // Ticks in a row with nothing to do before decommissioning.
+    idleTicks = kIdleTicks;
+
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         return dozerSpawn(spawns, this.homeName);
     }
@@ -63,18 +68,23 @@ export class Razer extends JobCreep {
         }
         const idle = (this.memory.idle || 0) + 1;
         this.memory.idle = idle;
-        if (idle < kIdleTicks) return "wait";
+        if (idle < this.idleTicks) return "wait";
         this.log("nothing left to raze in", this.roomName, "for", idle, "ticks, decommissioning");
         this.memory.decomm = true;
         return this.decomm();
     }
 
-    // Dismantle the structure with the cheapest walk, or null with none
-    // (or none we may touch: safe mode).
-    raze(): Task2Ret | null {
+    // What there is to dismantle in the room we stand in: every structure
+    // another player left (razeTargets), none under a foreign safe mode.
+    targets(): Structure[] {
         const room = this.c.room;
-        if (safeModed(room)) return null;
-        const targets = razeTargets(room);
+        if (safeModed(room)) return [];
+        return razeTargets(room);
+    }
+
+    // Dismantle the target with the cheapest walk, or null with none.
+    raze(): Task2Ret | null {
+        const targets = this.targets();
         if (!targets.length) return null;
         const near = _.find(targets, t => this.pos.isNearTo(t));
         if (near) return this.dismantle(near);
@@ -107,27 +117,10 @@ export class Razer extends JobCreep {
         return "wait";
     }
 
-    // The spawn that hatched us, else one in the home room.
-    originSpawn(): StructureSpawn | null {
-        const nest = Game.spawns[this.memory.nest];
-        if (nest) return nest;
-        const home = Game.rooms[this.homeName];
-        if (!home) return null;
-        return _.first(home.find(FIND_MY_SPAWNS)) || null;
-    }
-
-    // Hand the body back at the origin spawn; with no spawn to go to, die.
+    // Hand the body back at the origin spawn (JobCreep.recycleAt); with no
+    // spawn to go to, die.
     @task
     decomm(): Task2Ret {
-        const spawn = this.originSpawn();
-        if (!spawn) {
-            this.log("no spawn to recycle at, suiciding");
-            this.c.suicide();
-            return "wait";
-        }
-        if (!this.pos.isNearTo(spawn)) return this.moveTarget(spawn, 1);
-        const err = spawn.recycleCreep(this.c);
-        if (err !== OK) this.log("recycle failed", err, spawn);
-        return "wait";
+        return this.recycleAt(this.originSpawn());
     }
 }

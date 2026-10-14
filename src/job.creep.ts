@@ -3,6 +3,7 @@ import { MyCreep, task, Task2Ret } from "mycreep";
 import { Service } from "process";
 import { defaultRewalker, fromXY } from "Rewalker";
 import { healPick, hurtFriendlies, isFighter } from "heal";
+import { closeSpawns } from "spawnold";
 
 interface HasPos {
     pos: RoomPosition
@@ -213,6 +214,44 @@ export class JobCreep extends MyCreep {
         const cont = _.max(conts, k => k.store.getFreeCapacity());
         mem.dropid = cont.id;
         return cont;
+    }
+
+    // A spawn for a fixed-cost body: in the mission's home room when it
+    // names one, else the spawns nearest the mission room; one not busy with
+    // `cost` energy on hand in its room, else null (wait). Shared by the
+    // fixed-body jobs (Canopener; Sktrucker and Skvulture inline the same).
+    readySpawn(spawns: StructureSpawn[], cost: number): StructureSpawn | null {
+        const home = this.mission.getRoomName("home");
+        const pool = home
+            ? spawns.filter(s => s.room.name === home)
+            : closeSpawns(spawns, this.mission.roomName) as StructureSpawn[];
+        const ready = pool.filter(s => !s.spawning && s.room.energyAvailable >= cost);
+        return ready.length ? _.sample(ready) : null;
+    }
+
+    // The spawn that hatched us (memory.nest), else one in the home room,
+    // else null.
+    originSpawn(): StructureSpawn | null {
+        const nest = Game.spawns[this.memory.nest];
+        if (nest) return nest;
+        const home = Game.rooms[this.homeName];
+        if (!home) return null;
+        return _.first(home.find(FIND_MY_SPAWNS)) || null;
+    }
+
+    // Hand the body back at `spawn` (recycleCreep: the refund lands beside
+    // it); with no spawn to go to, die. Shared by Razer.decomm and
+    // Looter.retire.
+    recycleAt(spawn: StructureSpawn | null): Task2Ret {
+        if (!spawn) {
+            this.log("no spawn to recycle at, suiciding");
+            this.c.suicide();
+            return "wait";
+        }
+        if (!this.pos.isNearTo(spawn)) return this.moveTarget(spawn, 1);
+        const err = spawn.recycleCreep(this.c);
+        if (err !== OK) this.log("recycle failed", err, spawn);
+        return "wait";
     }
 
 }

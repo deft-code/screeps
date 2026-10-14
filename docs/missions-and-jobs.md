@@ -127,7 +127,7 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               not foreign-reserved (civilians in remotes are paced, never replaced).
                                                               truck(): paceJobs(Trucker, min(1500, 1500 / (5*min(live harvesters, sources)*avg src cap / (avg carry * 1500 / (2*legSteps+10))))) only while a container in the room (any container) holds more than 50 energy (kTruckMinEnergy), so a dry room leaves the spawn queue to its harvesters;
                                                               same gates; 1500 while no trucker or no harvester is alive; legSteps = longest source leg from planning
-         ├─ SkFarm           @register  (ms.skfarm.ts)         "SkFarm <room> <home>"; Source Keeper farm (Oct 2026): nJobs(Scout, 1) while the keeper room is out of sight (as Farm); paceNJobs(Skhunter, 1, 1450)
+         ├─ SkFarm           @register  (ms.skfarm.ts)         "SkFarm <room> <home>"; Source Keeper farm (Oct 2026): nJobs(Scout, 1) while the keeper room is out of sight (as Farm); paceNJobs(Skhunter, 1, 1450) `invaderless` (console, persisted): theRadar.observeBackground of the sector's 8 keeper rooms each tick and no Skharvester eggs while coreThreat (an invader core in one of them deployed or deploying within 3000 ticks, by sight else intel coreLvl) names a room; status() shows it.
          │                                                     paceNJobs(Skvulture, 1, 1450), and while `harvesting` (console toggle, memory.noharvest; status shows `harvesting:off`) paceNJobs(Skharvester, 3, 1450) (not while an armed non-keeper enemy is in the room: `threatened`) and paceNJobs(Sktrucker, n, 1450) with n = source containers holding >= 500 energy (containers()),, and paceNJobs(Prospector, 1, 1450) while the room is visible with no armed non-keeper enemy, a Source Keeper tombstone lies within 5 of the mineral (if the room has lairs) and home holds under 50k of the mineral (prospect()), plus nJobs(Wolf, 2) while an Invader NPC creep with an active HEAL part is in the room (wolves(), healerInvaders()) and nJobs(Guard, 1) while `threatened` (guard()), from the home room: the hunter kills the keeper room's Source
          │                                                     Keepers one at a time (job.skhunter.ts), the vulture hauls the piles and tombstones home (job.skvulture.ts). With vision it picks
          │                                                     a spot per source and mineral (spots, heap only: the walkable tile beside it furthest by Manhattan distance from the nearest lair),
@@ -135,6 +135,11 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     their sites) for Skharvesters (sourceMetas, HarvestMission). status(): keepers alive, the top one's hits, the spots
          ├─ Raze             @register  (ms.raze.ts)           "Raze <room> [home]"; nJobs(Razer, 1) until the razer decommissions (memory.decomm) or the room is
          │                                                     visible with no dozeableStruct another player owns (FIND_HOSTILE_STRUCTURES), then windDown() (purges an unhatched egg)
+         ├─ Loot             @register  (ms.loot.ts)           "Loot <room> [home]"; loots a beaten invader stronghold (Oct 2026, `Loot W24S6 W25S7`): nJobs(Scout, 1) without vision;
+         │                                                     with it nJobs(Canopener, n) with n = containers under a rampart that is not ours (coveredRamparts: dozeableStruct on the
+         │                                                     container's tile) and nJobs(Looter, 1) while an uncovered container (openContainers) holds anything, leftover invader
+         │                                                     creeps ignored, neither while an invader core still stands (cored); windDown() once every container is empty (`empty`; no containers
+         │                                                     counts). status(): each container covered/open @x,y:held
          ├─ Nidoran          @register  (ms.nidoran.ts)        "Nidoran <room> [player]"; harasses a player's remotes (the player reserving/owning the center, args[1], in intel, or args[2];
          │                                                     memory.player). Every 50 ticks scans every room's intel into memory.reserved/claimed for that player; the mission room
          │                                                     (roomName = memory.active, default the center; paceJobs(Scout, 1500 - 50*dist to the center) keeps it in view) is a reserved room within 2 hops of the center by Game.map.findRoute
@@ -240,8 +245,10 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       empty in the mission room with ttl under 2 x memory.tripLeg + 30 it recycles at a spawn there; while the mission winds down it delivers, then recycles
      ├─ Bulldozer @register  (job.bulldozer.ts) 2 WORK per MOVE (33W/17M at full energy); boosts XZH2O at home when a lab has it ready (never waits); planWalk over mission.dozePositions() at range 1, @task doze(xy, room) dismantles the tile (rampart first)
      ├─ Razer    @register   (job.razer.ts) the Bulldozer body (job.bulldozer dozerSpawn, spawns nearest home); in the Raze room @task dismantle the dozeableStruct with the cheapest walk
-     │                       (planWalk; rampart on the tile first), then walks onto the foreign sites (job.scout stompable); idle kIdleTicks (10) -> memory.decomm, @task decomm walks to
-     │                       the spawn that hatched it (memory.nest, else a home spawn) and recycleCreep, suicide with none; a foreign safe mode counts as nothing to do
+     │                       (planWalk over targets(); rampart on the tile first), then walks onto the foreign sites (job.scout stompable); idle `idleTicks` (kIdleTicks, 10) -> memory.decomm,
+     │                       @task decomm = JobCreep.recycleAt(originSpawn()): the spawn that hatched it (memory.nest, else a home spawn) and recycleCreep, suicide with none; a foreign safe mode counts as nothing to do
+     │   └─ Canopener @register (job.canopener.ts) fixed WORK, WORK, MOVE x 16 (32 WORK, 4000) from the home room with the full cost (JobCreep.readySpawn); targets() = the Loot mission's
+     │                       coveredRamparts (the ramparts over its containers), stomp() nothing, idleTicks 1 (recycles the tick no covered container is left); fleeKeepers first
      ├─ Chaos    @register   (job.chaos.ts) fixed [4 MOVE, WORK, MOVE] (350) from the "close" spawns of the Nidoran mission room (closeSpawns: within a hop of the nearest, e.g. W27S5 and W25S7 for W23S4), the first free one with the energy; walks to that room and @task dismantles
      │                       chaosTargets (not ours, has hits, not wall/rampart/core/bank/lair/portal), the one furthest from its sibling chaos in the room (nearest to itself
      │                       among equals; nearest when alone); flees armed creeps (not keepers) within 5 until all are 7 away (idleFlee, up to 2 rooms but never into a
@@ -306,7 +313,10 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Sktrucker @register            (job.sktrucker.ts) SK farm hauler: [CARRY, MOVE] x 25 (2500) from the home room (else nearest), full cost in hand; SkFarm paces
          │                                                 paceNJobs(Sktrucker, n, 1450) with n = farm containers holding >= 500 energy; walks with memory.rewalksk; each tick: fleeKeepers
          │                                                 (shared with Skharvester: keepers within 5 fled to 6, hold at 6), then full or under 50 TTL with a load -> unloadHome (latched), under 50 TTL empty -> wait at home,
-         │                                                 else withdraw from the farm container with the most energy (none: wait within 3 of the room centre); after(): idleNom outside home
+         │                                                 else withdraw from the farm container with the most energy (none: wait within 3 of the room centre); after(): idleNom outside home.
+         │                                                 Overridable pieces for Looter: containers, loadOf, fetch, flee, retire, retireTTL
+         │   └─ Looter  @register            (job.looter.ts) a Sktrucker for the Loot mission: containers = Loot.openContainers, loadOf = everything held, fetch withdraws the largest
+         │                                                 stack, flee adds armed non-keepers within 4 (idleFlee to 5), retireTTL 100, retire = home then JobCreep.recycleAt(originSpawn())
          ├─ Prospector @register           (job.prospector.ts) mineral miner: [WORK, CARRY, MOVE, MOVE] units up to the home room's capacity (max 12), WORK first, CARRY, MOVEs
          │                                                 last (damage costs mining before speed; never slowed loaded), from the home room's spawns with the whole cost in hand; donatable 0;
          │                                                 memory.rewalksk and fleeKeepers (shared with Skharvester) when the mission room is a keeper room (intel.roomKind); goes home to unload
@@ -406,6 +416,7 @@ scheduleService('PaveAll W5N8')      // a paver every 1400 ticks until the room 
 scheduleService('SkFarm W25S6 W25S7')  // args[1]=keeper room, args[2]=home (spawns); one Skhunter and one Skvulture, each one egg per 1450 ticks
 scheduleService('Capture W25S5')     // args[1]=target room; home (RCL7+, nearest) and staging (next room back) are picked on the first run; Capture/staging_Capture flags mark the target centre and the staging spot
 scheduleService('Raze W27S4 W27S5')  // args[1]=room to clear, args[2]=home (spawns nearest it); one Razer, winds down when it decommissions
+scheduleService('Loot W24S6 W25S7')  // args[1]=beaten stronghold room, args[2]=home (spawns); canopeners open the containers, a looter empties them, winds down when all are empty
 scheduleService('Nidoran W23S4')     // args[1]=seed room (its reserver/owner is the target player unless args[2] names one); paired Chaos dismantlers rotate through the player's reserved rooms within 2 hops
 scheduleService('Once Scout W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down
 scheduleService('Once Toxic W25S5 3')  // optional args[3]=count: that many creeps one after another (memory.laid), then winds down

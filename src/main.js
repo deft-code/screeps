@@ -78,6 +78,7 @@ import 'ms.furiosa';
 import 'ms.xfer';
 import 'ms.xferstartup';
 import 'ms.capture';
+import 'ms.loot';
 import 'labplan';
 import "service.flag";
 
@@ -87,6 +88,8 @@ import "job.crow";
 import "job.paver";
 import "job.toxic";
 import "job.razer";
+import "job.canopener";
+import "job.looter";
 import "job.chaos";
 import "job.skhunter";
 import "job.skvulture";

@@ -25,6 +25,10 @@ import type { SkFarm } from "ms.skfarm";
 //           of the room centre.
 // After all of that, outside the home room, idleNom takes whatever energy
 // lies within reach (after()). It walks with memory.rewalksk set.
+//
+// Looter (job.looter.ts) reuses it for the Loot mission's stronghold
+// containers through the overridable pieces: containers, loadOf, fetch,
+// flee, retire and retireTTL.
 
 const kRetireTTL = 50;
 const kCenterRange = 3;
@@ -67,20 +71,49 @@ export class Sktrucker extends JobCreep {
         return this.c.store.getUsedCapacity();
     }
 
-    start(): Task2Ret {
-        if (fleeKeepers(this.cc)) return "wait";
+    // The containers to empty: the farm's source containers.
+    get containers(): StructureContainer[] {
+        return this.farm.containers();
+    }
 
-        const old = this.ticksToLive < kRetireTTL;
+    // What a container holds that this hauler is after: its energy.
+    loadOf(cont: StructureContainer): number {
+        return cont.store.energy;
+    }
+
+    // Under this many ticks to live it carries what it has home and retires.
+    get retireTTL(): number {
+        return kRetireTTL;
+    }
+
+    // Keepers and lairs about to spawn one (fleeKeepers); true when fleeing
+    // or holding at the safe range.
+    flee(): boolean {
+        return fleeKeepers(this.cc);
+    }
+
+    start(): Task2Ret {
+        if (this.flee()) return "wait";
+
+        const old = this.ticksToLive < this.retireTTL;
         if (this.unloadLatch(this.full || (old && this.carrying > 0))) return this.goHome();
         if (old) return this.retire();
 
-        const cont = _.max(this.farm.containers(), k => k.store.energy) as StructureContainer | number;
-        if (!(cont instanceof StructureContainer) || !cont.store.energy) {
-            if (this.pos.roomName !== this.mission.roomName) return this.moveRoom(this.mission.roomName);
-            const center = roomCenterPos(this.mission.roomName);
-            if (!this.pos.inRangeTo(center, kCenterRange)) this.movePos(center, kCenterRange);
-            return "wait";
-        }
+        const cont = _.max(this.containers, k => this.loadOf(k)) as StructureContainer | number;
+        if (!(cont instanceof StructureContainer) || !this.loadOf(cont)) return this.park();
+        return this.fetch(cont);
+    }
+
+    // Nothing to fetch: wait within kCenterRange of the mission room's centre.
+    park(): Task2Ret {
+        if (this.pos.roomName !== this.mission.roomName) return this.moveRoom(this.mission.roomName);
+        const center = roomCenterPos(this.mission.roomName);
+        if (!this.pos.inRangeTo(center, kCenterRange)) this.movePos(center, kCenterRange);
+        return "wait";
+    }
+
+    // Beside the container, withdraw what energy fits.
+    fetch(cont: StructureContainer): Task2Ret {
         if (!this.pos.isNearTo(cont)) {
             this.moveTarget(cont, 1);
             return "wait";

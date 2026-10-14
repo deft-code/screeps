@@ -1047,13 +1047,31 @@ export class Rewalker {
     _search(from: RoomPosition, goals: Goal[], terrain: MoveTerrain, maxCost?: number, ignoreSK = false): PlanResult {
         const [plainCost, swampCost] = kTerrainCosts[terrain]
         const rooms = this.getRouteDist(from.roomName, goals[0].pos.roomName)
-        const ret = PathFinder.search(from, goals, {
+        const maxOps = Math.min(kMaxOps, kOpsPerRoom * rooms)
+        let ret = PathFinder.search(from, goals, {
             roomCallback: this.restrictedRoomCallback(from, goals, ignoreSK),
             plainCost,
             swampCost,
             maxCost,
-            maxOps: Math.min(kMaxOps, kOpsPerRoom * rooms),
+            maxOps,
         })
+        // The route is findRoute's, by exits alone; an exit walled off from
+        // inside its room (W24S7's north exit sits behind two of its own
+        // extensions, Oct 2026) leaves the restricted search exhausted well
+        // under its budget with nowhere to go. Search every room then: the
+        // route's cost penalties (keeper rooms) are the lesser evil.
+        if (ret.incomplete && rooms > 4 && ret.ops < maxOps) {
+            const open = PathFinder.search(from, goals, {
+                roomCallback: this.roomCallbackFor(ignoreSK),
+                plainCost,
+                swampCost,
+                maxCost,
+                maxOps,
+            })
+            console.log(`Rewalker route ${from.roomName} -> ${goals[0].pos.roomName} dead ends after ${ret.ops} ops;`,
+                `unrestricted search ${open.incomplete ? 'incomplete' : 'complete'} in ${open.ops} ops, ${open.path.length} steps`)
+            if (!open.incomplete || open.path.length > ret.path.length) ret = open
+        }
         const final = _.last(ret.path) || from
         const i = _.findIndex(goals, g => final.inRangeTo(g.pos, g.range))
         return {

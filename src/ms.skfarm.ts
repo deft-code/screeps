@@ -12,6 +12,9 @@ import { HarvestMission } from "job.harvester";
 import { getMetaManager, MetaStructure } from "metastruct";
 import { Meta_rsrc } from "metaremote";
 import * as debug from "debug";
+import { theRadar } from "radar";
+import { sectorCore } from "reactor";
+import { roomToCoord, roomFromCoord, roomKind, Kind, RoomIntel } from "intel";
 
 // Source Keeper farm: "SkFarm <room> <home>". One Skhunter (job.skhunter.ts)
 // spawned in the home room walks to the keeper room and kills its Source
@@ -59,7 +62,15 @@ const kHealerWolves = 2;
 interface SkFarmMemory extends MissionMemory {
     // Set by `harvesting = false`: no skharvester or sktrucker eggs.
     noharvest?: boolean
+    // Set by `invaderless = true`: watch the sector's keeper rooms for an
+    // invader core and lay no skharvesters while one is deploying soon or
+    // deployed (see coreThreat).
+    invaderless?: boolean
 }
+
+// An invader core deploying within this many ticks (or already deployed)
+// stops the skharvesters while `invaderless` is set.
+const kCoreDeploy = 3000;
 
 interface SkSpot {
     // What is mined there and where it is.
@@ -119,6 +130,55 @@ export class SkFarm extends Mission implements HarvestMission, ProspectMission {
             this.purgeEggs(others);
         }
         debug.log(this.name, "harvesting", on ? "on" : "off");
+    }
+
+    // Console toggle, persisted: with it on, the sector's keeper rooms (not
+    // the core room) are asked of the radar as background every tick, and
+    // skharvesters are not laid while coreThreat holds. Sktruckers keep
+    // their own gate (a container holding kTruckEnergy), so they stop by
+    // themselves once the containers are emptied.
+    //   getService('SkFarm W25S6 W25S7').invaderless = true
+    get invaderless(): boolean {
+        return !!this.mem.invaderless;
+    }
+
+    set invaderless(on: boolean) {
+        if (on) this.mem.invaderless = true;
+        else delete this.mem.invaderless;
+        debug.log(this.name, "invaderless", on ? "on" : "off");
+    }
+
+    // The eight Source Keeper rooms around the farm's sector core.
+    get skRooms(): string[] {
+        const core = sectorCore(this.roomName);
+        if (!core) return [];
+        const [cx, cy] = roomToCoord(core);
+        const rooms: string[] = [];
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                if (!dx && !dy) continue;
+                const name = roomFromCoord(cx + dx, cy + dy);
+                if (roomKind(name) === Kind.SourceKeeper) rooms.push(name);
+            }
+        }
+        return rooms;
+    }
+
+    // An invader core in any of the sector's keeper rooms that is deployed
+    // or deploys within kCoreDeploy ticks: by sight where there is vision,
+    // else by intel, which only records deployed cores. The room it is in,
+    // or null.
+    get coreThreat(): string | null {
+        for (const name of this.skRooms) {
+            const room = Game.rooms[name];
+            if (room) {
+                const core = _.first(room.findStructs(STRUCTURE_INVADER_CORE)) as StructureInvaderCore | undefined;
+                if (core && (core.ticksToDeploy === undefined || core.ticksToDeploy < kCoreDeploy)) return name;
+            } else if ((RoomIntel.get(name)?.coreLvl || 0) > 0) {
+                return name;
+            }
+        }
+        return null;
     }
 
     getRoomName(alias = "") {
@@ -258,8 +318,13 @@ export class SkFarm extends Mission implements HarvestMission, ProspectMission {
         this.ensureMetas();
         this.paceNJobs(Skhunter, 1, kPace);
         this.paceNJobs(Skvulture, 1, kPace);
+        let coreThreat: string | null = null;
+        if (this.invaderless) {
+            theRadar.observeBackground(...this.skRooms);
+            coreThreat = this.coreThreat;
+        }
         if (this.harvesting) {
-            if (!this.threatened) this.paceNJobs(Skharvester, kHarvesters, kPace);
+            if (!this.threatened && !coreThreat) this.paceNJobs(Skharvester, kHarvesters, kPace);
             this.paceNJobs(Sktrucker, this.containers().filter(k => k.store.energy >= kTruckEnergy).length, kPace);
         }
         this.prospect();
@@ -273,7 +338,8 @@ export class SkFarm extends Mission implements HarvestMission, ProspectMission {
     // or no vision.
     status(): string {
         const room = this.room;
-        const harvest = this.harvesting ? "" : " harvesting:off";
+        const harvest = (this.harvesting ? "" : " harvesting:off") +
+            (this.invaderless ? ` invaderless core:${this.coreThreat || "none"}` : "");
         if (!room) return super.status() + harvest + " no vision";
         const keepers = (room.enemies || []).filter(e => e.keeper);
         const spots = this.spots.map(s => `${s.kind[0]}@${s.pos.x},${s.pos.y}:${s.dist}`).join(" ");
