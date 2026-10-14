@@ -10,6 +10,8 @@ const kHomeFloor = 50000;
 const kDestFull = 0.75;
 // Fedexes laid per lifetime unless the command names a count.
 const kDefaultCount = 2;
+// Ticks between "holding" log lines while a subclass withholds its eggs.
+const kHoldLogPace = 100;
 
 interface XferMemory extends MissionMemory {
     // Drain the home storage to 0 instead of stopping at kHomeFloor. Set
@@ -93,6 +95,12 @@ export class Xfer extends Mission {
         return null;
     }
 
+    // Why no egg is laid this tick, or null to lay them; always null here
+    // (subclasses gate their eggs with it).
+    get holding(): string | null {
+        return null;
+    }
+
     run(): Priority {
         if (this.windingDown) return super.run();
         const why = this.finished;
@@ -101,7 +109,9 @@ export class Xfer extends Mission {
             this.windDown();
             return super.run();
         }
-        this.paceNJobs(Fedex, this.count);
+        const hold = this.holding;
+        if (!hold) this.paceNJobs(Fedex, this.count);
+        else if (Game.time % kHoldLogPace === 0) debug.log(this.name, "holding:", hold);
         super.run();
         return "normal";
     }

@@ -41,10 +41,11 @@ export class Fedex extends Trucker {
         return [spawn, Fedex.body(spawn.room.energyCapacityAvailable)];
     }
 
-    // CARRY, MOVE x 25 (2500 energy, 1250 a trip, full speed off the roads),
-    // fewer pairs while the spawn room's capacity is short of that (23 at RCL6).
+    // CARRY, CARRY, MOVE groups: 33 CARRY and 17 MOVE (2500 energy, 1650 a
+    // trip, full speed on roads and half off them), fewer groups while the
+    // spawn room's capacity is short of that (30 CARRY at RCL6).
     static body(ecap: number): BodyPartConstant[] {
-        return energyDef({ move: 1, per: [CARRY], energy: Math.min(ecap, 2500), max: 25, interleave: true } as any);
+        return energyDef({ move: 2, per: [CARRY], energy: Math.min(ecap, 2500), max: 33, interleave: true } as any);
     }
 
     // The room the energy comes from: the mission's "home".

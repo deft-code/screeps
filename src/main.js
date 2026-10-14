@@ -76,6 +76,7 @@ import 'ms.experiment';
 import 'ms.balance';
 import 'ms.furiosa';
 import 'ms.xfer';
+import 'ms.xferstartup';
 import 'ms.capture';
 import 'labplan';
 import "service.flag";

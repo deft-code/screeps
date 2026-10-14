@@ -235,7 +235,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.js for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
      │                       when empty); loads from a container in the remote room picked by pickCont(): the ones holding a full load (our free capacity), else those over 50, else any, and within that tier the cheapest walk (Rewalker.planWalk over all), cached in memory.contid while it stays in the best tier, and walked to from any room once the remote is in view, so a route that crosses another room is not undone by a walk to the room centre (sweeps dropped energy), once more than half full unloads
      │                       at home until empty (JobCreep.unloadHome); after() idleNom picks up adjacent energy
-     ├─ Fedex    @register   (job.fedex.ts) extends Trucker for Xfer; CARRY, MOVE x 25 sized to the home room's capacity, home spawns only; in the home room fills to full from the storage;
+     ├─ Fedex    @register   (job.fedex.ts) extends Trucker for Xfer and XferStartup; CARRY, CARRY, MOVE x 17 (33 CARRY) sized to the home room's capacity, home spawns only; in the home room fills to full from the storage;
      │                       anywhere else any load latches deposit mode: unloadHome(mission room) (storage, terminal, containers), else taskTransferResources, else the controller pile;
      │                       empty in the mission room with ttl under 2 x memory.tripLeg + 30 it recycles at a spawn there; while the mission winds down it delivers, then recycles
      ├─ Bulldozer @register  (job.bulldozer.ts) 2 WORK per MOVE (33W/17M at full energy); boosts XZH2O at home when a lab has it ready (never waits); planWalk over mission.dozePositions() at range 1, @task doze(xy, room) dismantles the tile (rampart first)
@@ -410,6 +410,7 @@ scheduleService('Nidoran W23S4')     // args[1]=seed room (its reserver/owner is
 scheduleService('Once Scout W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down
 scheduleService('Once Toxic W25S5 3')  // optional args[3]=count: that many creeps one after another (memory.laid), then winds down
 scheduleService('Xfer W27S4 W29S4')    // args[1]=room to fill, args[2]=room to take energy from (home), optional args[3]=fedexes (default 2); getService(...).takeitall = true drains the storage to 0
+scheduleService('XferStartup W24S7 W26S8')   // same arguments; lays fedexes only while W24S7's storage holds less energy than W26S8's (nothing without a storage there), winds down once W24S7 has a terminal
 scheduleService('Always Mini W28S4')   // args[1]=job class, args[2]=room; one creep per lifetime for good (optional args[3]=per lifetime); windDown() stops it
 scheduleService('Selloff W3N4')      // args[1]=room; sells the terminal's non-energy stock (random order) into buy orders, one deal per cooldown, skipping orders that pay less per unit than the shipping energy is worth (transfer rate x energy buy-order price); under 25k terminal energy keeps one 10k energy buy order 1cr over the best foreign bid (Memory.selloff[room].bid); kills itself on shardSeason (no market)
 scheduleService('Furiosa')           // power creep Furiosa; picks a home power spawn room into Memory.furiosa.home
