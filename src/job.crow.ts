@@ -58,13 +58,13 @@ export class Crow extends Guard {
     // A mode change drops whatever task was running (a hunt deep in the
     // target room would otherwise run on until its target was gone), so
     // decide() re-reads the mode this tick.
+    // A mode flip (staging <-> attack) makes the task in flight the wrong
+    // one: false drops it (MyCreep.run) and decide() runs afresh.
     init(): boolean {
         const mode = this.capture.mode;
-        if (this.memory.cmode !== mode) {
-            this.memory.cmode = mode;
-            delete this.memory.task2;
-        }
-        return true;
+        if (this.memory.cmode === mode) return true;
+        this.memory.cmode = mode;
+        return false;
     }
 
     decide(): Task2Ret {

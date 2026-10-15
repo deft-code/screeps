@@ -97,7 +97,23 @@ export class Harvester extends JobRole {
         return !!(c.idleRetreat(WORK) || c.fleeHostiles());
     }
 
+    // Every tick, before any task would resume: the whole per-tick logic
+    // (decide, through MyCreep.perTick); start() only answers "wait". No
+    // task locks here, and per-tick logic belongs in init() so a task added
+    // later cannot skip it (the @task migration, Oct 2026). Behaviour is
+    // unchanged by the move. Skharvester inherits it (its init() sets
+    // rewalksk first, then calls this).
+    init(): boolean {
+        this.perTick(() => this.decide());
+        return true;
+    }
+
     start(): Task2Ret {
+        return "wait";
+    }
+
+    // One pass of the per-tick logic: flee, claim, walk to the spot, work.
+    decide(): Task2Ret {
         if (this.flee()) return "wait";
 
         // Claim from wherever the creep is (metas and claims live in memory)

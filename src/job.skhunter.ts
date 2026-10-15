@@ -119,17 +119,34 @@ export class Skhunter extends JobCreep {
 
     // The fight, every tick before the tasks run: attack, else self-heal,
     // else idleHeal. Nothing here moves.
+    // Every tick, before any task would resume: the swing or heal, then the
+    // whole per-tick logic (decide, through MyCreep.perTick). start() only
+    // answers "wait": the hunter holds no task locks, and per-tick logic
+    // belongs in init() so a task added later cannot skip it (the @task
+    // migration, Oct 2026). Behaviour is unchanged by the move.
     init(): boolean {
-        this.healedSelf = false;
         if (!this.memory.rewalksk) this.memory.rewalksk = true;
+        this.swing();
+        this.perTick(() => this.decide());
+        return true;
+    }
+
+    start(): Task2Ret {
+        return "wait";
+    }
+
+    // The melee and heal intents: hit an adjacent enemy, else heal up when
+    // hurt or threatened, else idleHeal.
+    swing() {
+        this.healedSelf = false;
         const c = this.cc;
-        if (c.intents.melee) return true;
+        if (c.intents.melee) return;
         const enemies = this.enemies;
         const adjacent = this.pos.findClosestByRange(enemies.filter(e => this.pos.isNearTo(e)));
         if (adjacent) {
             if (c.attack(adjacent) === OK) {
                 c.intents.melee = adjacent;
-                return true;
+                return;
             }
             this.log("attack failed", adjacent);
         }
@@ -138,11 +155,10 @@ export class Skhunter extends JobCreep {
             if (c.heal(c) === OK) {
                 c.intents.melee = c;
                 this.healedSelf = true;
-                return true;
+                return;
             }
         }
         (c as any).idleHeal();
-        return true;
     }
 
     // Ranged enemies other than keepers in the hunter's room.
@@ -150,7 +166,8 @@ export class Skhunter extends JobCreep {
         return (this.cc.room.hostiles || []).filter(h => !h.keeper && h.getActiveBodyparts(RANGED_ATTACK) > 0);
     }
 
-    start(): Task2Ret {
+    // One pass of the per-tick logic (init): flee, then the hunt.
+    decide(): Task2Ret {
         // Fire first: a ranged enemy within kRangedFlee is fled to one beyond
         // it, hunt or no hunt (the hunt lock in memory survives the flee).
         const shooters = this.rangedHostiles;

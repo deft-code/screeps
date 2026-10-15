@@ -58,9 +58,19 @@ export class Sktrucker extends JobCreep {
         return this.mission as SkFarm;
     }
 
+    // Every tick, before any task would resume: the whole per-tick logic
+    // (decide, through MyCreep.perTick); start() only answers "wait". No
+    // task locks here, and per-tick logic belongs in init() so a task added
+    // later cannot skip it (the @task migration, Oct 2026). Behaviour is
+    // unchanged by the move. Looter inherits it.
     init(): boolean {
         if (!this.memory.rewalksk) this.memory.rewalksk = true;
+        this.perTick(() => this.decide());
         return true;
+    }
+
+    start(): Task2Ret {
+        return "wait";
     }
 
     get full(): boolean {
@@ -92,7 +102,8 @@ export class Sktrucker extends JobCreep {
         return fleeKeepers(this.cc);
     }
 
-    start(): Task2Ret {
+    // One pass of the per-tick logic, in the order the header lists.
+    decide(): Task2Ret {
         if (this.flee()) return "wait";
 
         const old = this.ticksToLive < this.retireTTL;

@@ -95,9 +95,10 @@ export class Skharvester extends Harvester {
         return [spawn, Skharvester.parts];
     }
 
+    // rewalksk on, then the Harvester's per-tick logic (decide).
     init(): boolean {
         if (!this.memory.rewalksk) this.memory.rewalksk = true;
-        return true;
+        return super.init();
     }
 
     // Source Keepers in the current room.

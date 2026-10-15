@@ -37,6 +37,11 @@ import { roomCenterPos } from "intel";
 // After all of that, outside the home room, idleNom takes whatever energy
 // lies within reach (after()).
 //
+// All of it runs from init() (decide(), through MyCreep.perTick) rather than
+// start(), which only answers "wait": the vulture holds no task locks, and
+// per-tick logic belongs in init() so a task added later cannot skip it
+// (the @task migration, Oct 2026). Behaviour is unchanged by the move.
+//
 // While looting it walks with memory.rewalksk set (avoidKeepers(false)): the
 // Rewalker plans the keeper room without its keeper layer, as the hunter
 // does, so the walk to a pile beside a lair is the straight one. Going home
@@ -95,9 +100,16 @@ export class Skvulture extends JobCreep {
         this.cc.idleNom();
     }
 
-    // rewalksk is set per mode in start() (avoidKeepers), not here.
+    // The whole per-tick logic (decide), every tick, before any task would
+    // resume. rewalksk is set per mode in decide() (avoidKeepers).
     init(): boolean {
+        this.perTick(() => this.decide());
         return true;
+    }
+
+    // Nothing to decide here: init() did it.
+    start(): Task2Ret {
+        return "wait";
     }
 
     // Source Keepers in the current room.
@@ -131,7 +143,8 @@ export class Skvulture extends JobCreep {
         delete this.memory._walk;
     }
 
-    start(): Task2Ret {
+    // One pass of the per-tick logic, in the order the header lists.
+    decide(): Task2Ret {
         const c = this.cc;
         const threats = [...this.keepers, ...this.shooters];
         if (_.any(threats, t => this.pos.inRangeTo(t, kFleeRange))) {

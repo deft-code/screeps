@@ -20,6 +20,10 @@ export type Task2Ret = "again" | "start" | "wait" | false;
 // Persist a resumable task in memory.task2. Arguments are JSON-cloned; the
 // first argument that is a game object (has a string `id`) is stored by id and
 // runTask swaps the live object back in (or restarts when it is gone).
+// Decisions a creep may take in one tick: start() (or a per-tick step) is
+// re-run while it answers "again" or "start", this many times at most.
+const kPasses = 3;
+
 export function task(prototype: any, name: string, desc: PropertyDescriptor) {
     const _name = "_task_" + name;
     const orig = desc.value;
@@ -42,13 +46,9 @@ export function task(prototype: any, name: string, desc: PropertyDescriptor) {
         this.memory.task2 = mem;
         return orig.apply(this, args);
     };
+    return desc;
 }
 
-const mycreeps = new Map<string, MyCreep>();
-const myroles = new Map<string, typeof MyCreep>();
-    return desc;
-
-// The registered job class for a role name ("paver"), or null.
 // What every @task was in practice until 14 Oct 2026: nothing. The
 // decorator above wrote its wrapper to the prototype and returned no
 // descriptor, so __decorate put the original method back and no task ever
@@ -58,6 +58,10 @@ const myroles = new Map<string, typeof MyCreep>();
 // docs/known-issues.md.
 export function taskbroken(prototype: any, name: string, desc: PropertyDescriptor) { }
 
+const mycreeps = new Map<string, MyCreep>();
+const myroles = new Map<string, typeof MyCreep>();
+
+// The registered job class for a role name ("paver"), or null.
 export function getRoleClass(role: string): typeof MyCreep | null {
     return myroles.get(role.toLowerCase()) || null;
 }
@@ -170,6 +174,16 @@ export class MyCreep extends debug.Debuggable {
 
     spawningRun() {}
 
+    // The per-tick hook, called by run() before the stored task
+    // (memory.task2) is resumed: the place for whatever must happen every
+    // tick whatever the task is doing (a flee, a swing at an adjacent
+    // enemy, mode tracking), and for jobs without task locks the whole of
+    // the per-tick logic, start() left to return "wait". Return false to
+    // say the task in flight is the wrong one for the situation: run()
+    // drops it and decides afresh through start() this tick (a guard
+    // locked on healing when an armed enemy walks in, a crow whose capture
+    // flipped mode). Not for a flee: a fled task should resume once the
+    // danger is gone (Warboy's fleeing flag), not be forgotten.
     init(): boolean { return true }
     start(): Task2Ret {
         this.c.run();
@@ -178,22 +192,36 @@ export class MyCreep extends debug.Debuggable {
     }
     after() { }
 
+    // For a job that keeps its per-tick logic in init() rather than start()
+    // (no task locks to persist yet; Skvulture was the first, Oct 2026): run
+    // `step` the way run() runs start(), up to kPasses passes while it
+    // answers "again" or "start" (a walk that arrives answers "start", so
+    // the next decision follows in the same tick). The last answer.
+    perTick(step: () => Task2Ret): Task2Ret {
+        let loops = kPasses;
+        let ret: Task2Ret = "again";
+        while ((ret === "again" || ret === "start") && loops > 0) {
+            loops--;
+            ret = step();
+        }
+        return ret;
+    }
+
     run(): boolean {
         if (!this.c) {
             return false;
         }
 
-        this.init();
-        let loops = 3;
-        let ret: Task2Ret = "again";
-        while ((ret === "again" || ret === "start") && loops > 0) {
-            loops--;
-            ret = this.runTask();
-            if (ret === "start") {
-                delete this.memory.task2;
-                ret = this.start();
-            }
-        }
+        // Only an explicit false: an init() that forgets to return must not
+        // quietly switch persistence off for its job.
+        if (this.init() === false) delete this.memory.task2;
+        // Resume the task; "start" (none, or it ended) decides afresh.
+        this.perTick(() => {
+            const ret = this.runTask();
+            if (ret !== "start") return ret;
+            delete this.memory.task2;
+            return this.start();
+        });
         this.after();
         return true;
     }

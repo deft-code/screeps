@@ -241,7 +241,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       walk the Rewalker route toward memory.home taking the nearest piles >= 50, tombstones, ruins, our stores or a
      │                       non-SK source in each room, nothing within 5 of a lair; taskRechargeHarvest at home as last resort; full -> work);
      │                       after(): idleNom + idleBuild|idleRepairAny; spawned by PaveAll
-     ├─ Harvester @register  (job.harvester.ts) port of role.harvester.js for Remote (and Startup below RCL3); 6W/1C/3M from "home" (falls back to the nearest spawns) (floor 3W/1C/2M); claims a source meta
+     ├─ Harvester @register  (job.harvester.ts) per-tick logic in init() via decide()/perTick, start() "wait" (14 Oct 2026); port of role.harvester.js for Remote (and Startup below RCL3); donatable() 0 (takes nothing off a passing trucker); 6W/1C/3M from "home" (falls back to the nearest spawns) (floor 3W/1C/2M); claims a source meta
      │                       from the mission's `sourceMetas()` (HarvestMission: Remote's rsrc metas, Startup's asrc/bsrc metas; targetid() = the source, myspot = the container tile)
      │                       (memory.rsrc; if all are claimed it shadows the harvester with the fewest ticks to live), stands on the
      │                       container tile drop-mining; builds the container site and repairs the container, withdrawing from it for that;
@@ -310,7 +310,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 (memory.gidle) so a friendly flickering on an exit draws it over instead of resetting it;
          │                                                 body 'guard' via "remote": room capacity >= 550, energyDef scales T/RA pairs to energy available (spawning.md)
          ├─ Micro @register                (job.micro.ts)  [RANGED_ATTACK, MOVE] from the nearest spawn; suppress.ts suppressMicro (Farm, Remote, Hub, Thorhub): paceNJobs(Micro, 1) once tenemies >= 50 with no hostiles; targets only enemies without RANGED_ATTACK; remembers its latest target (EnemyCreep) and, with it out of sight for under 100 ticks, waits beside the tile it was last seen on in this room (lurk) before drifting back to the room centre (hold), so a scout bouncing on an exit gets shot on its next bounce
-         ├─ Skhunter @register             (job.skhunter.ts) Source Keeper hunter for the SK farm (ms.skfarm, to come); fixed body 25 MOVE, 20 ATTACK, 5 HEAL (4100; heals at the tail so they survive a keeper fight) from the
+         ├─ Skhunter @register             (job.skhunter.ts) init(): swing() (the melee/heal intents) then the per-tick logic in decide()/perTick, start() "wait" (14 Oct 2026); Source Keeper hunter for the SK farm (ms.skfarm, to come); fixed body 25 MOVE, 20 ATTACK, 5 HEAL (4100; heals at the tail so they survive a keeper fight) from the
          │                                                 mission's home room, else the spawns nearest the mission room, only one with the energy now; init() every tick before the tasks: attack an
          │                                                 adjacent enemy, else self-heal while hurt or an enemy is within 3, else idleHeal; then flee (idleFlee to 5) while a ranged non-keeper hostile is within 4, hunt or not; else stalk the keeper with the most hits at range 4 until
          │                                                 full (a self-heal issued this tick with heal power >= hurts counts), then @task hunt it beside it until it is dead; no keeper alive: the
@@ -319,7 +319,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 each tick: fleeKeepers (exported, shared with Sktrucker: a keeper within 5 -> idleFlee to 6, a keeper at 6 -> hold still so it does not bounce between 5 and 6, a lair within 5 with ticksToSpawn < 4 -> flee to 6), then the Harvester's retreat and
          │                                                 a flee from non-keeper hostiles; on the spot with no container or site it lays the container site; mining, building, repair and the
          │                                                 container top-up are Harvester.work/after. Laid by SkFarm: paceNJobs(Skharvester, 3, 1450)
-         ├─ Sktrucker @register            (job.sktrucker.ts) SK farm hauler: [CARRY, MOVE] x 25 (2500) from the home room (else nearest), full cost in hand; SkFarm paces
+         ├─ Sktrucker @register            (job.sktrucker.ts) per-tick logic in init() via decide()/perTick, start() "wait" (14 Oct 2026); SK farm hauler: [CARRY, MOVE] x 25 (2500) from the home room (else nearest), full cost in hand; SkFarm paces
          │                                                 paceNJobs(Sktrucker, n, 1450) with n = farm containers holding >= 500 energy; walks with memory.rewalksk; each tick: fleeKeepers
          │                                                 (shared with Skharvester: keepers within 5 fled to 6, hold at 6), then full or under 50 TTL with a load -> unloadHome (latched), under 50 TTL empty -> wait at home,
          │                                                 else withdraw from the farm container with the most energy (none: wait within 3 of the room centre); after(): idleNom outside home.
@@ -337,7 +337,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 (ProspectMission; beside the mineral without one) and harvests the room's non-thorium mineral (ERR_TIRED = extractor cooldown, ignored).
          │                                                 Laid by SkFarm.prospect() and Reactor.prospect(): paceNJobs(Prospector, 1, 1450) while wantProspector(room, home) (exported: no armed
          │                                                 non-keeper enemy, mineral left, a keeper tombstone within 5 of the mineral when the room has lairs, home under kMineralStock 50k of it)
-         ├─ Skvulture @register            (job.skvulture.ts) SK-room scavenger for the SK farm; [CARRY, MOVE] x 17 (1700) from the home room (else the nearest spawns), only with the
+         ├─ Skvulture @register            (job.skvulture.ts) per-tick logic in init() via decide()/perTick, start() "wait" (first init port, 14 Oct 2026); SK-room scavenger for the SK farm; [CARRY, MOVE] x 17 (1700) from the home room (else the nearest spawns), only with the
          │                                                 full cost in hand; walks with memory.rewalksk while looting and with the keeper layer back on (cached path dropped) when carrying home or retiring (avoidKeepers). Each tick: flee (idleFlee to 5) while a keeper or an armed non-keeper enemy is within 4; full, or under 100 TTL with a
          │                                                 load, carry it home (unloadHome, latched by memory.unload; dropAt the controller when home has no store); under 100 TTL and empty, wait
          │                                                 in the home room; else loot the locked target (memory.vid + vkind pile|tomb: pickup beside a pile; from a tombstone withdraw one resource a tick, the largest boost compound first, then energy; only energy and BOOSTS compounds, never thorium or raw minerals), re-picked only when
@@ -556,10 +556,6 @@ skip straight to `super.run()`, so they lay no eggs while winding down. A new
   subclasses add aliases (`Swipe` maps `"home"` to `args[2]`; `Farm` maps
   `"spawn"` to its optional `args[3]`). A non-null `"spawn"` pins every
   `JobRole.stratSpawn` job and `Scout` of the mission to that room's spawns.
-
-## GlobalRespawn (`src/ms.globalrespawn.ts`)
-
-Room = `Game.spawns.Home.room`, or the first spawn's room when no spawn is named `Home` (throws only with no spawns at all). Each tick:
 - The three rooms (Oct 2026): every mission has a target (`roomName`), a
   home and a spawn room. `homeRoomName` is `getRoomName("home")` else the
   target; `spawnRoomName` is `getRoomName("spawn")` else the home;
@@ -567,6 +563,10 @@ Room = `Game.spawns.Home.room`, or the first spawn's room when no spawn is named
   that pin only when told to call `JobCreep.spawnRoomSpawns(spawns)`: the
   spawn room's spawns when named, else null and their own distance pick
   (`Bulldozer.spawn` -> `dozerSpawn(pinned || spawns, home, !!pinned)`).
+
+## GlobalRespawn (`src/ms.globalrespawn.ts`)
+
+Room = `Game.spawns.Home.room`, or the first spawn's room when no spawn is named `Home` (throws only with no spawns at all). Each tick:
 
 ```
 if no creeps at all:              nJobs(Reboot, 1)        # emergency: body sized from energyAvailable
@@ -611,16 +611,26 @@ the dropped energy and the current hauler target.
 
 ```
 run():  if creep gone -> return false
-        init()
+        init() -> false drops memory.task2         # per-tick hook; false = the task in flight is wrong now
         up to 3 times: ret = runTask()            # replays memory.task2 {name, args, id?}
                        if ret === "start": delete task2; ret = start()
                        loop while ret in {"again","start"}
         after(); return true
 ```
 
-`Task2Ret = "again" | "start" | "wait" | false`. A method decorated with
-`@task` (mycreep.ts) records its name and JSON-cloned args in `memory.task2` on
-first call so the next tick resumes it without re-deciding. The first argument
+`Task2Ret = "again" | "start" | "wait" | false`. `init()` runs every tick
+before the task resumes: per-tick guards and intents live there (a flee, a
+swing at an adjacent enemy, mode tracking), and a job without task locks can
+keep all its per-tick logic there with `start()` returning `"wait"`, run
+through `perTick(step)` so a step that answers `"again"`/`"start"` (a walk
+that arrives) gets its next pass the same tick, as `start()` would (3 passes
+at most, `kPasses`; `run()` itself goes through `perTick` too); Skvulture was the first moved this way (`decide()`, as Crow names it), then Skhunter (`swing()` for the intents, then `decide()`), Sktrucker (Looter with it) and Harvester (Skharvester with it). It
+returns `false` (honoured since 14 Oct 2026) to drop the task in flight when
+the situation changed, so `start()` decides afresh this tick; a flee is not
+that (the task should resume afterwards, see Warboy's `fleeing` flag). A
+method decorated with `@task` (mycreep.ts) records its name and JSON-cloned
+args in `memory.task2` on first call so the next tick resumes it without
+re-deciding. The first argument
 that is a game object (has a string `id`) is stored as its id with `task.id`
 set to its 1-based position; `runTask` swaps `Game.getObjectById(...)` back in
 and returns `"start"` when the object is gone. Users: `Swiper.dropRange`,
