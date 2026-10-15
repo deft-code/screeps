@@ -6,13 +6,13 @@ import { defaultRewalker, fromXY } from "Rewalker";
 
 const rewalker = defaultRewalker();
 
-// Two WORK per MOVE: 2 ticks a tile on plains, 1 on roads, 10 in swamp.
-// Moving then dismantling for the rest of its life, that out-works 1:1 up to
-// ~270 plains tiles from the spawn, and 3:1 only beats it under ~136 (by 7%
-// at 70), at half again the time on the road.
-const kWorkPerMove = 2;
-// Body budget: 33 WORK + 17 MOVE is the 50-part cap.
-const kMaxBodyEnergy = 33 * BODYPART_COST[WORK] + 17 * BODYPART_COST[MOVE];
+// One WORK per MOVE: full speed on plains and roads, 2 ticks a tile in
+// swamp. The 2:1 body (until 14 Oct 2026) out-worked it only within ~270
+// plains tiles of the spawn; the W18S5 breach is a 12-room walk from
+// W25S7, where the time on the road dominates.
+const kWorkPerMove = 1;
+// Body budget: 25 WORK + 25 MOVE is the 50-part cap.
+const kMaxBodyEnergy = 25 * BODYPART_COST[WORK] + 25 * BODYPART_COST[MOVE];
 // The dismantle boost.
 export const kDozerBoost = RESOURCE_CATALYZED_ZYNTHIUM_ACID;
 
@@ -32,11 +32,12 @@ interface DozerMission {
     dozePositions?(): RoomPosition[]
 }
 
-// The Bulldozer body from the spawns nearest `homeName`: one MOVE per
+// The Bulldozer body from the spawns nearest `homeName` (or from `spawns`
+// as given when `pinned`: the mission's own spawn room): one MOVE per
 // kWorkPerMove WORK, sized to the energy on hand up to the 50-part cap.
 // Shared with the Razer (job.razer.ts).
-export function dozerSpawn(spawns: StructureSpawn[], homeName: string): [StructureSpawn | null, BodyPartConstant[]] {
-    const close = closeSpawns(spawns, homeName) as StructureSpawn[];
+export function dozerSpawn(spawns: StructureSpawn[], homeName: string, pinned = false): [StructureSpawn | null, BodyPartConstant[]] {
+    const close = pinned ? spawns : closeSpawns(spawns, homeName) as StructureSpawn[];
     const spawn = _.find(close, s => !s.spawning) || _.first(close);
     if (!spawn) return [null, []];
     const energy = Math.min(spawn.room.energyAvailable, kMaxBodyEnergy);
@@ -75,9 +76,12 @@ export function dozeable(pos: RoomPosition): Structure[] {
 // waits for a boost that is not there.
 @register
 export class Bulldozer extends JobCreep {
-    // From the spawns nearest home, one MOVE per kWorkPerMove WORK.
+    // From the mission's spawn room when it names one (JobCreep
+    // spawnRoomSpawns), else the spawns nearest home; one MOVE per
+    // kWorkPerMove WORK.
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
-        return dozerSpawn(spawns, this.homeName);
+        const pinned = this.spawnRoomSpawns(spawns);
+        return dozerSpawn(pinned || spawns, this.homeName, !!pinned);
     }
 
     get targets(): RoomPosition[] {
