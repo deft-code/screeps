@@ -11,6 +11,9 @@ export const kIdleTicks = 10;
 
 declare global {
     interface CreepMemory {
+        // Razer: the target it is walking to, kept while it is still one
+        // of targets() so the walk is planned once.
+        razeId?: Id<Structure>
         // Razer: ticks in a row with nothing to do in the mission room.
         idle?: number
         // Razer: done, walking back to its spawn to be recycled.
@@ -82,14 +85,21 @@ export class Razer extends JobCreep {
         return razeTargets(room);
     }
 
-    // Dismantle the target with the cheapest walk, or null with none.
+    // Dismantle the target with the cheapest walk, or null with none. The
+    // one it is already walking to (memory.razeId) is kept while it is
+    // still a target: the walk is stored, and a search a tick is what ate
+    // the CPU (Oct 2026; @task does not persist, docs/known-issues.md).
     raze(): Task2Ret | null {
         const targets = this.targets();
         if (!targets.length) return null;
         const near = _.find(targets, t => this.pos.isNearTo(t));
         if (near) return this.dismantle(near);
+        const kept = this.memory.razeId && Game.getObjectById(this.memory.razeId);
+        if (kept && _.contains(targets, kept)) return this.dismantle(kept);
+        delete this.memory.razeId;
         const i = rewalker.planWalk(this.c, targets.map(t => ({ pos: t.pos, range: 1 })));
         const target = i >= 0 ? targets[i] : this.pos.findClosestByRange(targets);
+        if (target) this.memory.razeId = target.id;
         return target ? this.dismantle(target) : null;
     }
 

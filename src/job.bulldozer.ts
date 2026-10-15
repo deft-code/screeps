@@ -25,6 +25,9 @@ declare global {
     interface CreepMemory {
         // Bulldozer: a lab refused us once, stop asking.
         noboost?: boolean
+        // Bulldozer: the listed tile it is walking to, [xy, room]; kept
+        // while the tile stays listed so the walk is planned once.
+        dozeTo?: [number, string]
     }
 }
 
@@ -111,6 +114,14 @@ export class Bulldozer extends JobCreep {
         const near = _.find(targets, t => this.pos.isNearTo(t) && dozeable(t).length);
         if (near) return this.doze(near.x * 100 + near.y, near.roomName);
 
+        // On the way to a listed tile already (memory.dozeTo): keep going.
+        // The walk to it is stored, and planning a 12-room search over
+        // every target each tick was what ate the CPU (Oct 2026; @task does
+        // not persist, see docs/known-issues.md, so the task cannot carry
+        // it). A fresh plan only when the tile left the list.
+        const kept = this.keptTarget(targets);
+        if (kept) return this.doze(kept.x * 100 + kept.y, kept.roomName);
+
         // doze's moveTarget to the same tile follows the planned walk unchanged.
         const i = rewalker.planWalk(this.c, targets.map(pos => ({ pos, range: 1 })));
         if (i < 0) {
@@ -118,6 +129,7 @@ export class Bulldozer extends JobCreep {
             return "wait";
         }
         const t = targets[i];
+        this.memory.dozeTo = [t.x * 100 + t.y, t.roomName];
         return this.doze(t.x * 100 + t.y, t.roomName);
     }
 
@@ -133,6 +145,17 @@ export class Bulldozer extends JobCreep {
         }
         // The boost shows on the body next tick.
         return "wait";
+    }
+
+    // The tile memory.dozeTo names while it is still one of `targets`,
+    // else null (and forgotten).
+    keptTarget(targets: RoomPosition[]): RoomPosition | null {
+        const kept = this.memory.dozeTo;
+        if (!kept) return null;
+        const pos = fromXY(kept[0], kept[1]);
+        if (_.any(targets, g => g.isEqualTo(pos))) return pos;
+        delete this.memory.dozeTo;
+        return null;
     }
 
     @taskbroken
