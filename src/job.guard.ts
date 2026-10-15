@@ -1,5 +1,5 @@
 import { JobRole } from "job.role";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { CreepMove } from "creep.move";
 import { roomCenterPos } from "intel";
 import { healPick, hurtFriendlies } from "heal";
@@ -187,7 +187,7 @@ export class Guard extends JobRole {
         return true;
     }
 
-    @task
+    @taskbroken
     retreat(): Task2Ret {
         // Back to work once healed below the threshold (it self-heals on the way).
         if (this.cc.hurts < kRetreatHurts) return "start";
@@ -202,7 +202,7 @@ export class Guard extends JobRole {
     }
 
     // role.guard.js taskHunt: chase an enemy while no melee is in the arena.
-    @task
+    @taskbroken
     hunt(target: Creep): Task2Ret {
         if (!this.inArena(target)) return "start";
         if (this.arenaMelees.length) return "start";
@@ -217,7 +217,7 @@ export class Guard extends JobRole {
 
     // role.guard.js taskDuel: kite a lone melee; drop it once a second melee
     // shows up, or if the target lost its ATTACK parts while others remain.
-    @task
+    @taskbroken
     duel(target: Creep): Task2Ret {
         if (!this.inArena(target)) return "start";
         const nmelees = this.arenaMelees.length;
@@ -275,7 +275,7 @@ export class Guard extends JobRole {
 
     // role.guard.js taskGuardHeal: only while no melee is in the room and
     // no armed enemy or disarmed fighter is in the arena (they outrank it).
-    @task
+    @taskbroken
     healCreep(target: Creep): Task2Ret {
         const c = this.cc;
         if (target.pos.roomName !== this.pos.roomName) return "start";

@@ -1,6 +1,6 @@
 import { JobCreep } from "job.creep";
 import { CreepCarry } from "creep.carry";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { findReactors, thoriumMineral } from "reactor";
 
 // Season 11 thorium runner. Spawned in the Reactor mission's "home" room, it
@@ -184,7 +184,7 @@ export class Warboy extends JobCreep {
         return this.pos.findClosestByRange(loot);
     }
 
-    @task
+    @taskbroken
     scavenge(loot: Resource | Tombstone | Ruin): Task2Ret {
         if (!this.c.store.getFreeCapacity() || this.shouldDeliver) return "start";
         const T = RESOURCE_THORIUM!;
@@ -199,7 +199,7 @@ export class Warboy extends JobCreep {
         return "wait";
     }
 
-    @task
+    @taskbroken
     harvest(mineral: Mineral): Task2Ret {
         if (!this.c.store.getFreeCapacity() || this.shouldDeliver) return "start";
         if (!mineral.mineralAmount) return "start";
@@ -224,7 +224,7 @@ export class Warboy extends JobCreep {
         this.cc.idleNomType(RESOURCE_THORIUM);
     }
 
-    @task
+    @taskbroken
     deliver(): Task2Ret {
         if (!this.thorium) return "start";
         const roomName = this.mission.roomName;

@@ -1,5 +1,5 @@
 import { Guard, kRetreatHurts } from "job.guard";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import type { Capture } from "ms.capture";
 
 // Crow: the Capture mission's fighter (ms.capture.ts). A Guard on a fixed
@@ -92,7 +92,7 @@ export class Crow extends Guard {
 
     // Hurt: fall back to the staging flag (the staging room without one)
     // and heal up there; back to work once under the threshold.
-    @task
+    @taskbroken
     retreat(): Task2Ret {
         if (this.cc.hurts < kRetreatHurts) return "start";
         const flag = this.capture.stagingFlag;

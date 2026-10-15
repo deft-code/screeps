@@ -1,5 +1,5 @@
 import { JobCreep } from "job.creep";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { defaultRewalker } from "Rewalker";
 import type { CreepMove } from "creep.move";
 

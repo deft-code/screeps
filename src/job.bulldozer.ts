@@ -1,5 +1,5 @@
 import { JobCreep } from "job.creep";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { closeSpawns } from "spawnold";
 import { energyDef } from "spawn";
 import { defaultRewalker, fromXY } from "Rewalker";
@@ -117,7 +117,7 @@ export class Bulldozer extends JobCreep {
         return this.doze(t.x * 100 + t.y, t.roomName);
     }
 
-    @task
+    @taskbroken
     boost(lab: StructureLab): Task2Ret {
         const c = this.c;
         if (!this.boostLab()) return "start";
@@ -131,7 +131,7 @@ export class Bulldozer extends JobCreep {
         return "wait";
     }
 
-    @task
+    @taskbroken
     doze(xy: number, roomName: string): Task2Ret {
         const pos = fromXY(xy, roomName);
         // Dropped from the list (cleared, or the mission changed its mind).

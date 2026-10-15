@@ -227,8 +227,12 @@ Debugging the live game (patterns that worked):
   edited in-game) is rebuilt from source, `Memory` (creep memory included)
   survives. Pushes are rate limited (the `RateLimiting: (N/240 ...)` counter in
   the output), so batch edits rather than pushing per line.
-- `memory.task2` often reads `null` from the console even while `@task`s run;
-  judge a creep by position, store and TTL across ticks instead.
+- `@task` never persisted until 14 Oct 2026 (its wrapper was discarded by
+  `__decorate`); every former use is `@taskbroken`, a no-op, and jobs move
+  back to the fixed `@task` one at a time (docs/known-issues.md). A
+  `@taskbroken` job re-enters `start()` each tick and `memory.task2` reads
+  `null` for it; one that plans a walk there keeps its target in memory
+  itself (Bulldozer `dozeTo`, Razer `razeId`).
 - The log lines above the result are greppable by their `file:line#func` tag,
   e.g. `| grep "#runGenesis"` shows the planned `mem:` JSON after a YELLOW.
 - Multi-statement probes: wrap in an IIFE and return `JSON.stringify(...)`:

@@ -18,7 +18,29 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
    with a spurious "Creep Died!" log.
 4. **`Startup.spawn` / `Reboot.spawn` ignore the `spawns` argument** and use
    `_.sample(Game.spawns)`; fine with one room, wrong with several.
-5. **W24S7's north exit is walled off by its own base** (Oct 2026): the
+5. **`@task` never persisted until 14 Oct 2026** (`src/mycreep.ts`). The
+   decorator patched `prototype[name]` with its wrapper but returned
+   nothing, so TypeScript's `__decorate` re-defined the method with the
+   original descriptor and the wrapper was lost. No `memory.task2` was ever
+   written (which is why it "often read null"), `runTask` always answered
+   `"start"`, and every job re-entered `start()` every tick: a job that
+   plans a walk there (Bulldozer, Razer/Canopener) ran a multi-room
+   PathFinder search a tick until they got a memory-kept target (`dozeTo`,
+   `razeId`). `task()` is fixed (`desc.value`), and every former use is now
+   `@taskbroken`, a no-op that keeps the old behaviour, so the 36 methods in
+   20 jobs can be moved back to `@task` one at a time: a persisted task
+   resumes through `runTask` without the per-tick guards in its job's
+   `start()` (keeper and hostile flees, retargeting, mission-room checks)
+   until it returns `"start"`, so each move is checked live. Still on
+   `@taskbroken`: guard `hunt`/`duel`
+   /`healCreep`/`retreat`, wolf `attack`/`retreat`, crow `retreat`, warboy
+   `harvest`/`deliver`/`scavenge`, thoreater `harvest`/`deposit`, chemist
+   `fetch`/`fill`/`drain`/`gather`/`stash`, cleanup `gather`/`deliver`,
+   chaos `dismantle`, claimer/reserver `claim`/`reserve`, immortan
+   `reserve`, paver `take`, konmari `loadFrom`, swiper `withdrawFrom`,
+   warrunner `load`/`retire`, prospector/thoreater/cleanup `recycle`,
+   razer `dismantle`/`decomm`, bulldozer `doze`/`boost`, JobCreep `dropAt`.
+6. **W24S7's north exit is walled off by its own base** (Oct 2026): the
    terrain leaves a two-tile gap at 17,6 and 18,6 between the room and the
    exit tiles at 6..17,0, and the `Front` metas put extensions on both.
    `Game.map.findRoute` still routes through that exit (it only knows exits

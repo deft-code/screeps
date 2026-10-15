@@ -1,4 +1,4 @@
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { Guard } from "job.guard";
 import { toXY } from "Rewalker";
 

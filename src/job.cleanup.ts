@@ -1,5 +1,5 @@
 import { JobCreep } from "job.creep";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { energyDef } from "spawn";
 
 // Teardown sweeper for the Thormine mission (ms.thormine.ts, phase 2). A
@@ -109,7 +109,7 @@ export class Cleanup extends JobCreep {
         return this.recycle();
     }
 
-    @task
+    @taskbroken
     gather(source: EnergySource): Task2Ret {
         if (!this.c.store.getFreeCapacity()) return "start";
         if (energyIn(source) <= 0) return "start";
@@ -124,7 +124,7 @@ export class Cleanup extends JobCreep {
         return "start";
     }
 
-    @task
+    @taskbroken
     deliver(): Task2Ret {
         if (!this.energy) return "start";
         const terminal = this.terminal;
@@ -148,7 +148,7 @@ export class Cleanup extends JobCreep {
     }
 
     // Nothing left to move: hand the body back at the spawn, or just die.
-    @task
+    @taskbroken
     recycle(): Task2Ret {
         const spawn = this.pos.findClosestByRange(this.c.room.findStructs(STRUCTURE_SPAWN) as StructureSpawn[]);
         if (!spawn || this.refund < kRecycleWorth) {

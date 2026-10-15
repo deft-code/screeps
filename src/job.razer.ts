@@ -1,5 +1,5 @@
 import { JobCreep } from "job.creep";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { defaultRewalker } from "Rewalker";
 import { dozerSpawn, dozeable, dozeableStruct } from "job.bulldozer";
 import { stompable } from "job.scout";
@@ -103,7 +103,7 @@ export class Razer extends JobCreep {
         return this.moveTarget(site, 0);
     }
 
-    @task
+    @taskbroken
     dismantle(target: Structure): Task2Ret {
         if (!target || !dozeableStruct(target)) return "start";
         if (!this.pos.isNearTo(target)) return this.moveTarget(target, 1);
@@ -119,7 +119,7 @@ export class Razer extends JobCreep {
 
     // Hand the body back at the origin spawn (JobCreep.recycleAt); with no
     // spawn to go to, die.
-    @task
+    @taskbroken
     decomm(): Task2Ret {
         return this.recycleAt(this.originSpawn());
     }

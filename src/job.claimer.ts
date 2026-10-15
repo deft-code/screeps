@@ -1,5 +1,5 @@
 import { JobRole } from "job.role";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { whoami } from "Rewalker";
 
 // Port of role.claimer.js (2017 flag-team era) to the mission/job system.
@@ -28,7 +28,7 @@ export class Claimer extends JobRole {
         return this.claim(controller);
     }
 
-    @task
+    @taskbroken
     claim(controller: StructureController): Task2Ret {
         if (controller.pos.roomName !== this.pos.roomName) return "start";
         if (controller.my) return "start";

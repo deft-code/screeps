@@ -22,8 +22,13 @@ export type Task2Ret = "again" | "start" | "wait" | false;
 // runTask swaps the live object back in (or restarts when it is gone).
 export function task(prototype: any, name: string, desc: PropertyDescriptor) {
     const _name = "_task_" + name;
-    prototype[_name] = prototype[name];
-    prototype[name] = function (...args: any[]) {
+    const orig = desc.value;
+    prototype[_name] = orig;
+    // Set on the descriptor, not the prototype: TypeScript's __decorate
+    // re-defines the method with this descriptor afterwards, so a wrapper
+    // written straight to prototype[name] was thrown away (every @task
+    // until 14 Oct 2026, see taskbroken).
+    desc.value = function (this: any, ...args: any[]) {
         const mem: Task2Memory = { name, args: [] };
         args.forEach((arg, i) => {
             if (mem.id === undefined && arg && typeof arg === "object" && typeof arg.id === "string") {
@@ -35,14 +40,24 @@ export function task(prototype: any, name: string, desc: PropertyDescriptor) {
         });
         mem.args = JSON.parse(JSON.stringify(mem.args));
         this.memory.task2 = mem;
-        return prototype[_name].apply(this, args);
+        return orig.apply(this, args);
     };
 }
 
 const mycreeps = new Map<string, MyCreep>();
 const myroles = new Map<string, typeof MyCreep>();
+    return desc;
 
 // The registered job class for a role name ("paver"), or null.
+// What every @task was in practice until 14 Oct 2026: nothing. The
+// decorator above wrote its wrapper to the prototype and returned no
+// descriptor, so __decorate put the original method back and no task ever
+// persisted; every job re-entered start() each tick. Jobs are moved back
+// to @task one at a time, each checked for what its resume path skips
+// (the flee, retarget and room checks its start() makes every tick), see
+// docs/known-issues.md.
+export function taskbroken(prototype: any, name: string, desc: PropertyDescriptor) { }
+
 export function getRoleClass(role: string): typeof MyCreep | null {
     return myroles.get(role.toLowerCase()) || null;
 }

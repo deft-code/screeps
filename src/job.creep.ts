@@ -1,5 +1,5 @@
 import { Mission } from "mission";
-import { MyCreep, task, Task2Ret } from "mycreep";
+import { MyCreep, taskbroken, Task2Ret } from "mycreep";
 import { Service } from "process";
 import { defaultRewalker, fromXY } from "Rewalker";
 import { healPick, hurtFriendlies, isFighter } from "heal";
@@ -166,7 +166,7 @@ export class JobCreep extends MyCreep {
     // Nowhere to unload: walk to within 3 of `ctrl` and drop what we carry
     // there, one resource per tick, until empty. Shared by Swiper.deliver
     // and Trucker (the pile then feeds Hub's pile upgraders).
-    @task
+    @taskbroken
     dropAt(ctrl: StructureController): Task2Ret {
         const c = this.c;
         const res = _.find(Object.keys(c.store) as ResourceConstant[], r => c.store[r] > 0);

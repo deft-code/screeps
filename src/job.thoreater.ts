@@ -1,6 +1,6 @@
 import { JobCreep } from "job.creep";
 import { CreepCarry } from "creep.carry";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { energyDef } from "spawn";
 import { thoriumMineral } from "reactor";
 import type { Thormine } from "ms.thormine";
@@ -168,7 +168,7 @@ export class Thoreater extends JobCreep {
 
     // Mined out and empty: hand the body back at the nearest spawn in the
     // room, or suicide when the room has none left.
-    @task
+    @taskbroken
     recycle(): Task2Ret {
         if (this.c.store.getUsedCapacity()) return "start";
         const spawn = this.pos.findClosestByRange(this.c.room.findStructs(STRUCTURE_SPAWN) as StructureSpawn[]);
@@ -186,7 +186,7 @@ export class Thoreater extends JobCreep {
         return "wait";
     }
 
-    @task
+    @taskbroken
     harvest(mineral: Mineral): Task2Ret {
         if (this.shouldDeposit || this.wouldSpill) return "start";
         if (!mineral.mineralAmount) return "start";
@@ -216,7 +216,7 @@ export class Thoreater extends JobCreep {
     // Empty the whole store into the terminal, thorium first, one resource a
     // tick, and keep at it until nothing is left: energy another creep handed
     // over goes too, so the store is clear for mining.
-    @task
+    @taskbroken
     deposit(): Task2Ret {
         if (!this.c.store.getUsedCapacity()) return "start";
         const terminal = this.terminal;

@@ -1,4 +1,4 @@
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { Warboy, kTravelBuffer } from "job.warboy";
 import { findReactors } from "reactor";
 
@@ -98,7 +98,7 @@ export class Warrunner extends Warboy {
     // Withdraw as much thorium as fits from the home terminal. The walk to
     // the reactor is planned from the terminal's side (Warboy.planTravel), so
     // a loaded runner knows when its ticks to live run short.
-    @task
+    @taskbroken
     load(terminal: StructureTerminal): Task2Ret {
         if (this.shouldDeliver) return "start";
         const T = RESOURCE_THORIUM!;
@@ -127,7 +127,7 @@ export class Warrunner extends Warboy {
     // Put any thorium back in the home terminal, then hand the body back at
     // the nearest spawn (suicide with no spawn in the room). Never recycled
     // loaded: the thorium would drop at the spawn and age whatever passes.
-    @task
+    @taskbroken
     retire(): Task2Ret {
         if (this.thorium > 0) {
             const terminal = this.homeTerminal;

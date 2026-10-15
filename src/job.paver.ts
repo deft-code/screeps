@@ -1,5 +1,5 @@
 import { JobRole } from "job.role";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { CreepRepair } from "creep.repair";
 import { defaultRewalker } from "Rewalker";
 import { roomKind, Kind } from "intel";
@@ -222,7 +222,7 @@ export class Paver extends JobRole {
     }
 
     // Pick up, withdraw from, or harvest `target` until it or our room runs out.
-    @task
+    @taskbroken
     take(target: Forage): Task2Ret {
         if (this.full) return "start";
         if (target instanceof Source ? target.energy <= 0 :

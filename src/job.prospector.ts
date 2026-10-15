@@ -1,6 +1,6 @@
 import { JobCreep } from "job.creep";
 import { CreepMove } from "creep.move";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { fleeKeepers } from "job.skharvester";
 import { roomKind, Kind } from "intel";
 
@@ -193,7 +193,7 @@ export class Prospector extends JobCreep {
     }
 
     // Hand the body back at the nearest spawn in this room; none, die.
-    @task
+    @taskbroken
     recycle(): Task2Ret {
         const spawn = this.pos.findClosestByRange(this.c.room.findStructs(STRUCTURE_SPAWN) as StructureSpawn[]);
         if (!spawn) {

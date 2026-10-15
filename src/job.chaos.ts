@@ -1,5 +1,5 @@
 import { JobCreep } from "job.creep";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { CreepMove } from "creep.move";
 import { closeSpawns } from "spawnold";
 import { whoami } from "Rewalker";
@@ -131,7 +131,7 @@ export class Chaos extends JobCreep {
         return target ? this.dismantle(target) : null;
     }
 
-    @task
+    @taskbroken
     dismantle(target: Structure): Task2Ret {
         // Danger and age are start()'s to handle.
         if (this.spent || this.threatened) return "start";

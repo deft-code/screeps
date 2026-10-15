@@ -1,5 +1,5 @@
 import { JobCreep } from "job.creep";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { closeSpawns } from "spawnold";
 import { energyDef } from "spawn";
 import { defaultRewalker } from "Rewalker";
@@ -110,7 +110,7 @@ export class Swiper extends JobCreep {
         return this.pos.findClosestByRange(targets);
     }
 
-    @task
+    @taskbroken
     withdrawFrom(target: AnyStoreStructure): Task2Ret {
         const c = this.c;
         const res = _.first(stocked(target.store, this.worth));

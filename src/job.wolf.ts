@@ -1,5 +1,5 @@
 import { JobRole } from "job.role";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { CreepRole } from "creep.role";
 import { EnemyCreep } from "creep.enemy";
 import { roomCenterPos } from "intel";
@@ -218,7 +218,7 @@ export class Wolf extends JobRole {
         return c.hurts >= 100 && c.hurts > c.hits;
     }
 
-    @task
+    @taskbroken
     retreat(): Task2Ret {
         const c = this.cc;
         if (c.melee && c.hurts < 100) return "start";
@@ -232,7 +232,7 @@ export class Wolf extends JobRole {
         return "wait";
     }
 
-    @task
+    @taskbroken
     attack(target: Creep | AnyStructure): Task2Ret {
         const c = this.cc;
         if (target.pos.roomName !== this.pos.roomName) return "start";

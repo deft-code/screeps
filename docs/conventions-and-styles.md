@@ -64,7 +64,7 @@ the layer you are editing; new behaviour goes in the 2022 style.
 - Processes return their next priority row from `run()`; CPU gating via
   `bucket` and `canRun`.
 - Commands are strings: `"Swipe W5N8 W6N8"`; `Service.args` splits on spaces.
-- `Task2Ret` (`"again" | "start" | "wait" | false`) and the `@task` decorator
+- `Task2Ret` (`"again" | "start" | "wait" | false`) and the `@task` decorator (fixed 14 Oct 2026; jobs still on the no-op `@taskbroken` are being migrated back one at a time)
   persist resumable tasks in `memory.task2`.
 - Population control is TTL-based (`nCreeps`) instead of tick pacing.
 

@@ -1,5 +1,5 @@
 import { JobRole } from "job.role";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { whoami } from "Rewalker";
 import { getSpots } from "spots";
 
@@ -59,7 +59,7 @@ export class Reserver extends JobRole {
     }
 
     // creep.work.js taskReserve
-    @task
+    @taskbroken
     reserve(controller: StructureController): Task2Ret {
         let err = this.c.reserveController(controller);
         if (err === ERR_INVALID_TARGET) {

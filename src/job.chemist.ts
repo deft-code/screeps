@@ -1,5 +1,5 @@
 import { JobRole } from "job.role";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 
 // A lab is filled up to this much of its planned mineral, and up to
 // kBoostFill while it is boosting. Both sit under the amounts at which
@@ -162,7 +162,7 @@ export class Chemist extends JobRole {
         return "wait";
     }
 
-    @task
+    @taskbroken
     fetch(depot: Depot, res: ResourceConstant, amount: number): Task2Ret {
         const c = this.c;
         const n = Math.min(amount, c.store.getFreeCapacity(), depot.store[res] || 0);
@@ -174,7 +174,7 @@ export class Chemist extends JobRole {
         return "wait";
     }
 
-    @task
+    @taskbroken
     fill(sink: Fillable, res: ResourceConstant): Task2Ret {
         const c = this.c;
         const free = (sink.store as Store<ResourceConstant, false>).getFreeCapacity(res) || 0;
@@ -190,7 +190,7 @@ export class Chemist extends JobRole {
         return "wait";
     }
 
-    @task
+    @taskbroken
     drain(lab: StructureLab): Task2Ret {
         const c = this.c;
         const res = lab.mineralType;
@@ -203,7 +203,7 @@ export class Chemist extends JobRole {
 
     // Everything but energy out of a stray, until full or it is clean; the
     // load then goes to the storage (start(), memory.stray).
-    @task
+    @taskbroken
     gather(stray: Stray): Task2Ret {
         const c = this.c;
         if (!c.store.getFreeCapacity()) return "start";
@@ -220,7 +220,7 @@ export class Chemist extends JobRole {
         return "wait";
     }
 
-    @task
+    @taskbroken
     stash(depot: Depot): Task2Ret {
         const c = this.c;
         const res = _.find(Object.keys(c.store) as ResourceConstant[], r => c.store[r] > 0);

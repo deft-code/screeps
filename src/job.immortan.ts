@@ -1,5 +1,5 @@
 import { JobRole } from "job.role";
-import { register, task, Task2Ret } from "mycreep";
+import { register, taskbroken, Task2Ret } from "mycreep";
 import { findReactors } from "reactor";
 
 
@@ -80,7 +80,7 @@ export class Immortan extends JobRole {
     // a Reactor target and range 1. The client stub does no owner check, so
     // whether an owned reactor can be taken over shows up only in the return
     // code; report() logs it.
-    @task
+    @taskbroken
     reserve(reactor: ReactorObject): Task2Ret {
         if (reactor.pos.roomName !== this.pos.roomName) return "start";
         if (!this.pos.isNearTo(reactor)) {
