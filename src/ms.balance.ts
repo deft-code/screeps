@@ -30,10 +30,12 @@ declare global {
 //   getService('Balance').removeRoom('W25S7')
 //   getService('Balance').setMineralRoom('W25S7')   // no argument: off
 //
-// With a mineral room set, every other listed terminal also sends it all of
-// its minerals and compounds (anything but energy and thorium, which
-// Thormine ships), one resource of TERMINAL_MIN_SEND or more per cooldown,
-// ahead of the energy levelling.
+// With a mineral room set, every other listed terminal also sends it its
+// minerals and compounds (anything but energy and thorium, which Thormine
+// ships), one resource of TERMINAL_MIN_SEND or more per cooldown, ahead of
+// the energy levelling, but only a resource the mineral room holds less
+// of (terminal and storage together) than the sender's room, and no more
+// than the gap (since 14 Oct 2026; before that everything went).
 //
 // Rooms without vision, without a terminal we own, or whose terminal is
 // inactive (an unclaimed room keeps our structures: W27S5, Oct 2026; a send
@@ -98,10 +100,17 @@ export class Balance extends Service {
         return this.memory.minerals || null;
     }
 
+    // What a room holds of `res` in its terminal and storage.
+    static stock(room: Room, res: ResourceConstant): number {
+        return (room.terminal?.store[res] || 0) + (room.storage?.store[res] || 0);
+    }
+
     // Every terminal but the mineral room's, off cooldown, sends one resource
     // there: anything but energy (levelled below) and thorium (Thormine's),
-    // TERMINAL_MIN_SEND or more of it, as much as the destination has room
-    // for and the sender's energy pays the fee on. A partial send that would
+    // TERMINAL_MIN_SEND or more of it that the mineral room's rooms holds
+    // less of than the sender's (stock: terminal + storage), up to the gap,
+    // as much as the destination has room for and the sender's energy pays
+    // the fee on. A partial send that would
     // leave under TERMINAL_MIN_SEND behind is not made: that remainder could
     // never ship, so the terminal waits until its energy (or the hub's room)
     // covers the whole lot. True when something went.
@@ -112,11 +121,12 @@ export class Balance extends Service {
         let sent = false;
         for (const term of terms) {
             if (term.id === hub.id || term.cooldown > 0) continue;
+            const gapOf = (r: ResourceConstant) => Balance.stock(term.room, r) - Balance.stock(hub.room, r);
             const res = _.find(Object.keys(term.store) as ResourceConstant[], r =>
-                r !== RESOURCE_ENERGY && r !== RESOURCE_THORIUM && term.store[r] >= TERMINAL_MIN_SEND);
+                r !== RESOURCE_ENERGY && r !== RESOURCE_THORIUM && term.store[r] >= TERMINAL_MIN_SEND && gapOf(r) >= TERMINAL_MIN_SEND);
             if (!res) continue;
             const have = term.store[res];
-            let amount = Math.min(have, hub.store.getFreeCapacity(res) || 0);
+            let amount = Math.min(have, gapOf(res), hub.store.getFreeCapacity(res) || 0);
             const cost = Game.market.calcTransactionCost(amount, term.room.name, dest);
             if (cost > term.store.energy) amount = Math.floor(amount * term.store.energy / cost);
             if (amount < TERMINAL_MIN_SEND) continue;
