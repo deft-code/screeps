@@ -7,8 +7,13 @@ import { Scout } from "job.scout";
 import { defaultRewalker } from "Rewalker";
 import { roomKind, Kind, RoomIntel } from "intel";
 
-// The home terminal must hold more thorium than this before a warrunner is laid.
-const kDepotMin = 1000;
+// The depot switches on once the home terminal holds this much thorium
+// (memory.active, persisted) and off again under kDepotOff: a wide band, so
+// a trickle from the Thormines does not flip the warrunners (and the
+// capture that follows them) on and off every few hundred ticks. 1000
+// both ways until 14 Oct 2026.
+const kDepotOn = 10000;
+const kDepotOff = 500;
 
 // Ticks of one warrunner round trip: the walk both ways (~120 each from
 // W25S7) plus loading. Tune from observation.
@@ -43,6 +48,8 @@ export interface ReactorDepotMemory extends ReactorMemory {
     capture?: string
     // We paused that capture because we went cold (syncCapture).
     coldPaused?: boolean
+    // The depot is on: reached kDepotOn thorium and not yet under kDepotOff.
+    active?: boolean
 }
 
 const rewalker = defaultRewalker();
@@ -50,8 +57,9 @@ const rewalker = defaultRewalker();
 // Reactor fed from a terminal instead of a mine: everything ms.reactor does
 // (scout for vision, probe, guard against enemies, immortan holding the
 // reactor, invader-core pause) but the thorium runner is a Warrunner that
-// loads from the home room's terminal, laid only while that terminal holds
-// more than kDepotMin thorium (Thormine ships it there, ms.thormine.ts).
+// loads from the home room's terminal, laid only while the depot is active:
+// on once that terminal holds kDepotOn thorium, off again under kDepotOff
+// (Thormine ships it there, ms.thormine.ts).
 //
 // The route the runners walk (Rewalker.getRoute home -> core, refreshed every
 // kRoutePace ticks) is kept in memory with its Source Keeper rooms. Every
@@ -63,10 +71,10 @@ const rewalker = defaultRewalker();
 //
 // The core's Capture mission (`Capture <core>`, memory.capture once found
 // among the scheduled services) follows the depot: the tick the depot goes
-// cold (the home terminal at or under kDepotMin thorium with no warrunner
-// alive, hatching or queued, so the reactor is about to run dry) the
-// capture is paused, and the tick thorium is back over kDepotMin it is
-// resumed (syncCapture, every tick, held or not). Only a pause of ours is
+// cold (the depot inactive with no warrunner alive, hatching or queued,
+// so the reactor is about to run dry) the capture is paused, and the tick
+// the depot is active again it is resumed (syncCapture, every tick, held
+// or not). Only a pause of ours is
 // undone (memory.coldPaused); one set by hand stays.
 //
 //   scheduleService('ReactorDepot W25S7')     // args[1]=home room: spawns and the terminal
@@ -105,8 +113,23 @@ export class ReactorDepot extends Reactor {
         return term && RESOURCE_THORIUM ? term.store[RESOURCE_THORIUM] || 0 : 0;
     }
 
+    // The depot's switch, with its band: on at kDepotOn, off under
+    // kDepotOff, remembered in between. Logged on each flip.
+    get active(): boolean {
+        const mem = this.dmem;
+        const depot = this.depot;
+        if (mem.active && depot < kDepotOff) {
+            mem.active = false;
+            debug.log(this.name, "depot off at", depot, "thorium (under", kDepotOff + ")");
+        } else if (!mem.active && depot >= kDepotOn) {
+            mem.active = true;
+            debug.log(this.name, "depot on at", depot, "thorium (", kDepotOn, "reached)");
+        }
+        return !!mem.active;
+    }
+
     homeHasThorium(home: Room): boolean {
-        return this.depot > kDepotMin;
+        return this.active;
     }
 
     // The rooms from home to the core as Rewalker routes them, and the SK
@@ -155,9 +178,9 @@ export class ReactorDepot extends Reactor {
         return this.roleCreeps(role).length + this.roleHatches(role).length + this.roleEggs(role).length > 0;
     }
 
-    // Out of thorium: nothing to load and nobody carrying any.
+    // Out of thorium: the depot off and nobody carrying any.
     get cold(): boolean {
-        return this.depot <= kDepotMin && !this.runnersAbout;
+        return !this.active && !this.runnersAbout;
     }
 
     // Pause the core's capture while cold, resume it once warm again.
@@ -231,6 +254,6 @@ export class ReactorDepot extends Reactor {
         const route = ` route:${this.route.join(">")} sk:${(mem.skRooms || []).join(",") || "-"}`;
         const core = this.paused && mem.coreRoom ? ` core:${mem.coreRoom}` : "";
         const cap = mem.capture ? ` capture:${mem.capture}${this.cold ? " cold" : ""}${mem.coldPaused ? " paused" : ""}` : "";
-        return super.status() + ` depot:${this.depot}` + route + core + cap;
+        return super.status() + ` depot:${this.depot}${this.active ? " on" : " off"}` + route + core + cap;
     }
 }
