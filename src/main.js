@@ -16,6 +16,10 @@ global.r = Game.getObjectById('6a901a3bb8684d0008337ef3');
 // Schedule a service to run that persists across global resets.
 global.scheduleService = cmd => process.Service.schedule(cmd);
 
+// Run a service until the next global reset only (not scheduled). Was
+// documented but missing until Oct 2026.
+global.spawnService = cmd => process.Service.spawn(cmd);
+
 // Live service instance for a command string, or null. e.g. getService('Swipe W5N8 W6N8').windDown()
 global.getService = cmd => process.Service.getType(cmd);
 
