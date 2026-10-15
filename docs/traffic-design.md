@@ -70,7 +70,9 @@ entry too:
 | ctrl | origin -> ctrl spot, range 1 |
 | wall | origin -> xy, range 0 |
 | rroad | `mem.traffic` (the mission legs, 2.5) |
-| rsrc, tripod, shield, nuke | none |
+| tripod | origin -> the tripod spot (the flag tile), range 0 |
+| shield | origin -> xy (the flag tile in the gap), range 0 |
+| rsrc, nuke | none |
 
 `MetaManager.trafficOrigin()` = the planned storage site, else the genesis
 flag (`Game.flags[memory.name]`) when it is in the room, else none (a room

@@ -2358,6 +2358,10 @@ class Meta_tripod extends MetaStructure {
         addMemRamparts(mem, STRUCTURE_TOWER);
         return new this(mem, man);
     }
+    // A road to the tripod spot itself (the flag tile, under its rampart).
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.getSpot('tripod'), 0);
+    }
     maxHits(stype: BuildableStructureConstant, xy: number, rcl: number): MAXHITS {
         return this.calcStructHits(stype, xy, rcl) ||
             this.calcRampBldgHits([STRUCTURE_TOWER], xy, rcl) ||
@@ -2555,6 +2559,12 @@ class Meta_shield extends MetaStructure {
 
         cleanMem(mem);
         return new this(mem, man);
+    }
+
+    // A road from the base to the flag tile in the gap, so traffic bound
+    // for the exit beyond the shield crosses it on a road.
+    traffic(): TrafficMem[] {
+        return this.originTraffic(this.mem.xy, 0);
     }
 
     maxHits(stype: BuildableStructureConstant, xy: number, rcl: number): MAXHITS {
