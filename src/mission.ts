@@ -66,6 +66,29 @@ export abstract class Mission extends Service {
         return null;
     }
 
+    // Every mission has three rooms. The target (roomName) is always
+    // named. The home is where its creeps belong (getRoomName("home"),
+    // which a mission answers from its arguments), the target when it
+    // names none. The spawn room is where its eggs hatch
+    // (getRoomName("spawn")), the home when it names none. hasHomeRoom
+    // and hasSpawnRoom say whether the mission named one, for jobs that
+    // pin their eggs only when told to (JobCreep.spawnRoomSpawns).
+    get hasHomeRoom(): boolean {
+        return !!this.getRoomName("home");
+    }
+
+    get homeRoomName(): string {
+        return this.getRoomName("home") || this.roomName;
+    }
+
+    get hasSpawnRoom(): boolean {
+        return !!this.getRoomName("spawn");
+    }
+
+    get spawnRoomName(): string {
+        return this.getRoomName("spawn") || this.homeRoomName;
+    }
+
     get eggs() {
         return _.map(this.memory.eggs, c => getMyCreep(c));
     }

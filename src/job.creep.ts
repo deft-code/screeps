@@ -216,6 +216,19 @@ export class JobCreep extends MyCreep {
         return cont;
     }
 
+    // The spawns of the mission's spawn room when it names one
+    // (Mission.hasSpawnRoom), else null: a job that honours the pin picks
+    // from these when given, and falls back to its own distance pick
+    // (closeSpawns, remoteSpawns) otherwise.
+    //
+    //   const pinned = this.spawnRoomSpawns(spawns);
+    //   return dozerSpawn(pinned || spawns, this.homeName, !!pinned);
+    spawnRoomSpawns(spawns: StructureSpawn[]): StructureSpawn[] | null {
+        const mission = this.mission;
+        if (!mission?.hasSpawnRoom) return null;
+        return spawns.filter(s => s.room.name === mission.spawnRoomName);
+    }
+
     // A spawn for a fixed-cost body: in the mission's home room when it
     // names one, else the spawns nearest the mission room; one not busy with
     // `cost` energy on hand in its room, else null (wait). Shared by the

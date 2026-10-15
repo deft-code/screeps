@@ -556,6 +556,13 @@ skip straight to `super.run()`, so they lay no eggs while winding down. A new
 ## GlobalRespawn (`src/ms.globalrespawn.ts`)
 
 Room = `Game.spawns.Home.room`, or the first spawn's room when no spawn is named `Home` (throws only with no spawns at all). Each tick:
+- The three rooms (Oct 2026): every mission has a target (`roomName`), a
+  home and a spawn room. `homeRoomName` is `getRoomName("home")` else the
+  target; `spawnRoomName` is `getRoomName("spawn")` else the home;
+  `hasHomeRoom`/`hasSpawnRoom` say whether the mission named one. Jobs
+  that pin only when told to call `JobCreep.spawnRoomSpawns(spawns)`: the
+  spawn room's spawns when named, else null and their own distance pick
+  (`Bulldozer.spawn` -> `dozerSpawn(pinned || spawns, home, !!pinned)`).
 
 ```
 if no creeps at all:              nJobs(Reboot, 1)        # emergency: body sized from energyAvailable
