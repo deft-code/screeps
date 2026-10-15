@@ -27,9 +27,15 @@ export interface HarvestMission extends Mission {
 // the container. Builds the container site first;
 // once it stands, harvesting comes first and building/repairing around the
 // spot (the container included) fills the ticks when creep and container
-// are both full. Never carries energy away; that is the trucker's job.
+// are both full. Never carries energy away; that is the trucker's job, and
+// it never takes energy off a passing one either (donatable 0): what it
+// mines is for the container site and repairs.
 @register
 export class Harvester extends JobRole {
+    donatable(): number {
+        return 0;
+    }
+
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         // Harvesters are road-bound (3 MOVE for 10 parts) and the Remote's roads
         // run from the "home" room, so spawn there when it has spawns; fall back

@@ -23,8 +23,8 @@ import { CreepMove } from "creep.move";
 //
 // Fixed body 4 MOVE, 8 WORK, 1 CARRY (1050): 16 energy a tick against the
 // 13.3 a keeper source regenerates, from the same spawns a Harvester would
-// use (home room first). It never takes energy off a passing hauler
-// (donatable 0): whatever it holds is for the container site and repairs.
+// use (home room first). Like every Harvester it never takes energy off a
+// passing hauler (donatable 0).
 
 const kDanger = 5;
 const kSafe = 6;
@@ -93,10 +93,6 @@ export class Skharvester extends Harvester {
         const [spawn] = super.spawn(spawns);
         if (!spawn || spawn.room.energyCapacityAvailable < Skharvester.cost) return [null, []];
         return [spawn, Skharvester.parts];
-    }
-
-    donatable(): number {
-        return 0;
     }
 
     init(): boolean {
