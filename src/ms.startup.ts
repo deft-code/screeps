@@ -7,6 +7,8 @@ import { Guard } from "job.guard";
 import { Wolf } from "job.wolf";
 import { Reserver, reserveHoldPace } from "job.reserver";
 import { Harvester, HarvestMission } from "job.harvester";
+import { Fedex } from "job.fedex";
+import { kHomeFloor } from "ms.xfer";
 import { whoami } from "Rewalker";
 import { getSpots } from "spots";
 import { getMetaManager, MetaStructure } from "metastruct";
@@ -79,6 +81,11 @@ export interface StartupMemory extends MissionMemory {
 // paces Pioneers (job.pioneer.ts) at kPioneers (2) per lifetime (paceNJobs),
 // spawned by the nearest spawns outside the room ("remote" strategy) and
 // homed on the room, plus nJobs(Guard, 1) until the room has a tower.
+// Whenever pioneers are laid (early or owned), one Fedex (job.fedex.ts) per
+// pioneer standing in the room is paced from the home room while its
+// storage holds Xfer's kHomeFloor energy or more (feedPioneers): each carries a
+// load over and, the room having no container yet, hands it to the
+// pioneers (Fedex.donate), so they build instead of mining.
 // At RCL4 the mission winds down: no more eggs, the
 // living pioneers work until they die, then the mission kills and
 // deschedules itself.
@@ -181,13 +188,17 @@ export class Startup extends Mission implements HarvestMission {
             }
             this.setPrebuild(this.gclFull && this.isFree(controller));
             if (this.prebuilding) this.holdReservation(room);
-            if (this.canPioneerEarly(controller)) this.paceNJobs(Pioneer, kPioneers);
+            if (this.canPioneerEarly(controller)) {
+                this.paceNJobs(Pioneer, kPioneers);
+                this.feedPioneers();
+            }
         } else if (controller.level >= kDoneRCL) {
             debug.log(this.name, "reached RCL", controller.level);
             this.windDown();
         } else {
             this.setPrebuild(false);
             this.paceNJobs(Pioneer, kPioneers);
+            this.feedPioneers();
             if (controller.level < kHarvesterRCL) this.nJobs(Harvester, this.sourceMetas().length);
             if (!room.findStructs(STRUCTURE_TOWER).length) this.nJobs(Guard, 1);
         }
@@ -229,6 +240,23 @@ export class Startup extends Mission implements HarvestMission {
         if (!this.isFree(controller)) return false;
         const ours = this.smem.roadMetas?.[this.roomName] || [];
         return _.any(getMetaManager(this.roomName).metas, m => !_.contains(ours, m.name));
+    }
+
+    // Pioneers of this mission standing in the mission room.
+    pioneersHere(): number {
+        return this.roleCreeps("pioneer").filter(p => p.c && p.c.pos.roomName === this.roomName).length;
+    }
+
+    // One Fedex per pioneer in the room, from the home room (Fedex loads
+    // from its storage and spawns there) while that storage holds
+    // Xfer's kHomeFloor or more; nothing without a home storage in view,
+    // and nothing while an armed hostile is in the room (a fedex cannot
+    // fight, and would only flee there with its load until killed).
+    feedPioneers() {
+        if (this.room?.hostiles.length) return null;
+        const storage = this.getRoom("home")?.storage;
+        if (!storage || storage.store.energy < kHomeFloor) return null;
+        return this.paceNJobs(Fedex, this.pioneersHere());
     }
 
     get ownedRooms(): number {
@@ -446,6 +474,7 @@ export class Startup extends Mission implements HarvestMission {
         const core = ctrl && !ctrl.my && this.room!.findStructs(STRUCTURE_INVADER_CORE).length ? " core!" : "";
         const res = ctrl && !ctrl.my ? this.foreignReservation(ctrl) : null;
         const reserved = res ? ` reserved:${res.username}/${res.ticksToEnd}` : "";
-        return super.status() + ` rcl:${lvl === undefined ? "?" : lvl}/${kDoneRCL}${early}${gcl}${road}${metas}${prebuild}${core}${reserved}`;
+        const feed = ` pioneers:${this.pioneersHere()} fedexes:${this.roleCreeps("fedex").length}`;
+        return super.status() + ` rcl:${lvl === undefined ? "?" : lvl}/${kDoneRCL}${early}${gcl}${road}${metas}${prebuild}${core}${reserved}${feed}`;
     }
 }

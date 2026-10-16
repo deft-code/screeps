@@ -40,6 +40,7 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
    `reserve`, paver `take`, konmari `loadFrom`, swiper `withdrawFrom`,
    warrunner `load`/`retire`, prospector/thoreater/cleanup `recycle`,
    razer `dismantle`/`decomm`, bulldozer `doze`/`boost`, JobCreep `dropAt`.
+   First on the fixed `@task`: Fedex `donate` (15 Oct 2026, a new method).
 6. **W24S7's north exit is walled off by its own base** (Oct 2026): the
    terrain leaves a two-tile gap at 17,6 and 18,6 between the room and the
    exit tiles at 6..17,0, and the `Front` metas put extensions on both.

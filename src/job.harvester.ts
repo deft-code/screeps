@@ -29,7 +29,8 @@ export interface HarvestMission extends Mission {
 // spot (the container included) fills the ticks when creep and container
 // are both full. Never carries energy away; that is the trucker's job, and
 // it never takes energy off a passing one either (donatable 0): what it
-// mines is for the container site and repairs.
+// mines is for the container site and repairs. A bare spot (no container,
+// no site) gets its container site from the harvester itself.
 @register
 export class Harvester extends JobRole {
     donatable(): number {
@@ -175,6 +176,17 @@ export class Harvester extends JobRole {
         }
         const site = _.first(spot.lookFor(LOOK_CONSTRUCTION_SITES).filter(s => s.my && s.structureType === STRUCTURE_CONTAINER));
         const cont = _.first(spot.lookFor(LOOK_STRUCTURES).filter(s => s.structureType === STRUCTURE_CONTAINER)) as StructureContainer | undefined;
+
+        // Neither under the creep: lay the site (it is there next tick and
+        // the build branch below takes over). The genesis asrc/bsrc meta
+        // holds its container back until the room has a spawn
+        // (Meta_asrc.findSite), and a harvester full on a bare spot sat
+        // there doing nothing (harvester17 in W28S8, 15 Oct 2026); the
+        // Skharvester laid its own already.
+        if (!site && !cont) {
+            const err = spot.createConstructionSite(STRUCTURE_CONTAINER);
+            if (err !== OK) this.log("container site at", spot, "failed", err);
+        }
 
         // No container yet: build it whenever a full swing of WORK is
         // affordable, otherwise harvest to earn the energy.

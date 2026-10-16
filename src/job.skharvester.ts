@@ -1,6 +1,5 @@
 import { Harvester } from "job.harvester";
-import { register, Task2Ret } from "mycreep";
-import { MetaStructure } from "metastruct";
+import { register } from "mycreep";
 import { CreepMove } from "creep.move";
 
 // The Harvester of the SK farm (ms.skfarm.ts): a Harvester (job.harvester.ts)
@@ -15,9 +14,10 @@ import { CreepMove } from "creep.move";
 //     it flee until every keeper is kSafe (6) away, and at kSafe it holds
 //     still; a lair within kDanger that is under kLairSoon (4) ticks from
 //     spawning is fled the same way, so it is clear of the tile the next
-//     keeper appears on;
-//   - in position with neither a container nor a site on the spot, it lays
-//     the container site itself (nothing plans sites in an unowned room).
+//     keeper appears on.
+//
+// The container site on a bare spot is laid by Harvester.work, as for every
+// harvester (nothing plans sites in an unowned room).
 //
 // Other armed enemies still make it retreat as a Harvester would.
 //
@@ -116,17 +116,5 @@ export class Skharvester extends Harvester {
         const hostiles = (c.room.hostiles || []).filter(h => !h.keeper);
         if (hostiles.length && c.idleFlee(hostiles, c.hurts ? 5 : 3)) return true;
         return false;
-    }
-
-    // On the spot with no container and no site: lay the site, then work
-    // as a Harvester (it builds the site next tick).
-    work(meta: MetaStructure, spot: RoomPosition): Task2Ret {
-        const cont = _.first(spot.lookFor(LOOK_STRUCTURES).filter(s => s.structureType === STRUCTURE_CONTAINER));
-        const site = _.first(spot.lookFor(LOOK_CONSTRUCTION_SITES).filter(s => s.structureType === STRUCTURE_CONTAINER));
-        if (!cont && !site) {
-            const err = spot.createConstructionSite(STRUCTURE_CONTAINER);
-            if (err !== OK) this.log("container site at", spot, "failed", err);
-        }
-        return super.work(meta, spot);
     }
 }

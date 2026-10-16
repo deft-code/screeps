@@ -4,8 +4,8 @@ import * as debug from "debug";
 import { Fedex } from "job.fedex";
 
 // The mission ends once the home storage holds less energy than this
-// (0 with takeitall)...
-const kHomeFloor = 50000;
+// (0 with takeitall)... Startup's fedexes (feedPioneers) share it.
+export const kHomeFloor = 50000;
 // ...or the mission room's storage is fuller than this fraction.
 const kDestFull = 0.75;
 // Fedexes laid per lifetime unless the command names a count.

@@ -11,8 +11,8 @@ import { roomKind, Kind, RoomIntel } from "intel";
 // (memory.active, persisted) and off again under kDepotOff: a wide band, so
 // a trickle from the Thormines does not flip the warrunners (and the
 // capture that follows them) on and off every few hundred ticks. 1000
-// both ways until 14 Oct 2026.
-const kDepotOn = 10000;
+// both ways until 14 Oct 2026, on at 10000 until 15 Oct 2026.
+const kDepotOn = 25000;
 const kDepotOff = 500;
 
 // Ticks of one warrunner round trip: the walk both ways (~120 each from
