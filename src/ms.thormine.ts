@@ -4,7 +4,7 @@ import * as debug from "debug";
 import { getSpots } from "spots";
 import { getMetaManager } from "metastruct";
 import { Thoreater } from "job.thoreater";
-import { Cleanup, kCleanupCost, looseEnergy } from "job.cleanup";
+import { Cleanup, kCleanupMinEnergy, looseEnergy } from "job.cleanup";
 import { Mode } from "struct.link";
 
 // Where the mined thorium is shipped unless the command names another room.
@@ -417,7 +417,7 @@ export class Thormine extends Mission {
         if (loose < kEnergyEmpty && !busy && Game.time % kLogPace === 0) {
             debug.log(this.name, "TEARDOWN: room drained, waiting for the terminal to ship", termEnergy, "energy");
         }
-        if (room.energyAvailable < kCleanupCost) return false;
+        if (room.energyAvailable < kCleanupMinEnergy) return false;
         if (!room.findStructs(STRUCTURE_SPAWN).length) return false;
         const n = Math.min(kCleanupMax, Math.max(kCleanupMin, Math.floor(loose / kEnergyPerCleanup)));
         this.nJobs(Cleanup, n);

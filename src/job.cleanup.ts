@@ -5,16 +5,17 @@ import { energyDef } from "spawn";
 // Teardown sweeper for the Thormine mission (ms.thormine.ts, phase 2). A
 // CARRY, CARRY, MOVE body repeated as far as the energy available in the
 // mission room's own spawn and extensions allows (energyDef, interleaved, up
-// to 50 parts; at least 150 energy for the smallest), so the early sweepers
-// are big and the last ones, built from what they have not yet drained, are
-// small. It moves every bit of energy in the room into the terminal, taking
-// from sources in this order and only moving down the list when the tiers
-// above are empty:
+// to 50 parts), so the early sweepers are big. None is spawned under
+// kCleanupMinEnergy: once the extensions are drained only the spawn refills,
+// 1 energy a tick up to 300, and the sweepers wait for it to fill rather than
+// leave as half-size bodies. It moves every bit of energy in the room into
+// the terminal, taking from sources in this order and only moving down the
+// list when the tiers above are empty:
 //   1. dropped energy
 //   2. tombstones and ruins
 //   3. storage, containers, links
-//   4. towers, once the room's spawn energy is under kTowerBelow (no more
-//      cleanups can be built, so the towers can be drained)
+//   4. towers, once the room's spawn energy is under kTowerBelow (no
+//      cleanup can be built right now, so the towers can be drained)
 //   5. extensions. Never the spawn: it makes 1 energy a tick on its own, so
 //      counting it would keep the sweep alive for ever; its last 300 go
 //      down with it.
@@ -23,9 +24,9 @@ import { energyDef } from "spawn";
 // beside the spawn, so a small one would only seed a pile that calls for one
 // more sweeper, for ever), otherwise it suicides on the spot.
 
-// The smallest body laid: one CARRY, CARRY, MOVE group; the spawn gate.
-export const kCleanupBody: BodyPartConstant[] = [CARRY, CARRY, MOVE];
-export const kCleanupCost = _.sum(kCleanupBody, part => BODYPART_COST[part]);
+// The spawn gate: a full spawn, which refills itself to this even with every
+// extension empty, so the smallest sweeper is two CARRY, CARRY, MOVE groups.
+export const kCleanupMinEnergy = SPAWN_ENERGY_CAPACITY;
 
 // As many CARRY, CARRY, MOVE groups as `energy` buys, MOVEs between the
 // groups (spawn.ts energyDef interleave), never over 50 parts.
@@ -33,7 +34,7 @@ export function cleanupBody(energy: number): BodyPartConstant[] {
     return energyDef({ move: 2, per: [CARRY], energy, interleave: true } as any);
 }
 // Towers become a source once the room's spawn energy is under this.
-export const kTowerBelow = 150;
+export const kTowerBelow = kCleanupMinEnergy;
 // Recycle only when the refund (body cost scaled by life left) is at least
 // this; a smaller body suicides so its refund pile never restarts the sweep.
 export const kRecycleWorth = 300;
@@ -80,9 +81,14 @@ export function looseEnergy(room: Room): number {
 
 @register
 export class Cleanup extends JobCreep {
+    // Hauler's priority: ahead of eggs from other missions that pick this
+    // room's spawn (a remote guard costing more than a torn-down room's empty
+    // extensions will ever hold reserved its energy and starved the sweep).
+    priority = 9;
+
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         const roomName = this.mission.roomName;
-        const local = spawns.filter(s => s.room.name === roomName && s.room.energyAvailable >= kCleanupCost);
+        const local = spawns.filter(s => s.room.name === roomName && s.room.energyAvailable >= kCleanupMinEnergy);
         const spawn = _.sample(local);
         if (!spawn) return [null, []];
         return [spawn, cleanupBody(spawn.room.energyAvailable)];
