@@ -1,6 +1,7 @@
 //import 'memhack';
 import * as debug from "debug";
 import { canRun, run } from "shed";
+import { tick as paceTick } from "pace";
 
 import * as cache from "cache";
 const xx = Game.time;
@@ -426,6 +427,8 @@ function main() {
     console.log("WRONG SHARD", Game.shard);
     return;
   }
+  // Tick-rate sampler behind pace.humanize (mineral regen labels).
+  paceTick();
 
   if (Game.shard.name === 'shard2') {
     genPixels();

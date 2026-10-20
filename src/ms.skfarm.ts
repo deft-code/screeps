@@ -33,9 +33,9 @@ import { roomToCoord, roomFromCoord, roomKind, Kind, RoomIntel } from "intel";
 //
 // Core hold: while an invader core in the farm room itself is deployed or
 // deploys within kCoreHold ticks (coreWithin: by sight, else intel), no
-// hunter or vulture is laid and their unhatched eggs are dropped;
-// the living ones work on. Scouts then come at most one per kHeldScoutPace
-// ticks, still only without vision. status() shows it as held:<room>.
+// creep of any role is laid but a scout, at most one per kHeldScoutPace
+// ticks and only without vision; every other unhatched egg is dropped and
+// the living creeps work on. status() shows it as held:<room>.
 //
 // With vision it works out a standing spot for each source and mineral:
 // the walkable tile beside it with the greatest Manhattan distance from
@@ -77,7 +77,8 @@ interface SkFarmMemory extends MissionMemory {
 // An invader core deploying within this many ticks (or already deployed)
 // stops the skharvesters while `invaderless` is set.
 const kCoreDeploy = 3000;
-// ...and within this many, the hunters and vultures, `invaderless` or not.
+// ...and within this many in the farm room itself, every role but the
+// scout, `invaderless` or not.
 const kCoreHold = 1500;
 // One scout egg per this many ticks while the core hold is on.
 const kHeldScoutPace = 3000;
@@ -340,20 +341,19 @@ export class SkFarm extends Mission implements HarvestMission, ProspectMission {
             else this.nJobs(Scout, 1);
         }
         this.ensureMetas();
-        if (held) {
-            // Drop the hunter and vulture eggs already laid; every other role's stay.
-            const roles = _.uniq(this.eggs.map(e => e.role));
-            const keep = roles.filter(r => r !== "skhunter" && r !== "skvulture");
-            if (keep.length < roles.length) this.purgeEggs(keep);
-        } else {
-            this.paceNJobs(Skhunter, 1, kPace);
-            this.paceNJobs(Skvulture, 1, kPace);
-        }
         let coreThreat: string | null = null;
         if (this.invaderless) {
             theRadar.observeBackground(...this.skRooms);
             coreThreat = this.coreThreat;
         }
+        if (held) {
+            // Drop every egg already laid but the scout's.
+            if (_.any(this.eggs, e => e.role !== "scout")) this.purgeEggs(["scout"]);
+            super.run();
+            return "normal";
+        }
+        this.paceNJobs(Skhunter, 1, kPace);
+        this.paceNJobs(Skvulture, 1, kPace);
         if (this.harvesting) {
             if (!this.threatened && !coreThreat) this.paceNJobs(Skharvester, kHarvesters, kPace);
             this.paceNJobs(Sktrucker, this.containers().filter(k => k.store.energy >= kTruckEnergy).length, kPace);

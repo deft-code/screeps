@@ -3,7 +3,7 @@ import { register, Priority } from "process";
 import { Scout } from "job.scout";
 import { Crow } from "job.crow";
 import { FlagExtra, createFlagAt } from "flag";
-import { roomCenterPos } from "intel";
+import { roomCenterPos, RoomIntel } from "intel";
 import { defaultRewalker } from "Rewalker";
 import { dist } from "routes";
 import * as debug from "debug";
@@ -21,7 +21,16 @@ import type { CreepMove } from "creep.move";
 // or above, with a spawn, nearest the target by room route; every crow and
 // scout spawns there, and the home room's observer (if any) is its eyes.
 // The staging room (memory.staging) is the next room back from the target
-// along the Rewalker route to home.
+// along the route home (memory.route: the Rewalker route, or with a core
+// room remembered, the cheapest route on Rewalker's prices that never
+// enters it).
+//
+// Invader cores: each tick the target's neighbours are checked for a core
+// deployed or deploying within kCoreDeploy ticks (by sight, else intel's
+// deployed-core record; a remembered room out of sight stays remembered).
+// The first such room is kept in memory.core; when it changes (a core
+// appears, collapses or another one shows up) the route and the staging
+// room are dropped and picked again, and the staging flag follows.
 //
 // Flags: a flag named Capture (CaptureN when that is taken, memory.flag) at
 // the target room's intel centre (roomCenterPos), and its child
@@ -68,6 +77,10 @@ interface CaptureMemory extends MissionMemory {
     home?: string
     // The room before the target on the route home.
     staging?: string
+    // The rooms from the target to home that staging was picked from.
+    route?: string[]
+    // The target neighbour with an invader core (watchCore), null for none.
+    core?: string | null
     // Name of the mission flag; the staging flag is its "staging" child.
     flag?: string
     mode?: Mode
@@ -82,6 +95,8 @@ const kStageTiles = 5;
 // Crows within this range of the staging flag count toward the attack.
 const kStagedRange = 5;
 const kFlagName = "Capture";
+// A core deploying within this many ticks counts as there (watchCore).
+const kCoreDeploy = 1500;
 const kLogPace = 100;
 // Path search from the target centre to the home centre (stagingPos):
 // offroad costs, a generous op budget for a few rooms.
@@ -158,6 +173,7 @@ export class Capture extends Mission {
             super.run();
             return "normal";
         }
+        this.watchCore();
         this.ensureStaging();
         this.placeFlags();
         this.measure();
@@ -187,18 +203,66 @@ export class Capture extends Mission {
         const home = _.min(rooms, r => dist(this.roomName, r.name)) as Room;
         mem.home = home.name;
         delete mem.staging;
+        delete mem.route;
         debug.log(this.name, "home", home.name, "rcl", home.controller!.level, "route", dist(this.roomName, home.name));
         return true;
     }
 
-    // The staging room: the room after the target on the Rewalker route to
-    // home (the target itself when home is the target).
+    // The first of the target's neighbours with an invader core deployed or
+    // deploying within kCoreDeploy ticks: by sight, else intel's record
+    // (deployed cores only); the remembered room stays while out of sight,
+    // so losing vision of it does not flip the route.
+    findCore(): string | null {
+        for (const name of _.values<string>(Game.map.describeExits(this.roomName))) {
+            const room = Game.rooms[name];
+            if (room) {
+                const core = _.first(room.findStructs(STRUCTURE_INVADER_CORE)) as StructureInvaderCore | undefined;
+                if (core && (core.ticksToDeploy === undefined || core.ticksToDeploy <= kCoreDeploy)) return name;
+            } else if (name === this.mem.core || (RoomIntel.get(name)?.coreLvl || 0) > 0) {
+                return name;
+            }
+        }
+        return null;
+    }
+
+    // Remember the core room; a change drops the route and the staging room
+    // so ensureStaging picks them again around it.
+    watchCore() {
+        const mem = this.mem;
+        const core = this.findCore();
+        if ((mem.core || null) === core) return;
+        debug.log(this.name, "invader core", mem.core || "none", "->", core || "none", "; staging", mem.staging, "picked again");
+        mem.core = core;
+        delete mem.staging;
+        delete mem.route;
+    }
+
+    // The rooms from the target to home: Rewalker's route, or with a core
+    // room remembered the cheapest route on Rewalker's prices that never
+    // enters it (Rewalker's when there is no other way).
+    routeHome(): string[] {
+        const mem = this.mem;
+        const home = mem.home!;
+        const core = mem.core;
+        if (!core || core === home || core === this.roomName) return rewalker.getRoute(this.roomName, home);
+        const price = rewalker.routeCallback;
+        const ret = Game.map.findRoute(this.roomName, home, {
+            routeCallback: (to: string, from: string) => to === core ? Infinity : price(to, from),
+        });
+        if (ret === ERR_NO_PATH) return rewalker.getRoute(this.roomName, home);
+        return [this.roomName, ...ret.map(e => e.room)];
+    }
+
+    // The staging room: the room after the target on the route home (the
+    // target itself when home is the target). A staging room set by hand
+    // is kept; only the route is filled in.
     ensureStaging() {
         const mem = this.mem;
+        if (mem.staging && mem.route) return;
+        const route = mem.route = this.routeHome();
         if (mem.staging) return;
-        const route = rewalker.getRoute(this.roomName, mem.home!);
         mem.staging = route.length > 1 ? route[1] : this.roomName;
-        debug.log(this.name, "staging", mem.staging, "route", route.join(">"));
+        debug.log(this.name, "staging", mem.staging, "route", route.join(">"), "core", mem.core || "none");
     }
 
     // The mission flag at the target's centre and the staging flag on the
@@ -255,7 +319,7 @@ export class Capture extends Mission {
     stagingPos(): RoomPosition | null {
         const mem = this.mem;
         const staging = mem.staging!;
-        const allowed = rewalker.getRouteSet(this.roomName, mem.home!);
+        const allowed = new Set(mem.route || rewalker.getRoute(this.roomName, mem.home!));
         const ret = PathFinder.search(roomCenterPos(this.roomName), { pos: roomCenterPos(mem.home!), range: 1 }, {
             plainCost: kPathPlain,
             swampCost: kPathSwamp,
@@ -401,7 +465,8 @@ export class Capture extends Mission {
         const seen = this.room ? "" : mem.powerAt === undefined ? "(never seen)" : `(seen ${Game.time - mem.powerAt} ago)`;
         return super.status()
             + (this.held ? " held" : "")
-            + ` mode:${this.mode} home:${mem.home || "-"} staging:${mem.staging || "-"}`
+            + ` mode:${this.mode} home:${mem.home || "-"} staging:${mem.staging || "-"} core:${mem.core || "-"}`
+            + ` route:${(mem.route || []).join(">") || "-"}`
             + ` flag:${mem.flag || "-"}${this.flag ? "" : "(missing)"} stagingflag:${this.stagingFlag ? this.stagingFlag.pos : "-"}`
             + ` visible:${!!this.room} power:${this.ourPower}/${this.enemyPower}${seen}`
             + ` staged:${this.stagedPower} available:${this.availablePower} observer:${!!this.observer}`;

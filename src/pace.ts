@@ -9,11 +9,9 @@ let tickRateEMA = 0;
 // First 5 tick rates used to get a reasonable starting value.
 let rates: number[] = [];
 
-declare const module: { __initGlobals(): void };
-// TODO Figure what this broke.
-// module.__initGlobals = tick;
-
-function tick() {
+// Sample the wall clock; main.js calls it once at the top of every tick.
+// The first call after a global reset only sets the timestamp.
+export function tick() {
     const next = (new Date()).getTime();
 
     if(lastTimestamp === 0) {
