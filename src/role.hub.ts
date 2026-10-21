@@ -3,11 +3,36 @@ import { TaskRet } from "Tasker";
 import { Link, Mode, hubNeed, storageBalance } from "struct.link";
 import { CreepCarry } from "creep.carry";
 
+// The hub creep stands on the hub spot and shuttles between the storage,
+// terminal, hub link and the spawn or tower beside it. roleHub is a ladder
+// of rungs run top to bottom every tick, no memory but fillTerminal: a
+// transfer side (minerals in hand, then energy to spawn/tower, link, sink)
+// and a withdraw side (link, battery, terminal drain, storage minerals).
+// The engine lets one transfer and one withdraw land in the same tick
+// (processed transfer first), but the API caps the withdraw at the free
+// space the creep had at the start of the tick, so a full hand transfers
+// this tick and withdraws the next.
+//
+// TODO (Oct 2026): the ladder still mixes the two sides (xfer, wd and needE
+// feed later rungs, the mineral-in-hand rung returns before the withdraw
+// side runs, and the two early returns below storageBalance skip every rung
+// under them, so a terminal at its 300k capacity while it is the energy sink
+// freezes the hub). The refactor into a snapshot plus two chains of named
+// rungs is planned in docs/hub-design.md.
+
 // Non-energy stock the terminal is filled to from storage by the hub creep,
 // and the per-resource ceiling: a resource is only moved while the terminal
-// holds less than kTerminalPerResource of it.
+// holds less than kTerminalPerResource of it, and never while the terminal
+// is past kTerminalOverfull (the drain below would pull it straight back).
 const kTerminalMinerals = 150000;
 const kTerminalPerResource = 5000;
+// Terminal total (energy included) past which a mineral in hand goes to the
+// storage instead of the terminal, and past which the withdraw side's last
+// rung pulls the terminal's largest mineral stock out for the storage. The
+// gap between them is the hysteresis: what the drain pulls out still goes to
+// the storage once the terminal has dropped back under kTerminalDrain.
+const kTerminalOverfull = 180000;
+const kTerminalDrain = 185000;
 
 declare global {
     interface CreepMemory {
@@ -47,10 +72,14 @@ export class CreepHub extends CreepCarry {
                     term = struct; break
             }
         }
-        // Minerals in hand go to the terminal before anything else.
-        if (term && this.store.getUsedCapacity() > this.store.energy) {
-            const res = _.find(Object.keys(this.store) as ResourceConstant[], r => r !== RESOURCE_ENERGY)!;
-            return this.goTransfer(term, res, false);
+        // Minerals in hand go to the terminal before anything else, or to the
+        // storage while the terminal is past kTerminalOverfull and the storage
+        // beside us has room.
+        const mineral = _.find(Object.keys(this.store) as ResourceConstant[], r => r !== RESOURCE_ENERGY && this.store[r] > 0);
+        if (mineral) {
+            const overfull = term && term.store.getUsedCapacity() > kTerminalOverfull;
+            const dest = overfull && store?.store.getFreeCapacity() ? store : term;
+            if (dest) return this.goTransfer(dest, mineral, false);
         }
 
         let needE = false;
@@ -108,6 +137,11 @@ export class CreepHub extends CreepCarry {
             if (!wd && (needE || (activeBalance && this.store.getUsedCapacity() === 0))) {
                 wd = wd || this.goWithdraw(batt, RESOURCE_ENERGY, false);
             }
+
+            // Bottom rung of the withdraw side: drain an overfull terminal.
+            if (!wd && term && term.store.getUsedCapacity() > kTerminalDrain) {
+                wd = wd || this.withdrawTerminalMineral(term);
+            }
         }
 
         if (!xfer && !wd && !this.intents.transfer && !this.intents.withdraw) {
@@ -121,6 +155,7 @@ export class CreepHub extends CreepCarry {
     // holds less than kTerminalPerResource of, and only with an empty hand.
     withdrawMineral(store: StructureStorage | null, term: StructureTerminal | null): TaskRet {
         if (!store || !term || this.store.getUsedCapacity()) return false;
+        if (term.store.getUsedCapacity() > kTerminalOverfull) return false;
         const termMinerals = term.store.getUsedCapacity() - term.store.energy;
         if (termMinerals >= kTerminalMinerals) return false;
         const room = kTerminalMinerals - termMinerals;
@@ -139,6 +174,26 @@ export class CreepHub extends CreepCarry {
             this.dlog('mineral withdraw failed', err, res, amount);
             return false;
         }
+        return false;
+    }
+
+    // Take a hand's worth of the mineral the terminal holds the most of
+    // (energy aside), for the storage: the mineral-in-hand rung carries it
+    // there while the terminal is past kTerminalOverfull. Only called past
+    // kTerminalDrain, with free space in hand.
+    withdrawTerminalMineral(term: StructureTerminal): TaskRet {
+        const minerals = (Object.keys(term.store) as ResourceConstant[]).filter(r => r !== RESOURCE_ENERGY && term.store[r] > 0);
+        if (!minerals.length) return false;
+        const res = _.max(minerals, r => term.store[r]);
+        const amount = Math.min(term.store[res], this.store.getFreeCapacity());
+        if (amount <= 0) return false;
+        this.dlog('terminal drain', res, amount);
+        const err = this.withdraw(term, res, amount);
+        if (err === OK) {
+            this.intents.withdraw = term;
+            return 'drain';
+        }
+        this.dlog('terminal drain failed', err, res, amount);
         return false;
     }
 

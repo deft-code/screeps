@@ -394,6 +394,7 @@ legacy systems did: [docs/legacy-systems.md](docs/legacy-systems.md).
 | [docs/creep-roles.md](docs/creep-roles.md) | role dispatch, mixin chain, task conventions, role tables |
 | [docs/metastruct.md](docs/metastruct.md) | base layouts, genesis flag protocol, construction order, maxHits, traffic (roads) |
 | [docs/traffic-design.md](docs/traffic-design.md) | why and how roads are a MetaManager service: entries, the planner, replan triggers, decisions taken |
+| [docs/hub-design.md](docs/hub-design.md) | the hub creep's planned refactor: a per-tick snapshot and two first-truthy-wins chains of named rungs (transfer, withdraw), the engine's one-transfer-one-withdraw rule, steps and validation |
 | [docs/room-and-structures.md](docs/room-and-structures.md) | strat, towers, links, labs, factory, terminal, intel |
 | [docs/movement.md](docs/movement.md) | Rewalker, route costs, xy packing |
 | [docs/conventions-and-styles.md](docs/conventions-and-styles.md) | the three eras, decorators, naming, migration recipe |
