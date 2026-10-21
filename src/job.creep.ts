@@ -205,8 +205,10 @@ export class JobCreep extends MyCreep {
         const mem = this.c.memory;
         const kept = mem.dropid && Game.getObjectById(mem.dropid);
         if (kept && kept.pos.roomName === home.name && kept.store.getFreeCapacity() > 0) return kept;
+        // Never a source container (mode "src", struct.container.js): the
+        // haulers drain that, so filling it only walks the load in a circle.
         const conts = (home.findStructs(STRUCTURE_CONTAINER) as StructureContainer[])
-            .filter(k => k.store.getFreeCapacity() > 0);
+            .filter(k => k.mode !== "src" && k.store.getFreeCapacity() > 0);
         if (!conts.length) {
             delete mem.dropid;
             return null;

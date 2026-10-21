@@ -8,7 +8,7 @@ import { Wolf } from "job.wolf";
 import { Reserver, reserveHoldPace } from "job.reserver";
 import { Harvester, HarvestMission } from "job.harvester";
 import { Fedex } from "job.fedex";
-import { kHomeFloor } from "ms.xfer";
+import { kHomeFloor, kDefaultCount } from "ms.xfer";
 import { whoami } from "Rewalker";
 import { getSpots } from "spots";
 import { getMetaManager, MetaStructure } from "metastruct";
@@ -22,6 +22,8 @@ import * as debug from "debug";
 
 // RCL at which the assisted room is on its own and the mission winds down.
 const kDoneRCL = 4;
+// A container holding less energy than this draws a fedex (feedRoom).
+const kHungryCont = 500;
 // While ours below this RCL, one Harvester per source (the genesis asrc/bsrc
 // metas) drop-mines beside the pioneers; from here the Hub's own srcers take
 // the sources and no more harvesters are laid (the living ones work on).
@@ -81,14 +83,22 @@ export interface StartupMemory extends MissionMemory {
 // paces Pioneers (job.pioneer.ts) at kPioneers (2) per lifetime (paceNJobs),
 // spawned by the nearest spawns outside the room ("remote" strategy) and
 // homed on the room, plus nJobs(Guard, 1) until the room has a tower.
-// Whenever pioneers are laid (early or owned), one Fedex (job.fedex.ts) per
-// pioneer standing in the room is paced from the home room while its
-// storage holds Xfer's kHomeFloor energy or more (feedPioneers): each carries a
-// load over and, the room having no container yet, hands it to the
-// pioneers (Fedex.donate), so they build instead of mining.
-// At RCL4 the mission winds down: no more eggs, the
-// living pioneers work until they die, then the mission kills and
-// deschedules itself.
+// Whenever pioneers are laid (early or owned), Fedexes (job.fedex.ts) are
+// paced from the home room while its storage holds Xfer's kHomeFloor energy
+// or more (feedRoom): while the room has no container but the sources' one
+// per pioneer standing in the room, each carrying a load over and handing it
+// to the pioneers (Fedex.donate), so they build instead of mining; once it
+// has containers one per container holding under kHungryCont energy (the
+// source containers never count: the haulers drain those, and a fedex never
+// fills one), which the fedexes fill (JobCreep.unloadStore) for the room's
+// haulers, upgraders and pioneers; once it has a storage of ours, Xfer's
+// default count (kDefaultCount, 2) per lifetime while the home storage holds
+// more energy than it (XferStartup's rule, ms.xferstartup.ts; the 50k home
+// floor no longer applies then), the fedexes unloading into the storage.
+// At RCL4 the pioneers and harvesters stop, but the fedexes go on until the
+// room has a terminal of ours (shipments carry from then on); then the
+// mission winds down: no more eggs, the living creeps work until they die,
+// then the mission kills and deschedules itself.
 //
 // While the controller is not ours and GCL has no room for another (owned
 // rooms >= Game.gcl.level) no claimer is laid; instead the mission plans a
@@ -190,16 +200,18 @@ export class Startup extends Mission implements HarvestMission {
             if (this.prebuilding) this.holdReservation(room);
             if (this.canPioneerEarly(controller)) {
                 this.paceNJobs(Pioneer, kPioneers);
-                this.feedPioneers();
+                this.feedRoom();
             }
-        } else if (controller.level >= kDoneRCL) {
-            debug.log(this.name, "reached RCL", controller.level);
+        } else if (controller.level >= kDoneRCL && room.terminal?.my) {
+            debug.log(this.name, "reached RCL", controller.level, "with a terminal");
             this.windDown();
         } else {
             this.setPrebuild(false);
-            this.paceNJobs(Pioneer, kPioneers);
-            this.feedPioneers();
-            if (controller.level < kHarvesterRCL) this.nJobs(Harvester, this.sourceMetas().length);
+            if (controller.level < kDoneRCL) {
+                this.paceNJobs(Pioneer, kPioneers);
+                if (controller.level < kHarvesterRCL) this.nJobs(Harvester, this.sourceMetas().length);
+            }
+            this.feedRoom();
             if (!room.findStructs(STRUCTURE_TOWER).length) this.nJobs(Guard, 1);
         }
         if (this.building()) this.drawRoad();
@@ -247,16 +259,42 @@ export class Startup extends Mission implements HarvestMission {
         return this.roleCreeps("pioneer").filter(p => p.c && p.c.pos.roomName === this.roomName).length;
     }
 
-    // One Fedex per pioneer in the room, from the home room (Fedex loads
-    // from its storage and spawns there) while that storage holds
-    // Xfer's kHomeFloor or more; nothing without a home storage in view,
-    // and nothing while an armed hostile is in the room (a fedex cannot
-    // fight, and would only flee there with its load until killed).
-    feedPioneers() {
-        if (this.room?.hostiles.length) return null;
+    // The mission room's containers a fedex may fill: every one but the
+    // source containers (mode "src", struct.container.js). [] without vision.
+    fillConts(): StructureContainer[] {
+        const room = this.room;
+        if (!room) return [];
+        return (room.findStructs(STRUCTURE_CONTAINER) as StructureContainer[]).filter(k => k.mode !== "src");
+    }
+
+    // Those holding under kHungryCont energy.
+    hungryConts(): StructureContainer[] {
+        return this.fillConts().filter(k => k.store.energy < kHungryCont);
+    }
+
+    // Fedexes from the home room (Fedex loads from its storage and spawns
+    // there). With a storage of ours in the room: kDefaultCount per lifetime
+    // while the home storage holds more energy than it (as XferStartup).
+    // Without one, while the home storage holds Xfer's kHomeFloor or more:
+    // one per hungry container (hungryConts) once the room has a container
+    // to fill, else one per pioneer in the room (the fedex hands its load to
+    // them by hand; with a container it unloads there instead, so the
+    // pioneer count means nothing then). Nothing without a home storage in
+    // view, and nothing while an armed hostile is in the room (a fedex
+    // cannot fight, and would only flee there with its load until killed).
+    feedRoom() {
+        const room = this.room;
+        if (!room || room.hostiles.length) return null;
         const storage = this.getRoom("home")?.storage;
-        if (!storage || storage.store.energy < kHomeFloor) return null;
-        return this.paceNJobs(Fedex, this.pioneersHere());
+        if (!storage) return null;
+        const dest = room.storage;
+        if (dest?.my) {
+            if (storage.store.energy <= dest.store.energy) return null;
+            return this.paceNJobs(Fedex, kDefaultCount);
+        }
+        if (storage.store.energy < kHomeFloor) return null;
+        const n = this.fillConts().length ? this.hungryConts().length : this.pioneersHere();
+        return this.paceNJobs(Fedex, n);
     }
 
     get ownedRooms(): number {
@@ -474,7 +512,9 @@ export class Startup extends Mission implements HarvestMission {
         const core = ctrl && !ctrl.my && this.room!.findStructs(STRUCTURE_INVADER_CORE).length ? " core!" : "";
         const res = ctrl && !ctrl.my ? this.foreignReservation(ctrl) : null;
         const reserved = res ? ` reserved:${res.username}/${res.ticksToEnd}` : "";
-        const feed = ` pioneers:${this.pioneersHere()} fedexes:${this.roleCreeps("fedex").length}`;
+        const dest = this.room?.storage;
+        const store = dest?.my ? ` storage:${dest.store.energy}/${this.getRoom("home")?.storage?.store.energy ?? "-"}` : "";
+        const feed = ` pioneers:${this.pioneersHere()} hungry:${this.hungryConts().length}/${this.fillConts().length}${store} fedexes:${this.roleCreeps("fedex").length}`;
         return super.status() + ` rcl:${lvl === undefined ? "?" : lvl}/${kDoneRCL}${early}${gcl}${road}${metas}${prebuild}${core}${reserved}${feed}`;
     }
 }

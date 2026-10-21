@@ -12,6 +12,8 @@ import { Harvester } from "job.harvester";
 //     or containers (JobCreep.unloadHome); with none of those whatever
 //     structure takes energy (the farmer's taskTransferResources: spawns,
 //     extensions, towers), else a pile by the controller (Trucker.dropHome).
+//     A source container (mode "src") is never an unload target: the
+//     haulers drain it.
 //     On the way it tops up structures beside it in the mission room and
 //     working creeps beside it (Trucker.idleFillHome / idleShare).
 //   - With nowhere in the mission room to store it (no storage, terminal or
@@ -156,9 +158,10 @@ export class Fedex extends Trucker {
         const taker = this.pickTaker();
         if (taker) return this.donate(taker);
         if (c.taskTask() || c.taskTransferResources()) return "wait";
-        // No container at all (a startup room): wait for a taker. Else the
+        // No container to carry to (a startup room; a source container
+        // does not count, see unloadStore): wait for a taker. Else the
         // controller pile.
-        if (!this.conts().length) return this.holdNear();
+        if (!this.conts().some(k => k.mode !== "src")) return this.holdNear();
         return this.dropHome();
     }
 

@@ -19,7 +19,7 @@ import type { CreepMove } from "creep.move";
 //
 // On its first run it picks and keeps (memory.home) the owned room at RCL7
 // or above, with a spawn, nearest the target by room route; every crow and
-// scout spawns there, and the home room's observer (if any) is its eyes.
+// scout spawns there, and the radar's observers (if any) are its eyes.
 // The staging room (memory.staging) is the next room back from the target
 // along the route home (memory.route: the Rewalker route, or with a core
 // room remembered, the cheapest route on Rewalker's prices that never
@@ -58,10 +58,13 @@ import type { CreepMove } from "creep.move";
 //     their way in, or fallen back to heal) is under half the enemy's,
 //     staging again, and the crows pull back to the staging flag.
 //
-// Vision: with an observer in the home room within OBSERVER_RANGE of the
-// target, each tick it observes the target room while that is out of
-// sight, else the staging room while that is. Without one, nJobs(Scout, 1)
-// from home while the target is out of sight (the scout parks there). The
+// Vision: while the radar has an observer, each tick the target room is
+// asked of it with theRadar.observeNow and the staging room with
+// observeBackground (radar.ts serves them after every process has run and
+// skips a room our creeps already see). Until 20 Oct 2026 the home
+// observer was pointed directly, and theRadar.run, later in the same tick,
+// re-pointed it every time. Without one, nJobs(Scout, 1) from home while
+// the target is out of sight (the scout parks there). The
 // target's neighbours (describeExits) are asked of the radar every tick:
 // theRadar.observe while enemies have been in the target room
 // (memory.tenemies > 0), theRadar.observeBackground otherwise.
@@ -396,33 +399,17 @@ export class Capture extends Mission {
         debug.log(this.name, "mode", mode, why);
     }
 
-    // The home room's observer, when it can reach the target.
-    get observer(): StructureObserver | null {
-        const home = this.getRoom("home");
-        if (!home) return null;
-        if (Game.map.getRoomLinearDistance(home.name, this.roomName) > OBSERVER_RANGE) return null;
-        return (_.first(home.findStructs(STRUCTURE_OBSERVER)) as StructureObserver | undefined) || null;
-    }
-
-    // Point the observer (observeTarget); false without one.
+    // Ask the radar for the target (ahead of everything) and the staging
+    // room (when nothing else wants the observers); false while the radar
+    // has no observer. Asked every tick, seen or not: a room seen only by
+    // last tick's observation has to be observed again to stay in sight
+    // (radar.ts wanted()).
     observe(): boolean {
-        const ob = this.observer;
-        if (!ob) return false;
-        const target = this.observeTarget();
-        if (target) {
-            const err = ob.observeRoom(target);
-            if (err !== OK) debug.log(this.name, "observeRoom", target, "failed", err);
-        }
-        return true;
-    }
-
-    // The target room while out of sight, else the staging room while out
-    // of sight; null when both are visible.
-    observeTarget(): string | null {
-        if (!this.room) return this.roomName;
+        if (!theRadar.observers.size) return false;
+        theRadar.observeNow(this.roomName);
         const staging = this.mem.staging;
-        if (staging && !Game.rooms[staging]) return staging;
-        return null;
+        if (staging && staging !== this.roomName) theRadar.observeBackground(staging);
+        return true;
     }
 
     // Ask the radar for the target's neighbours: as ordinary requests while
@@ -469,6 +456,6 @@ export class Capture extends Mission {
             + ` route:${(mem.route || []).join(">") || "-"}`
             + ` flag:${mem.flag || "-"}${this.flag ? "" : "(missing)"} stagingflag:${this.stagingFlag ? this.stagingFlag.pos : "-"}`
             + ` visible:${!!this.room} power:${this.ourPower}/${this.enemyPower}${seen}`
-            + ` staged:${this.stagedPower} available:${this.availablePower} observer:${!!this.observer}`;
+            + ` staged:${this.stagedPower} available:${this.availablePower} observers:${theRadar.observers.size}`;
     }
 }
