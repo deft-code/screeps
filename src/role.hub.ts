@@ -178,11 +178,13 @@ export class CreepHub extends CreepCarry {
     }
 
     // Take a hand's worth of the mineral the terminal holds the most of
-    // (energy aside), for the storage: the mineral-in-hand rung carries it
-    // there while the terminal is past kTerminalOverfull. Only called past
+    // (energy and thorium aside: the terminal is where ReactorDepot reads
+    // thorium and the warrunners load it, and Balance ships every room's
+    // there), for the storage: the mineral-in-hand rung carries it there
+    // while the terminal is past kTerminalOverfull. Only called past
     // kTerminalDrain, with free space in hand.
     withdrawTerminalMineral(term: StructureTerminal): TaskRet {
-        const minerals = (Object.keys(term.store) as ResourceConstant[]).filter(r => r !== RESOURCE_ENERGY && term.store[r] > 0);
+        const minerals = (Object.keys(term.store) as ResourceConstant[]).filter(r => r !== RESOURCE_ENERGY && r !== RESOURCE_THORIUM && term.store[r] > 0);
         if (!minerals.length) return false;
         const res = _.max(minerals, r => term.store[r]);
         const amount = Math.min(term.store[res], this.store.getFreeCapacity());

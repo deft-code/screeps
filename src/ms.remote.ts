@@ -20,8 +20,8 @@ const kTicksPerRoom = 50;
 // real legs run container to storage and measure ~70 tiles per room.
 const kTilesPerRoom = 70;
 // Truckers are laid only while a container in the remote holds more energy
-// than this.
-const kTruckMinEnergy = 50;
+// than this (50 until 27 Oct 2026: a trucker walked out for a handful).
+const kTruckMinEnergy = 500;
 
 interface RemoteMemory extends MissionMemory {
     // room -> names of the metas this mission planned there (metaremote.ts).
@@ -107,11 +107,20 @@ export class Remote extends Farm {
     // only lays reservers to undo a foreign (invader core) reservation; here
     // they are paced continuously (job.reserver reserveHoldPace). A foreign
     // reservation needs no special case: the Reserver job attacks it when
-    // reserveController is refused.
+    // reserveController is refused. Nothing until a harvester of ours stands
+    // in the room (harvesterHere, 27 Oct 2026): the reserver follows the
+    // miners in rather than leading them, so a room that never gets its
+    // harvesters (spawn queue, deaths on the walk) costs no CLAIM creeps.
     reserve() {
+        if (!this.harvesterHere()) return null;
         const pace = reserveHoldPace(this.room!);
         if (pace === null) return null;
         return this.paceJobs(Reserver, pace);
+    }
+
+    // A live harvester of this mission in the remote room.
+    harvesterHere(): boolean {
+        return this.roleCreeps("harvester").some(c => c.c?.pos.roomName === this.roomName);
     }
 
     // Truckers have nothing to haul until a container in the room holds

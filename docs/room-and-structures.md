@@ -87,10 +87,13 @@ terminal. Visuals: mode glyph and a cooldown arc on each link.
 `mineralPlan()`, resolves missing intermediates with `autoReact` without
 checking that the base minerals exist, and
 `setLabs(resource)`: `orderedLabs()[0..1]` get the two inputs, the rest the
-product), draws plan/mineral glyphs, and runs up to two reactions per tick.
+product), draws plan/mineral glyphs, and runs up to two reactions per tick
+(one for a reaction of 10+ ticks), skipping an output lab whose product the
+terminal holds over 10k of unless the room is `LabPlan`-managed (the plan's
+quotas rule there; the cap idled W25S7 at 10300 XLHO2 until 27 Oct 2026).
 
 `LabPlan <room>` (`labplan.ts`, a scheduled Service; `LabPlan W25S7` since 11
-Oct 2026) is the stock-aware chooser: `Memory.labplan[room].plan` is an
+Oct 2026, `LabPlan W26S8` and `LabPlan W27S4` since 27 Oct 2026) is the stock-aware chooser: `Memory.labplan[room].plan` is an
 ordered list of `{res, quota}` (default XLHO2 20000, XGHO2 20000 (3000 until 27 Oct 2026); console
 `add(res, quota, before?)`, `remove`, `setQuota`, `reset`, `replan`). Every
 100 ticks the first entry under quota (stock = terminal + storage) is walked
@@ -98,7 +101,10 @@ down `Reactions` deepest first; a reaction is chosen only when both inputs
 are stocked at 300 or more, an intermediate under its quota (own entry, else
 2000) is made before the step above it, and an unmakeable one is skipped so
 the step above runs on what there is. Nothing makeable: next entry; nothing
-at all: every `planType` is cleared and the Chemist drains the labs. The
+at all: the idle ladder (`idle()`, 27 Oct 2026, docs/balance-design.md: X +
+the richest tier-2, OH + the richest tier-1, O + H to 2000 OH, ZK + UL to G;
+no quota and no hold, marked `Memory.labplan[room].idle`), and with no rung
+either every `planType` is cleared and the Chemist drains the labs. The
 choice is applied through `terminal.setLabs()` at once when the labs are
 idle, when the current product cannot run or has reached its quota, and
 otherwise only after 500 ticks. It sets `Memory.rooms[x].labs.managed`

@@ -4,38 +4,61 @@ import * as debug from "debug";
 // Smallest energy gap between the fullest and emptiest terminal that is
 // worth a send; half the gap goes.
 const kMinGap = 5000;
-// Ticks between "no terminal" log lines.
+// Ticks between "no terminal" and "holding" log lines.
 const kLogPace = 100;
+// Every RCL8 room is brought up to this much of each base mineral (terminal
+// + storage) by the RCL8 room holding the most of it, which keeps this much
+// itself.
+const kBaseFloor = 10000;
+const kBaseMinerals: ResourceConstant[] = [
+    RESOURCE_HYDROGEN, RESOURCE_OXYGEN, RESOURCE_UTRIUM, RESOURCE_LEMERGIUM,
+    RESOURCE_KEANIUM, RESOURCE_ZYNTHIUM, RESOURCE_CATALYST,
+];
+// Where every terminal's thorium goes when neither Memory.balance.thorium
+// nor a scheduled ReactorDepot mission (its home room, ms.reactordepot.ts)
+// says otherwise.
+const kThoriumRoom = "W25S7";
+// RCL at which a room has labs and shares base minerals with its peers.
+const kLabRCL = 8;
 
 declare global {
     interface Memory {
         balance?: {
-            // Rooms whose terminals share energy (addRoom / removeRoom).
+            // Rooms whose terminals share energy and minerals (addRoom / removeRoom).
             rooms: string[]
-            // Room whose terminal collects the others' minerals (setMineralRoom).
+            // Room every other terminal sends its thorium to (setThoriumRoom);
+            // kThoriumRoom when unset.
+            thorium?: string
+            // The single mineral room of before 27 Oct 2026; deleted on sight.
             minerals?: string
         }
     }
 }
 
-// "Balance": level energy across the terminals of the rooms it has been
-// given. Every tick that none of those terminals is on cooldown, the one
-// holding the most energy sends half of the gap to the one holding the
-// least, when the gap is at least kMinGap. The send and its transfer fee
-// both come out of the sender, so the amount shrinks to what it can pay.
+// "Balance": energy and minerals between the terminals of the rooms it has
+// been given (docs/balance-design.md). Each tick every listed terminal off
+// cooldown makes at most one send, the first rule that applies:
+//
+//   1. thorium: all of it to the thorium room (every room but that one);
+//   2. a room under RCL8 (no labs): one non-energy resource to the nearest
+//      RCL8 terminal in the list, only what it holds more of than that room
+//      (terminal + storage, Balance.stock), at most the gap;
+//   3. an RCL8 room: a base mineral it holds the most of among the RCL8
+//      rooms and more than kBaseFloor of, to the RCL8 room holding the
+//      least of it while that is under the floor; the donor keeps the floor.
+//
+// Every send is capped by the destination's room and by what the sender's
+// energy pays the fee on; a partial send that would strand under
+// TERMINAL_MIN_SEND goes whole when it can, else waits. Then the fullest
+// terminal off cooldown that did not send this tick sends half the energy
+// gap to the emptiest listed one when the gap is kMinGap or more.
 //
 //   scheduleService('Balance')
 //   getService('Balance').addRooms('W26S8', 'W25S7')
 //   getService('Balance').addRoom('W27S5')
 //   getService('Balance').removeRoom('W25S7')
-//   getService('Balance').setMineralRoom('W25S7')   // no argument: off
-//
-// With a mineral room set, every other listed terminal also sends it its
-// minerals and compounds (anything but energy and thorium, which Thormine
-// ships), one resource of TERMINAL_MIN_SEND or more per cooldown, ahead of
-// the energy levelling, but only a resource the mineral room holds less
-// of (terminal and storage together) than the sender's room, and no more
-// than the gap (since 14 Oct 2026; before that everything went).
+//   getService('Balance').setThoriumRoom('W25S7')   // no argument: back to the default
+//   getService('Balance').stocks()                  // base minerals per RCL8 room
 //
 // Rooms without vision, without a terminal we own, or whose terminal is
 // inactive (an unclaimed room keeps our structures: W27S5, Oct 2026; a send
@@ -66,6 +89,21 @@ export class Balance extends Service {
         return this.rooms;
     }
 
+    // The thorium room: the console override, else the home of the scheduled
+    // ReactorDepot (the terminal its warrunners load from), else kThoriumRoom.
+    get thoriumRoom(): string {
+        if (this.memory.thorium) return this.memory.thorium;
+        const depot = _.find(Memory.scheduler?.services || [], s => /^ReactorDepot /.test(s));
+        return depot ? depot.split(" ")[1] : kThoriumRoom;
+    }
+
+    // Console: the room that collects thorium; no argument restores the default.
+    setThoriumRoom(roomName: string | null = null): string {
+        if (roomName) this.memory.thorium = roomName;
+        else delete this.memory.thorium;
+        return this.thoriumRoom;
+    }
+
     // Our active terminal in each listed room that is visible and has one.
     terminals(): StructureTerminal[] {
         const terms: StructureTerminal[] = [];
@@ -80,6 +118,10 @@ export class Balance extends Service {
         return terms;
     }
 
+    static isLabRoom(term: StructureTerminal): boolean {
+        return (term.room.controller?.level || 0) >= kLabRCL;
+    }
+
     // Largest amount, at most `amount`, that `term` can send to `dest` with
     // the transfer fee paid from the same energy; the fee falls with the
     // amount, so a few passes settle it.
@@ -92,77 +134,109 @@ export class Balance extends Service {
         return amount >= TERMINAL_MIN_SEND ? amount : 0;
     }
 
-    // Console: the room whose terminal collects every other listed terminal's
-    // minerals and compounds; no argument (or null) turns that off.
-    setMineralRoom(roomName: string | null = null): string | null {
-        if (roomName) this.memory.minerals = roomName;
-        else delete this.memory.minerals;
-        return this.memory.minerals || null;
-    }
-
     // What a room holds of `res` in its terminal and storage.
     static stock(room: Room, res: ResourceConstant): number {
         return (room.terminal?.store[res] || 0) + (room.storage?.store[res] || 0);
     }
 
-    // Every terminal but the mineral room's, off cooldown, sends one resource
-    // there: anything but energy (levelled below) and thorium (Thormine's),
-    // TERMINAL_MIN_SEND or more of it that the mineral room's rooms holds
-    // less of than the sender's (stock: terminal + storage), up to the gap,
-    // as much as the destination has room for and the sender's energy pays
-    // the fee on. A partial send that would
-    // leave under TERMINAL_MIN_SEND behind is not made: that remainder could
-    // never ship, so the terminal waits until its energy (or the hub's room)
-    // covers the whole lot. True when something went.
-    gatherMinerals(terms: StructureTerminal[]): boolean {
-        const dest = this.memory.minerals;
-        const hub = dest ? Game.rooms[dest]?.terminal : null;
-        if (!dest || !hub?.my || !hub.isActive()) return false;
-        let sent = false;
-        for (const term of terms) {
-            if (term.id === hub.id || term.cooldown > 0) continue;
-            const gapOf = (r: ResourceConstant) => Balance.stock(term.room, r) - Balance.stock(hub.room, r);
-            const res = _.find(Object.keys(term.store) as ResourceConstant[], r =>
-                r !== RESOURCE_ENERGY && r !== RESOURCE_THORIUM && term.store[r] >= TERMINAL_MIN_SEND && gapOf(r) >= TERMINAL_MIN_SEND);
-            if (!res) continue;
-            const have = term.store[res];
-            let amount = Math.min(have, gapOf(res), hub.store.getFreeCapacity(res) || 0);
-            const cost = Game.market.calcTransactionCost(amount, term.room.name, dest);
-            if (cost > term.store.energy) amount = Math.floor(amount * term.store.energy / cost);
-            if (amount < TERMINAL_MIN_SEND) continue;
-            if (amount < have && have - amount < TERMINAL_MIN_SEND) {
-                if (Game.time % kLogPace === 0) debug.log(this.name, term.room.name, "holds", have, res, "until it can send all of it");
-                continue;
-            }
-            const err = term.send(res, amount, dest, this.name);
-            if (err !== OK) {
-                debug.log(this.name, "send failed", err, amount, res, term.room.name, "->", dest);
-            } else {
-                debug.log(this.name, "sent", amount, res, term.room.name, "->", dest);
-                sent = true;
-            }
+    // Send up to `amount` of `res` from `term` to `dest`: capped by the
+    // destination's room and the fee the sender's energy covers, never
+    // under TERMINAL_MIN_SEND, and never a partial send that would strand
+    // under TERMINAL_MIN_SEND behind (that remainder could never ship by
+    // itself): the lot goes instead when it fits and the fee covers it,
+    // else the terminal holds until it can. True when it went.
+    ship(term: StructureTerminal, res: ResourceConstant, amount: number, dest: StructureTerminal, why: string): boolean {
+        const have = term.store[res] || 0;
+        const to = dest.room.name;
+        const room = dest.store.getFreeCapacity(res) || 0;
+        const fee = (n: number) => Game.market.calcTransactionCost(n, term.room.name, to);
+        amount = Math.min(amount, have, room);
+        if (amount < have && have - amount < TERMINAL_MIN_SEND && have <= room && fee(have) <= term.store.energy) amount = have;
+        const cost = fee(amount);
+        if (cost > term.store.energy) amount = Math.floor(amount * term.store.energy / cost);
+        if (amount < TERMINAL_MIN_SEND) return false;
+        if (amount < have && have - amount < TERMINAL_MIN_SEND) {
+            if (Game.time % kLogPace === 0) debug.log(this.name, term.room.name, "holds", have, res, "until it can send all of it", `(${why})`);
+            return false;
         }
-        return sent;
+        const err = term.send(res, amount, to, this.name);
+        if (err !== OK) {
+            debug.log(this.name, "send failed", err, amount, res, term.room.name, "->", to, `(${why})`);
+            return false;
+        }
+        debug.log(this.name, "sent", amount, res, term.room.name, "->", to, `(${why})`);
+        return true;
     }
 
-    run(): Priority {
-        const terms = this.terminals();
-        // A terminal that just sent minerals shows no cooldown until next tick.
-        if (this.gatherMinerals(terms)) return "low";
-        if (terms.length < 2) return "low";
-        if (_.any(terms, t => t.cooldown > 0)) return "low";
+    // Rule 1: thorium to the thorium room.
+    sendThorium(term: StructureTerminal, terms: StructureTerminal[]): boolean {
+        // RESOURCE_THORIUM is typed optional (reactor.ts): no such resource off the season shard.
+        const thorium = RESOURCE_THORIUM;
+        if (!thorium) return false;
+        const to = this.thoriumRoom;
+        if (term.room.name === to) return false;
+        const have = term.store[thorium] || 0;
+        if (have < TERMINAL_MIN_SEND) return false;
+        const dest = _.find(terms, t => t.room.name === to);
+        if (!dest) return false;
+        return this.ship(term, thorium, have, dest, "thorium");
+    }
 
-        const high = _.max(terms, t => t.store.energy);
+    // Rule 2: a feeder room's minerals and compounds to its nearest RCL8
+    // room, the first resource that ships, what it holds more of than that
+    // room.
+    feedLabRoom(term: StructureTerminal, labTerms: StructureTerminal[]): boolean {
+        const hubs = labTerms.filter(t => t.id !== term.id);
+        if (!hubs.length) return false;
+        const hub = _.min(hubs, t => Game.map.getRoomLinearDistance(term.room.name, t.room.name));
+        for (const res of Object.keys(term.store) as ResourceConstant[]) {
+            if (res === RESOURCE_ENERGY || res === RESOURCE_THORIUM || term.store[res] < TERMINAL_MIN_SEND) continue;
+            const gap = Balance.stock(term.room, res) - Balance.stock(hub.room, res);
+            if (gap < TERMINAL_MIN_SEND) continue;
+            if (this.ship(term, res, Math.min(term.store[res], gap), hub, "feeding " + hub.room.name)) return true;
+        }
+        return false;
+    }
+
+    // Rule 3: an RCL8 room tops up a peer under kBaseFloor of a base
+    // mineral, when it is the peer holding the most of it and keeps the
+    // floor itself.
+    shareBase(term: StructureTerminal, labTerms: StructureTerminal[]): boolean {
+        if (labTerms.length < 2) return false;
+        for (const res of kBaseMinerals) {
+            if ((term.store[res] || 0) < TERMINAL_MIN_SEND) continue;
+            const donor = _.max(labTerms, t => Balance.stock(t.room, res));
+            if (donor.id !== term.id) continue;
+            const spare = Balance.stock(term.room, res) - kBaseFloor;
+            if (spare < TERMINAL_MIN_SEND) continue;
+            const peers = labTerms.filter(t => t.id !== term.id);
+            const low = _.min(peers, t => Balance.stock(t.room, res));
+            const short = kBaseFloor - Balance.stock(low.room, res);
+            if (short < TERMINAL_MIN_SEND) continue;
+            if (this.ship(term, res, Math.min(spare, short), low, "floor " + res)) return true;
+        }
+        return false;
+    }
+
+    // The energy leveller: the fullest terminal off cooldown that did not
+    // send this tick (`sent`) sends half the gap to the emptiest listed one
+    // (receiving needs no cooldown).
+    levelEnergy(terms: StructureTerminal[], sent: Set<string>) {
+        if (terms.length < 2) return;
+        const senders = terms.filter(t => !t.cooldown && !sent.has(t.id));
+        if (!senders.length) return;
+        const high = _.max(senders, t => t.store.energy);
         const low = _.min(terms, t => t.store.energy);
+        if (high.id === low.id) return;
         const gap = high.store.energy - low.store.energy;
-        if (gap < kMinGap) return "low";
+        if (gap < kMinGap) return;
 
         const dest = low.room.name;
         const want = Math.min(Math.floor(gap / 2), low.store.getFreeCapacity(RESOURCE_ENERGY));
         const amount = this.affordable(high, want, dest);
         if (!amount) {
             debug.log(this.name, high.room.name, "cannot afford to send", want, "to", dest);
-            return "low";
+            return;
         }
         const err = high.send(RESOURCE_ENERGY, amount, dest, this.name);
         if (err !== OK) {
@@ -170,14 +244,41 @@ export class Balance extends Service {
         } else {
             debug.log(this.name, "sent", amount, high.room.name, "->", dest, "gap was", gap);
         }
+    }
+
+    run(): Priority {
+        if (this.memory.minerals) {
+            debug.log(this.name, "dropping the old mineral room", this.memory.minerals, "(rules in docs/balance-design.md)");
+            delete this.memory.minerals;
+        }
+        const terms = this.terminals();
+        const labTerms = terms.filter(Balance.isLabRoom);
+        // A terminal that sent this tick shows no cooldown until next tick.
+        const sent = new Set<string>();
+        for (const term of terms) {
+            if (term.cooldown > 0) continue;
+            const went = this.sendThorium(term, terms) ||
+                (Balance.isLabRoom(term) ? this.shareBase(term, labTerms) : this.feedLabRoom(term, labTerms));
+            if (went) sent.add(term.id);
+        }
+        this.levelEnergy(terms, sent);
         return "low";
+    }
+
+    // Console: base mineral stock (terminal + storage) per RCL8 room.
+    stocks(): string {
+        const rooms = this.rooms.map(n => Game.rooms[n]).filter(r => r && (r.controller?.level || 0) >= kLabRCL) as Room[];
+        const head = "room  " + kBaseMinerals.map(r => _.padLeft(r, 7)).join("");
+        const rows = rooms.map(r => r.name + " " + kBaseMinerals.map(m => _.padLeft(String(Balance.stock(r, m)), 7)).join(""));
+        return [head, ...rows].join("\n");
     }
 
     status(): string {
         const levels = this.rooms.map(name => {
             const term = Game.rooms[name]?.terminal;
-            return `${name}:${!term?.my ? "-" : term.isActive() ? term.store.energy : "inactive"}`;
+            const rcl = term?.room.controller?.level ?? "?";
+            return `${name}:${!term?.my ? "-" : term.isActive() ? term.store.energy : "inactive"}(${rcl})`;
         });
-        return super.status() + " terminals " + (levels.join(",") || "none") + ` minerals:${this.memory.minerals || "-"}`;
+        return super.status() + " terminals " + (levels.join(",") || "none") + ` thorium:${this.thoriumRoom} floor:${kBaseFloor}`;
     }
 }

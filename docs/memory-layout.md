@@ -16,17 +16,20 @@ the creep was last spawned in (`MyPowerCreep.spawn`), alongside `swipe` state.
 
 ### `Memory.labplan` (`labplan.ts`)
 
-`{ [room]: { plan: [{res, quota}], current?: resource | null, since?: tick, why?: string } }`:
+`{ [room]: { plan: [{res, quota}], current?: resource | null, since?: tick, why?: string, idle?: boolean } }`:
 the `LabPlan <room>` service's priority list of lab products (console-edited,
-defaults to XLHO2 and XGHO2 at 3000), the product its labs are set to (null
-when cleared), when that was set and the reason. Survives resets; the
+defaults to XLHO2 and XGHO2 at 20000), the product its labs are set to (null
+when cleared), when that was set, the reason, and whether it came from the
+idle ladder rather than the plan (27 Oct 2026). Survives resets; the
 service's `kill()` leaves it.
 
 ### `Memory.balance` (`ms.balance.ts`)
 
-`{ rooms: string[], minerals?: string }`: the rooms whose terminals the
-`Balance` service levels energy across (edited by `addRoom`/`removeRoom` on
-the service) and the room that collects their minerals (`setMineralRoom`).
+`{ rooms: string[], thorium?: string }`: the rooms whose terminals the
+`Balance` service balances energy and minerals across (edited by
+`addRoom`/`removeRoom` on the service) and the room every terminal sends its
+thorium to (`setThoriumRoom`; W25S7 when unset). The pre-27 Oct 2026
+`minerals` key (the single mineral room) is deleted on sight.
 
 ### `Memory.selloff` (`ms.selloff.ts`)
 

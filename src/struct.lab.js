@@ -239,7 +239,10 @@ export function runLabs(room) {
   for (let i = 2; i < labs.length; i++) {
     const lab = labs[i]
     if (lab.cooldown) continue
-    if (room.terminal?.store[lab.planType] > 10000) continue
+    // A managed room's LabPlan idles the labs itself once a product is at
+    // quota; the 10k ceiling is for autoReactAll rooms (27 Oct 2026: the
+    // cap held W25S7's outputs idle at 10300 XLHO2 under a 20k quota).
+    if (!room.memory.labs.managed && room.terminal?.store[lab.planType] > 10000) continue
     if (!lab.mineralType && lab.planType !== room.memory.labs.current) continue
     if (lab.mineralType && lab.planType !== lab.mineralType) continue
     const err = lab.runReaction(labs[0], labs[1])
