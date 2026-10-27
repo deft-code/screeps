@@ -163,6 +163,12 @@ export function runSpawns() {
   const spawns = _.shuffle(liveSpawns(_.values<StructureSpawn>(Game.spawns)));
 
   const start = Game.time;
+  // Spawns given an egg this tick. spawn.spawning is a tick-start snapshot,
+  // and a second spawnCreep on the same spawn in one tick replaces the first
+  // intent while the API returns OK for both: the first egg never hatched
+  // ("Stuck egg" pairs laid the same tick; trucker10 lost that race for 162
+  // ticks behind W26S8's smaller eggs, 27 Oct 2026). It waits a tick instead.
+  const taken = new Set<string>();
   for (let mycreep of eggs) {
     let [spawn, body] = mycreep.spawn(spawns);
 
@@ -175,7 +181,7 @@ export function runSpawns() {
     const used = usedEnergy.get(spawn.room.name) || 0;
     usedEnergy.set(spawn.room.name, used + cost);
 
-    if (spawn.spawning) continue;
+    if (spawn.spawning || taken.has(spawn.id)) continue;
 
     const energyAvailable = spawn.room.energyAvailable - used;
     if (cost <= energyAvailable) {
@@ -192,6 +198,7 @@ export function runSpawns() {
         }
       } else {
         noteSpawned(spawn);
+        taken.add(spawn.id);
         mycreep.memory.nest = spawn.name;
         mycreep.memory.home = spawn.room.name;
 

@@ -17,7 +17,12 @@ Two spawners exist. Only the first is live.
 2. `[spawn, body] = mycreep.spawn(shuffledSpawns)`. Each job decides its own
    spawn and body. A `null` spawn means "cannot spawn now".
 3. Per-room `usedEnergy` accumulates body costs so several eggs do not all
-   assume the same energy. `spawn.spawning` rooms are skipped after accounting.
+   assume the same energy. `spawn.spawning` rooms are skipped after accounting,
+   and so is a spawn already given an egg this tick (`taken`): `spawn.spawning`
+   is a tick-start snapshot, and a second `spawnCreep` on the same spawn in
+   one tick replaced the first intent while both returned OK, so the first
+   egg never hatched and retried behind the winner ("Stuck egg" pairs laid
+   the same tick; trucker10 lost 162 ticks in W26S8, fixed 27 Oct 2026).
 4. `spawn.spawnCreep(body, name, { energyStructures: room.strat.spawnEnergy() })`.
    Failure with an existing creep of that name marks `nest = "not egg!!!"`.
    Eggs older than 3000 ticks are logged as "Too Old" but never removed (TODO in
