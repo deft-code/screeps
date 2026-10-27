@@ -284,11 +284,13 @@ destructive `wipe`/`worldWipe`/`scalp`/`purgeWalls` helpers.
 
 ## Season 11 state and rules (measured live, Oct 2026)
 
-- Owned rooms (15 Oct 2026): `W26S8` RCL7 (spawn `Home`, genesis `Home`), `W25S7` RCL8
-  (`Port`), `W27S4` RCL6 (`Wind`, a Hub since 11 Oct 2026, its thorium mined
-  out), `W29S7` RCL6 (`Rote`, a Thorhub), `W24S7` RCL6 with a terminal
-  (`Front`, a Thorhub) and `W28S8` RCL2 (`Five`, under `Startup W28S8 W29S7`,
-  no spawn yet); `W29S4` torn down and unclaimed on 7 Oct 2026; GCL 6/6. `Balance`
+- Owned rooms (27 Oct 2026): `W26S8` RCL8 (spawns `Home`/`Homeer`/`Homeest`,
+  genesis `Home`), `W25S7` RCL8 (`Port`, spawns `Spawn1`/`Port`/`Porter`),
+  `W27S4` RCL8 (`Wind`, a Hub since 11 Oct 2026, its thorium mined out),
+  `W29S7` RCL6 (`Rote`, a Thorhub, thorium mined out), `W25S9` RCL6 (`Tub`, a
+  Thorhub with `Thormine W25S9`) and `W28S8` RCL6 (`Five`, a Thorhub with
+  `Thormine W28S8`), every one with a terminal; `W24S7` (`Front`) is no
+  longer ours; `W29S4` torn down and unclaimed on 7 Oct 2026; GCL 6 at 99%. `Balance`
   levels W26S8, W25S7, W27S4 and W29S7 (added 13 Oct 2026), W25S9 and W28S8
   (added 27 Oct 2026): every owned terminal; since 27 Oct 2026 it also brings
   the RCL8 rooms to 10k of each base mineral from whichever holds the most,
