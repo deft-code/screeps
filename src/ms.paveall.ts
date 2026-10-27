@@ -24,6 +24,14 @@ const kMaxPavers = 2;
 const kGuardHostileTicks = 100;
 const kGuardPace = 1500;
 const kGuardMinPace = 350;
+// Ticks without a site before the mission winds down. Sites come and go
+// between the MetaManager's 10-tick placement passes (three at a time) once
+// two pavers outbuild them, and windDown purges the eggs: PaveAll W27S12
+// flapped windDown/revive every 20 ticks with 63 road tiles still unbuilt
+// (27 Oct 2026). With vision and unbuilt road tiles in the plan the wait is
+// kNoSitesLong instead, for a plan whose tiles can never be placed.
+const kNoSitesGrace = 60;
+const kNoSitesLong = 1500;
 // A mission that has been without sites this long gives its pavers with
 // more than kDonateTTL ticks to live to an adjacent PaveAll (describeExits)
 // that still has sites, the one with the most. Younger idle missions keep
@@ -34,6 +42,8 @@ const kDonateTTL = 100;
 interface PaveAllMemory extends MissionMemory {
     // Tick the room ran out of our construction sites (windDown time).
     idleSince?: number
+    // Tick the room last had no site of ours, while not winding down.
+    noSites?: number
 }
 
 // Remote and Startup call PaveAll.request(room) for every unowned room on
@@ -100,11 +110,18 @@ export class PaveAll extends Mission {
             }
         }
 
+        const mem = this.pmem;
         if (!this.nSites()) {
-            debug.log(this.name, "no construction sites left");
-            this.pmem.idleSince = Game.time;
-            this.windDown();
+            if (mem.noSites === undefined) mem.noSites = Game.time;
+            const wait = this.unbuiltRoads() > 0 ? kNoSitesLong : kNoSitesGrace;
+            if (Game.time - mem.noSites >= wait) {
+                debug.log(this.name, "no construction sites left for", wait, "ticks");
+                delete mem.noSites;
+                mem.idleSince = Game.time;
+                this.windDown();
+            }
         } else {
+            delete mem.noSites;
             this.guard();
             if (!Game.rooms[this.roomName]?.hostiles.length) this.paceNJobs(Paver, this.wantPavers(), kPaverPace);
         }
@@ -155,8 +172,9 @@ export class PaveAll extends Mission {
     status(): string {
         const since = this.pmem.idleSince;
         const idle = since === undefined ? "" : ` idle:${Game.time - since}`;
+        const gap = this.pmem.noSites === undefined ? "" : ` nosites:${Game.time - this.pmem.noSites}`;
         const room = Game.rooms[this.roomName];
         const hostile = room?.hostiles.length ? ` hostiles:${room.hostiles.length}/${room.memory.thostiles || 0}t` : "";
-        return super.status() + ` sites:${this.nSites()} unbuilt:${this.unbuiltRoads()} pavers:${this.wantPavers()}${hostile}${idle}`;
+        return super.status() + ` sites:${this.nSites()} unbuilt:${this.unbuiltRoads()} pavers:${this.wantPavers()}${hostile}${gap}${idle}`;
     }
 }
