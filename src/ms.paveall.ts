@@ -1,6 +1,7 @@
 import { Mission, MissionMemory } from "mission";
 import { register, Priority, Service } from "process";
 import { Paver } from "job.paver";
+import { Guard } from "job.guard";
 import { toXY } from "Rewalker";
 import * as debug from "debug";
 
@@ -13,6 +14,16 @@ import * as debug from "debug";
 const kPaverPace = 1400;
 const kBusyTiles = 20;
 const kMaxPavers = 2;
+// Armed hostiles seen in the room for this many consecutive ticks
+// (Memory.rooms[x].thostiles, ratcheted by strat.init for every visible
+// room) draw a guard at Farm.suppressGuard's cadence, one per
+// max(kGuardPace - thostiles, kGuardMinPace) ticks; a road room is only
+// ever an unowned room on the way to a remote, where the Remote guards the
+// farm but nobody guarded the pavers (27 Oct 2026). No paver eggs while
+// armed hostiles are in the room: a fresh paver would only walk in to die.
+const kGuardHostileTicks = 100;
+const kGuardPace = 1500;
+const kGuardMinPace = 350;
 // A mission that has been without sites this long gives its pavers with
 // more than kDonateTTL ticks to live to an adjacent PaveAll (describeExits)
 // that still has sites, the one with the most. Younger idle missions keep
@@ -94,10 +105,19 @@ export class PaveAll extends Mission {
             this.pmem.idleSince = Game.time;
             this.windDown();
         } else {
-            this.paceNJobs(Paver, this.wantPavers(), kPaverPace);
+            this.guard();
+            if (!Game.rooms[this.roomName]?.hostiles.length) this.paceNJobs(Paver, this.wantPavers(), kPaverPace);
         }
         super.run();
         return "normal";
+    }
+
+    // Farm.suppressGuard for a road room: a guard once armed hostiles have
+    // stayed kGuardHostileTicks, sooner the longer they stay.
+    guard() {
+        const t = Game.rooms[this.roomName]?.memory.thostiles || 0;
+        if (t < kGuardHostileTicks) return null;
+        return this.paceJobs(Guard, Math.max(kGuardPace - t, kGuardMinPace));
     }
 
     // Sites are back (a replan, a new road leg): stop winding down and lay
@@ -135,6 +155,8 @@ export class PaveAll extends Mission {
     status(): string {
         const since = this.pmem.idleSince;
         const idle = since === undefined ? "" : ` idle:${Game.time - since}`;
-        return super.status() + ` sites:${this.nSites()} unbuilt:${this.unbuiltRoads()} pavers:${this.wantPavers()}${idle}`;
+        const room = Game.rooms[this.roomName];
+        const hostile = room?.hostiles.length ? ` hostiles:${room.hostiles.length}/${room.memory.thostiles || 0}t` : "";
+        return super.status() + ` sites:${this.nSites()} unbuilt:${this.unbuiltRoads()} pavers:${this.wantPavers()}${hostile}${idle}`;
     }
 }
