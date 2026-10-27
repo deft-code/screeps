@@ -73,7 +73,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     paceNJobs(Prospector, 1, 1450) from home while job.prospector's wantProspector holds for the core (no armed non-keeper enemy, mineral left, home under 50k of it; the core has no lairs so no tombstone rule)
          │   └─ ReactorDepot @register  (ms.reactordepot.ts)  "ReactorDepot <room> [cap]"; follows the core's `Capture <core>` (memory.capture, found among Memory.scheduler.services once): watch() -> syncCapture() pauses it the tick the depot is cold (the depot switch off and no warrunner alive, hatching or queued: `cold`) and resumes it once warm, undoing only its own pause (memory.coldPaused); Reactor with the runner hooks overridden: runnerClass Warrunner
          │                                                     (loads from the home terminal instead of mining), runnerCycle 300, leadTicks 300, runnerCount 1.2 (always one runner, replaced with 300 TTL left; Oct 2026), and homeHasThorium =
-         │                                                     the depot is active: a persisted switch on at 10k thorium in the home terminal, off under 500 (`active`, status `depot:<n> on|off`; 1000 both ways until 14 Oct 2026, on at 10k until 15 Oct 2026). Scout, probe, guard, immortan and the
+         │                                                     the depot is active: a persisted switch on at 25k thorium in the home terminal, off under 500 (`active`, status `depot:<n> on|off holding`; 1000 both ways until 14 Oct 2026, on at 10k until 15 Oct 2026, 25k until 20 Oct 2026, 10k until 27 Oct 2026). While the depot is off the mission is held as pause() holds it (`paused` is overridden): nothing laid, scouts included, eggs purged the tick it flips off, the living shepherded (27 Oct 2026; before that scouts, guard and immortan went on while off). Scout, probe, guard, immortan and the
          │                                                     invader-core pause are inherited; inboundThorium counts both missions' runners against the reactor.
          │                                                     Keeps Rewalker.getRoute(home, core) in memory.route (refreshed every 500 ticks) with its SK rooms in
          │                                                     memory.skRooms (status `route:.. sk:..`); watch() checks every visible SK room on the route each tick for an
@@ -417,7 +417,7 @@ scheduleService('Farm W5N8 W6N8')    // args[1]=farm room, args[2]=home (drop) r
 scheduleService('Farm W5N8 W6N8 W7N8')  // optional args[3]=the only room its creeps spawn from (no fallback; eggs wait)
 scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that sector's core (W5N5)
 scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
-scheduleService('ReactorDepot W25S7')  // args[1]=home room; Reactor fed by warrunners from the home terminal while it holds > 1000 thorium
+scheduleService('ReactorDepot W25S7')  // args[1]=home room; Reactor fed by warrunners from the home terminal once it holds 25k thorium, until under 500; held (nothing laid) while off
 scheduleService('ReactorDepot W25S7 2')  // optional args[2]=cap on warrunners
 getService('ReactorDepot W25S7').pause()  // Reactor and subclasses: lay nothing at all, purge eggs, shepherd the living; Memory.missions[x].held survives resets
 getService('ReactorDepot W25S7').resume() // clears the hold; status() shows `held` while paused

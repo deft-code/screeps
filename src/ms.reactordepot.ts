@@ -10,10 +10,13 @@ import { roomKind, Kind, RoomIntel } from "intel";
 // The depot switches on once the home terminal holds this much thorium
 // (memory.active, persisted) and off again under kDepotOff: a wide band, so
 // a trickle from the Thormines does not flip the warrunners (and the
-// capture that follows them) on and off every few hundred ticks. 1000
-// both ways until 14 Oct 2026, on at 10000 until 15 Oct 2026, at 25000
-// until 20 Oct 2026.
-const kDepotOn = 10000;
+// capture that follows them) on and off every few hundred ticks. While off
+// the whole mission is held as pause() holds it: nothing is laid, scouts
+// included, and the eggs are purged the tick it flips off. 1000 both ways
+// until 14 Oct 2026, on at 10000 until 15 Oct 2026, at 25000 until 20 Oct
+// 2026, at 10000 (with scouts, guard and immortan still laid while off)
+// until 27 Oct 2026.
+const kDepotOn = 25000;
 const kDepotOff = 500;
 
 // Ticks of one warrunner round trip: the walk both ways (~120 each from
@@ -58,9 +61,12 @@ const rewalker = defaultRewalker();
 // Reactor fed from a terminal instead of a mine: everything ms.reactor does
 // (scout for vision, probe, guard against enemies, immortan holding the
 // reactor, invader-core pause) but the thorium runner is a Warrunner that
-// loads from the home room's terminal, laid only while the depot is active:
-// on once that terminal holds kDepotOn thorium, off again under kDepotOff
-// (Thormine ships it there, ms.thormine.ts).
+// loads from the home room's terminal, and all of it only while the depot
+// is active: on once that terminal holds kDepotOn thorium, off again under
+// kDepotOff (Thormine ships it there, ms.thormine.ts). An inactive depot
+// holds the mission the way pause() does (`paused` below): nothing laid,
+// scouts included, the living shepherded to their deaths, the capture
+// paused by syncCapture once no runner is about.
 //
 // The route the runners walk (Rewalker.getRoute home -> core, refreshed every
 // kRoutePace ticks) is kept in memory with its Source Keeper rooms. Every
@@ -121,7 +127,8 @@ export class ReactorDepot extends Reactor {
         const depot = this.depot;
         if (mem.active && depot < kDepotOff) {
             mem.active = false;
-            debug.log(this.name, "depot off at", depot, "thorium (under", kDepotOff + ")");
+            this.purgeEggs();
+            debug.log(this.name, "depot off at", depot, "thorium (under", kDepotOff + "); holding the mission");
         } else if (!mem.active && depot >= kDepotOn) {
             mem.active = true;
             debug.log(this.name, "depot on at", depot, "thorium (", kDepotOn, "reached)");
@@ -131,6 +138,13 @@ export class ReactorDepot extends Reactor {
 
     homeHasThorium(home: Room): boolean {
         return this.active;
+    }
+
+    // An inactive depot holds the mission like pause(): run() lays nothing
+    // (whilePaused below keeps its scouts for the core pause only) and
+    // shepherds the living. A hand pause() or a core pause still count.
+    get paused(): boolean {
+        return this.held || this.corePaused || !this.active;
     }
 
     // The rooms from home to the core as Rewalker routes them, and the SK
@@ -227,10 +241,11 @@ export class ReactorDepot extends Reactor {
         }
     }
 
-    // Scouts still go out while paused: their walk through the SK rooms is
-    // how the core is watched, and their deaths renew the pause.
+    // Scouts still go out during a core pause: their walk through the SK
+    // rooms is how the core is watched, and their deaths renew the pause.
+    // Not while the depot holds the mission: nothing is laid then.
     whilePaused() {
-        this.paceJobs(Scout, kScoutPace);
+        if (this.active) this.paceJobs(Scout, kScoutPace);
     }
 
     // A creep dying in an SK room on the route whose intel shows a core keeps
@@ -253,8 +268,8 @@ export class ReactorDepot extends Reactor {
     status(): string {
         const mem = this.dmem;
         const route = ` route:${this.route.join(">")} sk:${(mem.skRooms || []).join(",") || "-"}`;
-        const core = this.paused && mem.coreRoom ? ` core:${mem.coreRoom}` : "";
+        const core = this.corePaused && mem.coreRoom ? ` core:${mem.coreRoom}` : "";
         const cap = mem.capture ? ` capture:${mem.capture}${this.cold ? " cold" : ""}${mem.coldPaused ? " paused" : ""}` : "";
-        return super.status() + ` depot:${this.depot}${this.active ? " on" : " off"}` + route + core + cap;
+        return super.status() + ` depot:${this.depot}${this.active ? " on" : " off holding"}` + route + core + cap;
     }
 }

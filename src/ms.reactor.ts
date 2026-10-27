@@ -125,8 +125,14 @@ export class Reactor extends Mission {
         return !!this.mem.held;
     }
 
+    // Paused for an invader core (pauseUntil, set by creepDied or a
+    // subclass's pauseFor), as opposed to held by hand or by a subclass.
+    get corePaused(): boolean {
+        return (this.mem.pauseUntil || 0) > Game.time;
+    }
+
     get paused(): boolean {
-        return this.held || (this.mem.pauseUntil || 0) > Game.time;
+        return this.held || this.corePaused;
     }
 
     // Stop laying anything, drop the eggs already queued, and shepherd the
@@ -337,7 +343,7 @@ export class Reactor extends Mission {
     status(): string {
         const r = this.reactors[0];
         const state = r ? ` owner:${r.owner?.username ?? "-"} work:${r.continuousWork}` : "";
-        const pause = this.held ? " held" : this.paused ? ` paused:${this.mem.pauseUntil! - Game.time}` : "";
+        const pause = (this.held ? " held" : "") + (this.corePaused ? ` paused:${this.mem.pauseUntil! - Game.time}` : "");
         return super.status() + ` core:${this.roomName} visible:${!!this.room} reactors:${this.reactors.length}${state}${pause}`;
     }
 }

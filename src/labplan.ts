@@ -70,8 +70,9 @@ declare global {
 const Reactions = (k as any).Reactions as { [res: string]: string[] };
 
 const kDefaultPlan: LabPlanEntry[] = [
-    { res: RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE, quota: 3000 },
-    { res: RESOURCE_CATALYZED_GHODIUM_ALKALIDE, quota: 3000 },
+    // 3000 each until 27 Oct 2026 (10000 by console edit before that).
+    { res: RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE, quota: 20000 },
+    { res: RESOURCE_CATALYZED_GHODIUM_ALKALIDE, quota: 20000 },
 ];
 // Stock to build of an intermediate with no entry of its own before the
 // step above it runs.

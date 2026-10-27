@@ -91,7 +91,7 @@ product), draws plan/mineral glyphs, and runs up to two reactions per tick.
 
 `LabPlan <room>` (`labplan.ts`, a scheduled Service; `LabPlan W25S7` since 11
 Oct 2026) is the stock-aware chooser: `Memory.labplan[room].plan` is an
-ordered list of `{res, quota}` (default XLHO2 3000, XGHO2 3000; console
+ordered list of `{res, quota}` (default XLHO2 20000, XGHO2 20000 (3000 until 27 Oct 2026); console
 `add(res, quota, before?)`, `remove`, `setQuota`, `reset`, `replan`). Every
 100 ticks the first entry under quota (stock = terminal + storage) is walked
 down `Reactions` deepest first; a reaction is chosen only when both inputs
