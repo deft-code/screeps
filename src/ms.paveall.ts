@@ -1,12 +1,18 @@
 import { Mission, MissionMemory } from "mission";
 import { register, Priority, Service } from "process";
 import { Paver } from "job.paver";
+import { toXY } from "Rewalker";
 import * as debug from "debug";
 
 // One paver (job.paver.ts) every kPaverPace ticks while we have construction
-// sites in the room; once the last site is gone the mission winds down, so
-// the living pavers finish their lives and the mission deschedules itself.
+// sites in the room, two while the room's traffic plan still has kBusyTiles
+// or more road tiles unbuilt (counted with vision; the long remote roads of
+// Oct 2026 ran 50-70 tiles a room at one paver per life); once the last
+// site is gone the mission winds down, so the living pavers finish their
+// lives and the mission deschedules itself.
 const kPaverPace = 1400;
+const kBusyTiles = 20;
+const kMaxPavers = 2;
 // A mission that has been without sites this long gives its pavers with
 // more than kDonateTTL ticks to live to an adjacent PaveAll (describeExits)
 // that still has sites, the one with the most. Younger idle missions keep
@@ -54,6 +60,25 @@ export class PaveAll extends Mission {
         return !this.windingDown && this.nSites() > 0;
     }
 
+    // Road tiles the room's traffic plan (Memory.rooms[x].meta.traffic,
+    // every level) still has no road on; 0 without vision or a plan.
+    unbuiltRoads(): number {
+        const room = Game.rooms[this.roomName];
+        const plan = Memory.rooms[this.roomName]?.meta?.traffic?.structs?.[STRUCTURE_ROAD];
+        if (!room || !plan) return 0;
+        const built = new Set(room.findStructs(STRUCTURE_ROAD).map(r => toXY(r.pos)));
+        let n = 0;
+        for (const xys of _.values(plan) as number[][]) {
+            for (const xy of xys) if (!built.has(xy)) n++;
+        }
+        return n;
+    }
+
+    // Pavers to keep on the room's pace: one, two with kBusyTiles unbuilt.
+    wantPavers(): number {
+        return Math.min(kMaxPavers, 1 + Math.floor(this.unbuiltRoads() / kBusyTiles));
+    }
+
     run(): Priority {
         if (this.windingDown) {
             if (this.nSites()) {
@@ -69,7 +94,7 @@ export class PaveAll extends Mission {
             this.pmem.idleSince = Game.time;
             this.windDown();
         } else {
-            this.paceJobs(Paver, kPaverPace);
+            this.paceNJobs(Paver, this.wantPavers(), kPaverPace);
         }
         super.run();
         return "normal";
@@ -110,6 +135,6 @@ export class PaveAll extends Mission {
     status(): string {
         const since = this.pmem.idleSince;
         const idle = since === undefined ? "" : ` idle:${Game.time - since}`;
-        return super.status() + ` sites:${this.nSites()}${idle}`;
+        return super.status() + ` sites:${this.nSites()} unbuilt:${this.unbuiltRoads()} pavers:${this.wantPavers()}${idle}`;
     }
 }

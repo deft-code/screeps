@@ -177,8 +177,8 @@ Process                      run(): Priority; kill()           (process.ts)
          ├─ Xfer             @register  (ms.xfer.ts)           "Xfer <to> <from> [n]"; paceNJobs(Fedex, n (args[3], default 2)) from the <from> ("home", args[2]) room's spawns, carrying
                                                               energy from its storage to <to>; windDown() once the home storage is under 50k energy (0 with
                                                               memory.takeitall, set by `takeitall = true`) or <to>'s storage is over 75% full
-         ├─ PaveAll          @register  (ms.paveall.ts)        "PaveAll <room>"; paceJobs(Paver, 1400) while Game.constructionSites has any of ours in the
-                                                              room (works without vision), windDown() once none are left; requested by Remote and Startup;
+         ├─ PaveAll          @register  (ms.paveall.ts)        "PaveAll <room>"; paceNJobs(Paver, n, 1400) while Game.constructionSites has any of ours in the
+                                                              room (works without vision), n = 2 while the room's traffic plan has 20+ road tiles unbuilt (unbuiltRoads, needs vision; status `unbuilt:<n> pavers:<n>`; 27 Oct 2026), else 1; windDown() once none are left; requested by Remote and Startup;
                                                               50 ticks (kDonateIdle) after the sites ran out (memory.idleSince, status `idle:`), every paver with
                                                               more than 100 TTL (kDonateTTL) is donated (Mission.donateCreep) to the adjacent room's PaveAll
                                                               (describeExits) that is active (not winding down, with sites) with the most sites, if any;
@@ -427,7 +427,7 @@ scheduleService('Thormine W26S8')    // args[1]=owned room with thorium, extract
 scheduleService('Thormine W26S8 W22S7')  // optional args[2]=room to ship the thorium to instead
 scheduleService('Remote W5N8 W6N8')  // args[1]=remote room, args[2]=home; scout + held reservation (phase 1)
 scheduleService('Remote W5N8 W6N8 W7N8')  // optional args[3]=the only room its creeps spawn from (as Farm; idles `spawn-not-ready` while it has no spawn)
-scheduleService('PaveAll W5N8')      // a paver every 1400 ticks until the room has none of our sites (Remote/Startup schedule these)
+scheduleService('PaveAll W5N8')      // a paver every 1400 ticks (two while 20+ planned road tiles are unbuilt) until the room has none of our sites (Remote/Startup schedule these)
 scheduleService('SkFarm W25S6 W25S7')  // args[1]=keeper room, args[2]=home (spawns); one Skhunter and one Skvulture, each one egg per 1450 ticks
 scheduleService('Capture W25S5')     // args[1]=target room; home (RCL7+, nearest) and staging (next room back) are picked on the first run; Capture/staging_Capture flags mark the target centre and the staging spot
 scheduleService('Raze W27S4 W27S5')  // args[1]=room to clear, args[2]=home (spawns nearest it); one Razer, winds down when it decommissions
