@@ -14,6 +14,21 @@ const kBaseMinerals: ResourceConstant[] = [
     RESOURCE_HYDROGEN, RESOURCE_OXYGEN, RESOURCE_UTRIUM, RESOURCE_LEMERGIUM,
     RESOURCE_KEANIUM, RESOURCE_ZYNTHIUM, RESOURCE_CATALYST,
 ];
+// The catalyzed boosts (tier 3) the RCL8 rooms level among themselves
+// (shareBoosts, since 31 Oct 2026): the room holding the most of one sends
+// the room holding the least a kBoostShare-th of the difference when it
+// holds kBoostRatio times as much and at least kBoostGap more. The gap
+// makes the share at least TERMINAL_MIN_SEND.
+const kBoosts: ResourceConstant[] = [
+    RESOURCE_CATALYZED_UTRIUM_ACID, RESOURCE_CATALYZED_UTRIUM_ALKALIDE,
+    RESOURCE_CATALYZED_KEANIUM_ACID, RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
+    RESOURCE_CATALYZED_LEMERGIUM_ACID, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
+    RESOURCE_CATALYZED_ZYNTHIUM_ACID, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
+    RESOURCE_CATALYZED_GHODIUM_ACID, RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
+];
+const kBoostRatio = 2;
+const kBoostGap = 3 * TERMINAL_MIN_SEND;
+const kBoostShare = 3;
 // Where every terminal's thorium goes when neither Memory.balance.thorium
 // nor a scheduled ReactorDepot mission (its home room, ms.reactordepot.ts)
 // says otherwise.
@@ -45,7 +60,10 @@ declare global {
 //      (terminal + storage, Balance.stock), at most the gap;
 //   3. an RCL8 room: a base mineral it holds the most of among the RCL8
 //      rooms and more than kBaseFloor of, to the RCL8 room holding the
-//      least of it while that is under the floor; the donor keeps the floor.
+//      least of it while that is under the floor; the donor keeps the floor;
+//   4. an RCL8 room: a catalyzed boost (kBoosts) it holds the most of among
+//      the RCL8 rooms, kBoostRatio times the least holder's stock and
+//      kBoostGap more, to that holder: a kBoostShare-th of the difference.
 //
 // Every send is capped by the destination's room and by what the sender's
 // energy pays the fee on; a partial send that would strand under
@@ -59,6 +77,7 @@ declare global {
 //   getService('Balance').removeRoom('W25S7')
 //   getService('Balance').setThoriumRoom('W25S7')   // no argument: back to the default
 //   getService('Balance').stocks()                  // base minerals per RCL8 room
+//   getService('Balance').boosts()                  // catalyzed boosts per RCL8 room
 //
 // Rooms without vision, without a terminal we own, or whose terminal is
 // inactive (an unclaimed room keeps our structures: W27S5, Oct 2026; a send
@@ -218,6 +237,29 @@ export class Balance extends Service {
         return false;
     }
 
+    // Rule 4: an RCL8 room levels a catalyzed boost down to the peer holding
+    // the least, when it is the peer holding the most, has kBoostRatio times
+    // the least holder's stock and kBoostGap more: a kBoostShare-th of the
+    // difference goes (at least TERMINAL_MIN_SEND by the gap), so repeated
+    // sends close in without the two rooms swapping the lead.
+    shareBoosts(term: StructureTerminal, labTerms: StructureTerminal[]): boolean {
+        if (labTerms.length < 2) return false;
+        for (const res of kBoosts) {
+            if ((term.store[res] || 0) < TERMINAL_MIN_SEND) continue;
+            const donor = _.max(labTerms, t => Balance.stock(t.room, res));
+            if (donor.id !== term.id) continue;
+            const peers = labTerms.filter(t => t.id !== term.id);
+            const low = _.min(peers, t => Balance.stock(t.room, res));
+            const have = Balance.stock(term.room, res);
+            const theirs = Balance.stock(low.room, res);
+            const diff = have - theirs;
+            if (have < kBoostRatio * theirs || diff < kBoostGap) continue;
+            const share = Math.floor(diff / kBoostShare);
+            if (this.ship(term, res, Math.min(share, term.store[res]), low, "levelling " + res)) return true;
+        }
+        return false;
+    }
+
     // The energy leveller: the fullest terminal off cooldown that did not
     // send this tick (`sent`) sends half the gap to the emptiest listed one
     // (receiving needs no cooldown).
@@ -258,7 +300,9 @@ export class Balance extends Service {
         for (const term of terms) {
             if (term.cooldown > 0) continue;
             const went = this.sendThorium(term, terms) ||
-                (Balance.isLabRoom(term) ? this.shareBase(term, labTerms) : this.feedLabRoom(term, labTerms));
+                (Balance.isLabRoom(term)
+                    ? this.shareBase(term, labTerms) || this.shareBoosts(term, labTerms)
+                    : this.feedLabRoom(term, labTerms));
             if (went) sent.add(term.id);
         }
         this.levelEnergy(terms, sent);
@@ -270,6 +314,14 @@ export class Balance extends Service {
         const rooms = this.rooms.map(n => Game.rooms[n]).filter(r => r && (r.controller?.level || 0) >= kLabRCL) as Room[];
         const head = "room  " + kBaseMinerals.map(r => _.padLeft(r, 7)).join("");
         const rows = rooms.map(r => r.name + " " + kBaseMinerals.map(m => _.padLeft(String(Balance.stock(r, m)), 7)).join(""));
+        return [head, ...rows].join("\n");
+    }
+
+    // Console: catalyzed boost stock (terminal + storage) per RCL8 room.
+    boosts(): string {
+        const rooms = this.rooms.map(n => Game.rooms[n]).filter(r => r && (r.controller?.level || 0) >= kLabRCL) as Room[];
+        const head = "room  " + kBoosts.map(r => _.padLeft(r, 7)).join("");
+        const rows = rooms.map(r => r.name + " " + kBoosts.map(m => _.padLeft(String(Balance.stock(r, m)), 7)).join(""));
         return [head, ...rows].join("\n");
     }
 

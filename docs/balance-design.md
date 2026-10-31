@@ -44,6 +44,15 @@ tick) tries the first rule that applies; one send per terminal per cooldown.
    the RCL8 room holding the least, if that is under the floor,
    `min(terminal stock, spare, floor - receiver stock)`. Only the top holder
    donates, so two rooms never top up the same receiver in one tick.
+4. **RCL8 boost levelling** (31 Oct 2026). Tried only when rule 3 found
+   nothing. For each catalyzed boost (the ten tier-3 compounds, `kBoosts`)
+   in turn: the RCL8 room holding the most of it (stock) is the donor; if
+   its stock is at least twice the lowest RCL8 holder's and at least 300
+   more, and it has 100+ in its terminal, it sends that holder a third of
+   the difference (at most its terminal stock). The 300 gap makes the third
+   at least the 100 a terminal can send; the ratio stops two near-equal
+   rooms trading the lead back and forth; the third closes in over several
+   cooldowns rather than swapping the lead in one send.
 
 Shared by every rule (`ship`): the amount is capped by the destination's
 free capacity and by what the sender's energy pays the fee on; under 100 it
@@ -88,8 +97,11 @@ in the reason, e.g. `labs:XZHO2 (idle: catalyzing ZHO2)`.
 - The single "mineral room" (`setMineralRoom`, `Memory.balance.minerals`)
   is gone; the key is deleted on sight. The RCL8 floor and the feeder rule
   cover what it did.
-- Only base minerals are shared among RCL8 rooms. Compounds stay where they
-  were made; each room makes its own from the shared bases.
+- Only base minerals are shared among RCL8 rooms by the floor rule.
+  Intermediate compounds stay where they were made; each room makes its
+  own from the shared bases. The finished boosts are levelled (rule 4,
+  since 31 Oct 2026) so a room that finished its plan first does not sit
+  on all of a boost while a peer has none.
 - The donor keeps the floor itself, so a scarce mineral (L: 13k in all, Oct
   2026) is shared only down to 10k in the donor. Sharing it evenly instead
   would leave every room under the 300 a reaction needs.
@@ -108,7 +120,9 @@ in the reason, e.g. `labs:XZHO2 (idle: catalyzing ZHO2)`.
 
 - `getService('Balance').status()` lists every terminal with its RCL and
   the thorium room; `getService('Balance').stocks()` prints the base
-  mineral stock per RCL8 room (the floor check at a glance).
+  mineral stock per RCL8 room (the floor check at a glance);
+  `getService('Balance').boosts()` the same for the catalyzed boosts (the
+  levelling check). Rule 4's sends log as `levelling <boost>`.
 - `getService('LabPlan X').status()` per RCL8 room: `labs:<product>` and the
   reason; `idle:` reasons name the rung.
 - Watch the sends in the console log (`Balance sent ...`) and that W25S7's

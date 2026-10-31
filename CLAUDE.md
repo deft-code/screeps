@@ -295,7 +295,10 @@ destructive `wipe`/`worldWipe`/`scalp`/`purgeWalls` helpers.
   (added 27 Oct 2026): every owned terminal; since 27 Oct 2026 it also brings
   the RCL8 rooms to 10k of each base mineral from whichever holds the most,
   feeds the RCL6 rooms' minerals to their nearest RCL8 room and sends all
-  thorium to W25S7. The sector core is `W25S5`
+  thorium to W25S7; since 31 Oct 2026, after the base floor, it also levels
+  the catalyzed boosts among the RCL8 rooms (the top holder sends a third of
+  its lead to the lowest when it holds twice as much and 300 more;
+  `getService('Balance').boosts()` shows the stocks). The sector core is `W25S5`
   (an x5y5 room is `Kind.Portal` in `intel.ts`). The W25S7 observer is the
   radar's only one; `radar.ts` run costs ~0.4 CPU a tick. The reactor is fed by
   `ReactorDepot W25S7` (warrunners from the W25S7 terminal, which the
