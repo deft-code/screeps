@@ -3,7 +3,7 @@ import { register, Priority } from "process";
 import { Scout } from "job.scout";
 import { Crow } from "job.crow";
 import { FlagExtra, createFlagAt } from "flag";
-import { roomCenterPos, RoomIntel } from "intel";
+import { roomCenterPos, RoomIntel, roomToCoord } from "intel";
 import { defaultRewalker } from "Rewalker";
 import { dist } from "routes";
 import * as debug from "debug";
@@ -43,10 +43,23 @@ import type { CreepMove } from "creep.move";
 // Ranged attack power is active RANGED_ATTACK parts x RANGED_ATTACK_POWER
 // (boosts and towers are not counted). The enemy's is measured from the
 // target room's enemy creeps (room.enemies, Source Keepers excepted) while
-// it is visible and remembered (memory.power) for the blind ticks. One crow
-// egg at a time is laid while the crows' power (every living crow's active
-// parts, a full crow for each hatch and egg) is not more than the enemy's:
-// an empty or unknown room draws one crow, since 0 is not more than 0.
+// it is visible and remembered (memory.power) for the blind ticks. The
+// rooms within kRingRange of the target (the ring, ringRooms) and the
+// enemy-owned rooms with spawns within kSpawnRange by route (spawnRooms,
+// from intel, rescanned every kSpawnRecheck ticks give or take half; since
+// 29 Oct 2026) are measured the same way whenever one is in sight, a busy
+// enemy spawn counting kBusySpawnPower, along with the enemy heal power
+// there, each room's last reading kept in memory.ring until it is
+// kRingExpiry ticks old (a creep's lifetime: what was seen then is dead).
+// One crow egg at a time is laid while the crows' power (every living
+// crow's active parts, a full crow for each hatch and egg) less the heal
+// power seen in the watched rooms (ringHeal) is not more than the target's
+// plus the watched rooms' ranged power (ringPower): a force massing next
+// door draws crows before it arrives (28 Oct 2026), and healers among it
+// draw more. An empty
+// or unknown room draws one crow, since 0 is not more than 0. The mode
+// switches below weigh the target room's power alone, so the crows fall
+// back only when actually outgunned.
 //
 // Mode (memory.mode), read by the crows:
 //   staging (the start): crows wait at the staging flag. Once the power of
@@ -64,10 +77,11 @@ import type { CreepMove } from "creep.move";
 // skips a room our creeps already see). Until 20 Oct 2026 the home
 // observer was pointed directly, and theRadar.run, later in the same tick,
 // re-pointed it every time. Without one, nJobs(Scout, 1) from home while
-// the target is out of sight (the scout parks there). The
-// target's neighbours (describeExits) are asked of the radar every tick:
-// theRadar.observe while enemies have been in the target room
-// (memory.tenemies > 0), theRadar.observeBackground otherwise.
+// the target is out of sight (the scout parks there). The ring rooms are
+// asked of the radar every tick: theRadar.observe while enemies have been
+// in the target room (memory.tenemies > 0), theRadar.observeBackground
+// otherwise (a background room is skipped while seen within 50 ticks, so
+// one observer rotates through the ring).
 type Mode = "staging" | "attack";
 
 interface CaptureMemory extends MissionMemory {
@@ -90,6 +104,13 @@ interface CaptureMemory extends MissionMemory {
     // Enemy ranged attack power last measured in the target room, and when.
     power?: number
     powerAt?: number
+    // The same per watched room (the ring within kRingRange of the target
+    // and the enemy spawn rooms), with the enemy heal power there, last seen.
+    ring?: { [room: string]: { power: number, heal?: number, at: number } }
+    // Enemy-owned rooms with spawns within kSpawnRange rooms of the target
+    // by route (scanSpawnRooms), and the tick to scan again.
+    spawnRooms?: string[]
+    spawnRecheck?: number
 }
 
 const kMinHomeRCL = 7;
@@ -101,6 +122,20 @@ const kFlagName = "Capture";
 // A core deploying within this many ticks counts as there (watchCore).
 const kCoreDeploy = 1500;
 const kLogPace = 100;
+// Rooms this many exits from the target are the ring: their enemy ranged
+// power is remembered and counts toward recruiting.
+const kRingRange = 2;
+// A ring reading older than this is forgotten.
+const kRingExpiry = CREEP_LIFE_TIME;
+// Enemy rooms with spawns within this many rooms of the target by route
+// (routes.dist) are watched like the ring, found by scanning intel every
+// kSpawnRecheck ticks give or take kSpawnJitter of it.
+const kSpawnRange = 4;
+const kSpawnRecheck = 1500;
+const kSpawnJitter = 0.5;
+// Ranged power credited to each enemy spawn seen spawning: the body is not
+// visible, so this stands in for what may walk out of it.
+const kBusySpawnPower = RANGED_ATTACK_POWER;
 // Path search from the target centre to the home centre (stagingPos):
 // offroad costs, a generous op budget for a few rooms.
 const kPathPlain = 1;
@@ -109,9 +144,33 @@ const kPathOps = 20000;
 
 const rewalker = defaultRewalker();
 
+// The rooms within `range` exits of `center`, center left out.
+export function ringAround(center: string, range: number): string[] {
+    const seen = new Set<string>([center]);
+    let edge = [center];
+    for (let i = 0; i < range; i++) {
+        const next: string[] = [];
+        for (const name of edge) {
+            for (const n of _.values<string>(Game.map.describeExits(name) || {})) {
+                if (seen.has(n)) continue;
+                seen.add(n);
+                next.push(n);
+            }
+        }
+        edge = next;
+    }
+    seen.delete(center);
+    return [...seen];
+}
+
 // Active RANGED_ATTACK power of `creeps`.
 export function rangedPower(creeps: Creep[]): number {
     return _.sum(creeps, c => ((c as CreepMove).activeByType.get(RANGED_ATTACK) || 0) * RANGED_ATTACK_POWER);
+}
+
+// Active HEAL power of `creeps` (adjacent heals; boosts not counted).
+export function healPower(creeps: Creep[]): number {
+    return _.sum(creeps, c => ((c as CreepMove).activeByType.get(HEAL) || 0) * HEAL_POWER);
 }
 
 @register
@@ -180,6 +239,7 @@ export class Capture extends Mission {
         this.ensureStaging();
         this.placeFlags();
         this.measure();
+        this.measureRing();
         this.switchMode();
         if (this.held) {
             // Lay nothing and leave the observer and radar alone; the
@@ -358,6 +418,89 @@ export class Capture extends Mission {
         return this.mem.power || 0;
     }
 
+    // The rooms within kRingRange exits of the target, the target left out
+    // (heap cache: the map does not change).
+    private _ring?: string[];
+    get ringRooms(): string[] {
+        if (!this._ring) this._ring = ringAround(this.roomName, kRingRange);
+        return this._ring;
+    }
+
+    // Enemy-owned rooms with spawns (intel's enemySpawning: owned by someone
+    // else at RCL 1+, with spawns seen or not yet counted) within kSpawnRange
+    // of the target by route, rescanned once the recheck tick has passed
+    // and then kSpawnRecheck ticks on, give or take kSpawnJitter of it.
+    // Rooms more than kSpawnRange away as the crow flies are not routed.
+    get spawnRooms(): string[] {
+        const mem = this.mem;
+        if (mem.spawnRooms && Game.time < (mem.spawnRecheck || 0)) return mem.spawnRooms;
+        const found = this.scanSpawnRooms();
+        if (!_.isEqual(found, mem.spawnRooms)) debug.log(this.name, "enemy spawn rooms within", kSpawnRange, ":", found.join(" ") || "none");
+        mem.spawnRooms = found;
+        mem.spawnRecheck = Game.time + Math.round(kSpawnRecheck * (1 + kSpawnJitter * (2 * Math.random() - 1)));
+        return found;
+    }
+
+    scanSpawnRooms(): string[] {
+        const [tx, ty] = roomToCoord(this.roomName);
+        const found: string[] = [];
+        for (const name in Memory.rooms) {
+            if (name === this.roomName) continue;
+            const [x, y] = roomToCoord(name);
+            if (Math.abs(x - tx) + Math.abs(y - ty) > kSpawnRange) continue;
+            const intel = RoomIntel.get(name);
+            if (!intel?.enemySpawning) continue;
+            if (dist(this.roomName, name) > kSpawnRange) continue;
+            found.push(name);
+        }
+        return found.sort();
+    }
+
+    // Every room watched for enemy power: the ring and the spawn rooms.
+    get watchedRooms(): string[] {
+        return _.union(this.ringRooms, this.spawnRooms);
+    }
+
+    // Enemy ranged and heal power in a visible room: its enemy creeps
+    // (keepers excepted), the ranged side plus kBusySpawnPower for each
+    // enemy spawn busy spawning.
+    roomPower(room: Room): { power: number, heal: number } {
+        const enemies = (room.enemies || []).filter(e => !e.keeper);
+        const busy = room.find(FIND_HOSTILE_SPAWNS, { filter: s => !!s.spawning }).length;
+        return { power: rangedPower(enemies) + busy * kBusySpawnPower, heal: healPower(enemies) };
+    }
+
+    // Remember each visible watched room's enemy ranged and heal power;
+    // forget readings older than kRingExpiry or of rooms no longer watched.
+    measureRing() {
+        const ring = this.mem.ring = this.mem.ring || {};
+        const watched = this.watchedRooms;
+        for (const name of watched) {
+            const room = Game.rooms[name];
+            if (!room) continue;
+            const { power, heal } = this.roomPower(room);
+            const had = ring[name];
+            if (power !== (had?.power || 0) || heal !== (had?.heal || 0)) {
+                debug.log(this.name, "ring", name, "enemy power", had?.power || 0, "->", power, "heal", had?.heal || 0, "->", heal);
+            }
+            ring[name] = { power, heal, at: Game.time };
+        }
+        for (const name in ring) {
+            if (Game.time - ring[name].at > kRingExpiry || !watched.includes(name)) delete ring[name];
+        }
+    }
+
+    // The watched rooms' enemy ranged power as last seen, summed.
+    get ringPower(): number {
+        return _.sum(_.values<{ power: number }>(this.mem.ring || {}), r => r.power);
+    }
+
+    // The watched rooms' enemy heal power as last seen, summed: what the
+    // crows' fire has to get through before it counts (recruit).
+    get ringHeal(): number {
+        return _.sum(_.values<{ heal?: number }>(this.mem.ring || {}), r => r.heal || 0);
+    }
+
     get crows(): Creep[] {
         return _.compact(this.roleCreeps(Crow.name.toLowerCase()).map(m => m.c));
     }
@@ -412,11 +555,11 @@ export class Capture extends Mission {
         return true;
     }
 
-    // Ask the radar for the target's neighbours: as ordinary requests while
-    // enemies have been in the target room (the strat.ts tenemies ratchet),
-    // as background otherwise.
+    // Ask the radar for the watched rooms (ring and enemy spawn rooms): as
+    // ordinary requests while enemies have been in the target room (the
+    // strat.ts tenemies ratchet), as background otherwise.
     watchNeighbours() {
-        const around = _.values<string>(Game.map.describeExits(this.roomName));
+        const around = this.watchedRooms;
         if (!around.length) return;
         if ((Memory.rooms[this.roomName]?.tenemies || 0) > 0) theRadar.observe(...around);
         else theRadar.observeBackground(...around);
@@ -427,14 +570,18 @@ export class Capture extends Mission {
         if (!this.room) this.nJobs(Scout, 1);
     }
 
-    // One crow egg at a time while our power is not more than the enemy's.
+    // One crow egg at a time while our power, less the heal power seen in
+    // the watched rooms, is not more than the enemy's in the target room
+    // and the watched rooms together.
     recruit() {
         const role = Crow.name.toLowerCase();
         if (this.hasEgg(role)) return;
         const ours = this.ourPower;
+        const heal = this.ringHeal;
         const enemy = this.enemyPower;
-        if (ours > enemy) return;
-        debug.log(this.name, "laying a crow: ours", ours, "vs enemy", enemy);
+        const ring = this.ringPower;
+        if (ours - heal > enemy + ring) return;
+        debug.log(this.name, "laying a crow: ours", ours, "- heal", heal, "vs enemy", enemy, "+ ring", ring);
         this.layEgg(role);
     }
 
@@ -446,6 +593,15 @@ export class Capture extends Mission {
         super.kill();
     }
 
+    // The watched rooms with power seen, "W1N1:60h24@120" (ranged power,
+    // heal power when any, ticks ago).
+    ringStatus(): string {
+        const ring = this.mem.ring || {};
+        const parts = _.map(_.filter(_.keys(ring), r => ring[r].power > 0 || (ring[r].heal || 0) > 0),
+            r => `${r}:${ring[r].power}${ring[r].heal ? "h" + ring[r].heal : ""}@${Game.time - ring[r].at}`);
+        return parts.length ? `[${parts.join(" ")}]` : "";
+    }
+
     status(): string {
         const mem = this.mem;
         if (!mem) return super.status();
@@ -455,7 +611,8 @@ export class Capture extends Mission {
             + ` mode:${this.mode} home:${mem.home || "-"} staging:${mem.staging || "-"} core:${mem.core || "-"}`
             + ` route:${(mem.route || []).join(">") || "-"}`
             + ` flag:${mem.flag || "-"}${this.flag ? "" : "(missing)"} stagingflag:${this.stagingFlag ? this.stagingFlag.pos : "-"}`
-            + ` visible:${!!this.room} power:${this.ourPower}/${this.enemyPower}${seen}`
+            + ` visible:${!!this.room} power:${this.ourPower}/${this.enemyPower}${seen} ring:${this.ringPower} heal=${this.ringHeal}${this.ringStatus()}`
+            + ` spawnrooms:${(mem.spawnRooms || []).join(",") || "-"} recheck:${(mem.spawnRecheck || 0) - Game.time}`
             + ` staged:${this.stagedPower} available:${this.availablePower} observers:${theRadar.observers.size}`;
     }
 }

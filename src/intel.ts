@@ -16,6 +16,9 @@ interface RoomIntelMem {
     enabled?: true
     portal?: [string, number]
     owner?: [number, number]
+    // Spawns in an owned room that is not ours (FIND_HOSTILE_SPAWNS),
+    // rewritten on every visit; absent until the room was seen owned.
+    spawns?: number
     core?: [number, number]
     power?: [number, number, number]
     deposit?: [number, number, number]
@@ -57,6 +60,13 @@ if (!Memory.intel) {
     };
 }
 
+// Our username, from any spawn (a global's worth of caching).
+let me: string | undefined;
+export function myUsername(): string {
+    if (!me) me = _.first(_.values<StructureSpawn>(Game.spawns))?.owner.username;
+    return me || "";
+}
+
 export class RoomIntel {
     static get(roomName: string): RoomIntel | null {
         if (!Memory.rooms[roomName]) return null;
@@ -75,6 +85,18 @@ export class RoomIntel {
         const info = this.mem;
         if (!info.owner) return null;
         return info.owner[1];
+    }
+    // Spawns seen in the room while owned by someone else; null while it
+    // was never seen owned (an owned room never looked at may still have some).
+    get spawns(): number | null {
+        return this.mem.spawns ?? null;
+    }
+    // Owned by someone else (reserved does not count) with spawns, or not
+    // yet looked at closely enough to say otherwise.
+    get enemySpawning(): boolean {
+        const owner = this.owner;
+        if (!owner || owner === myUsername() || !(this.rcl! > 0)) return false;
+        return this.spawns === null || this.spawns > 0;
     }
     get powerEnabled() {
         return !!this.mem.enabled;
@@ -298,10 +320,13 @@ function updateIntelMem(mem: RoomIntelMem, room: Room) {
         const res = controller.reservation;
         if (owner) {
             mem.owner = [userIdx(owner.username), controller.level];
+            if (owner.username !== myUsername()) mem.spawns = room.find(FIND_HOSTILE_SPAWNS).length;
+            else delete mem.spawns;
         } else if (res) {
             mem.owner = [userIdx(res.username), 0];
         } else {
             delete mem.owner;
+            delete mem.spawns;
         }
     }
 
