@@ -7,16 +7,19 @@ import { defaultRewalker } from "Rewalker";
 import { roomKind, Kind } from "intel";
 
 // The depot switches on once the home terminal holds this much thorium
-// (memory.active, persisted) and off again under kDepotOff: a wide band, so
-// a trickle from the Thormines does not flip the warrunners (and the
-// capture that follows them) on and off every few hundred ticks. While off
+// (memory.active, persisted) and off again under kDepotOff. While off
 // the whole mission is held as pause() holds it: nothing is laid, scouts
-// included, and the eggs are purged the tick it flips off. 1000 both ways
-// until 14 Oct 2026, on at 10000 until 15 Oct 2026, at 25000 until 20 Oct
-// 2026, at 10000 (with scouts, guard and immortan still laid while off)
-// until 27 Oct 2026.
-const kDepotOn = 25000;
-const kDepotOff = 500;
+// included, and the eggs are purged the tick it flips off. Since 31 Oct
+// 2026 (the Thormines mined out, the season days from its end) it runs
+// until the terminal is empty: on at one full warrunner load, off only
+// under 1. Before, a wide band kept a trickle from the Thormines from
+// flipping the warrunners (and the capture that follows them) on and off
+// every few hundred ticks: 1000 both ways until 14 Oct 2026, on at 10000
+// until 15 Oct 2026, at 25000 until 20 Oct 2026, at 10000 (with scouts,
+// guard and immortan still laid while off) until 27 Oct 2026, then on at
+// 25000 and off under 500.
+const kDepotOn = Warrunner.tripLoad;
+const kDepotOff = 1;
 
 // Ticks of one warrunner round trip: the walk both ways (~120 each from
 // W25S7) plus loading. Tune from observation.
@@ -89,6 +92,29 @@ export class ReactorDepot extends Reactor {
 
     get leadTicks(): number {
         return kLeadTicks;
+    }
+
+    // SEASONAL: no guard, no toxic bait and no immortan in the final days of
+    // the thorium season (31 Oct 2026). With the Thormines mined out and
+    // about 1.3k thorium left, the core is left as undefended as we can make
+    // it so Nidoran can sweep in and take the reactor for the rest of the
+    // season: nothing is laid against enemies there and nothing claims the
+    // reactor; the warrunners still deliver what is left to whoever holds
+    // it (Warboy.deliver). Delete these three overrides next season to get
+    // Reactor.guard (one Guard while any enemy creep is in the core),
+    // Reactor.toxic (one Toxic per lifetime against an armed enemy without
+    // HEAL) and Reactor.hold (the Immortan that claims and holds the
+    // reactor) back.
+    guard() {
+        return null;
+    }
+
+    toxic() {
+        return null;
+    }
+
+    hold() {
+        return null;
     }
 
     // Always one warrunner, its replacement laid while it still has
