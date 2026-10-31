@@ -84,7 +84,13 @@ with the costs of the creep's `moveTerrain`: `plainCost 2 / swampCost 10`, or
 aborted the search on the first node for a creep short on life and left it standing), unbounded for `plan*`; `maxOps` = `4000 * route rooms`, capped at 20000 (PathFinder's
 heuristic ignores `plainCost`, so slow creeps need several times the default
 2000). Rooms are limited to the `findRoute` set via `restrictedRoomCallback`
-for walks over 4 rooms; shorter walks search unrestricted. A restricted
+for walks over 4 rooms; shorter walks search unrestricted. Either way a room
+the route costs call deadly (`unsafeRoom`) that the walk would only cross,
+neither its start room nor a goal room, is searched on `dangerMatrix`: its
+own matrix with every tile that is not a wall or an obstacle raised to
+`kDangerTile` (25), so a crossing costs more than a two-room detour (29 Oct
+2026; before, a walk of 4 route rooms or fewer searched every room at terrain
+cost and two crows cut through W26S5's level 3 stronghold and died). A restricted
 search that comes back incomplete with ops to spare had nowhere left to go
 (`findRoute` picks rooms by exits alone; an exit walled off inside its room,
 W24S7's north exit behind two of its own extensions since Oct 2026, is one

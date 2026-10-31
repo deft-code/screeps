@@ -151,6 +151,8 @@ export const kKeeperUser = 'Source Keeper'
 const kSKRing = 50
 // Cache key suffix of a keeper room's matrix built without its keeper layer.
 const kSKlessSuffix = 'SK'
+// Cache key suffix of dangerMatrix.
+const kDangerSuffix = '+danger'
 const kSKBlindRing = 40
 
 // Where a keeper room's Source Keepers stand. A keeper walks once from its
@@ -502,6 +504,13 @@ const ROUTE_HOSTILE_RESERVED = ROUTE_SK
 // A base with towers, or a stronghold: a two-room detour is always worth it.
 const ROUTE_HOSTILE_CLAIMED = 25
 const ROUTE_INVADER_CORE = ROUTE_HOSTILE_CLAIMED
+// Every walkable tile of an unsafe room (unsafeRoom: a hostile base with
+// towers, a deployed invader core) costs at least this in a tile search
+// that merely passes through it (dangerMatrix), so a walk goes two rooms
+// around rather than across; a walk starting or ending there uses the
+// plain matrix. Until 29 Oct 2026 a walk of 4 route rooms or fewer searched
+// every room at terrain cost and crows cut through a level 3 stronghold.
+const kDangerTile = 25
 
 // How long a room's cost is trusted without vision (Memory.Rewalker.rooms
 // [x].cost, gatherIntel) and, on the heap, how often a visible room's cost
@@ -1116,10 +1125,45 @@ export class Rewalker {
         return roomName => this.unsafeRoom(roomName) ? false : this.getMatrix(roomName, ignoreSK)
     }
 
+    // The matrix of an unsafe room for a walk passing through it: the
+    // room's own matrix with every tile that is not a wall or an obstacle
+    // raised to kDangerTile. Cached beside the plain one.
+    dangerMatrix(roomName: string, ignoreSK = false): CostMatrix {
+        const key = roomName + (ignoreSK ? kSKlessSuffix : '') + kDangerSuffix
+        let mat = this._cache.get(key)
+        if (mat) return mat
+        const base = this.getMatrix(roomName, ignoreSK)
+        const terrain = Game.map.getRoomTerrain(roomName)
+        mat = new PathFinder.CostMatrix()
+        for (let x = 0; x < 50; x++) {
+            for (let y = 0; y < 50; y++) {
+                const have = base.get(x, y)
+                if (have === 0xff || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+                    mat.set(x, y, 0xff)
+                } else {
+                    mat.set(x, y, Math.max(have, kDangerTile))
+                }
+            }
+        }
+        this._cache.set(key, mat)
+        return mat
+    }
+
+    // The matrix for `roomName` in a walk from `pos` to `goals`: the plain
+    // one for the start room, a goal room or any safe room; the danger one
+    // (dangerMatrix) for an unsafe room the walk would only cross.
+    walkMatrix(roomName: string, pos: RoomPosition, goals: Goal[], ignoreSK: boolean): CostMatrix {
+        if (roomName !== pos.roomName && !_.any(goals, g => g.pos.roomName === roomName) && this.unsafeRoom(roomName)) {
+            return this.dangerMatrix(roomName, ignoreSK)
+        }
+        return this.getMatrix(roomName, ignoreSK)
+    }
+
     restrictedRoomCallback(pos: RoomPosition, goals: Goal[], ignoreSK = false): (roomName: string) => boolean | CostMatrix {
-        // Short distance walks don't usually exceed the 16 room limit.
+        // Short distance walks don't usually exceed the 16 room limit: any
+        // room may be searched, unsafe ones at danger weight (walkMatrix).
         if (this.getRouteDist(pos.roomName, goals[0].pos.roomName) <= 4) {
-            return this.roomCallbackFor(ignoreSK)
+            return roomName => this.walkMatrix(roomName, pos, goals, ignoreSK)
         }
 
         const set = new Set<string>()
@@ -1132,7 +1176,7 @@ export class Rewalker {
         }
         return roomName => {
             if (!set.has(roomName)) return false
-            return this.getMatrix(roomName, ignoreSK)
+            return this.walkMatrix(roomName, pos, goals, ignoreSK)
         }
     }
 }
