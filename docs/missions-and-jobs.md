@@ -161,6 +161,28 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               kills and deschedules itself when the creep and its tombstone are gone
          ├─ Always           @register  (ms.always.ts)         "Always <Job> <room> [perLife]"; Once that never winds down: paceNJobs(job, perLife
                                                               (args[3], default 1)), one egg per lifetime, never while one is unhatched; windDown() to stop
+         ├─ Assault          @register  (ms.assault.ts)        "Assault <room> <home>"; vision of the room (theRadar.observeNow, else nJobs(Scout, 1) from home), then with it in sight
+         │                                                     counts the hostile towers and evolve()s into the sibling for that count (2: "AssaultTwo <room> <home>"; a count with no
+         │                                                     sibling is logged every 100 ticks and the mission waits). The scout goes along with the evolve.
+         ├─ AssaultTwo       @register  (ms.assaulttwo.ts)     "AssaultTwo <room> <home>" (31 Oct 2026); one boosted Wicktwo (job.wicktwo.ts) at a time against a two-tower room, from the home
+         │                                                     room's spawns and labs ("home" and "spawn" aliases = args[2]). Staging room (memory.staging): the first room after the target on
+         │                                                     Rewalker.getRoute(target, home) that no other player owns by intel (foreignOwned: owner and rcl > 0), else route[1]; a hand-set one
+         │                                                     is kept. Staging position (memory.stagexy) and entry tile (memory.entryxy, the path's first tile in the target room) from
+         │                                                     staging.ts findStaging over the listed targets, once, with the target in sight. Flags Assault/AssaultN (memory.flag) at
+         │                                                     roomCenterPos(target) and the child staging_<flag> at the staging position, re-created when gone, moved back only when found
+         │                                                     outside their room; secondary colour = mode (plan yellow, stage/retreat orange, attack red, pause purple); blue set by hand =
+         │                                                     manual: no mode change, nothing laid, the wick stages. targets(): hostile towers nearest the entry first, then spawns (empty blind;
+         │                                                     cached per tick). switchMode() every tick: plan while no stagexy; pause while the target's safe mode (memory.safeUntil, last seen)
+         │                                                     has over 400 ticks left: handOff() donateAll to the nearest other AssaultTwo not paused (routes.dist), else memory.recycle so the
+         │                                                     wicks recycle at their origin spawn; retreat while a nuke lands within 75 ticks (memory.nukeAt); else stage from any of those, and
+         │                                                     stage -> attack once the staging room has been in sight with no militant creep (creep.enemy.ts isMilitant, keepers excepted) for 5
+         │                                                     ticks (memory.quietSince) and a fighter waits within 5 of the staging flag, with no safe mode. recruit() (not plan/pause/manual):
+         │                                                     tower-free and no safe mode -> nJobs(Ballerina, 1) once no wick is left, plus nJobs(Scout, 1) to draw fire and stomp sites; else
+         │                                                     nJobs(Wicktwo, 1) only while boostsInStock() (home terminal + storage + labs hold each wanted boost for a full wick; status shows
+         │                                                     `boosts:short ...`). askBoosts(): home.requestBoost for each wanted boost while a wick is an egg or hatch. Winds down once
+         │                                                     finished(): no hostile structure left but ramparts, controller, keeper lair, portal, power bank, invader core. Vision: observeNow
+         │                                                     target + observeBackground staging while the radar has an observer, else nJobs(Scout, 1) while the target is out of sight.
+         │                                                     boostRanged (persisted setter) adds XKHO2 to the wick's boosts. kill() removes both flags.
          ├─ Capture          @register  (ms.capture.ts)        "Capture <room>"; pause()/resume() (memory.held; status shows `held`): no crow or scout eggs, eggs purged, flags and living crows kept, observer and radar left alone; ReactorDepot drives it for its core; takes a room with Crows (job.crow.ts). First run picks the owned RCL7+ room with a spawn nearest the target by
          │                                                     route (routes.dist) and keeps it (memory.home; "home" and "spawn" aliases, so every egg spawns there); the staging room (memory.staging)
          │                                                     is route[1] of memory.route = routeHome(): Rewalker.getRoute(target, home), or with memory.core set findRoute on Rewalker's routeCallback prices with the core room at Infinity; watchCore() keeps memory.core = the first target neighbour with an invader core deployed or deploying within 1500 ticks (sight, else intel coreLvl; the remembered room sticks while out of sight) and on a change drops route and staging so they are picked again (19 Oct 2026); a hand-set staging is kept. Flags: Capture (CaptureN when taken; a free one already in the target room is adopted;
@@ -346,6 +368,20 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 the id goes bad (gone or nothing lootable) as the largest of the mission room's energy piles (by energy) and tombstones with loot (by lootable store); else follow the mission's Skhunter
          │                                                 within 2, else sit within 3 of the room centre; outside home, after() idleNoms energy within reach. laid by SkFarm (paceNJobs(Skvulture, 1, 1450))
          ├─ Pup @register                  (job.pup.ts)    Wolf with memory.size ATTACK + MOVE pairs; suppress.ts suppressPup (same missions): paceNJobs(Pup, 3) while enemies with HEAL and no hostiles are in the room, size = ceil(heal power / ATTACK_POWER / 2) set on the egg
+         ├─ Wicktwo @register              (job.wicktwo.ts) AssaultTwo's fighter (31 Oct 2026): fixed 4 TOUGH, 25 MOVE, 12 RANGED_ATTACK, 9 HEAL (5340) from the home room (readySpawn),
+         │                                                 priority 3. start(): at home with a wanted boost missing (XGHO2 on TOUGH, XLHO2 on HEAL, XKHO2 on RANGED_ATTACK when the mission's
+         │                                                 boostRanged is on) -> boost(): room.requestBoost for each missing one every tick and boostCreep at a lab holding enough mineral
+         │                                                 and energy for the bare parts, waiting beside the first lab otherwise; mission.recycling -> recycleAt(originSpawn); mode attack
+         │                                                 (and not manual) -> attack(): walk into the target room; there, the mission's targets() clear the own-target ids; a working melee
+         │                                                 within 2 is fled to 3 (idleFlee); the walk goes to targets()[0] (range 1) else ownTarget(): the kept creep (creepId) while in the
+         │                                                 room, else the militant with the least hits + rampart hits (coverHits), else the kept structure (structId), else the structure
+         │                                                 with the least hits (structures(): not ours, hits > 0, no road/controller/lair/portal/power bank/core; containers only once nothing
+         │                                                 else stands); nothing -> hold within 3 of the mission flag; any other mode -> stage(): engage a militant in the staging room,
+         │                                                 else wait within 5 of the staging flag. after(): fire() the ladder (listed target in range 3; else nearest militant not under a
+         │                                                 rampart over 10k, active first; an adjacent focus is mass-attacked when massDamage() >= a shot; else mass when it beats a shot
+         │                                                 at the weakest structure in range, else that shot; outside the target room militants only), then healSelf while a tower with
+         │                                                 energy is in the room and we are whole, else heal.ts healIdle with overheal while an enemy creep is within 3.
+         │   └─ Ballerina @register        (job.ballerina.ts) Wicktwo on the Crow body with wantedBoosts() = []: laid by AssaultTwo once the target is tower-free.
          │   └─ Crow @register             (job.crow.ts)   Capture's fighter: fixed 25 MOVE, 24 RANGED_ATTACK, 1 HEAL (5100, Crow.power = 240) from the home room's spawns only (the daemon
          │                                                 waits for the energy); decide(): retreat (to the staging flag, range 2, not home) when hurt as Guard, else in staging mode stage():
          │                                                 walk to within 2 of the staging flag (the staging room without one) and wait, chasing nothing (shots and heals within reach are
