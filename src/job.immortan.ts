@@ -1,6 +1,7 @@
 import { JobRole } from "job.role";
 import { register, taskbroken, Task2Ret } from "mycreep";
 import { findReactors } from "reactor";
+import type { CreepMove } from "creep.move";
 
 
 
@@ -36,6 +37,12 @@ declare global {
 // reserver parked on a dead warboy's drop pays for it with its own life.
 // Under kAgingThorium the log floors to 0 and the tile is harmless.
 const kAgingThorium = 10;
+// Keep this far from an enemy with RANGED_ATTACK parts, and this far from
+// one with only ATTACK (evade, since 29 Oct 2026): closer than that it
+// steps away (idleFlee), at exactly that it holds rather than step back in
+// and bounce. Source Keepers are the Rewalker's business, not evade's.
+const kRangedGap = 5;
+const kMeleeGap = 3;
 // Housekeeping with the CARRY part: top up to this much thorium (just under
 // the 10 where a carried load starts aging the creep) from what
 // lies within reach while carrying less...
@@ -65,6 +72,7 @@ export class Immortan extends JobRole {
     }
 
     start(): Task2Ret {
+        if (this.evade()) return "wait";
         if (this.pos.roomName !== this.mission.roomName) {
             return this.moveRoom(this.mission.roomName);
         }
@@ -74,6 +82,40 @@ export class Immortan extends JobRole {
             return "wait";
         }
         return this.reserve(reactor);
+    }
+
+    // The gap to keep from `foe`: kRangedGap for a ranged creep (ranged or
+    // not also melee), kMeleeGap for a melee one.
+    gap(foe: Creep): number {
+        return ((foe as unknown as CreepMove).activeByType.get(RANGED_ATTACK) || 0) > 0 ? kRangedGap : kMeleeGap;
+    }
+
+    // Armed enemies (room.hostiles, keepers excepted) in this room: one
+    // inside its gap makes the immortan step away from all of them until
+    // each is its gap away; one at exactly its gap makes it hold. Beside the
+    // reactor it still claims the tick it moves off. True when it fled or
+    // held this tick.
+    evade(): boolean {
+        const foes = (this.c.room.hostiles || []).filter(h => !h.keeper);
+        if (!foes.length) return false;
+        const inside = _.any(foes, f => this.pos.inRangeTo(f, this.gap(f) - 1));
+        const atGap = inside || _.any(foes, f => this.pos.inRangeTo(f, this.gap(f)));
+        if (!atGap) return false;
+        this.claimBeside();
+        if (inside) {
+            const fled = (this.c as unknown as CreepMove).idleFlee(foes, f => this.gap(f));
+            this.dlog("evading", foes.length, "foes", fled);
+        }
+        return true;
+    }
+
+    // Beside the reactor while it is not ours, or a rival claimer is about:
+    // claim it (a move intent in the same tick is fine).
+    claimBeside() {
+        const reactor = findReactors(this.c.room)[0];
+        if (!reactor || !this.pos.isNearTo(reactor)) return;
+        if (reactor.my && !this.rivalClaimers()) return;
+        this.report("claimReactor", this.c.claimReactor(reactor), reactor);
     }
 
     // Creep.prototype.claimReactor (seasonal server): needs a live CLAIM part,

@@ -3,9 +3,8 @@ import * as debug from "debug";
 import type { Capture } from "ms.capture";
 import { Reactor, ReactorMemory, RunnerClass } from "ms.reactor";
 import { Warrunner } from "job.warrunner";
-import { Scout } from "job.scout";
 import { defaultRewalker } from "Rewalker";
-import { roomKind, Kind, RoomIntel } from "intel";
+import { roomKind, Kind } from "intel";
 
 // The depot switches on once the home terminal holds this much thorium
 // (memory.active, persisted) and off again under kDepotOff: a wide band, so
@@ -27,16 +26,6 @@ const kRunnerCycle = 300;
 // room has 900 energy, a tick to load, 120-290 to walk.
 const kLeadTicks = 300;
 
-// An invader core seen in a Source Keeper room on the route, or one of ours
-// dying in such a room while its intel shows a core, pauses everything but
-// scouts for this long. The scouts keep walking the route, so each one that
-// sees the core (or dies to it) renews the pause until the core is gone.
-const kSkCorePause = 2500;
-
-// One scout per this many ticks while paused: the same pace as unpaused, so
-// the core stays watched without feeding the core a creep every few ticks.
-const kScoutPace = 1400;
-
 // Ticks between route recomputations (Rewalker caches its own for 500).
 const kRoutePace = 500;
 
@@ -45,8 +34,6 @@ export interface ReactorDepotMemory extends ReactorMemory {
     route?: string[]
     skRooms?: string[]
     routed?: number
-    // Room whose invader core set the current pause, for status.
-    coreRoom?: string
     // The Capture mission of our core (`Capture <core>`), found once among
     // the scheduled services and kept.
     capture?: string
@@ -69,12 +56,12 @@ const rewalker = defaultRewalker();
 // paused by syncCapture once no runner is about.
 //
 // The route the runners walk (Rewalker.getRoute home -> core, refreshed every
-// kRoutePace ticks) is kept in memory with its Source Keeper rooms. Every
-// tick each SK room on the route we can see is checked for an invader core;
-// one with a level pauses everything but scouts for kSkCorePause ticks,
-// purging the other eggs. Scouts keep walking the route (paceJobs while
-// paused), so their vision, or their death in a room whose intel shows a
-// core, renews the pause until the core is cleared or collapses.
+// kRoutePace ticks) is kept in memory with its Source Keeper rooms. Invader
+// cores never pause this mission (since 29 Oct 2026; before, a core seen in
+// an SK room on the route held it 2500 ticks and Reactor's death rule 1500,
+// and the holds stacked into days of an empty reactor while the enemy
+// claimed it): the guard and the immortan's own evasion deal with what is
+// at the core, and a lost runner is replaced.
 //
 // The core's Capture mission (`Capture <core>`, memory.capture once found
 // among the scheduled services) follows the depot: the tick the depot goes
@@ -141,10 +128,14 @@ export class ReactorDepot extends Reactor {
     }
 
     // An inactive depot holds the mission like pause(): run() lays nothing
-    // (whilePaused below keeps its scouts for the core pause only) and
-    // shepherds the living. A hand pause() or a core pause still count.
+    // and shepherds the living. A hand pause() still counts; invader cores
+    // never pause it (corePaused below).
     get paused(): boolean {
-        return this.held || this.corePaused || !this.active;
+        return this.held || !this.active;
+    }
+
+    get corePaused(): boolean {
+        return false;
     }
 
     // The rooms from home to the core as Rewalker routes them, and the SK
@@ -215,61 +206,24 @@ export class ReactorDepot extends Reactor {
         }
     }
 
-    // Every tick: the capture follows the depot, and each visible SK room on
-    // the route is looked at for an invader core.
+    // Every tick: the capture follows the depot.
     watch() {
         this.syncCapture();
-        for (const roomName of this.skRooms) {
-            const room = Game.rooms[roomName];
-            if (!room) continue;
-            const core = _.first(room.findStructs(STRUCTURE_INVADER_CORE)) as StructureInvaderCore | undefined;
-            if (core && core.level > 0) this.pauseFor(roomName, core.level, "seen");
-        }
     }
 
-    // Pause everything but scouts for kSkCorePause ticks from now, purging the
-    // other eggs. Logged when the pause starts, then every 500 ticks of renewal.
-    pauseFor(roomName: string, lvl: number, why: string) {
-        const mem = this.dmem;
-        const fresh = !this.paused;
-        mem.pauseUntil = Game.time + kSkCorePause;
-        mem.coreRoom = roomName;
-        this.purgeEggs([Scout.name.toLowerCase()]);
-        if (fresh || Game.time % 500 === 0) {
-            debug.log(this.name, "level", lvl, "invader core in", roomName, `(${why});`,
-                fresh ? "pausing" : "still paused", "until", mem.pauseUntil);
-        }
-    }
-
-    // Scouts still go out during a core pause: their walk through the SK
-    // rooms is how the core is watched, and their deaths renew the pause.
-    // Not while the depot holds the mission: nothing is laid then.
-    whilePaused() {
-        if (this.active) this.paceJobs(Scout, kScoutPace);
-    }
-
-    // A creep dying in an SK room on the route whose intel shows a core keeps
-    // the mission paused; any other death is the Reactor rule (1500 ticks for
-    // a core in whatever room it died in, all eggs purged).
+    // A death pauses nothing here (Reactor's rule holds 1500 ticks for an
+    // invader core in the room it died in); the room note is just dropped.
     creepDied(name: string) {
         const seen = this.dmem.seen || {};
         const roomName = seen[name];
-        if (roomName && _.contains(this.skRooms, roomName)) {
-            const lvl = RoomIntel.get(roomName)?.coreLvl || 0;
-            if (lvl > 0) {
-                delete seen[name];
-                this.pauseFor(roomName, lvl, `${name} died`);
-                return;
-            }
-        }
-        super.creepDied(name);
+        delete seen[name];
+        if (roomName) debug.log(this.name, name, "died in", roomName);
     }
 
     status(): string {
         const mem = this.dmem;
         const route = ` route:${this.route.join(">")} sk:${(mem.skRooms || []).join(",") || "-"}`;
-        const core = this.corePaused && mem.coreRoom ? ` core:${mem.coreRoom}` : "";
         const cap = mem.capture ? ` capture:${mem.capture}${this.cold ? " cold" : ""}${mem.coldPaused ? " paused" : ""}` : "";
-        return super.status() + ` depot:${this.depot}${this.active ? " on" : " off holding"}` + route + core + cap;
+        return super.status() + ` depot:${this.depot}${this.active ? " on" : " off holding"}` + route + cap;
     }
 }

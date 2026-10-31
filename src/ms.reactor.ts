@@ -252,17 +252,31 @@ export class Reactor extends Mission {
         return this.room?.hostiles || [];
     }
 
+    // Our armed creeps in the core (ATTACK or RANGED_ATTACK: crows, guards,
+    // whoever) against the enemy's (hostiles, Source Keepers excepted).
+    get ourMilitants(): number {
+        return this.room ? this.room.find(FIND_MY_CREEPS).filter(c => c.hostile).length : 0;
+    }
+
+    get enemyMilitants(): number {
+        return this.hostiles.filter(h => !h.keeper).length;
+    }
+
     // CLAIM creeps are expensive, so an Immortan is laid only while we have
     // thorium to run (haveThorium) and we can see the reactor and either it
     // is not ours (anyone can re-claim it, so this also covers taking it
     // back after a loss) or it is ours and fuelled past kGuardAbove, so a
-    // loss can be reversed before the fuel is burned for someone else.
+    // loss can be reversed before the fuel is burned for someone else; and
+    // only while our armed creeps in the room are at least as many as the
+    // enemy's (since 29 Oct 2026: an immortan sent into a held room just
+    // dies), so an empty room or one our crows hold draws one.
     hold() {
         if (!this.haveThorium) return null;
         const reactor = this.reactors[0];
         if (!reactor) return null;
         const fuel = RESOURCE_THORIUM && reactor.store[RESOURCE_THORIUM] || 0;
         if (reactor.my && fuel <= kGuardAbove) return null;
+        if (this.ourMilitants < this.enemyMilitants) return null;
         return this.nJobs(Immortan, 1);
     }
 
@@ -344,6 +358,7 @@ export class Reactor extends Mission {
         const r = this.reactors[0];
         const state = r ? ` owner:${r.owner?.username ?? "-"} work:${r.continuousWork}` : "";
         const pause = (this.held ? " held" : "") + (this.corePaused ? ` paused:${this.mem.pauseUntil! - Game.time}` : "");
-        return super.status() + ` core:${this.roomName} visible:${!!this.room} reactors:${this.reactors.length}${state}${pause}`;
+        const arms = this.room ? ` militants:${this.ourMilitants}/${this.enemyMilitants}` : "";
+        return super.status() + ` core:${this.roomName} visible:${!!this.room} reactors:${this.reactors.length}${state}${arms}${pause}`;
     }
 }
