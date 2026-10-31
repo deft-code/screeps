@@ -7,8 +7,8 @@ import { findReactors, thoriumMineral } from "reactor";
 // gathers thorium -- scavenging what lies on the ground or in tombstones and
 // ruins around it (dead warboys drop their load) before harvesting at that
 // room's extractor -- until it is full or too old for another round, then walks
-// the load to the sector core and transfers it into the reactor, but only while
-// the reactor is ours. Thorium on the creep's tile (its store included) ages it
+// the load to the sector core and transfers it into the reactor, whoever holds
+// it. Thorium on the creep's tile (its store included) ages it
 // faster: ticksToLive drops 1 + floor(log10(thorium)) per tick, so 2/tick from
 // 10, 3/tick from 100 and 4/tick from 1000; the body is capped below 1000 carry.
 
@@ -235,11 +235,11 @@ export class Warboy extends JobCreep {
             this.log("no reactor in", roomName);
             return "wait";
         }
-        // Feed only our own reactor; otherwise wait beside it for the Immortan.
-        if (!reactor.my) {
-            if (!this.pos.inRangeTo(reactor, 2)) this.moveTarget(reactor, 2);
-            return "wait";
-        }
+        // Whoever holds the reactor, feed it (since 29 Oct 2026; before, a
+        // runner waited at range 2 for the Immortan to claim it first): the
+        // immortan is on its way or beside it, and thorium sitting in a
+        // waiting runner ages the runner 3 a tick for nothing. A refusal
+        // shows in the "transfer failed" log line.
         if (!this.pos.isNearTo(reactor)) {
             this.moveTarget(reactor, 1);
             return "wait";

@@ -310,15 +310,16 @@ export class Reactor extends Mission {
     // Enough runners in flight to deliver 1 thorium per tick, the reactor's
     // burn rate: each delivers tripLoad per runnerCycle ticks. Only while the
     // home room has thorium for them (homeHasThorium), the core is visible
-    // (the scout's job) with no armed hostile in it (an enemy scout only draws
-    // the guard), and the reactor will have room for another full load when
-    // it lands.
+    // (the scout's job) with our armed creeps in it at least as many as the
+    // enemy's (the immortan's rule, hold(); until 29 Oct 2026 any armed
+    // hostile held the egg), and the reactor will have room for another
+    // full load when it lands.
     fuel() {
         const home = this.getRoom("home");
         if (!home || !this.homeHasThorium(home)) return null;
         const reactor = this.reactors[0];
         if (!reactor) return null;
-        if (this.hostiles.length) return null;
+        if (this.ourMilitants < this.enemyMilitants) return null;
         const runner = this.runnerClass;
         const stored = RESOURCE_THORIUM && reactor.store[RESOURCE_THORIUM] || 0;
         const atLanding = stored - this.leadTicks + inboundThorium();
