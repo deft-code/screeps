@@ -11,15 +11,17 @@ import * as k from "constants";
 //
 //   scheduleService('LabPlan W25S7')
 //   getService('LabPlan W25S7').status()
-//   getService('LabPlan W25S7').add('XZHO2', 3000)          // append a target
-//   getService('LabPlan W25S7').add('G', 5000, 'XGHO2')     // ...ahead of another
+//   getService('LabPlan W25S7').add('XZHO2', 3000)          // append a target (or set its quota)
 //   getService('LabPlan W25S7').setQuota('XLHO2', 6000)
 //   getService('LabPlan W25S7').remove('XGHO2')
 //   getService('LabPlan W25S7').reset()                     // the default plan
 //   getService('LabPlan W25S7').replan()                    // choose again now
 //
 // The plan (Memory.labplan[room].plan, console-edited, kDefaultPlan to
-// start) is an ordered list of products with quotas. Every kPace ticks the
+// start) is an ordered list of products with quotas: a static ladder,
+// new targets appended at the end (an insert-ahead argument on add() was
+// dropped 31 Oct 2026 as unneeded; two boosts put ahead of XLHO2 with it
+// had every room making them first). Every kPace ticks the
 // first entry whose stock (terminal + storage) is under quota is walked
 // down the Reactions table, deepest first as autoReact did, but a reaction
 // is only chosen when both of its inputs are stocked at kMinInput or more;
@@ -84,9 +86,12 @@ const Reactions = (k as any).Reactions as { [res: string]: string[] };
 const ReactionOf = REACTIONS as unknown as { [a: string]: { [b: string]: ResourceConstant } };
 
 const kDefaultPlan: LabPlanEntry[] = [
-    // 3000 each until 27 Oct 2026 (10000 by console edit before that).
-    { res: RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE, quota: 20000 },
-    { res: RESOURCE_CATALYZED_GHODIUM_ALKALIDE, quota: 20000 },
+    // XLHO2 and XGHO2 at 3000 each until 27 Oct 2026 (10000 by console edit
+    // before that), 20000 until 31 Oct 2026, when XZHO2 and XKHO2 joined.
+    { res: RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE, quota: 10000 },
+    { res: RESOURCE_CATALYZED_GHODIUM_ALKALIDE, quota: 10000 },
+    { res: RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE, quota: 1000 },
+    { res: RESOURCE_CATALYZED_KEANIUM_ALKALIDE, quota: 2000 },
 ];
 // Stock to build of an intermediate with no entry of its own before the
 // step above it runs.
@@ -143,18 +148,13 @@ export class LabPlan extends Service {
         return this.mem.plan;
     }
 
-    // Console: edit the plan. add() appends, or inserts ahead of `before`;
-    // an existing entry has its quota updated in place.
-    add(res: ResourceConstant, quota: number, before?: ResourceConstant): LabPlanEntry[] {
+    // Console: edit the plan. add() appends; an existing entry has its
+    // quota updated in place.
+    add(res: ResourceConstant, quota: number): LabPlanEntry[] {
         if (!Reactions[res]) throw new Error(`${res} is not a lab product`);
         const plan = this.plan;
         const have = _.find(plan, e => e.res === res);
-        if (have) {
-            have.quota = quota;
-            return plan;
-        }
-        const i = before ? _.findIndex(plan, e => e.res === before) : -1;
-        if (i >= 0) plan.splice(i, 0, { res, quota });
+        if (have) have.quota = quota;
         else plan.push({ res, quota });
         return plan;
     }

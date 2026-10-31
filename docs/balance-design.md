@@ -69,8 +69,10 @@ traffic would now starve.
 ## LabPlan: every RCL8 room, plus the idle ladder
 
 `LabPlan W26S8` and `LabPlan W27S4` join `LabPlan W25S7`, all on the default
-plan (XLHO2 20k, XGHO2 20k). The chooser is unchanged for the plan: the first
-entry under quota whose chain has a makeable step.
+plan (XLHO2 20k, XGHO2 20k; since 31 Oct 2026 XLHO2 10k, XGHO2 10k, XZHO2
+1k, XKHO2 2k, a static ladder that new targets are appended to). The chooser
+is unchanged for the plan: the first entry under quota whose chain has a
+makeable step.
 
 When no entry has one (plan done, or blocked on stock), `idle()` climbs:
 
