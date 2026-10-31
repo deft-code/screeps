@@ -1,3 +1,5 @@
+import type { CreepMove } from "creep.move";
+
 // Whom a fighter heals when it has nothing to shoot: shared by every
 // military job that falls back to healing (JobCreep.pickHurt for Guard,
 // Crow, Toxic; Guard.after's opportunistic heals; creep.heal.js idleHeal
@@ -23,4 +25,40 @@ export function healPick(hurt: Creep[], score: (c: Creep) => number = c => c.hit
     const fighters = hurt.filter(isFighter);
     const pool = fighters.length ? fighters : hurt;
     return _.max(pool, score) as Creep;
+}
+
+// Heal ourselves, taking the heal intent (intents.melee); false when it is
+// taken, no HEAL part works or the call fails.
+export function healSelf(c: CreepMove): boolean {
+    if (c.intents.melee || !c.activeByType.get(HEAL)) return false;
+    if (c.heal(c) !== OK) return false;
+    c.intents.melee = c;
+    return true;
+}
+
+// The idle heal cascade (role.guard.js afterGuard, shared by Guard.after
+// and the wick, job.wicktwo.ts): nothing while the heal intent is taken or
+// no HEAL part works; self while hurt; else the most hurt adjacent friendly
+// (fighters first, healPick); else one within rangedHeal reach when the
+// ranged intent is free; else, with `overheal`, self: heals land after the
+// tick's damage, so one queued under fire is never wasted. True when a heal
+// was queued.
+export function healIdle(c: CreepMove, overheal: boolean): boolean {
+    if (c.intents.melee || !c.activeByType.get(HEAL)) return false;
+    if (c.hurts) return healSelf(c);
+    const near = hurtFriendlies(c.room.lookForAtRange(LOOK_CREEPS, c.pos, 3, true)
+        .map(spot => spot[LOOK_CREEPS] as Creep));
+    const adjacent = healPick(near.filter(f => c.pos.isNearTo(f)));
+    if (adjacent) {
+        if (c.heal(adjacent) !== OK) return false;
+        c.intents.melee = adjacent;
+        return true;
+    }
+    const far = healPick(near);
+    if (far && !c.intents.range) {
+        if (c.rangedHeal(far) !== OK) return false;
+        c.intents.melee = c.intents.range = far;
+        return true;
+    }
+    return overheal && healSelf(c);
 }

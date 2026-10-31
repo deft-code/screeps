@@ -2,7 +2,7 @@ import { JobRole } from "job.role";
 import { register, taskbroken, Task2Ret } from "mycreep";
 import { CreepMove } from "creep.move";
 import { roomCenterPos } from "intel";
-import { healPick, hurtFriendlies } from "heal";
+import { healIdle } from "heal";
 
 // Port of role.guard.js (2017 flag-team era) to the 2022 mission/job system.
 // A ranged skirmisher with a heal part, spawned in the mission's "home" room.
@@ -325,24 +325,8 @@ export class Guard extends JobRole {
             const enemy = this.pos.findClosestByRange(this.potshots());
             if (enemy) this.shoot(enemy, this.pos.getRangeTo(enemy));
         }
-        if (c.intents.melee || !c.activeByType.get(HEAL)) return;
-        if (c.hurts) {
-            if (c.heal(c) === OK) c.intents.melee = c;
-            return;
-        }
-        // Fighters before civilians, the most hurt first (heal.ts).
-        const near = hurtFriendlies(c.room.lookForAtRange(LOOK_CREEPS, this.pos, 3, true)
-            .map(spot => spot[LOOK_CREEPS] as Creep));
-        const adjacent = healPick(near.filter(f => this.pos.isNearTo(f)));
-        if (adjacent) {
-            if (c.heal(adjacent) === OK) c.intents.melee = adjacent;
-            return;
-        }
-        const far = healPick(near);
-        if (far && !c.intents.range) {
-            if (c.rangedHeal(far) === OK) c.intents.melee = c.intents.range = far;
-            return;
-        }
-        if ((c.room.hostiles || []).length && c.heal(c) === OK) c.intents.melee = c;
+        // Self while hurt, then the hurt friendlies within reach, then
+        // overheal under fire (heal.ts healIdle).
+        healIdle(c, (c.room.hostiles || []).length > 0);
     }
 }

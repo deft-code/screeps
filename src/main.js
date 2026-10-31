@@ -85,12 +85,16 @@ import 'ms.xferstartup';
 import 'ms.capture';
 import 'ms.loot';
 import 'ms.stealreactor';
+import 'ms.assault';
+import 'ms.assaulttwo';
 import 'labplan';
 import "service.flag";
 
 import "job.hauler";
 import "job.scout";
 import "job.crow";
+import "job.wicktwo";
+import "job.ballerina";
 import "job.paver";
 import "job.toxic";
 import "job.razer";
