@@ -61,8 +61,8 @@ import * as debug from "debug";
 // the room is tower-free and out of safe mode, one Ballerina (the wick on
 // the Crow body, unboosted) in its place once no wick is left, and a Scout
 // to draw the fire and stomp construction sites. The home labs are asked
-// for the boosts while a wick is an egg or hatching, so they are loaded by
-// the time it steps out. Done (finish) once the target has no owned
+// for the boosts every tick while the target has a tower, so they stay
+// loaded between wicks. Done (finish) once the target has no owned
 // structure left but ramparts and the unbreakable kinds: windDown.
 //
 // Vision: theRadar.observeNow for the target and observeBackground for the
@@ -491,11 +491,14 @@ export class AssaultTwo extends Mission {
         this.nJobs(Wicktwo, 1);
     }
 
-    // Ask the home labs for the wick's boosts while one is an egg or
-    // hatching (a living one asks for itself).
+    // Ask the home labs for the wick's boosts whenever one may be wanted:
+    // while the target has a tower and the mission is not paused, not just
+    // while a wick is an egg (the first wick waited ~400 ticks at home for
+    // the Chemist to drain and refill the XGHO2 lab, 31 Oct 2026). A claim
+    // lasts 15 ticks, so asking every tick keeps the labs loaded between
+    // wicks at the cost of two or three labs.
     askBoosts() {
-        const wick = Wicktwo.name.toLowerCase();
-        if (!this.roleEggs(wick).length && !this.roleHatches(wick).length) return;
+        if (this.towerFree) return;
         const home = this.getRoom("home");
         if (!home) return;
         for (const b of this.wantedBoosts()) home.requestBoost(b.boost);
