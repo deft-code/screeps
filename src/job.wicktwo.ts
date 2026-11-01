@@ -1,7 +1,7 @@
 import { JobCreep } from "job.creep";
 import { register, Task2Ret } from "mycreep";
 import type { CreepMove } from "creep.move";
-import { isActiveMilitant, isMilitant } from "creep.enemy";
+import { isActiveMilitant, militantsIn } from "creep.enemy";
 import { healIdle, healSelf } from "heal";
 import type { AssaultTwo } from "ms.assaulttwo";
 
@@ -151,8 +151,10 @@ export class Wicktwo extends JobCreep {
     start(): Task2Ret {
         const m = this.assault;
         if (!m) return "wait";
-        if (!this.boosted && this.pos.roomName === this.homeName) return this.boost();
+        // Recycling comes before boosting: a wick that hatches into a paused
+        // mission hands its body back unboosted.
         if (m.recycling) return this.recycleAt(this.originSpawn());
+        if (!this.boosted && this.pos.roomName === this.homeName) return this.boost();
         if (!m.manual && m.mode === "attack") return this.attack();
         return this.stage();
     }
@@ -185,7 +187,7 @@ export class Wicktwo extends JobCreep {
 
     // Enemy creeps of `room` built to fight, Source Keepers left out.
     militants(room: Room): Creep[] {
-        return (room.enemies || room.find(FIND_HOSTILE_CREEPS)).filter(e => !e.keeper && isMilitant(e));
+        return militantsIn(room);
     }
 
     // The militants worth a shot: not under a rampart over kRampartSkip.
@@ -307,7 +309,9 @@ export class Wicktwo extends JobCreep {
     }
 
     // What a mass attack would deal now: every hostile creep and owned
-    // hostile structure with hits within 3, by range (kMassFactor).
+    // hostile structure with hits within 3, by range (kMassFactor). A creep
+    // under a hostile rampart is left out: the damage lands on the rampart,
+    // counted among the structures.
     massDamage(): number {
         const room = this.c.room;
         const shot = this.shotDamage();
@@ -315,7 +319,8 @@ export class Wicktwo extends JobCreep {
             const r = this.pos.getRangeTo(o);
             return r <= kShotRange && (o.hits || 0) > 0 ? shot * kMassFactor[r] : 0;
         };
-        return _.sum(room.find(FIND_HOSTILE_CREEPS), hit) + _.sum(room.find(FIND_HOSTILE_STRUCTURES), hit);
+        const creeps = room.find(FIND_HOSTILE_CREEPS).filter(c => !coverHits(c.pos));
+        return _.sum(creeps, hit) + _.sum(room.find(FIND_HOSTILE_STRUCTURES), hit);
     }
 
     // The firing ladder (file header). `structs` allows the structure rungs.

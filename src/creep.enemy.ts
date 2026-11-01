@@ -20,6 +20,12 @@ export function isMilitant(c: Creep): boolean {
     return isActiveMilitant(c) || isInactiveMilitant(c);
 }
 
+// The militant enemy creeps of `room` (its enemies list, else a find),
+// Source Keepers left out.
+export function militantsIn(room: Room): Creep[] {
+    return (room.enemies || room.find(FIND_HOSTILE_CREEPS)).filter(e => !e.keeper && isMilitant(e));
+}
+
 // The tile on the far side of a room exit: where a creep that stood on
 // `exit` and vanished has gone. An edge with no room beyond (the tile is
 // then a wall nobody could have stood on) answers the tile itself.

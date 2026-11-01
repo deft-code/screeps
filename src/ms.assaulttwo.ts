@@ -7,7 +7,7 @@ import { FlagExtra, createFlagAt } from "flag";
 import { roomCenterPos, RoomIntel, myUsername } from "intel";
 import { defaultRewalker, fromXY, toXY } from "Rewalker";
 import { findStaging } from "staging";
-import { isMilitant } from "creep.enemy";
+import { militantsIn } from "creep.enemy";
 import { dist } from "routes";
 import { theRadar } from "radar";
 import * as debug from "debug";
@@ -54,7 +54,8 @@ import * as debug from "debug";
 //   attack: from stage once the staging room has been in sight with no
 //     militant creep (creep.enemy.ts isMilitant, keepers excepted) for
 //     kQuiet ticks (memory.quietSince) and a wick waits within kStagedRange
-//     of the staging flag, with the target out of safe mode.
+//     of the staging flag, with the target out of safe mode; back to stage
+//     once no fighter is left alive, so a replacement stages too.
 // Laying (recruit), never while paused, planning or held: one Wicktwo
 // while the room has a tower (nJobs 1: a replacement when the last dies),
 // only while the home holds the boosts a wick wants (boostsInStock); once
@@ -75,9 +76,11 @@ export interface AssaultMemory extends MissionMemory {
     route?: string[]
     flag?: string
     mode?: Mode
-    // Packed xy of the staging position (in the staging room) and of the
+    // Packed xy of the staging position and the room it was found for
+    // (a staging room changed by hand drops it), and the packed xy of the
     // path's first tile in the target room.
     stagexy?: number
+    stageRoom?: string
     entryxy?: number
     // First tick the staging room was seen with no militant creep.
     quietSince?: number
@@ -219,6 +222,11 @@ export class AssaultTwo extends Mission {
     // targets, so it needs the target in sight; logged when there is none.
     locate() {
         const mem = this.mem;
+        if (mem.stagexy !== undefined && mem.stageRoom !== mem.staging) {
+            debug.log(this.name, "staging room", mem.stageRoom, "->", mem.staging, "; staging position dropped");
+            delete mem.stagexy;
+            delete mem.entryxy;
+        }
         if (mem.stagexy !== undefined) return;
         const targets = this.targets();
         if (!targets.length) {
@@ -231,6 +239,7 @@ export class AssaultTwo extends Mission {
             return;
         }
         mem.stagexy = toXY(found.pos);
+        mem.stageRoom = mem.staging;
         if (found.entry) mem.entryxy = toXY(found.entry);
         debug.log(this.name, "staging at", found.pos, "edge", found.edge, "entry", found.entry, "path", found.path.length);
     }
@@ -314,17 +323,12 @@ export class AssaultTwo extends Mission {
         if (!this.room) this.nJobs(Scout, 1);
     }
 
-    // Militant enemy creeps of `room`, keepers left out.
-    static militants(room: Room): Creep[] {
-        return (room.enemies || room.find(FIND_HOSTILE_CREEPS)).filter(e => !e.keeper && isMilitant(e));
-    }
-
     // Count the ticks the staging room has been seen clear of militants;
     // out of sight or with one there the count starts over.
     watchStaging() {
         const mem = this.mem;
         const room = mem.staging && Game.rooms[mem.staging];
-        if (!room || AssaultTwo.militants(room).length) {
+        if (!room || militantsIn(room).length) {
             delete mem.quietSince;
             return;
         }
@@ -361,8 +365,8 @@ export class AssaultTwo extends Mission {
         return at !== undefined && at - Game.time <= kNukeTicks;
     }
 
-    // The towers of the target, nearest the entry tile first (the staging
-    // flag, else the room centre, when there is none), then the spawns.
+    // The towers of the target, nearest the entry tile first (the room
+    // centre when there is none), then the spawns.
     // Empty without vision. Cached for the tick.
     private _targets?: [number, Structure[]];
     targets(): Structure[] {
@@ -370,7 +374,8 @@ export class AssaultTwo extends Mission {
         const room = this.room;
         let list: Structure[] = [];
         if (room) {
-            const from = this.entryPos || this.stagingFlag?.pos || roomCenterPos(this.roomName);
+            // In the target room: a range to the staging flag would be Infinity.
+            const from = this.entryPos || roomCenterPos(this.roomName);
             const structs = room.find(FIND_HOSTILE_STRUCTURES);
             const towers = _.sortBy(structs.filter(s => s.structureType === STRUCTURE_TOWER), t => from.getRangeTo(t));
             const spawns = structs.filter(s => s.structureType === STRUCTURE_SPAWN);
@@ -380,9 +385,9 @@ export class AssaultTwo extends Mission {
         return list;
     }
 
+    // Vision and no hostile tower among the targets.
     get towerFree(): boolean {
-        const room = this.room;
-        return !!room && !_.any(room.find(FIND_HOSTILE_STRUCTURES), s => s.structureType === STRUCTURE_TOWER);
+        return !!this.room && !_.any(this.targets(), s => s.structureType === STRUCTURE_TOWER);
     }
 
     // Nothing owned left in the target but the kinds in kKept (vision).
@@ -412,6 +417,9 @@ export class AssaultTwo extends Mission {
         if (safe > kSafeResume) return this.setMode("pause", `safe mode ${safe} left`);
         if (this.nukeSoon) return this.setMode("retreat", `nuke lands in ${this.mem.nukeAt! - Game.time}`);
         if (mode !== "stage" && mode !== "attack") return this.setMode("stage", `from ${mode}`);
+        // The last fighter gone: the next one stages and waits for the
+        // quiet check again rather than walking straight in.
+        if (mode === "attack" && !this.fighters.length) return this.setMode("stage", "no fighter left");
         if (mode === "stage" && !safe && this.quiet && this.staged) {
             return this.setMode("attack", `staging quiet ${Game.time - this.mem.quietSince!} ticks, wick staged`);
         }
