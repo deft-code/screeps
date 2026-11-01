@@ -3,6 +3,7 @@ import { register, Task2Ret } from "mycreep";
 import type { CreepMove } from "creep.move";
 import { isActiveMilitant, militantsIn } from "creep.enemy";
 import { healIdle, healSelf } from "heal";
+import { defaultRewalker } from "Rewalker";
 import type { AssaultTwo } from "ms.assaulttwo";
 
 // Wick: the AssaultTwo mission's fighter (ms.assaulttwo.ts), a boosted
@@ -44,6 +45,15 @@ import type { AssaultTwo } from "ms.assaulttwo";
 // besides); (3) else mass attack when its total damage beats a shot at (4)
 // the structure within 3 with the least hits. Outside the target room only
 // militant creeps are shot (Source Keepers never).
+// A foreign room in safe mode blocks every action of ours but moving,
+// healing included, while its towers fire on (wicktwo0 died in W28S1 that
+// way, 31 Oct 2026): escape() leaves such a room by the nearest exit, a
+// PathFinder step a tick, before anything else. While a hostile tower
+// stands in the target room the spawns are spared (never the focus, never
+// the weakest structure, no mass attack with one within 3): both trial
+// rooms popped safe mode the tick their spawn took damage, and a wick
+// that cannot heal under towers is lost; the spawn's turn comes once the
+// towers are gone.
 // Healing (after()): self every tick while a tower with energy is in the
 // room or the wick is hurt; else the idle cascade (heal.ts healIdle:
 // adjacent hurt friendly, rangedHeal within 3), ending in self-heal while
@@ -72,6 +82,10 @@ const kIgnored: StructureConstant[] = [STRUCTURE_ROAD, STRUCTURE_CONTROLLER, STR
 // Mass attack damage per RANGED_ATTACK_POWER at range 0..3 (engine
 // rangedMassAttack: 10, 4, 1 a part).
 const kMassFactor = [1, 1, 0.4, 0.1];
+const kEscapePlain = 1;
+const kEscapeSwamp = 5;
+
+const rewalker = defaultRewalker();
 
 export interface Boost {
     part: BodyPartConstant
@@ -151,6 +165,7 @@ export class Wicktwo extends JobCreep {
     start(): Task2Ret {
         const m = this.assault;
         if (!m) return "wait";
+        if (this.escape()) return "wait";
         // Recycling comes before boosting: a wick that hatches into a paused
         // mission hands its body back unboosted.
         if (m.recycling) return this.recycleAt(this.originSpawn());
@@ -183,6 +198,36 @@ export class Wicktwo extends JobCreep {
             else this.log("boosted", ready.b.boost, "at", lab);
         }
         return "wait";
+    }
+
+    // In a foreign room in safe mode with a hostile tower: step toward the
+    // nearest exit over the Rewalker's matrix (a direct move, the stored
+    // walk resumes once out). False when there is nothing to escape, or
+    // the wick already stands on an exit tile (the room logic walks it out).
+    escape(): boolean {
+        const c = this.c;
+        const room = c.room;
+        const ctrl = room.controller;
+        if (!ctrl || ctrl.my || !ctrl.safeMode) return false;
+        if (!this.towerStands(room)) return false;
+        const exits = room.find(FIND_EXIT);
+        if (!exits.length) return false;
+        const ret = PathFinder.search(c.pos, exits.map(pos => ({ pos, range: 0 })), {
+            maxRooms: 1,
+            plainCost: kEscapePlain,
+            swampCost: kEscapeSwamp,
+            roomCallback: name => name === room.name ? rewalker.getMatrix(name) : false,
+        });
+        const next = ret.path[0];
+        if (!next) return false;
+        this.dlog("escaping", room.name, "safe mode", ctrl.safeMode, "via", _.last(ret.path));
+        c.move(c.pos.getDirectionTo(next));
+        return true;
+    }
+
+    // A hostile tower stands in `room`, with energy or not.
+    towerStands(room: Room): boolean {
+        return _.any(room.find(FIND_HOSTILE_STRUCTURES), s => s.structureType === STRUCTURE_TOWER);
     }
 
     // Enemy creeps of `room` built to fight, Source Keepers left out.
@@ -329,14 +374,19 @@ export class Wicktwo extends JobCreep {
         if (c.intents.range) return false;
         const room = c.room;
         const inRange = (o: RoomObject) => this.pos.inRangeTo(o, kShotRange);
-        const focus: Creep | Structure | null = _.find(listed, inRange) || this.pickCreep(this.shootable(room).filter(inRange));
-        const mass = structs ? this.massDamage() : 0;
+        // Spawns are spared while a tower stands (file header).
+        const spare = structs && this.towerStands(room);
+        const spared = (s: Structure) => spare && s.structureType === STRUCTURE_SPAWN;
+        const focus: Creep | Structure | null = _.find(listed, s => inRange(s) && !spared(s))
+            || this.pickCreep(this.shootable(room).filter(inRange));
+        const massOk = structs && !(spare && _.any(room.find(FIND_HOSTILE_SPAWNS), inRange));
+        const mass = massOk ? this.massDamage() : 0;
         if (focus) {
-            if (structs && this.pos.isNearTo(focus) && mass >= this.shotDamage()) return this.massAttack();
+            if (massOk && this.pos.isNearTo(focus) && mass >= this.shotDamage()) return this.massAttack();
             return this.shoot(focus);
         }
         if (!structs) return false;
-        const weakest = _.min(this.structures(room).filter(inRange), s => s.hits) as Structure | number;
+        const weakest = _.min(this.structures(room).filter(s => inRange(s) && !spared(s)), s => s.hits) as Structure | number;
         const single = weakest instanceof Structure ? this.shotDamage() : 0;
         if (mass > single) return this.massAttack();
         if (weakest instanceof Structure) return this.shoot(weakest);

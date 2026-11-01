@@ -21,9 +21,11 @@ import * as debug from "debug";
 //   getService('AssaultTwo W27S2 W27S4').status()
 //   getService('AssaultTwo W27S2 W27S4').boostRanged = true   // XKHO2 on the ranged parts too (persisted)
 //
-// Staging (memory.staging): the room before the target on the Rewalker
-// route home, skipping rooms owned by another player (a staging room set
-// by hand is kept). The staging position (memory.stagexy) comes from the
+// Staging (memory.staging): of the target's neighbours, the one not owned
+// by another player (intel) with the shortest Rewalker route from home (a
+// staging room set by hand is kept; until 31 Oct 2026 it was the room
+// before the target on the route home, which for W26S2 behind W26S3 was
+// not a neighbour at all). The staging position (memory.stagexy) comes from the
 // staging locator (staging.ts findStaging) over the listed targets the
 // first time the target room is in sight, and the path's entry tile into
 // the target room (memory.entryxy) orders the towers: the one nearest the
@@ -202,20 +204,25 @@ export class AssaultTwo extends Mission {
         return !!owner && owner !== myUsername() && (intel.rcl || 0) > 0;
     }
 
-    // The staging room: the first room after the target on the Rewalker
-    // route home that no other player owns (the one after the target when
-    // every room is). A staging room set by hand is kept.
+    // The staging room: the target's neighbour that no other player owns
+    // (any neighbour when every one is) with the shortest Rewalker route
+    // from home; the target itself when it has no exits. A staging room set
+    // by hand is kept. memory.route is the walk from the target through it
+    // to home, for status.
     ensureStaging() {
         const mem = this.mem;
         if (mem.staging && mem.route) return;
         const home = this.getRoomName("home") || this.roomName;
-        const route = mem.route = rewalker.getRoute(this.roomName, home);
-        if (mem.staging) return;
-        const after = route.slice(1);
-        mem.staging = _.find(after, r => !AssaultTwo.foreignOwned(r)) || after[0] || this.roomName;
-        delete mem.stagexy;
-        delete mem.entryxy;
-        debug.log(this.name, "staging", mem.staging, "route", route.join(">"));
+        if (!mem.staging) {
+            const exits = _.values<string>(Game.map.describeExits(this.roomName) || {});
+            const open = exits.filter(r => !AssaultTwo.foreignOwned(r));
+            const pool = open.length ? open : exits;
+            mem.staging = pool.length ? _.min(pool, r => rewalker.getRouteDist(home, r)) as string : this.roomName;
+            delete mem.stagexy;
+            delete mem.entryxy;
+        }
+        mem.route = _.uniq([this.roomName, ...rewalker.getRoute(mem.staging, home)]);
+        debug.log(this.name, "staging", mem.staging, "route", mem.route.join(">"));
     }
 
     // The staging position, once, from the staging locator over the listed
