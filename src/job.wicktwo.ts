@@ -321,7 +321,7 @@ export class Wicktwo extends JobCreep {
             const pick = _.min(mil, e => e.hits + coverHits(e.pos));
             this.creepId = pick.id;
             this.structId = null;
-            this.log("own target", pick, pick.hits, "+", coverHits(pick.pos));
+            this.dlog("own target", pick, pick.hits, "+", coverHits(pick.pos));
             return pick;
         }
         const keptStruct = this.structId && Game.getObjectById(this.structId);
@@ -331,7 +331,7 @@ export class Wicktwo extends JobCreep {
         if (!structs.length) return null;
         const pick = _.min(structs, s => s.hits);
         this.structId = pick.id;
-        this.log("own target", pick, pick.hits);
+        this.dlog("own target", pick, pick.hits);
         return pick;
     }
 

@@ -66,7 +66,8 @@ import * as debug from "debug";
 // to draw the fire and stomp construction sites. The home labs are asked
 // for the boosts every tick while the target has a tower, so they stay
 // loaded between wicks. Done (finish) once the target has no owned
-// structure left but ramparts and the unbreakable kinds: windDown.
+// structure left but ramparts and the unbreakable kinds: every creep to
+// the nearest sibling, then windDown.
 //
 // Vision: theRadar.observeNow for the target and observeBackground for the
 // staging room every tick while the radar has an observer; without one a
@@ -168,7 +169,13 @@ export class AssaultTwo extends Mission {
         this.ensureStaging();
         if (!this.observe()) this.scout();
         if (this.finished()) {
-            debug.log(this.name, "nothing owned left in", this.roomName, "but ramparts; winding down");
+            // The fighters go on to the nearest sibling rather than dying
+            // on nothing (wicktwo2 had 1000 ticks and its boosts left when
+            // W26S3 was cleared, 31 Oct 2026).
+            const sibling = this.nearestSibling();
+            debug.log(this.name, "nothing owned left in", this.roomName, "but ramparts; winding down",
+                sibling ? `, creeps to ${sibling.name}` : "");
+            if (sibling) this.donateAll(sibling);
             this.windDown();
             return super.run();
         }
