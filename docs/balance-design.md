@@ -8,12 +8,12 @@ end.
 
 1. One service (`Balance`) moves both energy and minerals between every
    terminal we own, with no console-chosen "mineral room".
-2. The RCL8 rooms (W25S7, W26S8, W27S4 in Oct 2026) each hold at least
+2. The RCL8 rooms (three of them in Season 11) each hold at least
    `kBaseFloor` (10k) of every base mineral (H, O, U, L, K, Z, X), fed by
    whichever RCL8 room holds the most of it.
 3. Rooms below RCL8 (no labs) keep sending what they mine or loot to the
    nearest RCL8 room.
-4. Thorium from every terminal goes to one room (W25S7, the reactor depot),
+4. Thorium from every terminal goes to one room (the reactor depot's home),
    whatever else the rules say.
 5. Every RCL8 room runs a `LabPlan` building XLHO2 and XGHO2 to 20k, and
    when its plan has nothing to make, an idle ladder keeps the labs busy on
@@ -68,7 +68,7 @@ traffic would now starve.
 
 ## LabPlan: every RCL8 room, plus the idle ladder
 
-`LabPlan W26S8` and `LabPlan W27S4` join `LabPlan W25S7`, all on the default
+In Season 11 every RCL8 room ran a `LabPlan`, all on the default
 plan (XLHO2 20k, XGHO2 20k; since 31 Oct 2026 XLHO2 10k, XGHO2 10k, XZHO2
 1k, XKHO2 2k, a static ladder that new targets are appended to). The chooser
 is unchanged for the plan: the first entry under quota whose chain has a

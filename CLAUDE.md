@@ -2,73 +2,96 @@
 
 Game AI for [Screeps](https://screeps.com), 2017-2026, ~30k lines in `src/`
 (120 TypeScript, 65 JavaScript). Compiled with gulp-typescript to `distjs/` and
-pushed with gulp-screeps. **Current target: Season 11 (`shardSeason`)**; the
-code also accepts MMO `shard2` and refuses every other shard.
+pushed with gulp-screeps. The shard guard in `src/main.js` accepts the seasonal
+shard `shardSeason` and MMO `shard2` and refuses every other shard.
 
 Detailed docs live in `docs/`. Read the one that matches your task before
 grepping: most function names you find have two or three implementations from
 different eras, and only one is live.
 
-## Read this first: what is actually running
+## Status: between seasons (read this first)
 
-`src/main.js` has an unconditional `return` right after `process.runAll()`
-(line 419 as of Oct 2026); everything below it is dead. The live loop is:
+Season 11 (`shardSeason`, Sept-Oct 2026) ended on 1 Nov 2026 and the code is
+not deployed anywhere that is being watched. What follows from that:
+
+- **Nothing in this file or in `docs/` describes a live game.** Room names,
+  missions with rooms in their names (`Hub W25S7`, `Remote W27S9 W26S8`), RCLs,
+  GCL, dates and battle results that appear in the docs are Season 11 examples
+  and history kept because they explain why code is the way it is. The only
+  truth about what is scheduled is `Memory.scheduler.services` on whatever
+  server the code runs on next; the only truth about rooms is `Game.rooms`.
+- **Before the next deployment:** pick the target and its gulp task
+  (`npx gulp deploy` pushes to MMO `shard2`, `npx gulp season` to the seasonal
+  server, `npx gulp ptr` to PTR), check `credentials.js`, widen the shard
+  guard if the target is a new shard, and set `SCREEPS_WORLD` for the console
+  tasks (they default to the season world). Expect an empty `Memory`: after a
+  respawn, `scheduleService('GlobalRespawn')` by hand (the only mission that
+  bootstraps a room from a lone spawn, in the room of the spawn named `Home`,
+  else the first spawn), and `evolve('Hub <room>')` it once the room stands.
+- **Season 11 code is still compiled and loads:** `reactor.ts`, the
+  `Reactor`, `ReactorDepot`, `Thormine`, `Thorhub` and `StealReactor` missions
+  and their jobs (`warboy`, `warrunner`, `immortan`, `thoreater`, `cleanup`,
+  `usurper`), `Meta_reactor`, `Balance`'s thorium override and the `LabPlan`
+  boost quotas. It is inert where `RESOURCE_THORIUM` is undefined (every use
+  guards on it) and without the season's structures. Decide whether to keep,
+  generalise or delete it once the next target is known, and update
+  `docs/file-inventory.md` with the decision.
+- Market code (`market.ts`, `markethack.ts`, `Selloff`) was switched off on
+  `shardSeason` and was last measured on shard2 in Sept 2026
+  (`docs/legacy-systems.md`); re-check it before relying on it there.
+
+## What is actually running
+
+`src/main.js` has an unconditional `return` right after `process.runAll()`;
+everything below it is dead. The live loop is:
 
 ```
 shard guard -> genPixels (shard2 only)
 run(rooms, 500, r => r.strat.init())   # hostile lists, updateIntel, Rewalker.gatherIntel per visible room
 process.runAll()                       # everything else happens here
-theRadar.run()                         # observers serve observe requests (Capture neighbours, deposits), idle ones scan stale rooms
+theRadar.run()                         # observers serve observe requests, idle ones scan stale rooms
 return                                 # the rest of the function is dead
 ```
 
 `process.runAll()` runs a priority table of processes
-([docs/runtime-tick.md](docs/runtime-tick.md)):
+([docs/runtime-tick.md](docs/runtime-tick.md)). Missions exist only while
+scheduled: `scheduleService('Hub W25S7')` writes the command string to
+`Memory.scheduler.services`, and `Service.boot()` replays that list at every
+global reset. **No mission is constructed in code.** Daemons (`@daemon`) and
+per-room strats start themselves. What each process does:
 
-| process | how it gets there | does |
-|---|---|---|
-| `Hub <room>` missions (W26S8, W25S7, W27S4 since 11 Oct 2026) | `scheduleService('Hub W25S7')`, then `Memory.scheduler.services`, replayed by `Service.boot()` at every global reset; **never constructed in code** | lays eggs for asrc/bsrc/hauler (1-3 by dropped energy)/worker/ctrl/hub/upgrader/ctrlhauler/chemist from the room's own spawns, plus one hubminer while the `min` meta's extractor stands on a non-thorium mineral with minerals left and storage + terminal hold under 100k of it, and one hubminecart while that mineral container holds anything (two past half full), and runs those creeps |
-| `Thorhub <room>` missions (W29S7, W25S9, W28S8 as of 27 Oct 2026; W24S7 is no longer ours; W27S4 was evolved into `Hub W27S4` on 11 Oct 2026) | scheduled, same way | `Hub` for a temporary thorium room: plain Hub with a full-size ctrl up to RCL5; from RCL6 an RCL2-sized ctrl and no upgraders or ctrlhaulers; runs the room on the `thorclaimed` strat (`strat.thor.ts`, ramparts capped at 100k, 1M until 14 Oct 2026) via `setRoomStrat`. To turn one into a full room: `getService('Thorhub X').evolve('Hub X')` then `require('strat').setRoomStrat('X', null)` (`evolve` kills without `windDown`, so the strat is not reset by itself) |
-| `GlobalRespawn` mission | **not scheduled** since Sept 2026 (evolved into `Hub W26S8`); schedule it by hand after a respawn | the Hub loop plus `max(1, 6-rcl)` startups and a fixed 2 haulers, in `Game.spawns.Home`'s room; `evolve('Hub <room>')` it once the room stands |
-| `Remote <farm> <home> [spawn]` missions | scheduled, same way | remote sources: harvester/trucker/reserver/scout, plus guard/mini/wolf against hostiles and invader cores; truckers only once a container there holds over 500 energy, reservers only once a harvester of the mission stands in the room (both 27 Oct 2026) |
-| `Reactor <home>` missions | not scheduled as of 22 Sept 2026 (replaced by `ReactorDepot W25S7`); `scheduleService('Reactor W26S8')` brings one back | Season 11 scoring: scout, warboys (thorium runners), immortan (reactor claimer), guard at the sector core, plus one toxic (bait-and-trap mini) per lifetime while an armed enemy without HEAL is there, and one prospector per 1450 ticks on the core's ordinary mineral while no armed enemy is there and home holds under 50k of it (`ReactorDepot` inherits it) |
-| `ReactorDepot <home> [cap]` mission | scheduled (`ReactorDepot W25S7`, since 22 Sept 2026), same way | `Reactor` with warrunners in place of warboys: they load thorium from the home terminal and carry it to the reactor. The depot switch (persisted `active`) turns on once that terminal holds one warrunner load (450) of thorium and off only once it is empty (since 31 Oct 2026, the Thormines mined out; 25k and 500 before); while off the whole mission is held as `pause()` holds it (nothing laid, scouts included, eggs purged the tick it flips off; since 27 Oct 2026, 10k and scouts/guard/immortan still laid while off before that); `status()` shows `depot:<n> on|off holding`. The scout is inherited while on (guard, toxic bait and immortan too until 31 Oct 2026: `ReactorDepot.guard()`, `toxic()` and `hold()` are overridden to `null` for the season's last days under a SEASONAL note, leaving the core undefended for Nidoran to take while the warrunners feed whoever holds the reactor; delete the three overrides to get them back); invader cores never pause it (both core pauses removed 29 Oct 2026; the immortan is laid only while our armed creeps in the core are at least as many as the enemy's, `militants:a/b` in `status()`). `pause()` (persisted as `held` in mission memory) lays nothing at all, scouts included, and purges the eggs; `status()` shows `held`; `resume()` clears it. It follows the core's `Capture W25S5` (remembered as `capture` in its memory once scheduled): the tick the depot goes cold (the switch off with no warrunner alive, hatching or queued) it pauses the capture, and the tick the switch is on again it resumes it; only its own pause is undone (`coldPaused`), a hand pause stays; `status()` shows `capture:<name> cold paused` |
-| `SkFarm <room> <home>` missions (`SkFarm W25S6 W25S7`, since 9 Oct 2026; `SkFarm W26S5 W27S4`, since 19 Oct 2026, briefly W26S6) | scheduled, same way | Source Keeper farm: a scout while the keeper room is out of sight, then one skhunter, one skvulture, three skharvesters (none while an armed non-keeper enemy is in the room), one sktrucker per source container holding 500+ energy, and one prospector while a Source Keeper tombstone lies within 5 of the mineral with no armed enemy about and home holds under 50k of that mineral, all from the home room and paced per 1450 ticks (`paceNJobs(x, n, 1450)`), plus two wolves (`nJobs(Wolf, 2)`) while an Invader creep with a HEAL part is in the room and one guard (`nJobs(Guard, 1)`) while any armed non-keeper enemy is there; the hunter kills the keeper room's Source Keepers one at a time, the vulture hauls the piles and tombstones home. With vision it picks a spot per source and mineral (the tile beside it furthest from the nearest lair, heap only) and keeps an `rsrc` meta per source spot for the `skharvester`s. With `invaderless` set (persisted; on for W25S6 since 13 Oct 2026) it asks the radar for the sector's eight keeper rooms as background every tick and lays no skharvesters while an invader core in any of them is deployed or deploys within 3000 ticks (by sight, else intel's deployed-core record); sktruckers stop on their own once the containers run dry. Whatever `invaderless` says, a core in the farm room itself deployed or deploying within 1500 ticks holds every role but the scout (unhatched eggs are dropped, living creeps work on) and paces scouts to one per 3000 ticks while out of sight; `status()` shows `held:<room>` (19 Oct 2026) |
-| `Thormine <room> [dest]` missions (`Thormine W25S9` and `Thormine W28S8` (scheduled 27 Oct 2026) running with teardown off; W29S7 mined out and wound down 27 Oct 2026; W24S7 ran with teardown on and the room is no longer ours; W27S5, W29S4 and W27S4 are done and descheduled; `getService(x).status()` for the current state) | scheduled, same way | one thoreater per walkable tile beside the room's thorium but one (at least one) (only with thorium left, an extractor on it and a terminal); they mine into the terminal, which ships to `dest` (default W25S7) every cooldown. Teardown is **off by default** (`getService('Thormine W27S5').teardownEnabled = true` turns it on, persisted in mission memory); with it on, once the thorium is exhausted and the terminal holds nothing but energy it **tears the room down** (a mineral remainder under `TERMINAL_MIN_SEND` cannot ship by itself: top it up from the destination terminal and the next cooldown ships it back): winds down every mission homed there, drains all energy into the terminal with `cleanup` creeps, ships it, destroys every structure but the roads and ramparts and unclaims (`abortTeardown()` works until destruction starts) |
-| `Startup <room> [home]` mission (`Startup W28S8 W29S7` 11-19 Oct 2026, claimed at GCL 6 and RCL2 on 15 Oct 2026, rescheduled 20 Oct 2026 at RCL5 for its fedexes; `Startup W25S9 W26S8` running at RCL4; W24S7, genesis `Front`, was claimed under one) | scheduled, same way | claiming another room: scout, claimer, pioneers below RCL4, fedexes from the home storage (while it holds 50k+ and the room has no storage: one per pioneer standing in the room while it has no container but the sources', handing the load to the pioneers, since 15 Oct 2026, and one per non-source container holding under 500 energy once it has one, filling them, since 20 Oct 2026; with a storage of ours in the room: two per lifetime while home holds more energy than it, `XferStartup`'s rule; the mission winds down at RCL4 only once the room has a terminal), one harvester per asrc/bsrc meta while owned below RCL3, guard until it has a tower (and, while unowned, one guard whenever an enemy creep is in the room). With GCL full it plans (and draws, yellow dashed) a Rewalker-costed road from the controller to the home spawn instead of laying a claimer, but keeps only the tiles within 3 of the controller as an `rroad_<room>_startup` traffic entry (stub end to controller) that the room's MetaManager turns into road (the rest of the room is the genesis metas' job), and sends pavers to the room while it is unowned with sites, and while the room is free sets its prebuild level so ActiveStrat places every planned road up to level 3 ahead of the claim and holds the reservation with reservers paced like Remote's; a foreign reservation draws reservers while GCL is full; an invader core in the room draws a wolf every 1500 ticks |
-| `Loot <room> [home]` mission (`Loot W24S6 W25S7` scheduled 13 Oct 2026) | scheduled, same way | loots a beaten invader stronghold: a scout for vision; one `canopener` (32 WORK 16 MOVE) per container under a foreign rampart dismantles it; one `looter` (a sktrucker taking every resource) while an uncovered container holds anything; leftover invader creeps are ignored, only a standing core stops the eggs; winds down once every container is empty |
-| `StealReactor <core>` mission (`StealReactor W15S5` ran 13-14 Oct 2026 and was wound down when the 12-room walk from W24S7 ate the usurper's 600-tick life behind W18S5's walls; rescheduled 14 Oct 2026 once `Bulldoze W18S5` had opened its breach, the walk then 511 steps from the W24S7 spawn: that usurper claimed the reactor and held it ~300 ticks at the elevated continuousWork level before TheLastPiece reclaimed it and garrisoned the room with a claimer and combatants; wound down 15 Oct 2026 with the garrison still there; `scheduleService('StealReactor W15S5')` tries again) | scheduled, same way | radar-observes the core each tick; a fueled reactor that is not ours with no CLAIM creep and no armed enemy there puts it in spawn mode: the nearest spawning room by Manhattan distance is home, the Rewalker route from there is radar-observed, and one `usurper` (Immortan body) is laid once every route room's intel is under 50 ticks stale; it claims the reactor, then walks keeper-layer-off into a neighbouring keeper room to die |
-| `Capture <room>` mission (`Capture W25S5` scheduled 11 Oct 2026 as the first test) | scheduled, same way | takes a room with `crow`s (25 MOVE 24 RANGED_ATTACK 1 HEAL) from the nearest owned RCL7+ room (kept as home); a `Capture` flag at the target's intel centre and a `staging_Capture` child 5 tiles into the room before it on the route home (both left alone while in their rooms); an invader core deployed or deploying within 1500 ticks in one of the target's neighbours is remembered (`memory.core`) and a change re-picks the route home (never through that room) and the staging room, moving the flag (W25S6's stronghold moved W25S5's staging to W26S5 on 19 Oct 2026); one crow egg at a time while the crows' ranged power is not more than the enemy creeps' in the target room; crows wait at the staging flag until those within 5 of it outgun the enemy, then fight as guards and hold at the flag, falling back when the crows in the target or staging room drop under half the enemy's power; the radar (else a scout) gives vision: `observeNow` of the target and `observeBackground` of the staging room every tick (until 20 Oct 2026 it pointed the home observer itself, and `theRadar.run` re-pointed it later the same tick), and the rooms within 2 exits of the target plus every enemy-owned room with spawns within 4 by route (found by scanning intel, rescanned every 1500 ticks give or take half; `spawnrooms:` in `status()`) are asked of the radar each tick (`observe` while `tenemies` > 0 there, else `observeBackground`); their enemy ranged power as last seen, a busy enemy spawn counting 10, is added to the target's, and the heal power seen there is taken off the crows' side, when deciding to lay a crow, while the mode switches weigh the target room alone (28-29 Oct 2026). `pause()` (persisted as `held`) lays no crows or scouts and purges the eggs while the flags stay and the living crows fight on; `resume()` undoes it; `status()` shows `held` |
-| `Assault <room> <home>` and `AssaultTwo <room> <home>` missions (`Assault W27S2 W27S4` scheduled 31 Oct 2026 as the first trial, evolved into `AssaultTwo W27S2 W27S4` on its first sight of the room: both towers died in ~50 ticks to one wick that never dropped under full hits, then the spawn hit popped safe mode; `AssaultTwo W28S1 W27S4` took the same wick next and killed one tower before the spawn was splashed and safe mode popped; both paused; `Assault W26S3 W27S4` scheduled after) | scheduled, same way | end-of-season assaults (`ms.assault.ts`, `ms.assaulttwo.ts`, `job.wicktwo.ts`, `job.ballerina.ts`, `staging.ts`). `Assault` gets vision (radar `observeNow`, else a scout from home), counts the room's towers and evolves into the sibling for the count (two towers: `AssaultTwo`; no other sibling yet). `AssaultTwo` keeps one boosted `wicktwo` (4 TOUGH 25 MOVE 12 RANGED_ATTACK 9 HEAL; XGHO2 on the TOUGH, XLHO2 on the HEAL, XKHO2 on the ranged parts only with the persisted `boostRanged` switch) from the home room, laid only while the home holds the boosts; the wick waits at home until fully boosted (it asks the labs itself, the mission asks while it is an egg). Staging room: the target's neighbour that is not unsafe (priced as a hostile base by the Rewalker, or another player's and unseen for 1500 ticks; a towerless owned room is fine) with the shortest route from home (W28S2 for W27S2 and W28S1, W26S4 for W26S3, W26S3 for W26S2, W26S2 for W26S1; set `Memory.missions[m].staging` and delete `route` to move it by hand, the flag follows); the staging position comes from the reusable staging locator (`staging.ts findStaging`: one path from the staging room's centre to the targets, the edge tile it leaves by, then a flee to 6 from every exit tile and keeper lair of that room). Flags `Assault`/`AssaultN` at the target centre and `staging_Assault`; secondary colour = mode: yellow plan, orange stage/retreat, red attack, purple pause; blue set by hand holds everything. Modes: plan until the staging position is known; stage until the staging room has been seen 5 ticks without a militant creep (`creep.enemy.ts isMilitant`) and a wick is within 5 of the staging flag; attack hands the wick the target list (towers nearest the entry tile first, then spawns); retreat while a nuke lands within 75 ticks; pause while the target's safe mode has over 400 ticks left, donating every creep to the nearest other `AssaultTwo` (else they recycle at home); a safe mode blocks every action of ours in the room, healing included, so the wick leaves a safe-moded tower room by its nearest exit first (wicktwo0 died walking the home route under fire, 31 Oct 2026), and while a tower stands the spawns are spared (both trial rooms, W27S2 and W28S1, popped safe mode the tick their spawn was hit). Once the room is tower-free (and not in safe mode) a `ballerina` (the wick on the crow body, no boosts) replaces the wick and a scout stomps sites. Winds down once no owned structure but ramparts (and controller-like kinds) is left, handing every creep to the nearest other `AssaultTwo` first; `status()` shows mode, targets, boosts, quiet ticks and the wick. Results 31 Oct 2026: W26S3 and W26S2 lost both towers and their spawn to one or two wicks at full hits with no safe mode (W26S3 cleared to its ramparts in ~900 ticks); `AssaultTwo W26S1 W27S4` was the last of the sequence |
-| `LabPlan <room>` service (`LabPlan W25S7` since 11 Oct 2026; `LabPlan W26S8` and `LabPlan W27S4` since 27 Oct 2026: every RCL8 room) | scheduled, same way | stock-aware lab chooser (`labplan.ts`): walks the reaction chains of a console-edited priority list (`Memory.labplan[room].plan`, a static ladder with new targets appended; default XLHO2 10000, XGHO2 10000, XZHO2 1000, XKHO2 2000 since 31 Oct 2026, every room on it; XLHO2 then XGHO2 at 20000 before, 3000 until 27 Oct 2026) and sets the labs to the deepest reaction whose two inputs are stocked in terminal + storage, and with nothing makeable running the idle ladder (X + the richest tier-2, OH + the richest tier-1, O + H to 2k OH, ZK + UL to G; docs/balance-design.md), idling them only when no rung applies; keeps `struct.lab.js`'s autoReactAll off in that room |
-| `ClaimedStrat` per owned room | `room.strat` constructor `exec`s itself | towers, safe mode, labs, links, metastruct construction (traffic replans included), factory |
-| `FlagService` daemon | `@daemon` at import | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
-| `SpawnDaemon` | `@daemon` at import | turns eggs into `spawnCreep` |
-| `SpawnTelemetry` | `@daemon` at import (`spawnload.ts`) | per-spawn busy ticks and creeps started, 500-tick windows in `Memory.spawns`; `spawnLoads()` prints it |
+| process | does |
+|---|---|
+| `GlobalRespawn` | the room bootstrap: in `Game.spawns.Home`'s room (else the first spawn's) lays `max(1, 6-rcl)` startups and a fixed 2 haulers on top of the Hub loop below. Schedule by hand after a respawn; `evolve('Hub <room>')` once the room stands. Throws every tick with no spawns at all |
+| `Hub <room>` | an owned room's economy from its own spawns: asrc/bsrc, hauler (1-3 by dropped energy), worker, ctrl, hub, upgrader, ctrlhauler, chemist, plus one hubminer while the `min` meta's extractor stands on a non-thorium mineral with minerals left and storage + terminal hold under 100k of it, and one hubminecart while that mineral container holds anything (two past half full) |
+| `Thorhub <room>` | `Hub` for a temporary thorium room (Season 11): full-size ctrl to RCL5, then an RCL2-sized ctrl and no upgraders or ctrlhaulers; puts the room on the `thorclaimed` strat (`strat.thor.ts`, ramparts capped at 100k). `getService('Thorhub X').evolve('Hub X')` then `require('strat').setRoomStrat('X', null)` makes it a full room (`evolve` kills without `windDown`, so the strat is not reset by itself) |
+| `Remote <farm> <home> [spawn]` | remote sources: harvester, trucker (once a container there holds over 500 energy), reserver (once a harvester of the mission stands in the room), scout, plus guard/mini/wolf against hostiles and invader cores; asks `PaveAll` for pavers in the road rooms |
+| `Farm <farm> <home>`, `GrowFarm` | the older remote-source missions, command or purple flag only; `GrowFarm` evolves into `Remote` at 800 home energy capacity (1300 if the farm controller has a free tile) |
+| `Startup <room> [home]` | claiming another room: scout, claimer, pioneers below RCL4, fedexes from the home storage (while it holds 50k+: one per pioneer standing in the room while it has only source containers, handing the load over; one per non-source container under 500 energy once it has one; two per lifetime while home holds more energy than the room's storage), one harvester per asrc/bsrc meta while owned below RCL3, guard until the room has a tower. With GCL full it plans a road from the controller to the home spawn instead of laying a claimer (only the tiles within 3 of the controller become an `rroad_<room>_startup` traffic entry), sends pavers, prebuilds planned roads to level 3 and holds the reservation with reservers. Winds down at RCL4 once the room has a terminal |
+| `XferStartup <to> <from> [n]`, `Xfer <to> <from> [n]` | fedex energy hauls storage to storage; `Xfer` ends at 50k left at home or the target storage 75% full, `XferStartup` lays fedexes only while the target has a storage holding less than home's and ends once it has a terminal |
+| `SkFarm <room> <home>` | Source Keeper farm from `home`: scout while out of sight, then one skhunter, one skvulture, three skharvesters (none while an armed non-keeper enemy is there), one sktrucker per source container holding 500+, one prospector while a keeper tombstone lies within 5 of the mineral and home holds under 50k of it, all paced per 1450 ticks; two wolves against a healing Invader, one guard against any armed non-keeper. Picks a harvest spot per source and mineral (furthest tile from the nearest lair) and keeps an `rsrc` meta per spot. `harvesting = false` stops the harvester/trucker eggs; `invaderless = true` background-radars the sector's eight keeper rooms and lays no skharvesters while a core in any of them is deployed or deploys within 3000 ticks. A core in the farm room itself holds every role but the scout |
+| `Loot <room> [home]` | loots a beaten invader stronghold: scout for vision, one canopener (32 WORK 16 MOVE) per container under a foreign rampart, one looter while an uncovered container holds anything; winds down once every container is empty |
+| `Raze <room> [home]` | one razer clears a room of foreign structures and sites and recycles when done |
+| `Nidoran <room> [player]` | paired chaos dismantlers rotate through a player's reserved remote rooms within 2 hops of the seed room |
+| `Bulldoze <room> <home>` | boosted dozers open a breach from an anchor flag (`aim(x, y)`, `dozers = n`) |
+| `Capture <room>` | takes a room with crows (25 MOVE 24 RANGED_ATTACK 1 HEAL) from the nearest owned RCL7+ room: `Capture` flag at the target centre, `staging_Capture` flag one room back on the route; one crow egg at a time while the crows' ranged power does not exceed the enemy's (neighbours within 2 exits and enemy spawn rooms within 4 by route are radar-watched and counted in); crows wait at staging until they outgun the enemy, then fight as guards and fall back under half the enemy's power. `pause()`/`resume()` |
+| `Assault <room> <home>`, `AssaultTwo <room> <home>` | end-of-season tower assaults (`ms.assault.ts`, `ms.assaulttwo.ts`, `staging.ts`): `Assault` gets vision and evolves into the sibling for the tower count (`AssaultTwo` for two towers; no other sibling exists). `AssaultTwo` keeps one boosted wicktwo (4 TOUGH 25 MOVE 12 RANGED_ATTACK 9 HEAL) from home, laid only while home holds the boosts; staging room = the target's safest neighbour nearest home, staging spot from `findStaging`; modes plan/stage/attack/retreat (nuke)/pause (safe mode over 400 ticks, creeps donated to the nearest other `AssaultTwo`), flag secondary colour shows the mode and blue set by hand holds everything; towers nearest the entry first, spawns spared while a tower stands (a spawn hit pops safe mode); a ballerina (wick on the crow body) replaces the wick once the room is tower-free. Results in `docs/missions-and-jobs.md` |
+| `Reactor <home>`, `ReactorDepot <home> [cap]` | Season 11 scoring: scout, thorium runners (warboys mining, or warrunners loading from the home terminal), immortan holding the reactor, guard, toxic bait, prospector on the core's mineral. The depot's persisted `active` switch follows the terminal's thorium; `pause()`/`resume()`; it pauses and resumes the core's `Capture` as it goes cold and warm |
+| `Thormine <room> [dest]` | thoreaters mine a room's thorium into its terminal, which ships to `dest` every cooldown; with `teardownEnabled = true` (persisted) it tears the room down when the thorium is gone: winds down every mission homed there, drains energy with cleanups, ships it, destroys everything but roads and ramparts, unclaims (`abortTeardown()` until destruction starts) |
+| `StealReactor <core>` | radar-watches another sector's core; a fueled reactor that is not ours with no CLAIM creep and no armed enemy puts it in spawn mode and one usurper (MOVE x5 CLAIM) walks from the nearest spawning room to claim it, then dies to a keeper next door |
+| `LabPlan <room>` | stock-aware lab chooser (`labplan.ts`): walks the reaction chains of a console-edited priority list (`Memory.labplan[room].plan`, `add`/`remove`/`setQuota`/`reset`) and sets the labs to the deepest reaction whose inputs are stocked, else an idle ladder (`docs/balance-design.md`); turns `struct.lab.js`'s autoReactAll off in that room |
+| `Balance` | terminal balancer, no creeps: levels energy, brings RCL8 rooms to 10k of each base mineral, feeds lower rooms' minerals to their nearest RCL8 room, sends all thorium to one room, levels catalyzed boosts among RCL8 rooms (`docs/balance-design.md`); rooms via `addRoom`/`removeRoom` |
+| `Once <Job> <room> [n]`, `Always <Job> <room> [n]` | one creep of a job class at a time, `n` in turn (`Once`) or one per lifetime for good (`Always`); the generic test harness for any job |
+| `Swipe`, `Experiment`, `Selloff <room>`, `PaveAll` | purple-flag or command services: swiping loot, the road-weight experiment, terminal selling (no market on a seasonal shard), pavers for unowned road rooms with our sites |
+| `ClaimedStrat` per owned room | `room.strat` constructor `exec`s itself: towers, safe mode, labs, links, metastruct construction and traffic replans, factory |
+| `FlagService` daemon | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
+| `SpawnDaemon` | turns eggs into `spawnCreep` |
+| `SpawnTelemetry` | per-spawn busy ticks and creeps started, 500-tick windows in `Memory.spawns`; `spawnLoads()` prints it |
 
-Consequences: no market automation, deposit farming, or flag
-"teams" run on this build even though their code loads (radar scanning does,
-since 13 Oct 2026). The only
-flags in the game are metastruct genesis/child flags (genesis `Home` W26S8,
-`Port` W25S7, `Wind` W27S4, `Rote` W29S7, `Front` W24S7, `Five` W28S8; `Forth`
-W27S5 went with its teardown), the `Capture` flags, and purple service flags. Missions exist only while scheduled: the table is
-`Memory.scheduler.services` (the room lists above are an Oct 2026 snapshot),
-so read that key rather than trusting this list. Also scheduled as of Oct
-2026: `Balance` (terminal energy and mineral balancer, docs/balance-design.md; rooms via
-`getService('Balance').addRoom(room)`), `Always Guard W24S8 2` (`GrowFarm W29S6
-W29S7`, `GrowFarm W23S7 W24S7` and `Farm W28S7 W29S7` have since evolved into `Remote`s (W28S7's home moved to W28S8 on 20 Oct 2026), as did `Farm W29S8 W28S8` (via `GrowFarm`, 19 Oct 2026); `Remote W22S7 W24S7` was added 11 Oct 2026, `Remote W28S4 W27S4` 19 Oct 2026, `Remote W28S6 W29S7` 20 Oct 2026, `Remote W27S11 W26S8`, `Remote W27S12 W26S8` and `Remote W26S12 W26S8` 27 Oct 2026 (four, five and six rooms out via W26S9, W27S9, W27S10; W26S11 is Nidoran's, so W26S12 is reached through W27S12)), and `PaveAll`s for the remotes' road rooms. Run only by command string or a purple flag:
-`Farm`, `GrowFarm` (a Farm that evolves into `Remote` at 800 home energy
-capacity, 1300 if the farm controller has one free tile), `Once`, `Always`
-(`Once` that keeps one creep of the job alive for good), `Swipe`, the
-`Experiment` road-weight comparison (purple flag `Experiment` plus child
-`dest_Experiment`), the `Selloff <room>` terminal-selling service and the
-`Xfer <to> <from> [n]` storage-to-storage energy haul (fedexes; ends at 50k
-left at home or the target storage 75% full) and `XferStartup <to> <from> [n]`
-(the same haul, laid only while the target has a storage holding less energy
-than home's, ending once the target has a terminal; `XferStartup W24S7 W26S8`
-ran 13-15 Oct 2026 and ended with W24S7's terminal; `XferStartup W28S8 W29S7`
-scheduled 19 Oct 2026 after `Startup W28S8` gave way to `Thorhub W28S8`, wound down 20 Oct 2026 for a rescheduled `Startup W28S8 W29S7` (RCL5, storage, no terminal) carrying the fedexes; `XferStartup W25S9 W26S8` ran 20 Oct 2026 and was wound down the same day in favour of `Startup W25S9 W26S8`, un-wound at RCL4 to carry its fedexes until the room has a terminal)
-([docs/missions-and-jobs.md](docs/missions-and-jobs.md)).
+Not on this build even though the code loads: market automation, deposit
+farming, flag "teams", power creeps. The only flags the code makes are
+metastruct genesis/child flags, the `Capture`/`Assault` mission flags and
+purple service flags ([docs/missions-and-jobs.md](docs/missions-and-jobs.md)).
 
 ## Architecture in one screen
 
@@ -76,9 +99,9 @@ scheduled 19 Oct 2026 after `Startup W28S8` gave way to `Thorhub W28S8`, wound d
 main.js
  ├─ process.ts      Process/Service, priority rows critical>normal>low>late(>extra), canRun CPU gate
  ├─ mission.ts      Mission = Service with eggs->hatch->creeps lists in Memory.missions
- │   └─ ms.globalrespawn / hub / startup / farm / remote / reactor / swipe .ts   @register, scheduled by command string
+ │   └─ ms.*.ts     @register, scheduled by command string
  ├─ mycreep.ts      MyCreep wrapper per creep name; role registry (@register/@registerAs); Task2
- │   ├─ job.creep.ts -> job.startup/reboot/scout/swiper/warboy.ts      pure Task2 jobs (this.c is the Creep)
+ │   ├─ job.creep.ts -> job.*.ts            pure Task2 jobs (this.c is the Creep)
  │   └─ job.role.ts  -> job.worker/ctrl/hub/hauler/srcer/guard/immortan.ts   start() = creep.run()+after()  (bridge)
  ├─ spawn.ts        SpawnDaemon + energyDef; spawnold.js supplies findSpawns/buildBody body table
  ├─ creep.role.ts   dispatch: creep name "asrc3" -> role "asrc" -> Creep.prototype.roleAsrc()
@@ -86,10 +109,11 @@ main.js
  │   role.*.ts (@injecter) and role.*.js (lib.merge via main.js `mods`) add roleXxx/afterXxx
  ├─ strat.ts        NullStrat/ClaimedStrat per room (also processes); registerStrat/setRoomStrat override via Memory.rooms[x].strat (strat.thor.ts: ThorStrat)
  ├─ metastruct.ts   base templates + flag-driven planning + construction upkeep + maxHits + spot lookup
- │   ├─ metatraffic.ts  road planner: metas declare traffic() src/dest entries, MetaManager plans the room's roads; the shared road weights (2:3:6, Sept 2026)
- │   └─ roadplan.ts     room-to-room road planner on those weights (RoadPlanner): Remote legs, Startup's road, the Experiment purple-flag service (ms.experiment.ts)
- ├─ struct.link/tower/lab/factory/terminal/container/controller  structure logic and prototype helpers
+ │   ├─ metatraffic.ts  road planner: metas declare traffic() src/dest entries, MetaManager plans the room's roads; the shared road weights (2:3:6)
+ │   └─ roadplan.ts     room-to-room road planner on those weights (RoadPlanner): Remote legs, Startup's road, the Experiment service
+ ├─ struct.link/tower/lab/factory/terminal/container/controller/observer  structure logic and prototype helpers
  ├─ Rewalker.ts     movement engine (matrix.js is dead)
+ ├─ staging.ts / heal.ts / suppress.ts / labplan.ts   shared mission helpers
  ├─ cache.ts / debug.ts / roomobj.ts / lib.js / shed.ts   infrastructure
  ├─ reactor.ts      Season 11 helpers: sectorCore, findReactors, thoriumMineral, RESOURCE_THORIUM typing
  └─ intel.ts / radar.ts / market.ts / deposit.ts          intel and radar are live; the rest only registers
@@ -102,23 +126,30 @@ Docs: [missions-and-jobs](docs/missions-and-jobs.md),
 
 ## Live creep roles
 
-`startup`/`reboot` (`role.bootstrap.js`), `worker` (`role.worker.js`), `ctrl`
-(`role.ctrl.js`), `hauler` (`role.hauler.js`), `hub` (`role.hub.ts`),
-`asrc`/`bsrc` (`role.src.ts`), `upgrader` (`job.upgrader.ts`, only while RCL < 8 and
-storage >= 100k energy), `ctrlhauler` (`job.ctrlhauler.ts`, storage -> ctrl container
-while storage >= 100k and container + ctrl creep are empty), `hubminer`
-(`job.hubminer.ts`, 2 WORK per MOVE sized to the room, drop-mines the `min`
-meta's mineral into its container, never thorium, only while the extractor
-stands, the mineral has something left and the room stocks under 100k of it),
-`hubminecart` (`job.hubminecart.ts`, CARRY/CARRY/MOVE x 3, a Chemist that empties
-that container and puts the mineral away by the Chemist's rules; recycles when
-empty under 50 TTL or with container and mineral both empty). Those are the
-base-room roles from `GlobalRespawn`/`Hub`. The scheduled missions add pure
-job-layer creeps (no `roleXxx` method): `harvester` (also `Startup` below RCL3; lays its own container site when its spot has neither container nor site, since the genesis source metas hold theirs back until the room has a spawn), `trucker`, `reserver`
-(`Remote`); `paver` (`PaveAll`, requested by `Remote`/`Startup` for unowned road rooms with our sites; one per 1400 ticks, two while 20+ planned road tiles are unbuilt there, none while armed hostiles are in the room, plus a guard once they have stayed 100 ticks, 27 Oct 2026); `warboy`, `immortan` (`Reactor`; keeps 5 from ranged and 3 from melee enemies, claiming as it steps off, since 29 Oct 2026); `warrunner` (`ReactorDepot`; laid on the immortan's militant rule, loads even while the reactor is not ours and feeds it whoever holds it, and when loaded reads the core's militant balance each tick: more enemy than ours sends it out to wait within 2 of the exit in the room before the core, as many holds it there, fewer or none lets it in; waiting with TTL under its loaded walk it takes the thorium back to the terminal, since 29 Oct 2026); `thoreater`, `cleanup` (`Thormine`); `claimer`, `pioneer` (`Startup`);
-and `scout`, `guard`, `mini`, `wolf` wherever a mission wants vision or a
-fight; `micro` (`job.micro.ts`, RANGED_ATTACK + MOVE) and `pup` (`job.pup.ts`, a wolf sized to the enemy heal power) from `Farm`/`Remote`/`Hub`/`Thorhub` (`suppress.ts`) against unarmed enemies; `toxic` (`job.toxic.ts`, bait-and-trap mini) only by `Once Toxic <room> [count]`; `razer` (`job.razer.ts`, Bulldozer body) only by `Raze <room> [home]`, which clears a room of foreign structures and sites and recycles the creep when done; `canopener` (`job.canopener.ts`, a Razer with a fixed 32 WORK 16 MOVE body that only dismantles the ramparts over a stronghold's containers and recycles the tick none is left) and `looter` (`job.looter.ts`, a Sktrucker taking every resource from the uncovered containers, dodging keepers only, recycled at home under 100 TTL) by `Loot <room> [home]`; `usurper` (`job.usurper.ts`, MOVE x5 CLAIM; claims another sector's reactor, then dies to a keeper next door) by `StealReactor <core>`; `skhunter` (`job.skhunter.ts`, 25 MOVE 20 ATTACK 5 HEAL, kills a keeper room's Source Keepers one at a time, healing up at range 4 between them, and flees to 5 from any ranged non-keeper hostile within 4) by `SkFarm <room> <home>`; `skvulture` (`job.skvulture.ts`, CARRY/MOVE x 17, loots the keeper room's largest energy pile or tombstone (a tombstone's boost compounds before its energy), locked by id, flees keepers within 4, hauls home when full, follows the skhunter when idle) by `SkFarm`; `skharvester` (`job.skharvester.ts`, 4 MOVE 8 WORK 1 CARRY, a Harvester on SkFarm's `rsrc` metas that flees keepers within 5 to range 6, holds at 6, and flees lairs under 4 ticks from spawning) and `sktrucker` (`job.sktrucker.ts`, CARRY/MOVE x 25, empties the fullest farm container home, same keeper flee) by `SkFarm`; `prospector` (`job.prospector.ts`, WORK/CARRY/MOVE/MOVE units sized to the home room, WORK first and MOVEs last; mines the farm's mineral from its spot, same keeper flee, home when full, under 100 TTL, broken or threatened, recycles empty at home under 200 TTL) by `SkFarm` and `Reactor`/`ReactorDepot`; `crow` (`job.crow.ts`, 25 MOVE 24 RANGED_ATTACK 1 HEAL, a Guard that stages and attacks on the Capture mission's mode) only by `Capture <room>`; `wicktwo` (`job.wicktwo.ts`, 4 TOUGH 25 MOVE 12 RANGED_ATTACK 9 HEAL, boosted at home, stands in tower fire healing itself every tick; firing ladder: listed targets, militant creeps not under a 10k+ rampart (active before inactive), mass attack when it does more, else the weakest structure in range, roads never and containers last; own targets held as heap properties, dropped when the mission lists any) and `ballerina` (`job.ballerina.ts`, the same on the crow body, unboosted) only by `AssaultTwo <room> <home>`; `fedex` (`job.fedex.ts`, CARRY/CARRY/MOVE x 17, 33 CARRY) by `Xfer <to> <from> [n]`, which walks energy from one room's storage to another room, `XferStartup <to> <from> [n]`, the same while the target's storage holds less than home's, until the target has a terminal, and `Startup` (one per pioneer standing in the room while the home storage holds 50k+); in a room with no container at all a fedex hands its load to the creeps that take it (`donate`, the first method on the fixed `@task`, 15 Oct 2026) instead of piling it by the controller; `chaos` (`job.chaos.ts`, 5 MOVE 1 WORK) only by `Nidoran <room> [player]`, which rotates paired dismantlers through a player's reserved remote rooms. Everything else with a `roleXxx` method is loaded but no job spawns it.
-Table and task conventions in [docs/creep-roles.md](docs/creep-roles.md).
+Base-room roles laid by `GlobalRespawn`/`Hub` (legacy `roleXxx` methods behind
+the `job.role.ts` bridge): `startup`/`reboot` (`role.bootstrap.js`), `worker`
+(`role.worker.js`), `ctrl` (`role.ctrl.js`), `hauler` (`role.hauler.js`), `hub`
+(`role.hub.ts`), `asrc`/`bsrc` (`role.src.ts`); and pure jobs `upgrader`
+(`job.upgrader.ts`, only while RCL < 8 and storage >= 100k energy),
+`ctrlhauler` (`job.ctrlhauler.ts`), `hubminer` (`job.hubminer.ts`, drop-mines
+the `min` meta's mineral, never thorium), `hubminecart` (`job.hubminecart.ts`, a
+Chemist that empties that container).
+
+Mission jobs (`job.*.ts`, no `roleXxx` method): `harvester`, `trucker`,
+`reserver` (`Remote`; the harvester lays its own container site); `paver`
+(`PaveAll`); `claimer`, `pioneer`, `fedex` (`Startup`, `Xfer`, `XferStartup`;
+a fedex in a room with no container hands its load to the creeps that take it,
+`donate`); `scout`, `guard`, `mini`, `wolf` wherever a mission wants vision or
+a fight; `micro` and `pup` (`suppress.ts`) against unarmed enemies in farms and
+hubs; `toxic` (bait-and-trap mini, `Once Toxic <room>`); `razer` (`Raze`);
+`canopener` and `looter` (`Loot`); `chaos` (`Nidoran`); `bulldozer`
+(`Bulldoze`); `skhunter`, `skvulture`, `skharvester`, `sktrucker`, `prospector`
+(`SkFarm`; the prospector also for `Reactor`); `crow` (`Capture`); `wicktwo`
+and `ballerina` (`AssaultTwo`); Season 11 only: `warboy`, `warrunner`,
+`immortan` (`Reactor`/`ReactorDepot`), `thoreater`, `cleanup` (`Thormine`),
+`usurper` (`StealReactor`). Bodies, flee rules and quirks of each are in
+[docs/creep-roles.md](docs/creep-roles.md) and the file headers. Everything
+else with a `roleXxx` method is loaded but no job spawns it.
 
 ## Conventions that code depends on
 
@@ -141,28 +172,37 @@ Table and task conventions in [docs/creep-roles.md](docs/creep-roles.md).
   2022 TS jobs). New behaviour goes in the 2022 style; see
   [docs/conventions-and-styles.md](docs/conventions-and-styles.md) including a
   legacy-role -> job migration recipe.
+- `@task` persists a job method's arguments in `memory.task2` and resumes it
+  each tick; it was a no-op until Oct 2026 and most former uses are the
+  no-op `@taskbroken` (re-enters `start()` every tick). Move a job to the fixed
+  `@task` deliberately (docs/known-issues.md).
 
 ## Build & deploy
 
 `npm install`; copy `blank_credentials.js` to `credentials.js` (gitignored).
-`npx gulp season` compiles and pushes to the seasonal server (current target);
-`deploy` = MMO, `ptr` = PTR, `watchSeason` = on change. `npx gulp decodeStack
---stack "process:60:50"` maps stack tokens to `.ts` lines; `npx gulp console` and
-`consoleTail` reach the live console from the shell (next section). Never run `gulp fetch` casually (overwrites
-`src/*.js` from the server). `gulp sim`/`swc`/`plus` push raw JS and cannot
-run the TS code. Details: [docs/build-and-deploy.md](docs/build-and-deploy.md).
+`npx gulp season` compiles and pushes to the seasonal server, `deploy` = MMO
+(`shard2`), `ptr` = PTR, `watch*` = on change. `npx gulp decodeStack --stack
+"process:60:50"` maps stack tokens to `.ts` lines; `npx gulp console` and
+`consoleTail` reach the live console from the shell (next section). Never run
+`gulp fetch` casually (overwrites `src/*.js` from the server). `gulp
+sim`/`swc`/`plus` push raw JS and cannot run the TS code. There is no test
+suite: `npx gulp compile` (TypeScript plus the module-cycle check) and
+watching the live game are the checks. `gulp consoleLog` is `consoleTail`
+for 60 s; `gulp market`/`money` are 2017 MMO API probes. Details:
+[docs/build-and-deploy.md](docs/build-and-deploy.md).
 
 ## Console from the shell (for Claude)
 
 Two gulp tasks reach the live game console without the web client, so game
 state can be inspected, and changed, from this terminal. Implementation:
 `console-tools.js` (auth is `credentials.token`). Both default to the season
-world and its `shardSeason` shard.
+world and its `shardSeason` shard; `SCREEPS_WORLD=season|ptr|mmo` and
+`SCREEPS_SHARD` pick another.
 
 ```
 npx gulp console --cmd "Game.time"                  # send one expression, print that tick's console output, exit
 echo 'JSON.stringify(Memory.missions)' | npx gulp console    # expression on stdin (no quoting fights)
-npx gulp consoleTail                                # stream to stdout + logs/console-season.log until Ctrl+C
+npx gulp consoleTail                                # stream to stdout + logs/console-<world>.log until Ctrl+C
 SCREEPS_CONSOLE_SECONDS=30 npx gulp consoleTail     # ...or stop after 30 s
 npx gulp room --room W25S5                          # every object in a room, vision or not (--json for the raw response)
 ```
@@ -173,7 +213,7 @@ How to read the output:
   in a stack trace prints as `src/process.ts:90:18`, and the `file:line#func`
   prefix that `debug.ts` `log`/`dlog`/`warn` put on every line prints as
   `src/mission.ts:316#nCreeps`. The maps are from the last `gulp compile`, so
-  push (`npx gulp season`) after editing `src/` before trusting line numbers.
+  push after editing `src/` before trusting line numbers.
 - Command results are the lines starting with `< `. The game stringifies
   results, so wrap objects in `JSON.stringify(...)` or `[object Object]` comes
   back. The log lines above the result are the same tick's `console.log`
@@ -181,47 +221,44 @@ How to read the output:
 - HTML the console emits (room links, colours) is stripped.
   `SCREEPS_CONSOLE_RAW=1` prints the server text untouched.
 - `consoleTail` lines carry `HH:MM:SS [shard]`. The file is appended to and
-  rotates to `console-season.1.log` ... `.5.log` at 5 MiB
-  (`SCREEPS_LOG_MAX_BYTES`, `SCREEPS_LOG_KEEP`). `logs/` is gitignored.
+  rotates to `.1.log` ... `.5.log` at 5 MiB (`SCREEPS_LOG_MAX_BYTES`,
+  `SCREEPS_LOG_KEEP`). `logs/` is gitignored.
+- `SCREEPS_CONSOLE_TIMEOUT` (seconds to wait for a result, default 30); the
+  task exits 1 on timeout, which usually means the script is not running on
+  that shard.
 
 Recipe for iterating on game state:
 
 1. Ask with `npx gulp console --cmd "..."`. The expression runs inside the
    game VM at the start of the next tick with full access: `Memory.creeps.hauler0`,
-   `require('process').Service.getType('GlobalRespawn').status()`, `lsProcess()`,
-   or anything in [docs/console-operations.md](docs/console-operations.md).
-   Assignments and calls take effect in the live game, so treat anything that
-   is not a read as a change and check with the user before the destructive
-   helpers.
+   `getService('Hub W25S7').status()`, `lsProcess()`, or anything in
+   [docs/console-operations.md](docs/console-operations.md). Assignments and
+   calls take effect in the live game, so treat anything that is not a read
+   as a change and check with the user before the destructive helpers.
 2. To watch behaviour over several ticks, run `consoleTail` in the background
-   and read `logs/console-season.log`, or run it in the foreground with
-   `SCREEPS_CONSOLE_SECONDS`.
-3. After changing code, `npx gulp season` pushes and forces a global reset. A
-   running tail survives the reset and reconnects if the websocket drops.
+   and read the log, or run it in the foreground with `SCREEPS_CONSOLE_SECONDS`,
+   or sample with console calls from a background shell loop (foreground
+   sleeps over a few seconds are blocked by the tool).
+3. After changing code, a push forces a global reset. A running tail survives
+   the reset and reconnects if the websocket drops.
 
 Quoting: PowerShell wants double quotes and no `$`; bash wants single quotes;
-anything needing both kinds of quote goes through stdin. The `VAR=value npx
-gulp ...` prefix above is bash syntax; in PowerShell set `$env:VAR = value` on
-the line before. Other knobs:
-`SCREEPS_WORLD=season|ptr|mmo`, `SCREEPS_SHARD` (also filters the tail),
-`SCREEPS_CONSOLE_TIMEOUT` (seconds to wait for a result, default 30; the task
-exits 1 on timeout, which usually means the script is not running on that shard).
+anything needing both kinds of quote goes through stdin. `VAR=value npx gulp
+...` is bash syntax; in PowerShell set `$env:VAR = value` on the line before.
+Expressions over about 1k characters are silently dropped: wrap long probes
+in an IIFE and keep them short.
 
-Debugging the live game (patterns that worked):
+Debugging patterns that worked:
 
-- Results only: `echo '<expr>' | npx gulp console 2>&1 | grep "^< "`. Stdin with
-  single quotes outside and double inside avoids every quoting fight.
-- **No `< ` line means the expression threw** (typically a null deref such as
+- Results only: `echo '<expr>' | npx gulp console 2>&1 | grep "^< "`.
+  **No `< ` line means the expression threw** (typically a null deref such as
   `getService(x).status()` after that mission was killed). Rerun null-safe, or
   drop the grep and `| tail -5` to see the tick's output.
-- Rates and movement: sample in a loop, `for i in 1 2 3; do echo '...' | npx gulp
-  console 2>&1 | grep "^< "; done`. Calls land ~2 ticks apart; include
-  `Game.time` in the result. Measure before theorising: a "repathing loop" was a
-  creep standing still in `engage()`, and "x2 aging" was really x3.
+- Rates and movement: sample in a loop; calls land ~2 ticks apart; include
+  `Game.time` in the result. Measure before theorising.
 - Any module is requirable by bare name in the console, so verify code right
   after a push: `require("job.warboy").Warboy.body`,
-  `require("spawnold").buildBody(Object.values(Game.spawns),{body:"immortan"},{maxRCL:8})`
-  (returns `[spawn, body]`), `require("reactor").findReactors(Game.rooms.W25S5)[0].store`.
+  `require("spawnold").buildBody(Object.values(Game.spawns),{body:"immortan"},{maxRCL:8})`.
 - Push and check in one line: `npx gulp season 2>&1 | grep -i "error\|Committed"`.
   `Committed` = pushed; any `error` line is a TS error that did **not** stop the
   push. `npx gulp compile` compiles without pushing.
@@ -229,50 +266,44 @@ Debugging the live game (patterns that worked):
   edited in-game) is rebuilt from source, `Memory` (creep memory included)
   survives. Pushes are rate limited (the `RateLimiting: (N/240 ...)` counter in
   the output), so batch edits rather than pushing per line.
-- `@task` never persisted until 14 Oct 2026 (its wrapper was discarded by
-  `__decorate`); every former use is `@taskbroken`, a no-op, and jobs move
-  back to the fixed `@task` one at a time (docs/known-issues.md); Fedex
-  `donate` is the first method on it (15 Oct 2026). A
-  `@taskbroken` job re-enters `start()` each tick and `memory.task2` reads
-  `null` for it; one that plans a walk there keeps its target in memory
-  itself (Bulldozer `dozeTo`, Razer `razeId`).
 - The log lines above the result are greppable by their `file:line#func` tag,
   e.g. `| grep "#runGenesis"` shows the planned `mem:` JSON after a YELLOW.
-- Multi-statement probes: wrap in an IIFE and return `JSON.stringify(...)`:
-  `echo '(function(){ ... return JSON.stringify(o); })()' | npx gulp console | grep "^< "`.
-- Two console calls land ~3 ticks apart with `sleep 10` between them; longer
-  sleeps are blocked by the tool, so sample in separate calls instead.
-- `Game.creeps.x.debug = N` stores an expiry tick (`Memory.creeps.x.debug = Game.time+N`);
-  writing a small number into `Memory.creeps.x.debug` directly is already expired.
-- A creep that moves when `require('mycreep').getMyCreep(name).run()` is called from the
-  console but never on its own means its mission is not being run: check
-  `Memory.missions[m].hatch` (a hatched creep stuck there) and `require('process').Process.all()`.
-- Bash heredocs holding big Python edit scripts with mixed quotes fail to parse in Git Bash;
-  write the script to the scratchpad with Write and run `python -I <path>`.
+- Multi-statement probes: wrap in an IIFE and return `JSON.stringify(...)`.
+- `Game.creeps.x.debug = N` stores an expiry tick; writing a small number into
+  `Memory.creeps.x.debug` directly is already expired.
+- A creep that moves when `require('mycreep').getMyCreep(name).run()` is called
+  from the console but never on its own means its mission is not being run:
+  check `Memory.missions[m].hatch` (a hatched creep stuck there) and
+  `require('process').Process.all()`.
+- Bash heredocs holding big Python edit scripts with mixed quotes fail to parse
+  in Git Bash; write the script to the scratchpad with Write and run
+  `python -I <path>`.
 
 ## Console essentials
+
+Room names below are placeholders.
 
 ```js
 scheduleService('GlobalRespawn')      // persists in Memory; replayed by Service.boot()
 spawnService('Swipe W5N8 W6N8')       // runs only until the next global reset
-require('process').Service.getType('GlobalRespawn').kill()   // stops it now
+getService('Hub W25S7')               // = Service.getType; null once killed
+getService('Hub W25S7').status()      // every mission: row, egg/hatch/creep counts, mission specifics
+getService('Hub W25S7').layEgg('hauler')   // one extra egg (lowercased job class); nJobs never culls it
+getService('Remote W27S9 W26S8').windDown()  // purge eggs, run creeps to death, kill + deschedule
+getService('Thorhub W29S7').evolve('Hub W29S7')  // reschedule under new args, moving every egg/creep; kills the old one
+getService('ReactorDepot W25S7').pause()     // Reactor and Capture missions: lay nothing, purge eggs, keep the mission; resume() undoes it
+require('process').Service.getType('GlobalRespawn').kill()   // stops it now, stays scheduled
 Game.creeps.asrc0.debug = 500; Memory.debug = true           // per-creep / global dlog
 Game.flags.genesis.setColor(COLOR_ORANGE, COLOR_YELLOW)      // plan metas; GREEN commits
-getService('Reactor W26S8').status()          // getService = Service.getType; null once killed
-getService('Reactor W26S8').layEgg('warboy')  // one extra egg (lowercased job class); nJobs never culls it
-getService('Reactor W25S7').windDown()        // purge eggs, run creeps to death, kill + deschedule
-getService('ReactorDepot W25S7').pause()      // lay nothing (scouts included), purge eggs, keep the mission; resume() undoes it
-getService('Bulldoze W18S5 W25S7').aim(48, 11); getService('Bulldoze W18S5 W25S7').dozers = 3   // Bulldoze (W18S5 ran 14 Oct 2026 with 3 dozers and opened its breach; wound down the same day): anchor flag (breach planned from it, radar observeNow while a plan is pending) and dozers kept alive; args[2] is home and spawn room
-getService('Capture W25S5').pause()           // no crow or scout eggs, flags and living crows stay; resume() undoes it (ReactorDepot does both as its thorium runs out and returns)
-scheduleService('Reactor W25S7')              // bring it back
 Game.rooms.W25S7.createFlag(30, 29, 'reactor_Port', COLOR_GREY, COLOR_GREY)  // child flag, then YELLOW, check log, GREEN
 createFlagAt('W30S4', 25, 25, 'Loot', COLOR_ORANGE, COLOR_CYAN)   // any room, vision or not; genesis passes run blind too
 Memory.creeps.hub1.fillTerminal = 50000       // hub creep fills the terminal from storage to this energy, ignoring storageBalance
-getService('Thormine W29S4').teardownEnabled = true   // teardown gate; stranded minerals: top up from dest (see Thormine row)
-Game.rooms.W25S7.findStructs(STRUCTURE_OBSERVER)[0].observeMax('W40S7')  // observe any room, range be damned (struct.observer.ts; the server never checks)
-getService('SkFarm W25S6 W25S7').harvesting = false   // no skharvester/sktrucker eggs (persisted; = true restores); hunter, vulture, prospector, wolves and guard unaffected
-getService('SkFarm W25S6 W25S7').invaderless = true   // (set 13 Oct 2026) background-radar the sector's 8 keeper rooms each tick; no skharvester eggs while a core there is deployed or deploys within 3000 ticks (status() shows core:<room>)
+getService('Thormine W29S4').teardownEnabled = true   // teardown gate (see the Thormine row)
+Game.rooms.W25S7.findStructs(STRUCTURE_OBSERVER)[0].observeMax('W40S7')  // observe any room, range be damned (struct.observer.ts)
+getService('SkFarm W25S6 W25S7').harvesting = false   // no skharvester/sktrucker eggs (persisted; = true restores)
+getService('SkFarm W25S6 W25S7').invaderless = true   // background-radar the sector's 8 keeper rooms; no skharvesters while a core there is live
 getService('LabPlan W25S7').add('XZHO2', 3000)   // lab targets: add(res, quota) appends, remove, setQuota, reset, replan; status() shows chain stocks
+getService('Balance').addRoom('W25S7'); getService('Balance').boosts()   // balancer rooms; boost stocks
 require('intel').RoomIntel.get('W24S8').centerPos     // room centre (findRoomCenter), cached in intel.center; recenter() redoes it
 ```
 
@@ -283,43 +314,27 @@ Remove a stuck egg: `delete Memory.creeps.warboy0` and `_.pull` it from
 More in [docs/console-operations.md](docs/console-operations.md), including the
 destructive `wipe`/`worldWipe`/`scalp`/`purgeWalls` helpers.
 
-## Season 11 state and rules (measured live, Oct 2026)
+## Season 11 mechanics the code encodes
 
-- Owned rooms (27 Oct 2026): `W26S8` RCL8 (spawns `Home`/`Homeer`/`Homeest`,
-  genesis `Home`), `W25S7` RCL8 (`Port`, spawns `Spawn1`/`Port`/`Porter`),
-  `W27S4` RCL8 (`Wind`, a Hub since 11 Oct 2026, its thorium mined out),
-  `W29S7` RCL6 (`Rote`, a Thorhub, thorium mined out), `W25S9` RCL6 (`Tub`, a
-  Thorhub with `Thormine W25S9`) and `W28S8` RCL6 (`Five`, a Thorhub with
-  `Thormine W28S8`), every one with a terminal; `W24S7` (`Front`) is no
-  longer ours; `W29S4` torn down and unclaimed on 7 Oct 2026; GCL 6 at 99%. `Balance`
-  levels W26S8, W25S7, W27S4 and W29S7 (added 13 Oct 2026), W25S9 and W28S8
-  (added 27 Oct 2026): every owned terminal; since 27 Oct 2026 it also brings
-  the RCL8 rooms to 10k of each base mineral from whichever holds the most,
-  feeds the RCL6 rooms' minerals to their nearest RCL8 room and sends all
-  thorium to W25S7; since 31 Oct 2026, after the base floor, it also levels
-  the catalyzed boosts among the RCL8 rooms (the top holder sends a third of
-  its lead to the lowest when it holds twice as much and 300 more;
-  `getService('Balance').boosts()` shows the stocks). The sector core is `W25S5`
-  (an x5y5 room is `Kind.Portal` in `intel.ts`). The W25S7 observer is the
-  radar's only one; `radar.ts` run costs ~0.4 CPU a tick. The reactor is fed by
-  `ReactorDepot W25S7` (warrunners from the W25S7 terminal, which the
-  Thormines fill); neither `Reactor` mission is scheduled. The walk to the
-  reactor is ~240 ticks from W26S8, ~120 from W25S7.
-- Rooms hold two minerals, an ordinary one and thorium (`RESOURCE_THORIUM` =
-  `"T"`), but `CONTROLLER_STRUCTURES.extractor` is 1 at every RCL. Extractors
-  are planned structs now: `Meta_reactor` (thorium, priority 10) outranks
-  `Meta_min`; there is no mineral scan outside the metas.
-- Thorium aging: a creep loses `1 + floor(log10(thorium on its tile))` TTL per
-  tick. Cargo, piles, tombstones and ruins on the tile all count; under 10 is
-  free, 100-999 is 3/tick. A loaded warboy's 1500 TTL is ~500 real ticks.
-- Reactor (`findReactors(room)[0]`): holds 1000, burns 1/tick, `continuousWork`
-  resets the tick it runs dry. Anyone with a CLAIM part can `claimReactor` an
-  owned reactor (we lost it once), hence the standing Immortan.
-- `transfer` with no amount is `ERR_FULL` unless the whole load fits; pass
-  `min(carried, getFreeCapacity)`. `pickup` has no amount at all (takes up to
-  free capacity); only `withdraw` can be limited.
-- Spawn energy is the real bottleneck at RCL6: a 2250-energy warboy queues
-  behind guards/immortans from the same room, so lead time is ~600-700 ticks.
+Kept so the reactor and thorium code can be read; none of it applies off a
+Season 11 server.
+
+- Rooms held two minerals, an ordinary one and thorium (`RESOURCE_THORIUM` =
+  `"T"`, declared `ResourceConstant | undefined` in `reactor.ts`), but
+  `CONTROLLER_STRUCTURES.extractor` was 1 at every RCL. Extractors are planned
+  structs: `Meta_reactor` (thorium, priority 10) outranks `Meta_min`; there is
+  no mineral scan outside the metas.
+- Thorium aging: a creep lost `1 + floor(log10(thorium on its tile))` TTL per
+  tick, cargo, piles, tombstones and ruins on the tile all counting; under 10
+  was free. A loaded warboy's 1500 TTL was ~500 real ticks.
+- The sector core (an x5y5 room, `Kind.Portal` in `intel.ts`) held a reactor
+  (`findReactors(room)[0]`): 1000 capacity, burning 1/tick, `continuousWork`
+  reset the tick it ran dry. Anyone with a CLAIM part could `claimReactor` it,
+  hence the standing immortan and the `StealReactor` mission.
+- General API facts learned there: `transfer` with no amount is `ERR_FULL`
+  unless the whole load fits, so pass `min(carried, getFreeCapacity)`;
+  `pickup` has no amount; only `withdraw` can be limited. A safe mode blocks
+  every action of ours in the room, healing included.
 
 ## Memory keys you will touch
 
@@ -329,13 +344,15 @@ links, labs, spots, containers}`, `Memory.intel`, `Memory.flags[genesis].newer`,
 `Memory.spawns[name]` (spawn telemetry, `spawnload.ts`; read it with
 `spawnLoads()`), `Memory.Rewalker.rooms[x].{sk, cost}` (what blind walks know of
 keeper tiles and route costs, written by `Rewalker.gatherIntel` from `strat.init`),
-`Memory.debug`. Shapes in [docs/memory-layout.md](docs/memory-layout.md).
+`Memory.labplan[room]`, `Memory.balance`, `Memory.debug`. Shapes in
+[docs/memory-layout.md](docs/memory-layout.md).
 
 ## Known traps (full list in docs/known-issues.md)
 
 - A room claimed after first sight keeps `NullStrat` until reset (`evolve()`
   always returns `null`).
-- `GlobalRespawn` (unscheduled, see above) uses the spawn named `Home`, else the first spawn in `Game.spawns`; with no spawns at all it throws every tick.
+- `GlobalRespawn` uses the spawn named `Home`, else the first spawn in
+  `Game.spawns`; with no spawns at all it throws every tick.
 - `afterWorker` exists in both `role.worker.js` (wins) and `role.mason.ts`.
 - `Game.terminals`/`Game.storages`/`Game.ncreeps` are referenced but never
   defined (dead paths only).
@@ -346,8 +363,8 @@ keeper tiles and route costs, written by `Rewalker.gatherIntel` from `strat.init
 - `MetaManager.purge(STRUCTURE_EXTRACTOR)` destroys a built extractor no meta
   claims, the first time a meta's extractor site hits `ERR_RCL_NOT_ENOUGH`.
   Plan `min`/`reactor` on the tile the extractor already occupies.
-- W24S7's north exit is sealed by two of its own extensions (17,6 and 18,6,
-  the only gap in the terrain); `findRoute` still routes through it, so
+- A base layout can seal its own exit (two extensions in the only terrain
+  gap did, in Season 11); `findRoute` still routes through it, so
   `Rewalker._search` falls back to an unrestricted search when the
   route-restricted one is exhausted (logged `Rewalker route ... dead ends`).
 - `room.enemies` includes Source Keepers and unarmed scouts; `room.hostiles` is
@@ -355,14 +372,13 @@ keeper tiles and route costs, written by `Rewalker.gatherIntel` from `strat.init
   anything walking through an SK room.
 - Creep names (`role` + integer) are reused the moment a creep dies, across
   missions. Key any per-creep state that outlives the creep by `id`, never by
-  name (mission tombs did, Oct 2026, and stalled a teardown for 1500 ticks).
+  name.
 - `terminal.send` to a terminal in a room we unclaimed returns OK and the
   resources vanish: structures there stay `my` but `isActive()` is false.
   Filter on `isActive()` before sending or balancing.
 - If every creep of one mission freezes while others move, the mission's
-  process fell out of the run table (a throw escaping `runRow`, fixed Oct
-  2026 for `toString()`); `lsProcess` still shows it with a row. A push
-  rebuilds the table.
+  process fell out of the run table (a throw escaping `runRow`); `lsProcess`
+  still shows it with a row. A push rebuilds the table.
 
 ## Legacy and orphans
 
@@ -379,33 +395,36 @@ legacy systems did: [docs/legacy-systems.md](docs/legacy-systems.md).
 
 - Before changing a function, check `docs/file-inventory.md` for whether it is
   live, reachable, dead, or orphaned; grep alone will mislead you.
-- Room lists, RCLs and scheduled missions in this file are a dated snapshot;
-  verify with `Memory.scheduler.services` and `Game.rooms` before relying on
-  them, and refresh the snapshot when you change them.
 - Prefer adding a `job.*.ts` class over extending `role.*.js`. Keep role
   methods on `Creep.prototype` until a Task2 port exists.
 - Keep `main.js` import order: TS roles before the `mods` loop, and
   `process.Service.boot()` after every `@register`.
-- Compile errors do not stop `gulp season`; check the gulp output.
+- Compile errors do not stop `gulp season`/`deploy`; check the gulp output.
+  `npx gulp compile` alone checks TypeScript and module cycles.
+- When you change what a mission or job does, update its row here and in
+  `docs/missions-and-jobs.md`, `docs/creep-roles.md` and
+  `docs/file-inventory.md`. Do not write live game state (rooms, schedules,
+  dates, results) into this file; it goes stale within days. History that
+  explains a design belongs in the relevant `docs/*-design.md`.
 - `spike/` plus `tsconfig.spike.json` is a compile-only prototype of
   [docs/tcreep-design.md](docs/tcreep-design.md). Nothing imports it and
   `gulp` never sees it; check it with `npx tsc -p tsconfig.spike.json` and
   re-run `node spike/surface.js` after moving creep code.
-- The previous `CLAUDE.md` pointed at planning notes in `~/screeps`; that
-  directory is not present on this machine.
+- Commit messages: five-word subjects; commit only when asked or at the
+  milestones of an unattended run.
 
 ## Docs index
 
 | doc | when to read |
 |---|---|
 | [docs/runtime-tick.md](docs/runtime-tick.md) | anything about "what runs when", CPU, process rows |
-| [docs/missions-and-jobs.md](docs/missions-and-jobs.md) | adding/changing missions or jobs, egg lifecycle |
+| [docs/missions-and-jobs.md](docs/missions-and-jobs.md) | adding/changing missions or jobs, egg lifecycle, every mission's command string and rules |
 | [docs/spawning.md](docs/spawning.md) | bodies, spawn selection, priorities, naming |
 | [docs/creep-roles.md](docs/creep-roles.md) | role dispatch, mixin chain, task conventions, role tables |
 | [docs/metastruct.md](docs/metastruct.md) | base layouts, genesis flag protocol, construction order, maxHits, traffic (roads) |
 | [docs/traffic-design.md](docs/traffic-design.md) | why and how roads are a MetaManager service: entries, the planner, replan triggers, decisions taken |
-| [docs/hub-design.md](docs/hub-design.md) | the hub creep's planned refactor: a per-tick snapshot and two first-truthy-wins chains of named rungs (transfer, withdraw), the engine's one-transfer-one-withdraw rule, steps and validation |
-| [docs/balance-design.md](docs/balance-design.md) | how `Balance` moves thorium, minerals and energy between every terminal (RCL8 base-mineral floor, feeder rooms, thorium override) and the lab idle ladder; decisions and open points |
+| [docs/hub-design.md](docs/hub-design.md) | the hub creep's planned refactor: a per-tick snapshot and two first-truthy-wins chains of named rungs |
+| [docs/balance-design.md](docs/balance-design.md) | how `Balance` moves thorium, minerals and energy between terminals and the lab idle ladder |
 | [docs/room-and-structures.md](docs/room-and-structures.md) | strat, towers, links, labs, factory, terminal, intel |
 | [docs/movement.md](docs/movement.md) | Rewalker, route costs, xy packing |
 | [docs/conventions-and-styles.md](docs/conventions-and-styles.md) | the three eras, decorators, naming, migration recipe |

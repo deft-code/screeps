@@ -93,17 +93,22 @@ are shuffled.
 used exceeds `min(bucket + limit/2, 450)`, accepts when `bucket + (limit - used)
 > threshold`, otherwise a lottery proportional to how close you are.
 
-### Steady-state process table on Season 11
+### Steady-state process table
+
+The rows a running build settles into (Season 11 shape; the mission rows depend on what `Memory.scheduler.services` holds):
 
 | Process | Source | Row after run | Bucket gate | Purpose |
 |---|---|---|---|---|
-| `GlobalRespawn` | `Memory.scheduler.services` | `critical` | 9000 | Mission for `Game.spawns.Home`'s room. Lays eggs, runs its creeps. |
-| `Hub <room>` | `Memory.scheduler.services` | `critical` (`normal` while the room is not ours) | 9000 | Same loop for another owned room, without startup creeps. |
+| `GlobalRespawn` | `Memory.scheduler.services` | `critical` | 9000 | Mission for `Game.spawns.Home`'s room. Lays eggs, runs its creeps. Scheduled by hand after a respawn only. |
+| `Hub <room>` | `Memory.scheduler.services` | `critical` (`normal` while the room is not ours) | 9000 | Same loop for an owned room, without startup creeps. |
+| other missions | `Memory.scheduler.services` | per mission (`run()` return) | 9000 | `Remote`, `Startup`, `SkFarm`, `Capture`, ... (docs/missions-and-jobs.md). |
+| `LabPlan <room>`, `Balance` | `Memory.scheduler.services` | `normal` | 9000 | creepless services: lab targets, terminal balancing. |
 | `ClaimedStrat` x owned rooms | `room.strat` | `normal` | 9000 | Towers, safe mode, labs, links, metastruct upkeep, mineral timers, factory. |
 | `ActiveStrat` x unclaimed rooms with metas | `room.strat` | `low` | 9000 | Every 10 ticks `room.meta.runUnowned()` places container/road sites for mission-planned metas. |
 | `NullStrat` x other visible rooms | `room.strat` | `low` | 9000 | No-op run. |
 | `FlagService` | `@daemon` in `service.flag.ts` | `low` | 8000 | Orange flags drive metastruct planning (`runGenesis`); orphan grey child flags are removed; purple flags spawn the non-mission service their name spells (`_` = space), kill it when the flag goes, and turn white/purple when the name spawns nothing or names a Mission. |
 | `SpawnDaemon` | `@daemon` in `spawn.ts` | `late` | 2000 | Turns eggs into `spawnCreep` calls. |
+| `SpawnTelemetry` | `@daemon` in `spawnload.ts` | `late` | 2000 | Per-spawn busy ticks and creeps started (`Memory.spawns`). |
 
 Row ordering means: mission lays eggs (critical) -> rooms run (normal) -> flags
 (low) -> spawner consumes eggs (late), all in one tick.
@@ -114,6 +119,6 @@ These are still compiled and their modules still load, but nothing calls them:
 tiered `strat.run/after/optional` scheduling, `powerCreeps` run, `spawnold.run`
 (old flag-egg spawner), `terminals.run` (market automation), `flag.darkRun`
 (flag teams), `powerHack`, `market.run`, `theRadar.run`, `depositRun`,
-`hackAlloy`, `Memory.flags` cleanup, heap stats and `gc()`. Consequences: no
-terminal trading, no observer scanning, no deposit farming, no power creeps on
-the current build. See [legacy-systems.md](legacy-systems.md).
+`hackAlloy`, `Memory.flags` cleanup, heap stats and `gc()`. `theRadar.run()`
+was moved above the `return` in Oct 2026 and is live. Consequences: no
+terminal trading, no deposit farming, no power creeps on the current build. See [legacy-systems.md](legacy-systems.md).

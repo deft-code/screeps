@@ -145,7 +145,7 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     spawn mode memory.home = the owned room with spawns nearest the core by Manhattan room distance (pickHome), the
          │                                                     Rewalker route home -> core is radar-observed each tick, and nJobs(Usurper, 1) while the reactor did not read my at the last look (memory.ours) once every route room's intel
          │                                                     staleness is under 50 (routeStale). status(): the judgement, mode, home, route length, stalest, usurper positions
-         ├─ Loot             @register  (ms.loot.ts)           "Loot <room> [home]"; loots a beaten invader stronghold (Oct 2026, `Loot W24S6 W25S7`): nJobs(Scout, 1) without vision;
+         ├─ Loot             @register  (ms.loot.ts)           "Loot <room> [home]"; loots a beaten invader stronghold (Oct 2026): nJobs(Scout, 1) without vision;
          │                                                     with it nJobs(Canopener, n) with n = containers under a rampart that is not ours (coveredRamparts: dozeableStruct on the
          │                                                     container's tile) and nJobs(Looter, 1) while an uncovered container (openContainers) holds anything, leftover invader
          │                                                     creeps ignored, neither while an invader core still stands (cored); windDown() once every container is empty (`empty`; no containers
@@ -186,6 +186,10 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     to the nearest sibling (nearestSibling) so the fighters go on. Vision: observeNow
          │                                                     target + observeBackground staging while the radar has an observer, else nJobs(Scout, 1) while the target is out of sight.
          │                                                     boostRanged (persisted setter) adds XKHO2 to the wick's boosts. kill() removes both flags.
+                                                                     Season 11 results (31 Oct 2026, from W27S4): against two-tower RCL6 rooms one wick killed both towers in ~50 ticks at full
+                                                                     hits; two rooms popped safe mode the tick their spawn was hit (hence spawns spared while a tower stands, and the wick
+                                                                     leaving a safe-moded room by its nearest exit: the first wick died walking the home route under fire); two more lost
+                                                                     towers and spawn with no safe mode, one cleared to its ramparts in ~900 ticks.
          ├─ Capture          @register  (ms.capture.ts)        "Capture <room>"; pause()/resume() (memory.held; status shows `held`): no crow or scout eggs, eggs purged, flags and living crows kept, observer and radar left alone; ReactorDepot drives it for its core; takes a room with Crows (job.crow.ts). First run picks the owned RCL7+ room with a spawn nearest the target by
          │                                                     route (routes.dist) and keeps it (memory.home; "home" and "spawn" aliases, so every egg spawns there); the staging room (memory.staging)
          │                                                     is route[1] of memory.route = routeHome(): Rewalker.getRoute(target, home), or with memory.core set findRoute on Rewalker's routeCallback prices with the core room at Infinity; watchCore() keeps memory.core = the first target neighbour with an invader core deployed or deploying within 1500 ticks (sight, else intel coreLvl; the remembered room sticks while out of sight) and on a change drops route and staging so they are picked again (19 Oct 2026); a hand-set staging is kept. Flags: Capture (CaptureN when taken; a free one already in the target room is adopted;
@@ -460,7 +464,7 @@ scheduleService('Farm W5N8 W6N8')    // args[1]=farm room, args[2]=home (drop) r
 scheduleService('Farm W5N8 W6N8 W7N8')  // optional args[3]=the only room its creeps spawn from (no fallback; eggs wait)
 scheduleService('Reactor W6N8')      // args[1]=home room; mission works on that sector's core (W5N5)
 scheduleService('Reactor W6N8 2')    // optional args[2]=cap on warboys
-scheduleService('ReactorDepot W25S7')  // args[1]=home room; Reactor fed by warrunners from the home terminal once it holds 25k thorium, until under 500; held (nothing laid) while off
+scheduleService('ReactorDepot W25S7')  // args[1]=home room; Reactor fed by warrunners from the home terminal once it holds one warrunner load (450) of thorium, until empty; held (nothing laid) while off
 scheduleService('ReactorDepot W25S7 2')  // optional args[2]=cap on warrunners
 getService('ReactorDepot W25S7').pause()  // Reactor and subclasses: lay nothing at all, purge eggs, shepherd the living; Memory.missions[x].held survives resets
 getService('ReactorDepot W25S7').resume() // clears the hold; status() shows `held` while paused

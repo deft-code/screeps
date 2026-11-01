@@ -92,8 +92,8 @@ product), draws plan/mineral glyphs, and runs up to two reactions per tick
 terminal holds over 10k of unless the room is `LabPlan`-managed (the plan's
 quotas rule there; the cap idled W25S7 at 10300 XLHO2 until 27 Oct 2026).
 
-`LabPlan <room>` (`labplan.ts`, a scheduled Service; `LabPlan W25S7` since 11
-Oct 2026, `LabPlan W26S8` and `LabPlan W27S4` since 27 Oct 2026) is the stock-aware chooser: `Memory.labplan[room].plan` is an
+`LabPlan <room>` (`labplan.ts`, a scheduled Service, one per RCL8 room in
+Season 11) is the stock-aware chooser: `Memory.labplan[room].plan` is an
 ordered list of `{res, quota}` (default XLHO2 20000, XGHO2 20000 (3000 until 27 Oct 2026); console
 `add(res, quota, before?)`, `remove`, `setQuota`, `reset`, `replan`). Every
 100 ticks the first entry under quota (stock = terminal + storage) is walked

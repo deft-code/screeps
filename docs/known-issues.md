@@ -41,14 +41,14 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
    warrunner `load`/`retire`, prospector/thoreater/cleanup `recycle`,
    razer `dismantle`/`decomm`, bulldozer `doze`/`boost`, JobCreep `dropAt`.
    First on the fixed `@task`: Fedex `donate` (15 Oct 2026, a new method).
-6. **W24S7's north exit is walled off by its own base** (Oct 2026): the
-   terrain leaves a two-tile gap at 17,6 and 18,6 between the room and the
-   exit tiles at 6..17,0, and the `Front` metas put extensions on both.
+6. **A base layout can wall off its own exit** (W24S7 in Season 11, Oct
+   2026: the terrain left a two-tile gap between the room and its north
+   exit tiles, and the genesis metas put extensions on both).
    `Game.map.findRoute` still routes through that exit (it only knows exits
-   exist), so every Rewalker route into W24S6 from the south dead-ends;
-   `Rewalker._search` now falls back to an unrestricted search (through
-   W25S6) when the restricted one is exhausted. Moving those two extensions
-   would reopen the exit. The fallback skips rooms the route costs call
+   exist), so every Rewalker route through such an exit dead-ends;
+   `Rewalker._search` falls back to an unrestricted search when the
+   restricted one is exhausted. The metastruct planner does not check for
+   this; look at a new layout's exits before committing it. The fallback skips rooms the route costs call
    deadly (a hostile base with towers such as Kalgen's W18S6, a deployed
    core), so a dead-ended walk never cuts through one.
 5. **`room.turtle` and `room.wallMax` do not exist** (`src/creep.oldrepair.js`).
