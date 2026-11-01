@@ -21,11 +21,15 @@ import * as debug from "debug";
 //   getService('AssaultTwo W27S2 W27S4').status()
 //   getService('AssaultTwo W27S2 W27S4').boostRanged = true   // XKHO2 on the ranged parts too (persisted)
 //
-// Staging (memory.staging): of the target's neighbours, the one not owned
-// by another player (intel) with the shortest Rewalker route from home (a
-// staging room set by hand is kept; until 31 Oct 2026 it was the room
-// before the target on the route home, which for W26S2 behind W26S3 was
-// not a neighbour at all). The staging position (memory.stagexy) comes from the
+// Staging (memory.staging): of the target's neighbours, the one that is
+// not unsafe (unsafeStaging: a room the Rewalker prices as a hostile base,
+// towers seen or a deployed core, or one another player owns that has not
+// been seen for a creep's lifetime) with the shortest Rewalker route from
+// home (a staging room set by hand is kept; until 31 Oct 2026 it was the
+// room before the target on the route home, which for W26S2 behind W26S3
+// was not a neighbour at all, and then any foreign-owned neighbour was
+// skipped, which sent W26S1's wick round an 11-room highway loop to W26S0
+// while towerless W26S2 lay next door). The staging position (memory.stagexy) comes from the
 // staging locator (staging.ts findStaging) over the listed targets the
 // first time the target room is in sight, and the path's entry tile into
 // the target room (memory.entryxy) orders the towers: the one nearest the
@@ -211,18 +215,29 @@ export class AssaultTwo extends Mission {
         return !!owner && owner !== myUsername() && (intel.rcl || 0) > 0;
     }
 
-    // The staging room: the target's neighbour that no other player owns
-    // (any neighbour when every one is) with the shortest Rewalker route
-    // from home; the target itself when it has no exits. A staging room set
-    // by hand is kept. memory.route is the walk from the target through it
-    // to home, for status.
+    // Not a room to stage in: priced as a hostile base by the Rewalker
+    // (towers seen, a deployed core), or another player's that has not
+    // been seen within a creep's lifetime (its towers may be unseen). A
+    // towerless owned room is as good as a reserved one.
+    static unsafeStaging(roomName: string): boolean {
+        if (rewalker.unsafeRoom(roomName)) return true;
+        if (!AssaultTwo.foreignOwned(roomName)) return false;
+        return (RoomIntel.get(roomName)?.staleness ?? Infinity) > CREEP_LIFE_TIME;
+    }
+
+    // The staging room: the target's neighbour that is not unsafe
+    // (unsafeStaging; any neighbour when every one is) with the shortest
+    // Rewalker route from home; the target itself when it has no exits. A
+    // staging room set by hand is kept (set memory.staging and delete
+    // memory.route; the staging position follows). memory.route is the
+    // walk from the target through it to home, for status.
     ensureStaging() {
         const mem = this.mem;
         if (mem.staging && mem.route) return;
         const home = this.getRoomName("home") || this.roomName;
         if (!mem.staging) {
             const exits = _.values<string>(Game.map.describeExits(this.roomName) || {});
-            const open = exits.filter(r => !AssaultTwo.foreignOwned(r));
+            const open = exits.filter(r => !AssaultTwo.unsafeStaging(r));
             const pool = open.length ? open : exits;
             mem.staging = pool.length ? _.min(pool, r => rewalker.getRouteDist(home, r)) as string : this.roomName;
             delete mem.stagexy;
