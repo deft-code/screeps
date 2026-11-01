@@ -166,8 +166,10 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     sibling is logged every 100 ticks and the mission waits). The scout goes along with the evolve.
          ├─ AssaultTwo       @register  (ms.assaulttwo.ts)     "AssaultTwo <room> <home>" (31 Oct 2026); one boosted Wicktwo (job.wicktwo.ts) at a time against a two-tower room, from the home
          │                                                     room's spawns and labs ("home" and "spawn" aliases = args[2]). Staging room (memory.staging): the target's neighbour
-         │                                                     (describeExits) that no other player owns by intel (foreignOwned: owner and rcl > 0; any neighbour when all are) with the
-         │                                                     shortest Rewalker.getRouteDist from home; a hand-set one is kept; memory.route = target + getRoute(staging, home). Staging position (memory.stagexy) and entry tile (memory.entryxy, the path's first tile in the target room) from
+         │                                                     (describeExits) that is not unsafeStaging (rewalker.unsafeRoom: a hostile base with towers or a deployed core, by sight,
+         │                                                     Rewalker memory or name; or foreignOwned by intel (owner and rcl > 0) and not seen within CREEP_LIFE_TIME; any neighbour
+         │                                                     when all are) with the shortest Rewalker.getRouteDist from home; a hand-set one is kept (set memory.staging, delete
+         │                                                     memory.route; memory.stageRoom != staging drops stagexy so the flag follows); memory.route = target + getRoute(staging, home). Staging position (memory.stagexy) and entry tile (memory.entryxy, the path's first tile in the target room) from
          │                                                     staging.ts findStaging over the listed targets, once, with the target in sight. Flags Assault/AssaultN (memory.flag) at
          │                                                     roomCenterPos(target) and the child staging_<flag> at the staging position, re-created when gone, moved back only when found
          │                                                     outside their room; secondary colour = mode (plan yellow, stage/retreat orange, attack red, pause purple); blue set by hand =
@@ -180,7 +182,8 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     tower-free and no safe mode -> nJobs(Ballerina, 1) once no wick is left, plus nJobs(Scout, 1) to draw fire and stomp sites; else
          │                                                     nJobs(Wicktwo, 1) only while boostsInStock() (home terminal + storage + labs hold each wanted boost for a full wick; status shows
          │                                                     `boosts:short ...`). askBoosts(): home.requestBoost for each wanted boost while a wick is an egg or hatch. Winds down once
-         │                                                     finished(): no hostile structure left but ramparts, controller, keeper lair, portal, power bank, invader core. Vision: observeNow
+         │                                                     finished(): no hostile structure left but ramparts, controller, keeper lair, portal, power bank, invader core, after donateAll
+         │                                                     to the nearest sibling (nearestSibling) so the fighters go on. Vision: observeNow
          │                                                     target + observeBackground staging while the radar has an observer, else nJobs(Scout, 1) while the target is out of sight.
          │                                                     boostRanged (persisted setter) adds XKHO2 to the wick's boosts. kill() removes both flags.
          ├─ Capture          @register  (ms.capture.ts)        "Capture <room>"; pause()/resume() (memory.held; status shows `held`): no crow or scout eggs, eggs purged, flags and living crows kept, observer and radar left alone; ReactorDepot drives it for its core; takes a room with Crows (job.crow.ts). First run picks the owned RCL7+ room with a spawn nearest the target by
