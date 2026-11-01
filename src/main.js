@@ -56,6 +56,7 @@ global.statusServices = () => liveServices().map(svc => svc.toString());
 global.spawnLoads = () => require('spawnload').report();
 global.createFlagAt = (...args) => require('flag').createFlagAt(...args);
 
+import 'reactor';  // defines the season-only globals as undefined off-season; must load first
 import 'strat';
 
 import 'ms.globalrespawn';

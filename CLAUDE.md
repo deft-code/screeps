@@ -11,16 +11,19 @@ different eras, and only one is live.
 
 ## Status: between seasons (read this first)
 
-Season 11 (`shardSeason`, Sept-Oct 2026) ended on 1 Nov 2026 and the code is
-not deployed anywhere that is being watched. What follows from that:
+Season 11 (`shardSeason`, Sept-Oct 2026) ended on 1 Nov 2026 and the code
+base was pushed to MMO `shard2` the same day (`npx gulp deploy`). What
+follows from that:
 
 - **Nothing in this file or in `docs/` describes a live game.** Room names,
   missions with rooms in their names (`Hub W25S7`, `Remote W27S9 W26S8`), RCLs,
   GCL, dates and battle results that appear in the docs are Season 11 examples
   and history kept because they explain why code is the way it is. The only
-  truth about what is scheduled is `Memory.scheduler.services` on whatever
-  server the code runs on next; the only truth about rooms is `Game.rooms`.
-- **Before the next deployment:** pick the target and its gulp task
+  truth about what is scheduled is `Memory.scheduler.services` on the server
+  the code runs on; the only truth about rooms is `Game.rooms`.
+- **Console tasks still default to the season world:** pass
+  `SCREEPS_WORLD=mmo` to `gulp console`/`consoleTail`/`room` for shard2.
+- **Before deploying to a new target:** pick the target and its gulp task
   (`npx gulp deploy` pushes to MMO `shard2`, `npx gulp season` to the seasonal
   server, `npx gulp ptr` to PTR), check `credentials.js`, widen the shard
   guard if the target is a new shard, and set `SCREEPS_WORLD` for the console
@@ -32,8 +35,11 @@ not deployed anywhere that is being watched. What follows from that:
   `Reactor`, `ReactorDepot`, `Thormine`, `Thorhub` and `StealReactor` missions
   and their jobs (`warboy`, `warrunner`, `immortan`, `thoreater`, `cleanup`,
   `usurper`), `Meta_reactor`, `Balance`'s thorium override and the `LabPlan`
-  boost quotas. It is inert where `RESOURCE_THORIUM` is undefined (every use
-  guards on it) and without the season's structures. Decide whether to keep,
+  boost quotas. `reactor.ts` defines `RESOURCE_THORIUM`, `FIND_REACTORS` and
+  `LOOK_REACTORS` as `undefined` at load where the server lacks them (a bare
+  undeclared global throws, `if (!X)` guards included; `updateIntel` threw
+  every tick on shard2 until it did), so every guard reads as written and
+  the code is inert without the season's structures. Decide whether to keep,
   generalise or delete it once the next target is known, and update
   `docs/file-inventory.md` with the decision.
 - Market code (`market.ts`, `markethack.ts`, `Selloff`) was switched off on
@@ -115,7 +121,7 @@ main.js
  ├─ Rewalker.ts     movement engine (matrix.js is dead)
  ├─ staging.ts / heal.ts / suppress.ts / labplan.ts   shared mission helpers
  ├─ cache.ts / debug.ts / roomobj.ts / lib.js / shed.ts   infrastructure
- ├─ reactor.ts      Season 11 helpers: sectorCore, findReactors, thoriumMineral, RESOURCE_THORIUM typing
+ ├─ reactor.ts      Season 11 helpers: sectorCore, findReactors, thoriumMineral; defines the season globals as undefined off-season (main.js imports it first)
  └─ intel.ts / radar.ts / market.ts / deposit.ts          intel and radar are live; the rest only registers
 ```
 

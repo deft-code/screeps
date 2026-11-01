@@ -154,7 +154,18 @@ export class NullStrat extends Process implements IStrat {
         updateIntel(this.room);
         defaultRewalker().gatherIntel(this.room);
     }
-    run(): Priority { return "low" }
+    // Nothing to do while the room is in sight. Out of sight the process dies
+    // and GetStrat forgets it, so the next sighting makes a fresh one; without
+    // that every room the radar's idle observer scanned kept a process in the
+    // low row until the next global reset (72 after 150 ticks on shard2,
+    // 1 Nov 2026).
+    run(): Priority {
+        if (!this.room) {
+            cache.delete(this.roomName);
+            this.kill();
+        }
+        return "low";
+    }
     spawnEnergy(): SpawnEnergy[] | undefined { return undefined; }
     // Roads and containers nobody planned are left to decay; ActiveStrat
     // answers for the planned ones. Idle repairs by passing creeps stop here.

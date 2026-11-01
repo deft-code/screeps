@@ -29,6 +29,16 @@ declare global {
     const RESOURCE_THORIUM: ResourceConstant | undefined;
 }
 
+// Off the seasonal server these globals do not exist at all, and a bare
+// reference to an undeclared identifier throws a ReferenceError, so even the
+// `if (!RESOURCE_THORIUM)` guards all over the thorium code would throw
+// (seen on shard2: updateIntel threw every tick). Define the missing ones as
+// undefined at load so every guard reads as written. main.js imports this
+// module before any other game code.
+for (const name of ["FIND_REACTORS", "LOOK_REACTORS", "RESOURCE_THORIUM"]) {
+    if (!(name in global)) (global as any)[name] = undefined;
+}
+
 // The thorium mineral in `room` that can be mined right now: an extractor on
 // it and thorium left. Null without visibility.
 export function thoriumMineral(room: Room | null): Mineral | null {

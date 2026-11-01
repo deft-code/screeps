@@ -13,6 +13,9 @@ unclaimed but `hasMetas(name)` (metas in `Memory.rooms[name].meta`), else
 cached strat. `NullStrat` -> `ClaimedStrat` when the controller becomes ours,
 -> `ActiveStrat` when metas appear; `ActiveStrat` -> `ClaimedStrat` on claim,
 -> `NullStrat` when its metas are removed (a Remote mission's `windDown`).
+A `NullStrat` whose room is out of sight kills itself and drops its cache
+entry, so a room the observer scanned once does not keep a process until the
+next global reset; the next sighting builds a fresh one.
 The outgoing strat `kill()`s itself in `replace()` so only one process per
 room survives. `ClaimedStrat.evolve()` swaps to whatever
 `Memory.rooms[name].strat` names (see below), else returns `null`.

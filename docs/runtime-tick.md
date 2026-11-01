@@ -105,7 +105,7 @@ The rows a running build settles into (Season 11 shape; the mission rows depend 
 | `LabPlan <room>`, `Balance` | `Memory.scheduler.services` | `normal` | 9000 | creepless services: lab targets, terminal balancing. |
 | `ClaimedStrat` x owned rooms | `room.strat` | `normal` | 9000 | Towers, safe mode, labs, links, metastruct upkeep, mineral timers, factory. |
 | `ActiveStrat` x unclaimed rooms with metas | `room.strat` | `low` | 9000 | Every 10 ticks `room.meta.runUnowned()` places container/road sites for mission-planned metas. |
-| `NullStrat` x other visible rooms | `room.strat` | `low` | 9000 | No-op run. |
+| `NullStrat` x other visible rooms | `room.strat` | `low` | 9000 | No-op run; once the room is out of sight it kills itself and drops its `GetStrat` cache entry, so rooms the observer scanned do not pile up in the row. |
 | `FlagService` | `@daemon` in `service.flag.ts` | `low` | 8000 | Orange flags drive metastruct planning (`runGenesis`); orphan grey child flags are removed; purple flags spawn the non-mission service their name spells (`_` = space), kill it when the flag goes, and turn white/purple when the name spawns nothing or names a Mission. |
 | `SpawnDaemon` | `@daemon` in `spawn.ts` | `late` | 2000 | Turns eggs into `spawnCreep` calls. |
 | `SpawnTelemetry` | `@daemon` in `spawnload.ts` | `late` | 2000 | Per-spawn busy ticks and creeps started (`Memory.spawns`). |
