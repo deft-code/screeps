@@ -165,9 +165,9 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     counts the hostile towers and evolve()s into the sibling for that count (2: "AssaultTwo <room> <home>"; a count with no
          │                                                     sibling is logged every 100 ticks and the mission waits). The scout goes along with the evolve.
          ├─ AssaultTwo       @register  (ms.assaulttwo.ts)     "AssaultTwo <room> <home>" (31 Oct 2026); one boosted Wicktwo (job.wicktwo.ts) at a time against a two-tower room, from the home
-         │                                                     room's spawns and labs ("home" and "spawn" aliases = args[2]). Staging room (memory.staging): the first room after the target on
-         │                                                     Rewalker.getRoute(target, home) that no other player owns by intel (foreignOwned: owner and rcl > 0), else route[1]; a hand-set one
-         │                                                     is kept. Staging position (memory.stagexy) and entry tile (memory.entryxy, the path's first tile in the target room) from
+         │                                                     room's spawns and labs ("home" and "spawn" aliases = args[2]). Staging room (memory.staging): the target's neighbour
+         │                                                     (describeExits) that no other player owns by intel (foreignOwned: owner and rcl > 0; any neighbour when all are) with the
+         │                                                     shortest Rewalker.getRouteDist from home; a hand-set one is kept; memory.route = target + getRoute(staging, home). Staging position (memory.stagexy) and entry tile (memory.entryxy, the path's first tile in the target room) from
          │                                                     staging.ts findStaging over the listed targets, once, with the target in sight. Flags Assault/AssaultN (memory.flag) at
          │                                                     roomCenterPos(target) and the child staging_<flag> at the staging position, re-created when gone, moved back only when found
          │                                                     outside their room; secondary colour = mode (plan yellow, stage/retreat orange, attack red, pause purple); blue set by hand =
@@ -369,7 +369,8 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 within 2, else sit within 3 of the room centre; outside home, after() idleNoms energy within reach. laid by SkFarm (paceNJobs(Skvulture, 1, 1450))
          ├─ Pup @register                  (job.pup.ts)    Wolf with memory.size ATTACK + MOVE pairs; suppress.ts suppressPup (same missions): paceNJobs(Pup, 3) while enemies with HEAL and no hostiles are in the room, size = ceil(heal power / ATTACK_POWER / 2) set on the egg
          ├─ Wicktwo @register              (job.wicktwo.ts) AssaultTwo's fighter (31 Oct 2026): fixed 4 TOUGH, 25 MOVE, 12 RANGED_ATTACK, 9 HEAL (5340) from the home room (readySpawn),
-         │                                                 priority 3. start(): at home with a wanted boost missing (XGHO2 on TOUGH, XLHO2 on HEAL, XKHO2 on RANGED_ATTACK when the mission's
+         │                                                 priority 3. start(): escape() first: in a foreign room in safe mode (every action of ours but moving is blocked there,
+         │                                                 healing included) with a hostile tower, a PathFinder step toward the nearest exit over the Rewalker matrix; then at home with a wanted boost missing (XGHO2 on TOUGH, XLHO2 on HEAL, XKHO2 on RANGED_ATTACK when the mission's
          │                                                 boostRanged is on) -> boost(): room.requestBoost for each missing one every tick and boostCreep at a lab holding enough mineral
          │                                                 and energy for the bare parts, waiting beside the first lab otherwise; mission.recycling -> recycleAt(originSpawn); mode attack
          │                                                 (and not manual) -> attack(): walk into the target room; there, the mission's targets() clear the own-target ids; a working melee
@@ -379,7 +380,9 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 else stands); nothing -> hold within 3 of the mission flag; any other mode -> stage(): engage a militant in the staging room,
          │                                                 else wait within 5 of the staging flag. after(): fire() the ladder (listed target in range 3; else nearest militant not under a
          │                                                 rampart over 10k, active first; an adjacent focus is mass-attacked when massDamage() >= a shot; else mass when it beats a shot
-         │                                                 at the weakest structure in range, else that shot; outside the target room militants only), then healSelf while a tower with
+         │                                                 at the weakest structure in range, else that shot; outside the target room militants only; while a hostile tower stands the
+         │                                                 spawns are spared: never the focus or the weakest, and no mass attack with a spawn within 3, since the trial rooms popped safe
+         │                                                 mode the tick their spawn was hit), then healSelf while a tower with
          │                                                 energy is in the room and we are whole, else heal.ts healIdle with overheal while an enemy creep is within 3.
          │   └─ Ballerina @register        (job.ballerina.ts) Wicktwo on the Crow body with wantedBoosts() = []: laid by AssaultTwo once the target is tower-free.
          │   └─ Crow @register             (job.crow.ts)   Capture's fighter: fixed 25 MOVE, 24 RANGED_ATTACK, 1 HEAL (5100, Crow.power = 240) from the home room's spawns only (the daemon
