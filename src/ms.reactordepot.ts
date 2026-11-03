@@ -40,7 +40,8 @@ export interface ReactorDepotMemory extends ReactorMemory {
     // The Capture mission of our core (`Capture <core>`), found once among
     // the scheduled services and kept.
     capture?: string
-    // We paused that capture because we went cold (syncCapture).
+    // Set until 1 Nov 2026 when the depot paused the capture on going cold;
+    // syncCapture now only lifts such a pause and clears this.
     coldPaused?: boolean
     // The depot is on: reached kDepotOn thorium and not yet under kDepotOff.
     active?: boolean
@@ -55,8 +56,7 @@ const rewalker = defaultRewalker();
 // is active: on once that terminal holds kDepotOn thorium, off again under
 // kDepotOff (Thormine ships it there, ms.thormine.ts). An inactive depot
 // holds the mission the way pause() does (`paused` below): nothing laid,
-// scouts included, the living shepherded to their deaths, the capture
-// paused by syncCapture once no runner is about.
+// scouts included, the living shepherded to their deaths.
 //
 // The route the runners walk (Rewalker.getRoute home -> core, refreshed every
 // kRoutePace ticks) is kept in memory with its Source Keeper rooms. Invader
@@ -67,12 +67,13 @@ const rewalker = defaultRewalker();
 // at the core, and a lost runner is replaced.
 //
 // The core's Capture mission (`Capture <core>`, memory.capture once found
-// among the scheduled services) follows the depot: the tick the depot goes
-// cold (the depot inactive with no warrunner alive, hatching or queued,
-// so the reactor is about to run dry) the capture is paused, and the tick
-// the depot is active again it is resumed (syncCapture, every tick, held
-// or not). Only a pause of ours is
-// undone (memory.coldPaused); one set by hand stays.
+// among the scheduled services) is no longer paused by the depot (since
+// 1 Nov 2026; until then the tick the depot went cold, inactive with no
+// warrunner alive, hatching or queued, the capture was paused and the tick
+// it was active again resumed, which with the season over and every
+// terminal empty of thorium held the capture for good). syncCapture, every
+// tick, now only lifts a pause this depot set (memory.coldPaused) and
+// forgets it; a pause set by hand stays. `cold` is still shown in status().
 //
 //   scheduleService('ReactorDepot W25S7')     // args[1]=home room: spawns and the terminal
 //   scheduleService('ReactorDepot W25S7 2')   // optional args[2]=cap on warrunners
@@ -215,24 +216,19 @@ export class ReactorDepot extends Reactor {
         return !this.active && !this.runnersAbout;
     }
 
-    // Pause the core's capture while cold, resume it once warm again.
+    // The capture runs on its own: lift the pause an older depot set on
+    // going cold, never set one.
     syncCapture() {
+        const mem = this.dmem;
+        if (!mem.coldPaused) return;
         const cap = this.capture;
         if (!cap) return;
-        const mem = this.dmem;
-        if (this.cold) {
-            if (mem.coldPaused) return;
-            mem.coldPaused = true;
-            debug.log(this.name, "cold (depot", this.depot + "); pausing", cap.name);
-            cap.pause();
-        } else if (mem.coldPaused) {
-            delete mem.coldPaused;
-            debug.log(this.name, "warm again (depot", this.depot + "); resuming", cap.name);
-            cap.resume();
-        }
+        delete mem.coldPaused;
+        debug.log(this.name, "no longer pauses captures; resuming", cap.name);
+        cap.resume();
     }
 
-    // Every tick: the capture follows the depot.
+    // Every tick: release a capture this depot once paused.
     watch() {
         this.syncCapture();
     }

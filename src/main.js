@@ -5,7 +5,9 @@ import { tick as paceTick } from "pace";
 
 import * as cache from "cache";
 const xx = Game.time;
-console.log(Game.time, ":", Game.time - xx, "injecting, tick and cache");
+// Build stamp: bump by hand on a push to tell which code the shard runs.
+global.BUILD_STAMP = "2026-11-01k";
+console.log(Game.time, ":", Game.time - xx, "injecting, tick and cache, build", BUILD_STAMP);
 cache.injectAll();
 
 import * as process from "process";
@@ -86,8 +88,10 @@ import 'ms.xferstartup';
 import 'ms.capture';
 import 'ms.loot';
 import 'ms.stealreactor';
+import 'ms.thorsurvey';
 import 'ms.assault';
 import 'ms.assaulttwo';
+import 'ms.assaultthree';
 import 'labplan';
 import "service.flag";
 
@@ -95,6 +99,7 @@ import "job.hauler";
 import "job.scout";
 import "job.crow";
 import "job.wicktwo";
+import "job.wickthree";
 import "job.ballerina";
 import "job.paver";
 import "job.toxic";

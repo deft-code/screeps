@@ -2,11 +2,12 @@ import { Mission, MissionMemory } from "mission";
 import { register, Priority, Service } from "process";
 import { Scout } from "job.scout";
 import { Wicktwo, kStagedRange, Boost } from "job.wicktwo";
+import { Wickthree } from "job.wickthree";
 import { Ballerina } from "job.ballerina";
 import { FlagExtra, createFlagAt } from "flag";
 import { roomCenterPos, RoomIntel, myUsername } from "intel";
 import { defaultRewalker, fromXY, toXY } from "Rewalker";
-import { findStaging } from "staging";
+import { findStaging, hitsMatrix, blockers, Staging } from "staging";
 import { militantsIn } from "creep.enemy";
 import { dist } from "routes";
 import { theRadar } from "radar";
@@ -43,7 +44,30 @@ import * as debug from "debug";
 // run again.
 //
 // Targets (targets(), handed to the wick): the towers, nearest the entry
-// first, then the spawns; nothing without vision.
+// first, then the spawns; nothing without vision. A shielded room puts its
+// breach ahead of them (below).
+//
+// Shields (1 Nov 2026): a room walled in so that the staging locator finds
+// no path to the targets is shielded. locate() then asks the locator again
+// over the hits-weighted matrix (staging.ts hitsMatrix: a blocked tile
+// costs log10(hits) * 20, the Bulldoze breach's pricing), takes the staging
+// position and entry from that path, and lists its tiles in the target room
+// that something blocks, in walking order, as memory.breach. What stands
+// on those tiles (staging.ts blockers: the rampart first, then the wall or
+// structure under it) heads the target list, so the wick shoots its way
+// along the path. watchBreach() drops cleared tiles each tick and replans
+// every kBreachPace ticks or once the list is empty: a plain path open
+// again ends the breach, else a new one is listed (repairs, new walls).
+// The staging position is kept across replans. Cleared tiles stay watched
+// for kClearedTTL ticks (memory.cleared): a blocker back on one, the
+// rampart rebuilt, relists it the next tick with no search. `wicks`
+// (persisted setter) is how many wicks are kept alive; one wick cannot
+// out-shoot a shield that is repaired between wicks.
+//
+// The wick class (wickClass, Wicktwo here) is what AssaultThree
+// (ms.assaultthree.ts) swaps for the Wickthree: the body and boosts the
+// stock checks use, the job laid, and the roles counted as fighters (both
+// wicks and the Ballerina, so a donated wick of the other kind counts).
 //
 // Mode (memory.mode), decided every tick (switchMode):
 //   plan: no staging position yet (needs the target in sight).
@@ -98,6 +122,17 @@ export interface AssaultMemory extends MissionMemory {
     boostRanged?: boolean
     // Paused with no sibling to take the creeps: they recycle.
     recycle?: boolean
+    // Shielded: packed xys of the target-room tiles on the breach path that
+    // something blocks, in walking order; and the tick of the last breach
+    // plan or plain-path check (watchBreach paces both by it).
+    breach?: number[]
+    breachAt?: number
+    // Breach tiles cleared within kClearedTTL ticks: a blocker back on one
+    // (a rampart rebuilt) relists it the next tick, no search.
+    cleared?: number[]
+    clearedAt?: number
+    // Wicks kept alive (the `wicks` setter), default kWicks.
+    wicks?: number
 }
 
 const kFlagName = "Assault";
@@ -115,6 +150,15 @@ const kSafeResume = 400;
 // A nuke landing within this many ticks sends the wicks back.
 const kNukeTicks = 75;
 const kLogPace = 100;
+// Ticks between breach replans while shielded; PathFinder ops for the
+// weighted search (high costs make A* look wider).
+const kBreachPace = 200;
+const kBreachOps = 50000;
+// Ticks between plain-path checks while unshielded (a shield can close again).
+const kRecheckPace = 25;
+// How long a cleared breach tile is watched for a rebuilt blocker.
+const kClearedTTL = 1500;
+const kWicks = 1;
 // Owned structure types that do not count toward finishing: ramparts by
 // the user's rule, the rest cannot be destroyed.
 const kKept: StructureConstant[] = [STRUCTURE_RAMPART, STRUCTURE_CONTROLLER, STRUCTURE_KEEPER_LAIR,
@@ -130,6 +174,12 @@ export class AssaultTwo extends Mission {
 
     get mem(): AssaultMemory {
         return this.memory as AssaultMemory;
+    }
+
+    // The wick this mission lays and checks boosts for; AssaultThree
+    // overrides.
+    get wickClass(): typeof Wicktwo {
+        return Wicktwo;
     }
 
     getRoomName(alias = "") {
@@ -152,6 +202,18 @@ export class AssaultTwo extends Mission {
 
     get recycling(): boolean {
         return !!this.mem?.recycle;
+    }
+
+    // Wicks kept alive while the target has a tower; persisted. One cannot
+    // out-shoot a shield the enemy repairs between wicks (W28N1, 1 Nov
+    // 2026: the breach rampart came back to 167k in the gap).
+    get wicks(): number {
+        return this.mem?.wicks ?? kWicks;
+    }
+
+    set wicks(n: number) {
+        this.mem.wicks = Math.max(1, Math.floor(n));
+        debug.log(this.name, "wicks:", this.mem.wicks);
     }
 
     get flag(): FlagExtra | null {
@@ -184,6 +246,7 @@ export class AssaultTwo extends Mission {
             return super.run();
         }
         this.locate();
+        this.watchBreach();
         this.placeFlags();
         this.watchStaging();
         this.watchTarget();
@@ -257,20 +320,102 @@ export class AssaultTwo extends Mission {
             delete mem.entryxy;
         }
         if (mem.stagexy !== undefined) return;
-        const targets = this.targets();
+        const targets = this.baseTargets();
         if (!targets.length) {
             if (Game.time % kLogPace === 0) debug.log(this.name, this.room ? "no targets in" : "no vision of", this.roomName, "; staging unplaced");
             return;
         }
-        const found = findStaging(mem.staging!, targets.map(t => t.pos));
-        if (!found) {
-            if (Game.time % kLogPace === 0) debug.log(this.name, "staging locator found no path from", mem.staging, "to the targets");
-            return;
+        let found = findStaging(mem.staging!, targets.map(t => t.pos));
+        if (found) {
+            delete mem.breach;
+            mem.breachAt = Game.time;
+        } else {
+            // The weighted search is the dear one (kBreachOps): one try per
+            // kBreachPace while it keeps failing (planBreach stamps the try).
+            if (mem.breachAt !== undefined && Game.time - mem.breachAt < kBreachPace) return;
+            found = this.planBreach(targets);
+            if (!found) {
+                debug.log(this.name, "staging locator found no path from", mem.staging, "to the targets, shielded or not; next try in", kBreachPace);
+                return;
+            }
         }
         mem.stagexy = toXY(found.pos);
         mem.stageRoom = mem.staging;
         if (found.entry) mem.entryxy = toXY(found.entry);
-        debug.log(this.name, "staging at", found.pos, "edge", found.edge, "entry", found.entry, "path", found.path.length);
+        debug.log(this.name, "staging at", found.pos, "edge", found.edge, "entry", found.entry, "path", found.path.length, mem.breach ? "shielded" : "");
+    }
+
+    // The locator over the hits-weighted matrix of the target room alone
+    // (file header; the other rooms keep the Rewalker's pricing): the path
+    // the wick shoots its way along, its blocked target-room tiles listed
+    // in walking order as memory.breach. null when even that finds no path.
+    // Every try is stamped in memory.breachAt, found or not, to pace the
+    // next.
+    planBreach(targets: Structure[]): Staging | null {
+        const mem = this.mem;
+        mem.breachAt = Game.time;
+        const matrix = (name: string) => name === this.roomName ? hitsMatrix(name) : undefined;
+        const found = findStaging(mem.staging!, targets.map(t => t.pos), { matrix, maxOps: kBreachOps });
+        if (!found) return null;
+        const tiles = found.path.filter(p => p.roomName === this.roomName && blockers(p).length);
+        mem.breach = tiles.map(toXY);
+        debug.log(this.name, "shielded: breach of", tiles.length, "tiles:", tiles.map(p => `${p.x},${p.y}`).join(" "));
+        return found;
+    }
+
+    // Shielded: drop the breach tiles cleared, and replan the tick the list
+    // empties and every kBreachPace ticks. Unshielded, with the staging
+    // placed: every kRecheckPace ticks make sure a plain path still reaches
+    // the targets, and list a breach when it does not (W28N1 rebuilt its
+    // breach rampart the tick it fell and the wick, its breach forgotten,
+    // walked out of the room to go round, 1 Nov 2026). Vision needed.
+    watchBreach() {
+        const mem = this.mem;
+        if (!this.room || mem.stagexy === undefined) return;
+        this.watchCleared();
+        if (mem.breach) {
+            const before = mem.breach.length;
+            const gone = _.remove(mem.breach, xy => !blockers(fromXY(xy, this.roomName)).length);
+            if (gone.length) {
+                debug.log(this.name, "breach: cleared", gone.length, "tiles,", mem.breach.length, "left");
+                mem.cleared = _.uniq([...(mem.cleared || []), ...gone]);
+                mem.clearedAt = Game.time;
+            }
+            const emptied = before > 0 && !mem.breach.length;
+            if (!emptied && Game.time - (mem.breachAt || 0) < kBreachPace) return;
+        } else if (Game.time - (mem.breachAt || 0) < kRecheckPace) {
+            return;
+        }
+        const targets = this.baseTargets();
+        if (!targets.length) return;
+        if (findStaging(mem.staging!, targets.map(t => t.pos))) {
+            if (mem.breach) debug.log(this.name, "breach: a plain path reaches the targets again; shield down");
+            delete mem.breach;
+            mem.breachAt = Game.time;
+            return;
+        }
+        this.planBreach(targets);
+    }
+
+    // A blocker back on a tile cleared within kClearedTTL (the enemy
+    // rebuilt the rampart) goes to the head of the breach at once.
+    watchCleared() {
+        const mem = this.mem;
+        if (!mem.cleared) return;
+        if (Game.time - (mem.clearedAt || 0) > kClearedTTL) {
+            delete mem.cleared;
+            delete mem.clearedAt;
+            return;
+        }
+        const back = mem.cleared.filter(xy => blockers(fromXY(xy, this.roomName)).length);
+        if (!back.length) return;
+        mem.breach = _.uniq([...back, ...(mem.breach || [])]);
+        mem.breachAt = Game.time;
+        debug.log(this.name, "breach: rebuilt on", back.map(xy => `${Math.floor(xy / 100)},${xy % 100}`).join(" "), "; relisted");
+    }
+
+    get shielded(): boolean {
+        return !!this.mem?.breach;
     }
 
     get stagePos(): RoomPosition | null {
@@ -288,7 +433,7 @@ export class AssaultTwo extends Mission {
     pickFlagName(): string {
         const claimed = new Set<string>();
         for (const name in Memory.missions) {
-            if (name !== this.name && name.startsWith("AssaultTwo ")) {
+            if (name !== this.name && name.startsWith("Assault")) {
                 const f = (Memory.missions[name] as AssaultMemory).flag;
                 if (f) claimed.add(f);
             }
@@ -394,24 +539,35 @@ export class AssaultTwo extends Mission {
         return at !== undefined && at - Game.time <= kNukeTicks;
     }
 
-    // The towers of the target, nearest the entry tile first (the room
-    // centre when there is none), then the spawns.
-    // Empty without vision. Cached for the tick.
+    // The breach's blockers in walking order (shielded), then the towers of
+    // the target, nearest the entry tile first (the room centre when there
+    // is none), then the spawns; each once. Empty without vision. Cached
+    // for the tick.
     private _targets?: [number, Structure[]];
     targets(): Structure[] {
         if (this._targets && this._targets[0] === Game.time) return this._targets[1];
-        const room = this.room;
-        let list: Structure[] = [];
-        if (room) {
-            // In the target room: a range to the staging flag would be Infinity.
-            const from = this.entryPos || roomCenterPos(this.roomName);
-            const structs = room.find(FIND_HOSTILE_STRUCTURES);
-            const towers = _.sortBy(structs.filter(s => s.structureType === STRUCTURE_TOWER), t => from.getRangeTo(t));
-            const spawns = structs.filter(s => s.structureType === STRUCTURE_SPAWN);
-            list = [...towers, ...spawns];
-        }
+        const list = this.room ? _.uniq([...this.breachTargets(), ...this.baseTargets()], s => s.id) : [];
         this._targets = [Game.time, list];
         return list;
+    }
+
+    // The towers nearest the entry first, then the spawns (vision).
+    baseTargets(): Structure[] {
+        const room = this.room;
+        if (!room) return [];
+        // In the target room: a range to the staging flag would be Infinity.
+        const from = this.entryPos || roomCenterPos(this.roomName);
+        const structs = room.find(FIND_HOSTILE_STRUCTURES);
+        const towers = _.sortBy(structs.filter(s => s.structureType === STRUCTURE_TOWER), t => from.getRangeTo(t));
+        const spawns = structs.filter(s => s.structureType === STRUCTURE_SPAWN);
+        return [...towers, ...spawns];
+    }
+
+    // What stands on the listed breach tiles, in walking order (vision).
+    breachTargets(): Structure[] {
+        const breach = this.mem.breach;
+        if (!breach || !this.room) return [];
+        return _.flatten(breach.map(xy => blockers(fromXY(xy, this.roomName))));
     }
 
     // Vision and no hostile tower among the targets.
@@ -428,8 +584,11 @@ export class AssaultTwo extends Mission {
 
     // --- modes ---
 
+    // Every wick kind and the Ballerina: a donated wick of the other kind
+    // fights too.
     get fighters(): Creep[] {
-        return _.compact([...this.roleCreeps(Wicktwo.name.toLowerCase()), ...this.roleCreeps(Ballerina.name.toLowerCase())].map(m => m.c));
+        const roles = _.uniq([this.wickClass.name, Wicktwo.name, Wickthree.name, Ballerina.name].map(n => n.toLowerCase()));
+        return _.compact(_.flatten(roles.map(r => this.roleCreeps(r))).map(m => m.c));
     }
 
     // A fighter waits within kStagedRange of the staging flag.
@@ -489,7 +648,7 @@ export class AssaultTwo extends Mission {
     // --- laying ---
 
     wantedBoosts(): Boost[] {
-        return Wicktwo.boosts(this.boostRanged);
+        return this.wickClass.boosts(this.boostRanged);
     }
 
     // Units of `res` in the home room: terminal, storage and the labs.
@@ -501,21 +660,27 @@ export class AssaultTwo extends Mission {
             + _.sum(labs, l => l.mineralType === res ? l.mineralAmount || 0 : 0);
     }
 
+    // Units of `b` one wick of ours takes.
+    boostNeed(b: Boost): number {
+        const wick = this.wickClass;
+        return wick.bare(wick.body, b.part) * LAB_BOOST_MINERAL;
+    }
+
     // Every boost a wick wants, enough for its parts, in the home room.
     boostsInStock(): boolean {
-        return _.every(this.wantedBoosts(), b => this.homeStock(b.boost) >= Wicktwo.bare(Wicktwo.body, b.part) * LAB_BOOST_MINERAL);
+        return _.every(this.wantedBoosts(), b => this.homeStock(b.boost) >= this.boostNeed(b));
     }
 
     // What the home lacks for one wick, "XGHO2:120/40" per short boost.
     boostsShort(): string {
         return this.wantedBoosts()
-            .map(b => [b.boost, Wicktwo.bare(Wicktwo.body, b.part) * LAB_BOOST_MINERAL, this.homeStock(b.boost)] as [string, number, number])
+            .map(b => [b.boost, this.boostNeed(b), this.homeStock(b.boost)] as [string, number, number])
             .filter(([, need, have]) => have < need)
             .map(([res, need, have]) => `${res}:${need}/${have}`).join(" ");
     }
 
     recruit() {
-        const wick = Wicktwo.name.toLowerCase();
+        const wick = this.wickClass.name.toLowerCase();
         if (this.towerFree && !this.safeTicks) {
             if (!this.hasRole(wick) && !this.hasEgg(wick)) this.nJobs(Ballerina, 1);
             this.nJobs(Scout, 1);
@@ -525,7 +690,7 @@ export class AssaultTwo extends Mission {
             if (Game.time % kLogPace === 0) debug.log(this.name, "home short of boosts:", this.boostsShort(), "; no wick laid");
             return;
         }
-        this.nJobs(Wicktwo, 1);
+        this.nJobs(this.wickClass, this.wicks);
     }
 
     // Ask the home labs for the wick's boosts whenever one may be wanted:
@@ -538,7 +703,7 @@ export class AssaultTwo extends Mission {
         if (this.towerFree) return;
         const home = this.getRoom("home");
         if (!home) return;
-        for (const b of this.wantedBoosts()) home.requestBoost(b.boost);
+        for (const b of this.wantedBoosts()) home.requestBoost(b.boost, !!b.nearSpawn);
     }
 
     // The flags go with the mission (evolve() kills too).
@@ -556,9 +721,11 @@ export class AssaultTwo extends Mission {
         const targets = this.targets().map(t => `${t.structureType}@${t.pos.x},${t.pos.y}:${t.hits}`).join(" ") || "-";
         const wick = _.first(this.fighters);
         const boosted = wick ? _.sum(wick.body, p => p.boost ? 1 : 0) : 0;
+        const breach = (mem.breach ? ` shielded breach:${mem.breach.length} planned:${Game.time - (mem.breachAt || 0)}` : "")
+            + (mem.cleared ? ` cleared:${mem.cleared.length}` : "") + ` wicks:${this.wicks}`;
         return super.status()
             + (this.manual ? " held(blue)" : "")
-            + ` mode:${this.mode} home:${this.getRoomName("home")} staging:${mem.staging || "-"} route:${(mem.route || []).join(">") || "-"}`
+            + ` wick:${this.wickClass.name} mode:${this.mode}${breach} home:${this.getRoomName("home")} staging:${mem.staging || "-"} route:${(mem.route || []).join(">") || "-"}`
             + ` flag:${mem.flag || "-"}${this.flag ? "" : "(missing)"} stagepos:${this.stagePos || "-"} entry:${this.entryPos || "-"}`
             + ` visible:${!!this.room} quiet:${quiet} staged:${this.staged} safe:${this.safeTicks} nuke:${this.nukeSoon}`
             + ` towerfree:${this.towerFree} targets:[${targets}] boosts:${this.boostsInStock() ? "ok" : "short " + this.boostsShort()}`

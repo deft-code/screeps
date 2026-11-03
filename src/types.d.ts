@@ -124,7 +124,7 @@ interface Room {
         asArray: true,
     ): LookForAtAreaResultArray<AllLookAtTypes[T], T>;
     requestBoosts(boosts: ResourceConstant[] | undefined): void
-    requestBoost(boost: ResourceConstant | undefined): StructureLab
+    requestBoost(boost: ResourceConstant | undefined, nearSpawn?: boolean): StructureLab
 
     run(): void
     after(): void

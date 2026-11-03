@@ -1,11 +1,12 @@
 import { Mission, MissionMemory } from "mission";
 import { register, Priority } from "process";
 import * as debug from "debug";
-import { Bulldozer, dozeable, dozeableStruct, kDozerBoost } from "job.bulldozer";
+import { Bulldozer, dozeable, kDozerBoost } from "job.bulldozer";
 import { coordsFromXY, fromXY, toXY } from "Rewalker";
 import { createFlagAt, FlagExtra } from "flag";
 import { theRadar } from "radar";
 import { roomCenterPos } from "intel";
+import { hitsMatrix } from "staging";
 
 // Flags named like this (any case) in the mission room mark tiles to clear
 // next (legacy; the mission's own child flags are the usual way).
@@ -19,8 +20,8 @@ const kPlanPace = 100;
 // PathFinder limits for the breach plan.
 const kMaxOps = 20000;
 const kMaxRooms = 16;
-// Matrix cost of a tile: round(log10(hits) * kHitsScale) of what blocks it.
-const kHitsScale = 20;
+// Matrix cost of a tile: round(log10(hits) * 20) of what blocks it
+// (staging.ts hitsMatrix, shared with the Assault breach since 1 Nov 2026).
 
 type Target = [number, string];
 
@@ -242,22 +243,7 @@ export class Bulldoze extends Mission {
 
     // Blocking hits per tile -> cost. undefined for rooms we cannot see.
     matrix(roomName: string): CostMatrix | undefined {
-        const room = Game.rooms[roomName];
-        if (!room) return undefined;
-        const mat = new PathFinder.CostMatrix();
-        const hits: { [xy: number]: number } = {};
-        for (const s of room.find(FIND_STRUCTURES)) {
-            if (s.structureType === STRUCTURE_ROAD || s.structureType === STRUCTURE_CONTAINER) continue;
-            if (s.structureType === STRUCTURE_RAMPART && ((s as StructureRampart).my || (s as StructureRampart).isPublic)) continue;
-            const xy = toXY(s.pos);
-            hits[xy] = dozeableStruct(s) ? (hits[xy] || 0) + s.hits : Infinity;
-        }
-        _.forEach(hits, (h, key) => {
-            const [x, y] = coordsFromXY(Number(key));
-            const cost = h === Infinity ? 0xff : Math.round(Math.log10(h) * kHitsScale);
-            mat.set(x, y, Math.max(1, Math.min(0xfe, cost)));
-        });
-        return mat;
+        return hitsMatrix(roomName);
     }
 
     // Where the breach is planned from: the anchor flag once it stands,

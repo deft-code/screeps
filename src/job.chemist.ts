@@ -6,6 +6,11 @@ import { register, taskbroken, Task2Ret } from "mycreep";
 // struct.lab's mineralDrain() wants the lab emptied again (900 and 2400).
 const kLabFill = 800;
 const kBoostFill = 2400;
+// A claimed boost lab holding less energy than this gets energy before any
+// mineral run: a full boost of 50 parts burns 1000 (1 Nov 2026: the
+// Wickthree's TOUGH boost waited on a lab at 0 energy behind eight
+// mineral trips).
+const kBoostEnergy = 50 * LAB_BOOST_ENERGY;
 // Energy is only taken from a store holding more than this.
 const kEnergyReserve = 5000;
 
@@ -29,8 +34,9 @@ function nonEnergy(store: StoreDefinition): ResourceConstant | undefined {
 // elsewhere: lab.planType, with mineralFill()/mineralDrain() as the
 // thresholds (struct.lab.js). Empty-handed, the first of:
 //
-//   1. empty a lab that wants draining (wrong contents, or product piled up)
-//   2. carry a lab's planned mineral to it, from the terminal, else the storage
+//   1. empty a lab that wants draining (wrong contents, or product piled up);
+//      then energy for a claimed boost lab under kBoostEnergy
+//   2. carry a lab's planned mineral to it (claimed boost labs first, then the emptiest), from the terminal, else the storage
 //   3. top up lab energy, from whichever of storage/terminal holds more
 //   4. carry ghodium to the nuker (haulers already bring its energy)
 //   5. gather stray non-energy from the nearest pile, tombstone, ruin or
@@ -120,10 +126,21 @@ export class Chemist extends JobRole {
         const drain = _.find(this.labs, l => l.mineralType && l.mineralDrain());
         if (drain) return this.drain(drain);
 
-        for (const lab of this.labs) {
-            const want = this.labWant(lab);
-            const depot = want > 0 && this.depotWith(lab.planType!);
-            if (depot) return this.fetch(depot, lab.planType!, want);
+        const dry = _.find(this.labs, l => l.boost && l.store.energy < kBoostEnergy);
+        if (dry) {
+            const depot = this.depotWith(RESOURCE_ENERGY);
+            if (depot) return this.fetch(depot, RESOURCE_ENERGY, dry.store.getFreeCapacity(RESOURCE_ENERGY));
+        }
+
+        // Claimed boost labs first, the emptiest of them first (1 Nov 2026):
+        // a creep is waiting on each claim, and every claimed lab gets one
+        // load before any gets its fifth; the Wickthree's MOVE boost sat
+        // behind four 2400 refills in structure order, then behind the
+        // empty reaction labs. The reaction labs follow, emptiest first.
+        const wanting = _.sortBy(this.labs.filter(l => this.labWant(l) > 0), l => (l.boost ? 0 : 1e6) + (l.mineralAmount || 0));
+        for (const lab of wanting) {
+            const depot = this.depotWith(lab.planType!);
+            if (depot) return this.fetch(depot, lab.planType!, this.labWant(lab));
         }
 
         const thirst = _.sum(this.labs, l => l.store.getFreeCapacity(RESOURCE_ENERGY));

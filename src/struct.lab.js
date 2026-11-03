@@ -262,8 +262,11 @@ Room.prototype.requestBoosts = function (boosts) {
   }
 }
 
-Room.prototype.requestBoost = function (boost) {
-  const lab = this.findBoostLab(boost)
+// Claim a lab for `boost` for 15 ticks (findBoostLab; the Chemist fills
+// it). `nearSpawn` asks for a free lab beside a spawn (a MOVE boost: the
+// hatchling crawls until it is on; Wickthree, 1 Nov 2026).
+Room.prototype.requestBoost = function (boost, nearSpawn = false) {
+  const lab = this.findBoostLab(boost, nearSpawn)
   if (!lab) {
     this.log('Failed to boost:', boost)
     return null
@@ -272,10 +275,18 @@ Room.prototype.requestBoost = function (boost) {
   return lab
 }
 
-Room.prototype.findBoostLab = function (boost) {
+// The lab for `boost`: one already claimed for it, else one whose plan
+// makes it, else a free one (no claim): the outermost by orderedLabs, or
+// with `nearSpawn` the one nearest any spawn of the room.
+Room.prototype.findBoostLab = function (boost, nearSpawn = false) {
   const labs = this.orderedLabs().slice().reverse()
-  return _.find(labs, l => l.boost === boost) ||
-    _.find(labs, l => l.planType === boost) ||
-    _.find(labs, l => !l.boost) ||
-    null
+  const have = _.find(labs, l => l.boost === boost) || _.find(labs, l => l.planType === boost)
+  if (have) return have
+  const free = labs.filter(l => !l.boost)
+  if (!free.length) return null
+  if (nearSpawn) {
+    const spawns = this.find(FIND_MY_SPAWNS)
+    if (spawns.length) return _.min(free, l => _.min(spawns.map(s => l.pos.getRangeTo(s))))
+  }
+  return free[0]
 }

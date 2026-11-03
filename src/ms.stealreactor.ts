@@ -7,25 +7,26 @@ import { findReactors } from "reactor";
 import { RoomIntel, roomToCoord } from "intel";
 import { Usurper } from "job.usurper";
 
-// Steals another sector's reactor: "StealReactor <core>". Every tick it
-// asks the radar to observe the core room. With vision it judges the room
-// (judge): a reactor holding thorium that is not ours, no creep with a
-// CLAIM part (anyone's) means spawn mode; armed enemies there are reported
-// by status() but do not hold the egg back (since 28 Oct 2026)
-// (memory.spawning, kept until the next look says otherwise). In spawn mode
-// it picks the home: the owned room with spawns whose route to the core
+// Steals a sector's reactor: "StealReactor <core>". Every tick it asks
+// the radar to observe the core room and keeps one Usurper (job.usurper.ts,
+// nJobs: one alive at a time) on the way no matter what (since 1 Nov 2026):
+// it picks the home, the owned room with spawns whose route to the core
 // crosses the fewest rooms (memory.home, repicked every 100 ticks), takes
-// the Rewalker's route from there to the core and asks the
-// radar to observe every room of it. Once intel says every room on the
-// route was seen under kFresh ticks ago it lays one Usurper
-// (job.usurper.ts, nJobs: one alive at a time) from the home room, which
-// walks there, claims the reactor and goes to die in a keeper room next
-// door. A reactor that reads `my` ends spawn mode and, remembered as
-// memory.ours from the last look, holds the egg back on its own, so one
-// claim does not draw usurper after usurper.
+// the Rewalker's route from there to the core, asks the radar to observe
+// every room of it and lays the egg. The usurper walks there, claims the
+// reactor and goes to die in a keeper room next door; while the reactor
+// already reads `my` it skips the claim and goes to die at once, so the
+// mission is a steady trickle of one claimer at a time, 850 energy each.
+//
+// Until 1 Nov 2026 the egg waited on a judgement of the room (judge, still
+// made for status() and logged as memory.spawning: a reactor holding
+// thorium that is not ours and no creep with a CLAIM part, anyone's; armed
+// enemies stopped counting on 28 Oct 2026), on every route room's intel
+// being under 50 ticks old and on the reactor not having read `my` at the
+// last look (memory.ours). With the season over and the core held by a
+// standing claimer that gate never opened, so it is gone.
 //
 //   scheduleService('StealReactor W15S5')
-const kFresh = 50;
 
 interface StealMemory extends MissionMemory {
     spawning?: boolean
@@ -103,15 +104,13 @@ export class StealReactor extends Mission {
             if (spawning !== !!this.mem.spawning) debug.log(this.name, spawning ? "spawn mode" : "watching: " + why);
             this.mem.spawning = spawning;
         }
-        if (this.mem.spawning) {
-            // Repicked every 100 ticks: a route per spawning room each pick.
-            if (!this.mem.home || Game.time % 100 === 0) this.mem.home = this.pickHome() || undefined;
-            const route = this.route();
-            if (route.length) {
-                theRadar.observe(...route);
-                if (this.routeStale() < kFresh && !this.mem.ours) this.nJobs(Usurper, 1);
-            }
-        }
+        // Repicked every 100 ticks: a route per spawning room each pick.
+        if (!this.mem.home || Game.time % 100 === 0) this.mem.home = this.pickHome() || undefined;
+        const route = this.route();
+        if (route.length) theRadar.observe(...route);
+        // The egg waits on nothing: not the judgement, not the route's
+        // freshness, not the reactor already being ours.
+        if (this.mem.home) this.nJobs(Usurper, 1);
         super.run();
         return "normal";
     }
@@ -122,7 +121,7 @@ export class StealReactor extends Mission {
         const look = (why === undefined ? "no vision" : why === null ? "ripe" : why) + (armed ? ` armed:${armed}` : "");
         const route = this.route();
         const usurpers = this.roleCreeps("usurper").filter(u => u.c).map(u => `${u.name}@${u.pos.roomName} ${u.pos.x},${u.pos.y} ${u.memory.usurp || ""}`);
-        return super.status() + ` ${look} mode:${this.mem.spawning ? "spawn" : "watch"}${this.mem.ours ? " ours" : ""} home:${this.mem.home || "-"}` +
+        return super.status() + ` ${look} judged:${this.mem.spawning ? "ripe" : "unripe"}${this.mem.ours ? " ours" : ""} egg:always home:${this.mem.home || "-"}` +
             ` route:${route.length} stale:${route.length ? this.routeStale() : "-"}` +
             (usurpers.length ? ` ${usurpers.join(" ")}` : "");
     }

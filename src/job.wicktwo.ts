@@ -3,7 +3,7 @@ import { register, Task2Ret } from "mycreep";
 import type { CreepMove } from "creep.move";
 import { isActiveMilitant, militantsIn } from "creep.enemy";
 import { healIdle, healSelf } from "heal";
-import { defaultRewalker } from "Rewalker";
+import { defaultRewalker, positionAtDirection } from "Rewalker";
 import type { AssaultTwo } from "ms.assaulttwo";
 
 // Wick: the AssaultTwo mission's fighter (ms.assaulttwo.ts), a boosted
@@ -58,6 +58,27 @@ import type { AssaultTwo } from "ms.assaulttwo";
 // room or the wick is hurt; else the idle cascade (heal.ts healIdle:
 // adjacent hurt friendly, rangedHeal within 3), ending in self-heal while
 // an enemy creep is within 3.
+//
+// The base of the wick family (1 Nov 2026): Wickthree (job.wickthree.ts)
+// is this job on a heavier body with its MOVEs boosted, Ballerina
+// (job.ballerina.ts) on the Crow body unboosted; each overrides the
+// statics (body, boosts, spawnNearLabs) and nothing else. The mission's
+// wickClass names which one it lays. What the statics drive:
+//   boosts(ranged): the wanted list in the order taken; a MOVE boost at
+//     its head is taken before any other (boost(): the hatchling waits at
+//     that lab alone, slow until it is on) and asked for a lab beside a
+//     spawn (Boost.nearSpawn: struct.lab.js findBoostLab).
+//   spawnNearLabs: spawn() prefers a home spawn with a lab within
+//     kLabRange, and spawnDirections() (read by the spawn daemon) steps the
+//     hatchling out toward the lab holding or claimed for its first boost.
+// Standing beside a structure target (attack()), reposition(): of the
+// tiles within 1 of the target and one step from us that we could stand
+// on, and our own, the one where a mass attack deals the most
+// (massDamage(pos)); moved to when it deals as much as here or more (the
+// user's rule, 1 Nov 2026: equal moves too, so two equal tiles may trade
+// places tick by tick, which costs a ranged creep nothing). The secondary damage on
+// everything around the target stays as high as the ground allows while
+// its ramparts come down.
 const kTough = 4;
 const kMoves = 25;
 const kRanged = 12;
@@ -76,6 +97,9 @@ const kShotRange = 3;
 // Wait within this range of the staging flag (AssaultTwo kStagedRange too).
 export const kStagedRange = 5;
 const kHoldRange = 3;
+// A spawn with a lab within this range suits a wick that boosts its MOVEs.
+export const kLabRange = 2;
+const kDirections: DirectionConstant[] = [TOP, TOP_RIGHT, RIGHT, BOTTOM_RIGHT, BOTTOM, BOTTOM_LEFT, LEFT, TOP_LEFT];
 // Structure types a wick never shoots.
 const kIgnored: StructureConstant[] = [STRUCTURE_ROAD, STRUCTURE_CONTROLLER, STRUCTURE_KEEPER_LAIR,
     STRUCTURE_PORTAL, STRUCTURE_POWER_BANK, STRUCTURE_INVADER_CORE];
@@ -90,6 +114,9 @@ const rewalker = defaultRewalker();
 export interface Boost {
     part: BodyPartConstant
     boost: MineralBoostConstant
+    // Ask for it in a lab beside a spawn (a MOVE boost: the hatchling is
+    // slow until it is on).
+    nearSpawn?: boolean
 }
 
 export function bodyCost(body: BodyPartConstant[]): number {
@@ -101,6 +128,25 @@ export function bodyCost(body: BodyPartConstant[]): number {
 export function coverHits(pos: RoomPosition): number {
     return _.sum(pos.lookFor(LOOK_STRUCTURES), s =>
         s.structureType === STRUCTURE_RAMPART && !(s as StructureRampart).my ? s.hits : 0);
+}
+
+// A tile a creep of ours could stand on: inside the room's edge, not a
+// terrain wall, no obstacle structure (a hostile rampart blocks, ours and
+// public ones do not), no creep on it but `self`. Needs vision.
+export function standable(pos: RoomPosition, self?: Creep): boolean {
+    if (pos.x < 1 || pos.x > 48 || pos.y < 1 || pos.y > 48) return false;
+    if (Game.map.getRoomTerrain(pos.roomName).get(pos.x, pos.y) & TERRAIN_MASK_WALL) return false;
+    for (const s of pos.lookFor(LOOK_STRUCTURES)) {
+        if (s.structureType === STRUCTURE_RAMPART) {
+            if (!(s as StructureRampart).my && !(s as StructureRampart).isPublic) return false;
+        } else if (_.contains(OBSTACLE_OBJECT_TYPES, s.structureType)) return false;
+    }
+    return !_.any(pos.lookFor(LOOK_CREEPS), c => c.id !== self?.id);
+}
+
+// A spawn with a lab within kLabRange.
+export function nearLab(spawn: StructureSpawn): boolean {
+    return _.any(spawn.room.findStructs(STRUCTURE_LAB), l => spawn.pos.inRangeTo(l, kLabRange));
 }
 
 @register
@@ -124,6 +170,14 @@ export class Wicktwo extends JobCreep {
         return _.sum(body as any[], (p: any) => (p.type || p) === part && !p.boost ? 1 : 0);
     }
 
+    // Spawn from a home spawn with a lab within kLabRange when there is one
+    // (Wickthree: its MOVEs are boosted there).
+    static readonly spawnNearLabs: boolean = false;
+
+    get ctor(): typeof Wicktwo {
+        return this.constructor as typeof Wicktwo;
+    }
+
     // Ahead of the home room's routine eggs: the assault waits on it.
     priority = 3;
 
@@ -139,18 +193,47 @@ export class Wicktwo extends JobCreep {
         return this.c as CreepMove;
     }
 
-    // The job's body: a subclass (Ballerina) overrides the static.
+    // The job's body: a subclass (Ballerina, Wickthree) overrides the static.
     get bodyPlan(): BodyPartConstant[] {
-        return (this.constructor as typeof Wicktwo).body;
+        return this.ctor.body;
     }
 
+    // A home spawn with the body's cost on hand (readySpawn); with
+    // spawnNearLabs one of the home's with a lab within kLabRange when any
+    // has (the home's spawns are picked out first: readySpawn narrows to
+    // home itself, and a near-lab spawn elsewhere would leave it nothing).
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         const body = this.bodyPlan;
-        return [this.readySpawn(spawns, bodyCost(body)), body];
+        let pool = spawns;
+        if (this.ctor.spawnNearLabs) {
+            const home = this.mission?.getRoomName("home");
+            const own = home ? spawns.filter(s => s.room.name === home) : spawns;
+            const near = own.filter(nearLab);
+            if (near.length) pool = near;
+        }
+        return [this.readySpawn(pool, bodyCost(body)), body];
+    }
+
+    // Where to step out of `spawn` (read by the spawn daemon): beside the
+    // lab within kLabRange that holds or is claimed for our first wanted
+    // boost, else the nearest such lab; undefined (any tile) when no lab is
+    // that close or no tile beside the spawn touches it.
+    spawnDirections(spawn: StructureSpawn): DirectionConstant[] | undefined {
+        if (!this.ctor.spawnNearLabs) return undefined;
+        const labs = (spawn.room.findStructs(STRUCTURE_LAB) as StructureLab[]).filter(l => spawn.pos.inRangeTo(l, kLabRange));
+        if (!labs.length) return undefined;
+        const first = _.first(this.wantedBoosts());
+        const lab = (first && _.find(labs, l => l.boost === first.boost || l.mineralType === first.boost))
+            || spawn.pos.findClosestByRange(labs) || labs[0];
+        const dirs = kDirections.filter(d => {
+            const pos = positionAtDirection(spawn.pos, d);
+            return pos.roomName === spawn.pos.roomName && pos.isNearTo(lab) && standable(pos);
+        });
+        return dirs.length ? dirs : undefined;
     }
 
     wantedBoosts(): Boost[] {
-        return Wicktwo.boosts(!!this.assault?.boostRanged);
+        return this.ctor.boosts(!!this.assault?.boostRanged);
     }
 
     // The wanted boosts with a bare part still on the body.
@@ -180,7 +263,12 @@ export class Wicktwo extends JobCreep {
     // first lab asked otherwise.
     boost(): Task2Ret {
         const c = this.c;
-        const asked = this.missingBoosts().map(b => ({ b, lab: c.room.requestBoost(b.boost) as StructureLab | null }));
+        let missing = this.missingBoosts();
+        // A MOVE boost at the head of the list goes on first: until it is
+        // the hatchling crawls, so it waits at that lab and asks for nothing
+        // else (Wickthree).
+        if (missing[0]?.part === MOVE) missing = [missing[0]];
+        const asked = missing.map(b => ({ b, lab: c.room.requestBoost(b.boost, !!b.nearSpawn) as StructureLab | null }));
         const ready = _.find(asked, ({ b, lab }) => {
             if (!lab || lab.mineralType !== b.boost) return false;
             const n = Wicktwo.bare(c.body, b.part);
@@ -289,7 +377,39 @@ export class Wicktwo extends JobCreep {
         if (!goal) return this.hold();
         if (goal instanceof Creep) return this.engage(goal);
         if (!this.pos.isNearTo(goal)) this.moveTarget(goal, 1);
+        else this.reposition(goal);
         return "wait";
+    }
+
+    // Beside `goal` (file header): to the tile within 1 of it and one step
+    // from us, among those we could stand on, where a mass attack deals the
+    // most, when that is as much as from here or more. One step at a time:
+    // a tile beside the target but two steps away may be the far side of
+    // the wall we are shooting (wickthree0 wanted 41,17 across the W28N1
+    // plug from 43,16 and failed the walk every tick, 1 Nov 2026), and a
+    // tile a step away is reached by a plain move, no path search. The
+    // wick still circles the target over several ticks when each step
+    // pays. False when we stay.
+    reposition(goal: Structure): boolean {
+        const here = this.massDamage(this.pos);
+        const tiles: RoomPosition[] = [];
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                const x = goal.pos.x + dx;
+                const y = goal.pos.y + dy;
+                if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+                const pos = new RoomPosition(x, y, goal.pos.roomName);
+                if (pos.isEqualTo(this.pos) || !pos.isNearTo(this.pos) || !standable(pos, this.c)) continue;
+                tiles.push(pos);
+            }
+        }
+        if (!tiles.length) return false;
+        const scored = tiles.map(pos => ({ pos, dmg: this.massDamage(pos) }));
+        const best = _.max(scored, s => s.dmg);
+        if (best.dmg < here) return false;
+        this.dlog("reposition", this.pos, here, "->", best.pos, best.dmg);
+        this.cc.move(this.pos.getDirectionTo(best.pos));
+        return true;
     }
 
     // Step away from the working melee enemies when one is within kDanger.
@@ -353,15 +473,15 @@ export class Wicktwo extends JobCreep {
         });
     }
 
-    // What a mass attack would deal now: every hostile creep and owned
-    // hostile structure with hits within 3, by range (kMassFactor). A creep
-    // under a hostile rampart is left out: the damage lands on the rampart,
-    // counted among the structures.
-    massDamage(): number {
+    // What a mass attack from `pos` (ours by default) would deal: every
+    // hostile creep and owned hostile structure with hits within 3, by range
+    // (kMassFactor). A creep under a hostile rampart is left out: the
+    // damage lands on the rampart, counted among the structures.
+    massDamage(pos: RoomPosition = this.pos): number {
         const room = this.c.room;
         const shot = this.shotDamage();
         const hit = (o: RoomObject & { hits?: number }) => {
-            const r = this.pos.getRangeTo(o);
+            const r = pos.getRangeTo(o);
             return r <= kShotRange && (o.hits || 0) > 0 ? shot * kMassFactor[r] : 0;
         };
         const creeps = room.find(FIND_HOSTILE_CREEPS).filter(c => !coverHits(c.pos));

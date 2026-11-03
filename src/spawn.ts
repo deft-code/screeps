@@ -37,6 +37,12 @@ function bodyCost(body: BodyPartConstant[]): number {
   return _.sum(body, part => BODYPART_COST[part])
 }
 
+// An egg that cares which tile it hatches onto (Wicktwo.spawnDirections:
+// toward the lab holding its MOVE boost) says so; undefined means any.
+interface Directed {
+  spawnDirections?(spawn: StructureSpawn): DirectionConstant[] | undefined
+}
+
 type DefPart = BodyPartConstant | 'premove';
 
 
@@ -185,7 +191,10 @@ export function runSpawns() {
 
     const energyAvailable = spawn.room.energyAvailable - used;
     if (cost <= energyAvailable) {
-      const err = spawn.spawnCreep(body, mycreep.name, { energyStructures: spawn.room.strat.spawnEnergy() });
+      const opts: SpawnOptions = { energyStructures: spawn.room.strat.spawnEnergy() };
+      const dirs = (mycreep as Directed).spawnDirections?.(spawn);
+      if (dirs) opts.directions = dirs;
+      const err = spawn.spawnCreep(body, mycreep.name, opts);
       if (err !== OK) {
         spawn.room.log(spawn, 'FAILED to spawn', mycreep, err, JSON.stringify(mycreep.memory));
         if (Game.creeps[mycreep.name]) {

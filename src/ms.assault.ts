@@ -13,10 +13,12 @@ import * as debug from "debug";
 //
 //   scheduleService('Assault W27S2 W27S4')   // args[1]=target, args[2]=home (spawns and labs)
 //
-// Siblings so far: AssaultTwo (ms.assaulttwo.ts) for two towers.
+// Siblings so far: AssaultTwo (ms.assaulttwo.ts) for two towers,
+// AssaultThree (ms.assaultthree.ts) for three.
 const kLogPace = 100;
 const kSiblings: { [towers: number]: string } = {
     2: "AssaultTwo",
+    3: "AssaultThree",
 };
 
 @register
