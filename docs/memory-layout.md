@@ -140,7 +140,7 @@ code; effectively unused.
 
 | key | writer | notes |
 |---|---|---|
-| `Memory.market` | `market.ts` `getBuyOrderPrice`/`getSellOrderPrice` (milli-credits; energy = effective price for the asking room) | `{ [resource]: { buy, buy95, buy99, buy9500, buy9900, sell, sell95, sell99, sell9500, sell9900 } }`, read by terminal helpers |
+| `Memory.market` | `market.ts` `getBuyOrderPrice`/`getSellOrderPrice` on demand and the `MarketSweep` daemon for every traded resource each 100 ticks (milli-credits; energy = effective price for our terminal room) | `{ [resource]: { buy, buy95, buy99, buy9500, buy9900, sell, sell95, sell99, sell9500, sell9900 } }`: last tick price and its 1/20 and 1/100 moving averages (`xx9500`/`xx9900` = the same x100). Read by `swipeworth.ts` (`buyOrderPriceEma`). Entries for resources no longer traded stay. |
 | `Memory.evil`, `Memory.client`, `Memory.theMatrix`, `Memory.logo` | `main.js` hacks, `console.js`, `team.ts` | dead paths |
 | `Memory.servers` | `server.js` | orphan module |
 | `Memory.history` | `history.ts` | orphan module |

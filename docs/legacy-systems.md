@@ -52,7 +52,12 @@ the `role` getter would clash with `CreepRole.role`. Dead end.
 
 The live replacement, since Sept 2026, is the `Selloff <room>` service
 (`ms.selloff.ts`, [missions-and-jobs.md](missions-and-jobs.md)): buy-order
-selling only, scheduled by command or purple flag.
+selling only, scheduled by command or purple flag. The price EMAs survived
+the rewrite: `market.ts` records the best-10k-unit price of a side into
+`Memory.market` whenever it is asked, and since Nov 2026 its `MarketSweep`
+daemon asks for every traded resource every 100 ticks, so the averages no
+longer depend on a swiper happening to look at a resource
+([runtime-tick.md](runtime-tick.md)).
 
 Terminal balancing, auto-buying core minerals, selling surplus and price EMAs
 in `Memory.market`. All callers are after the `return` in `main.js`.

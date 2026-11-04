@@ -42,9 +42,11 @@ follows from that:
   the code is inert without the season's structures. Decide whether to keep,
   generalise or delete it once the next target is known, and update
   `docs/file-inventory.md` with the decision.
-- Market code (`market.ts`, `markethack.ts`, `Selloff`) was switched off on
-  `shardSeason` and was last measured on shard2 in Sept 2026
-  (`docs/legacy-systems.md`); re-check it before relying on it there.
+- Market code (`market.ts`, `markethack.ts`, `Selloff`) is a no-op on
+  `shardSeason` (no market there). On shard2 the `MarketSweep` daemon keeps
+  the `Memory.market` price averages current; `Selloff` was last measured
+  there in Sept 2026 (`docs/legacy-systems.md`); re-check it before relying
+  on it.
 
 ## What is actually running
 
@@ -94,6 +96,7 @@ per-room strats start themselves. What each process does:
 | `FlagService` daemon | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
 | `SpawnDaemon` | turns eggs into `spawnCreep` |
 | `SpawnTelemetry` | per-spawn busy ticks and creeps started, 500-tick windows in `Memory.spawns`; `spawnLoads()` prints it |
+| `MarketSweep` | every 100 ticks prices both sides of every resource with an open order (best 10k units, `market.ts`), feeding the `buy`/`sell` 1/20 and 1/100 decaying averages in `Memory.market`; the on-demand sampling by swipers and `Selloff` only touches what they look at. No-op off-market; `require('market').sweep()` runs one by hand; its `status()` shows the last sweep's cost |
 
 Not on this build even though the code loads: market automation, deposit
 farming, flag "teams", power creeps. The only flags the code makes are

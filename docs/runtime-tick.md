@@ -109,6 +109,7 @@ The rows a running build settles into (Season 11 shape; the mission rows depend 
 | `FlagService` | `@daemon` in `service.flag.ts` | `low` | 8000 | Orange flags drive metastruct planning (`runGenesis`); orphan grey child flags are removed; purple flags spawn the non-mission service their name spells (`_` = space), kill it when the flag goes, and turn white/purple when the name spawns nothing or names a Mission. |
 | `SpawnDaemon` | `@daemon` in `spawn.ts` | `late` | 2000 | Turns eggs into `spawnCreep` calls. |
 | `SpawnTelemetry` | `@daemon` in `spawnload.ts` | `late` | 2000 | Per-spawn busy ticks and creeps started (`Memory.spawns`). |
+| `MarketSweep` | `@daemon` in `market.ts` | `late` | 5000 | Every 100 ticks prices both sides of every traded resource into the `Memory.market` averages (~5 CPU a sweep on shard2 at 87 resources); nothing off-market. |
 
 Row ordering means: mission lays eggs (critical) -> rooms run (normal) -> flags
 (low) -> spawner consumes eggs (late), all in one tick.

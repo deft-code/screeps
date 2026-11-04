@@ -1,11 +1,14 @@
 import { getAllOrders, marketDisabled } from 'markethack';
+import { daemon, Priority, Process } from 'process';
 
 declare global {
   // Prices in milli-credits (credits * 1000, integers). buy/sell are the last
   // tick price taken; xx95/xx99 are moving averages of it with weights 1/20 and
   // 1/100 per sample, and xx9500/xx9900 the same averages * 100 so the integer
-  // rounding does not eat slow drifts. A sample is taken at most once a tick,
-  // whenever getBuyOrderPrice/getSellOrderPrice is asked (not on a fixed schedule). A
+  // rounding does not eat slow drifts. A sample is taken at most once a tick:
+  // whenever getBuyOrderPrice/getSellOrderPrice is asked, and for every traded
+  // resource each kSweepInterval ticks by the MarketSweep daemon below, so a
+  // resource nobody asks about still has averages (buy99 spans ~100 sweeps). A
   // side is absent until its first price. Energy is priced as delivered to /
   // shipped from the asking room, see below.
   interface MarketInfo {
@@ -188,4 +191,49 @@ function meanOfFirst(offers: Offer[], n: number): number | undefined {
     if (summed >= n) return sum / n;
   }
   return undefined;
+}
+
+// Every kSweepInterval ticks price both sides of every resource with an open
+// order, which feeds the Memory.market averages for resources no caller asks
+// about (the on-demand sampling only touches what a swiper or Selloff looks
+// at). One sweep is two per-resource filters and sorts over the tick's raw
+// order table (markethack) per traded resource: measured on shard2 at 87
+// resources, 0.5 CPU to capture the book and ~5 to price it, 0.05 CPU a tick
+// amortised. Nothing off-market (the season shard). status() shows the last
+// sweep and its cost.
+const kSweepInterval = 100;
+
+@daemon
+class MarketSweep extends Process {
+  bucket = 5000;
+  private lastSweep = -1;
+  private lastCount = 0;
+  private lastCpu = 0;
+
+  run(): Priority {
+    if (!marketDisabled() && Game.time % kSweepInterval === 0) {
+      const cpu = Game.cpu.getUsed();
+      this.lastSweep = Game.time;
+      this.lastCount = sweep();
+      this.lastCpu = Game.cpu.getUsed() - cpu;
+    }
+    return "late";
+  }
+
+  status(): string {
+    const when = this.lastSweep < 0 ? "none yet"
+      : `${Game.time - this.lastSweep} ticks ago for ${this.lastCpu.toFixed(1)} CPU`;
+    return `${super.status()} swept ${this.lastCount} resources ${when}, every ${kSweepInterval}`;
+  }
+}
+
+// Price every traded resource now; the number of resources seen in the book.
+export function sweep(): number {
+  if (marketDisabled()) return 0;
+  const traded = _.uniq(getAllOrders().map(o => o.resourceType as ResourceConstant));
+  for (const res of traded) {
+    tryGetBuyOrderPrice(res);
+    tryGetSellOrderPrice(res);
+  }
+  return traded.length;
 }
