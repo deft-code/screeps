@@ -562,12 +562,13 @@ enemyOf / enemyById / enemiesIn      enemy.ts       the registry (tobj.ts Regist
   MyPowerCreep's `IntentLog`). Slots `move` (the tile stepped toward),
   `pull`/`pulled` (names), `withdraw`, `transfer`, `pickup`, `drop`, `melee`
   (attack, heal), `range` (the ranged three), both for the work actions, and
-  the odd ones (`say`, `power`, `renew`, ...). Checks `canMove()`,
-  `canWithdraw()`, `canTransfer()`, `canPickup()`, `canDrop()`, `canAttack()`,
-  `canRange()`, `canWork()` (both slots), `canRenew()`, `has(kind)`; records
+  the odd ones (`say`, `power`, `upgrade`). Not tracked, since they conflict
+  with nothing: spawn, renew, enableRoom, suicide, signController. Checks
+  `canMove()`, `canWithdraw()`, `canTransfer()`, `canPickup()`, `canDrop()`,
+  `canAttack()`, `canRange()`, `canWork()` (both slots), `has(kind)`; records
   `setMove(tile)`, `setPulled(puller)` (the puller's tile plus its name),
   `setPull(creep)`, `setWithdraw`/`setTransfer`/`setPickup`/`setDrop`,
-  `setAttack`, `setRange`, `setWork` (both), `setRenew`, `set(kind, what)`.
+  `setAttack`, `setRange`, `setWork` (both), `set(kind, what)`.
   Every access in the code base, the legacy JS mixins included, goes
   through these (Nov 2026). Nothing refuses: a caller that wants to skip an
   action when its slot is taken checks first, target picking and all.

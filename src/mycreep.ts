@@ -256,7 +256,7 @@ export class MyCreep extends TCreep implements MyBaseCreep {
     }
 
     suicide(): ScreepsReturnCode {
-        return issue(this, "suicide", () => this.c.suicide());
+        return this.c.suicide();
     }
 
     attack(target: AnyCreep | Structure): ScreepsReturnCode {
@@ -316,7 +316,7 @@ export class MyCreep extends TCreep implements MyBaseCreep {
     }
 
     signController(controller: StructureController, text: string): ScreepsReturnCode {
-        return issue(this, "sign", () => this.c.signController(controller, text), controller);
+        return this.c.signController(controller, text);
     }
 
     // Pull `target` along; it has to move(this.c) itself the same tick.

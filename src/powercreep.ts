@@ -191,7 +191,7 @@ export class MyPowerCreep extends TPowerCreep implements MyBaseCreep {
     // Spawn at a power spawn and remember its room as the birth room (and as
     // home, when none is set).
     spawn(ps: StructurePowerSpawn): ScreepsReturnCode {
-        const err = issue(this, "spawn", () => this.tryc.spawn(ps), ps);
+        const err = this.tryc.spawn(ps);
         if (err === OK) {
             this.memory.birth = ps.room.name;
             if (!this.memory.home) this.memory.home = ps.room.name;
@@ -200,7 +200,7 @@ export class MyPowerCreep extends TPowerCreep implements MyBaseCreep {
     }
 
     renew(target: StructurePowerSpawn | StructurePowerBank): ScreepsReturnCode {
-        return issue(this, "renew", () => this.tryc.renew(target), target);
+        return this.tryc.renew(target);
     }
 
     upgrade(power: PowerConstant): ScreepsReturnCode {
@@ -217,7 +217,7 @@ export class MyPowerCreep extends TPowerCreep implements MyBaseCreep {
     }
 
     suicide(): ScreepsReturnCode {
-        return issue(this, "suicide", () => this.tryc.suicide());
+        return this.tryc.suicide();
     }
 
     notifyWhenAttacked(enabled: boolean): ScreepsReturnCode {
@@ -237,7 +237,7 @@ export class MyPowerCreep extends TPowerCreep implements MyBaseCreep {
     }
 
     enableRoom(controller: StructureController): ScreepsReturnCode {
-        return issue(this, "enableRoom", () => this.tryc.enableRoom(controller), controller);
+        return this.tryc.enableRoom(controller);
     }
 
     generateOps(): ScreepsReturnCode {
@@ -364,8 +364,9 @@ export class MyPowerCreep extends TPowerCreep implements MyBaseCreep {
 
     // Renew at a power spawn we happen to stand next to; no movement. Power
     // creeps live 5000 ticks per renew and die for good when TTL runs out.
+    // Renew is not an intent slot (it conflicts with nothing), so a second
+    // call in a tick just renews again.
     idleRenew(): boolean {
-        if (!this.intents.canRenew()) return true;
         const room = this.room;
         if (!room) return false;
         const ps = _.find(room.findStructs(STRUCTURE_POWER_SPAWN) as StructurePowerSpawn[], s => s.my && this.isNearTo(s));

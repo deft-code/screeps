@@ -17,11 +17,14 @@
 //              none while attacking: harvest, build, repair, dismantle,
 //              upgradeController, attackController, claimController,
 //              reserveController, generateSafeMode (canWork / setWork)
-//   say, power, enableRoom, renew, spawn, upgrade, suicide, sign   power
-//              creeps and the odd ones; set(kind, what) / has(kind)
+//   say, power, upgrade   the odd ones; set(kind, what) / has(kind)
+//
+// Not tracked, since they conflict with nothing and a double issue is
+// harmless: spawn, renew, enableRoom, suicide, signController,
+// notifyWhenAttacked, cancelOrder, rename, delete.
 
 export type IntentKind = "move" | "pull" | "pulled" | "withdraw" | "transfer" | "pickup" | "drop"
-    | "melee" | "range" | "say" | "power" | "enableRoom" | "renew" | "spawn" | "upgrade" | "suicide" | "sign";
+    | "melee" | "range" | "say" | "power" | "upgrade";
 
 export class Intents {
     move?: RoomPosition;
@@ -35,12 +38,7 @@ export class Intents {
     range?: any;
     say?: string;
     power?: PowerConstant;
-    enableRoom?: any;
-    renew?: any;
-    spawn?: any;
     upgrade?: any;
-    suicide?: boolean;
-    sign?: any;
 
     // --- checks: is the slot free this tick? ---------------------------------------
 
@@ -55,7 +53,6 @@ export class Intents {
     canRange(): boolean { return !this.range; }
     // the work actions: both slots free
     canWork(): boolean { return !this.melee && !this.range; }
-    canRenew(): boolean { return !this.renew; }
 
     has(kind: IntentKind): boolean { return !!this[kind]; }
 
@@ -76,7 +73,6 @@ export class Intents {
     setAttack(target: any) { this.melee = target; }
     setRange(target: any) { this.range = target; }
     setWork(target: any) { this.melee = this.range = target; }
-    setRenew(target: any) { this.renew = target; }
 
     set(kind: IntentKind, what: any) { (this as any)[kind] = what; }
 }
