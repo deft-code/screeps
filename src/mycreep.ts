@@ -15,7 +15,7 @@ import * as debug from "debug";
 import { NullStrat } from "strat";
 import { TCreep } from "tcreep";
 import { IntentLog, issue, issueWork, MyBaseCreep, walkRoom, walkTo } from "mybasecreep";
-import { positionAtDirection, WalkReturnCode } from "Rewalker";
+import { WalkReturnCode } from "Rewalker";
 import { Intents } from "intents";
 
 interface Task2Memory {
@@ -208,15 +208,15 @@ export class MyCreep extends TCreep implements MyBaseCreep {
     }
 
     // One step in a direction, or (being pulled) onto the puller's tile:
-    // the move intent is the tile stepped toward either way, and a pulled
-    // creep records its puller's name as well. No moveTo or moveByPath:
-    // walks go through the Rewalker (walkTo / walkRoom).
+    // the move intent is the direction either way, and a pulled creep
+    // records its puller's name as well. No moveTo or moveByPath: walks go
+    // through the Rewalker (walkTo / walkRoom).
     move(target: DirectionConstant | Creep): ScreepsReturnCode {
         const c = this.c;
         const err = typeof target === "number" ? c.move(target) : c.move(target);
         if (err === OK) {
-            if (typeof target === "number") this.intents.setMove(positionAtDirection(c.pos, target));
-            else this.intents.setPulled(target);
+            if (typeof target === "number") this.intents.setMove(target);
+            else this.intents.setPulled(target, c.pos);
         } else {
             this.dlog("move", "failed", err);
         }

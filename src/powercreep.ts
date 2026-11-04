@@ -18,7 +18,7 @@
 // (enableRoom, once per room, adjacent); PWR_GENERATE_OPS ran whenever idle
 // and off cooldown. Behaviour belongs to services such as ms.furiosa.ts.
 import type { DebugMemory } from "debug";
-import { positionAtDirection, WalkReturnCode } from "Rewalker";
+import { WalkReturnCode } from "Rewalker";
 import { CreepKind, TAnyCreep } from "tanycreep";
 import { IntentLog, issue, MyBaseCreep, walkRoom, walkTo } from "mybasecreep";
 import { Intents } from "intents";
@@ -318,12 +318,11 @@ export class MyPowerCreep extends TPowerCreep implements MyBaseCreep {
 
     // --- movement --------------------------------------------------------------
 
-    // One step; the move intent is the tile stepped toward. No moveTo or
-    // moveByPath: walks go through the Rewalker (walkTo / walkRoom).
+    // One step; the move intent is the direction. No moveTo or moveByPath:
+    // walks go through the Rewalker (walkTo / walkRoom).
     move(direction: DirectionConstant): ScreepsReturnCode {
-        const c = this.tryc;
-        const err = c.move(direction);
-        if (err === OK) this.intents.setMove(positionAtDirection(c.pos, direction));
+        const err = this.tryc.move(direction);
+        if (err === OK) this.intents.setMove(direction);
         else this.dlog("move", "failed", err);
         return err;
     }

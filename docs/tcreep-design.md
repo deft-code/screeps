@@ -559,7 +559,7 @@ enemyOf / enemyById / enemiesIn      enemy.ts       the registry (tobj.ts Regist
   an egg.
 - `Intents` (`intents.ts`): the per-tick record, an instance per creep per
   tick (a Creep's `tick.intents`, made by `CreepRole.intents`; a
-  MyPowerCreep's `IntentLog`). Slots `move` (the tile stepped toward),
+  MyPowerCreep's `IntentLog`). Slots `move` (the direction stepped),
   `pull`/`pulled` (names), `withdraw`, `transfer`, `pickup`, `drop`, `melee`
   (attack, heal), `range` (the ranged three), both for the work actions, and
   the odd ones (`say`, `power`, `upgrade`). Not tracked, since they conflict
@@ -568,7 +568,7 @@ enemyOf / enemyById / enemiesIn      enemy.ts       the registry (tobj.ts Regist
   enableRoom, suicide, signController. Checks
   `canMove()`, `canWithdraw()`, `canTransfer()`, `canPickup()`, `canDrop()`,
   `canAttack()`, `canRange()`, `canWork()` (both slots), `has(kind)`; records
-  `setMove(tile)`, `setPulled(puller)` (the puller's tile plus its name),
+  `setMove(dir)`, `setPulled(puller, from)` (the direction to the puller plus its name),
   `setPull(creep)`, `setWithdraw`/`setTransfer`/`setPickup`/`setDrop`,
   `setAttack`, `setRange`, `setWork` (both), `set(kind, what)`.
   Every access in the code base, the legacy JS mixins included, goes
@@ -583,8 +583,8 @@ enemyOf / enemyById / enemiesIn      enemy.ts       the registry (tobj.ts Regist
   the birth room) and `birthName` (the room it spawned in: `memory.home` on
   a creep, written by `spawn.ts`; `memory.birth` on a power creep, written
   by `spawn()`), `walkTo(pos, range)` and `walkRoom(room, range)` on the
-  Rewalker, which record the tile stepped toward. `move(direction | creep)`
-  on MyCreep records the tile, or being pulled the puller's tile and name
+  Rewalker, which record the step's direction. `move(direction | creep)`
+  on MyCreep records the direction, or being pulled the direction to the puller and its name
   (`setPulled`); `pull(creep)` records the pulled creep's name. There is no
   `moveTo` or `moveByPath` wrapper: walks go through the Rewalker. The shared
   bodies are the exported functions `issue`/`issueWork`/`walkTo`/`walkRoom`/

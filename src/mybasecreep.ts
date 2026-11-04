@@ -12,7 +12,7 @@
 // record: a caller that wants to skip an action when its slot is taken
 // checks `intents.canX()` first, target picking and all, as the legacy
 // roles do.
-import { defaultRewalker, positionAtDirection, WalkReturnCode } from "Rewalker";
+import { defaultRewalker, WalkReturnCode } from "Rewalker";
 import { CreepKind, Target } from "tanycreep";
 import { IntentKind, Intents } from "intents";
 
@@ -100,12 +100,11 @@ export function issueWork(me: Issuer, act: () => ScreepsReturnCode, what: any = 
     return err;
 }
 
-// Walk toward pos with the Rewalker; a step taken records the tile stepped
-// toward as the move intent.
+// Walk toward pos with the Rewalker; a step taken records its direction as
+// the move intent.
 export function walkTo(me: Issuer, pos: RoomPosition, range = 1, ignoreSK = false): WalkReturnCode {
-    const c = me.tryc;
-    const ret = rewalker.walkTo(c, pos, range, ignoreSK);
-    if (ret > 0) me.intents.setMove(positionAtDirection(c.pos, ret as DirectionConstant));
+    const ret = rewalker.walkTo(me.tryc, pos, range, ignoreSK);
+    if (ret > 0) me.intents.setMove(ret as DirectionConstant);
     return ret;
 }
 

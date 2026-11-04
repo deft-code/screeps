@@ -7,8 +7,8 @@
 // last-intent-wins rule stands when a caller skips the check.
 //
 // Slots and what shares them:
-//   move       the tile the creep tried to step onto (setMove); a pulled
-//              creep's is the puller's tile, with `pulled` the puller's name
+//   move       the direction the creep tried to step (setMove); a pulled
+//              creep's is toward its puller, with `pulled` the puller's name
 //   pull       name of the creep we pull this tick
 //   withdraw, transfer, pickup, drop   the target or resource
 //   melee      the adjacent-only actions: attack, heal (canAttack / setAttack)
@@ -27,7 +27,7 @@ export type IntentKind = "move" | "pull" | "pulled" | "withdraw" | "transfer" | 
     | "melee" | "range" | "say" | "power" | "upgrade";
 
 export class Intents {
-    move?: RoomPosition;
+    move?: DirectionConstant;
     pull?: string;
     pulled?: string;
     withdraw?: any;
@@ -58,11 +58,11 @@ export class Intents {
 
     // --- records: after the engine took the intent -------------------------------------
 
-    // The tile stepped toward.
-    setMove(pos: RoomPosition) { this.move = pos; }
-    // Pulled by `puller`: the step is onto its tile.
-    setPulled(puller: Creep) {
-        this.move = puller.pos;
+    // The direction stepped.
+    setMove(dir: DirectionConstant) { this.move = dir; }
+    // Pulled by `puller`: the step is toward it, from `from`.
+    setPulled(puller: Creep, from: RoomPosition) {
+        this.move = from.getDirectionTo(puller.pos);
         this.pulled = puller.name;
     }
     setPull(pulled: Creep) { this.pull = pulled.name; }

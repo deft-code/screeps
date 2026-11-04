@@ -26,7 +26,7 @@ Every creep and power creep has a wrapper class on `TAnyCreep`
 null and every reader has a null-safe default. `MyCreep` and `MyPowerCreep`
 share the `MyBaseCreep` contract (`mybasecreep.ts`): per-tick `intents`
 (`intents.ts`: `canWork()`/`canAttack()`/`canRange()`/`canMove()`/... checks
-before an action, `setWork`/`setAttack`/`setMove(tile)`/... records after),
+before an action, `setWork`/`setAttack`/`setMove(dir)`/... records after),
 action wrappers that record on `OK` and refuse nothing, `homeName`/
 `birthName`, `walkTo`/`walkRoom`. A MyCreep's intents are its Creep's
 `tick.intents`, the record the legacy chain below reads and writes through

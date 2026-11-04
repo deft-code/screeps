@@ -180,7 +180,7 @@ else with a `roleXxx` method is loaded but no job spawns it.
 - Intents (`intents.ts`): check `this.intents.canWork()`/`canAttack()`/
   `canRange()`/`canMove()`/`canTransfer()`/... before deciding on an action
   (skip the target picking too), and record after a successful one with
-  `setWork(target)`/`setAttack`/`setRange`/`setMove(tile)`/`setTransfer`/...
+  `setWork(target)`/`setAttack`/`setRange`/`setMove(dir)`/`setTransfer`/...
   The wrapper actions on `MyCreep`/`MyPowerCreep` record by themselves and
   refuse nothing. No `moveTo`/`moveByPath`: walks go through the Rewalker.
 - Prototype extension: `@extender` (class extends the game class), `@injecter(Klass)`,

@@ -76,7 +76,7 @@ taken; issue the action through the wrapper's own method
 (`this.withdraw(target, res)`, `this.transfer(...)`, `this.heal(...)`,
 `this.walkTo(pos, range)`; on a power creep `this.operateSpawn(spawn)` and the
 other per-power wrappers), which records the intent on `OK` (`setWork`,
-`setAttack`, `setMove(tile)`, ...) and refuses nothing. `this.c.withdraw(...)`
+`setAttack`, `setMove(dir)`, ...) and refuses nothing. `this.c.withdraw(...)`
 is still legal but records nothing; a legacy `goXxx` records through the
 same `set*` methods. No `moveTo`/`moveByPath`: walks go through the Rewalker.
 Shared logic for a creep and a power creep takes a `MyBaseCreep`
