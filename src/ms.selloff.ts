@@ -32,6 +32,14 @@ const kMaxBid = 150;
 // asks for an energy buy list no older than this: a sale every 10 ticks can
 // burn 4k energy each, faster than a slow look would refill.
 const kBidPace = 10;
+// With this much energy in the room's storage no energy is bought or bid for
+// at all: the hub creep moves energy from the storage into the terminal
+// (storageBalance, or Memory.creeps.<hub>.fillTerminal), so buying it would
+// spend credits on what the room already has. A terminal short of transfer
+// energy then simply waits for the hub.
+const kStorageRich = 100000;
+// Ticks between log lines while a sale waits on the hub for energy.
+const kWaitLogPace = 100;
 
 interface SelloffMemory {
     // Id of the energy buy order this room's Selloff manages.
@@ -141,6 +149,11 @@ type SellResult = "sold" | "noEnergy" | false;
 // Amount: extended back to kBidAmount remaining on every look, filled or not;
 // overshooting kBidBelow as the order fills out is intended.
 //
+// Neither happens while the room's storage holds kStorageRich energy or more
+// (Nov 2026): the terminal is then the hub creep's to fill, and a sale that
+// cannot pay its shipping waits. A standing bid is left as it is (neither
+// extended nor repriced) until the storage drops below that again.
+//
 // Kills itself where the game has no market (the season shard).
 @register
 export class Selloff extends Service {
@@ -174,9 +187,16 @@ export class Selloff extends Service {
             this.kill();
             return "kill";
         }
-        this.bidEnergy(term);
+        const rich = this.storageRich(room);
+        if (!rich) this.bidEnergy(term);
         if (term.cooldown) return "low";
-        if (term.store.energy < kEnergyLow && this.buyEnergy(term)) return "low";
+        if (term.store.energy < kEnergyLow) {
+            if (rich) {
+                this.waitLog("terminal energy", term.store.energy, "under", kEnergyLow, "- waiting for the hub to fill it from storage");
+                return "low";
+            }
+            if (this.buyEnergy(term)) return "low";
+        }
         if (term.store.energy < kSellAbove) return "low";
 
         const stock = (Object.keys(term.store) as ResourceConstant[])
@@ -186,11 +206,25 @@ export class Selloff extends Service {
             const ret = this.sell(term, res);
             if (ret === "sold") break;
             if (ret === "noEnergy") {
-                this.buyEnergy(term);
+                if (rich) this.waitLog("sale needs more energy than the terminal holds - waiting for the hub to fill it from storage");
+                else this.buyEnergy(term);
                 break;
             }
         }
         return "low";
+    }
+
+    // Does the room's storage hold kStorageRich energy or more?
+    storageRich(room: Room): boolean {
+        const s = room.storage;
+        return !!s?.my && s.store.energy >= kStorageRich;
+    }
+
+    private nextWaitLog = 0;
+    waitLog(...args: any[]) {
+        if (Game.time < this.nextWaitLog) return;
+        this.nextWaitLog = Game.time + kWaitLogPace;
+        debug.log(this.name, ...args);
     }
 
     // First buy order for `res` this terminal can fill (fully or in part).
@@ -317,7 +351,8 @@ export class Selloff extends Service {
         const term = this.room?.terminal;
         const stock = term ? ` stock:${term.store.getUsedCapacity() - term.store.energy}` : " stock:?";
         const cd = term ? ` cooldown:${term.cooldown}` : "";
-        return super.status() + stock + cd + (this.lastDeal ? ` last:${this.lastDeal}` : "") +
+        const rich = this.room && this.storageRich(this.room) ? " storage:rich(no energy buys)" : "";
+        return super.status() + stock + cd + rich + (this.lastDeal ? ` last:${this.lastDeal}` : "") +
             (this.lastBid ? ` bid:${this.lastBid}` : "");
     }
 }

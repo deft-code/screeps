@@ -51,12 +51,21 @@ export class Hubminer extends JobCreep {
     }
 
     // The mineral under the meta's planned extractor, when that extractor
-    // stands (ours) and the mineral is not thorium; null otherwise.
+    // stands (ours) and the mineral is not thorium; null otherwise. A min
+    // meta planned before Meta_min had an extractor entry (W3N4's, 2022)
+    // names no extractor tile: the mineral beside its 'mineral' spot stands
+    // in for it, with the same extractor check (Nov 2026).
     static mineral(room: Room): Mineral | null {
         const meta = Hubminer.meta(room);
-        const xy = meta?.getSite(STRUCTURE_EXTRACTOR);
-        if (!xy) return null;
-        const pos = fromXY(xy, room.name);
+        if (!meta) return null;
+        const xy = meta.getSite(STRUCTURE_EXTRACTOR);
+        let pos: RoomPosition | null = xy ? fromXY(xy, room.name) : null;
+        if (!pos) {
+            const sxy = meta.getSpot("mineral");
+            const beside = sxy ? _.first(fromXY(sxy, room.name).findInRange(FIND_MINERALS, 1)) : undefined;
+            if (!beside) return null;
+            pos = beside.pos;
+        }
         const extractor = _.find(pos.lookFor(LOOK_STRUCTURES), s => s.structureType === STRUCTURE_EXTRACTOR) as StructureExtractor | undefined;
         if (!extractor?.my) return null;
         const mineral = _.first(pos.lookFor(LOOK_MINERALS));
