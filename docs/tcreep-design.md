@@ -563,7 +563,9 @@ enemyOf / enemyById / enemiesIn      enemy.ts       the registry (tobj.ts Regist
   `pull`/`pulled` (names), `withdraw`, `transfer`, `pickup`, `drop`, `melee`
   (attack, heal), `range` (the ranged three), both for the work actions, and
   the odd ones (`say`, `power`, `upgrade`). Not tracked, since they conflict
-  with nothing: spawn, renew, enableRoom, suicide, signController. Checks
+  with nothing: the controller actions (upgradeController, attackController,
+  claimController, reserveController, generateSafeMode), spawn, renew,
+  enableRoom, suicide, signController. Checks
   `canMove()`, `canWithdraw()`, `canTransfer()`, `canPickup()`, `canDrop()`,
   `canAttack()`, `canRange()`, `canWork()` (both slots), `has(kind)`; records
   `setMove(tile)`, `setPulled(puller)` (the puller's tile plus its name),
