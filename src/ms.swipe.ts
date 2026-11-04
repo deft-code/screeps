@@ -3,7 +3,8 @@ import { Mission } from "mission";
 import { register, Priority } from "process";
 import * as debug from "debug";
 import { Scout } from "job.scout";
-import { Swiper, swipeTargets } from "job.swiper";
+import { Swiper } from "job.swiper";
+import { swipeTargets } from "swipe";
 import { Konmari } from "job.konmari";
 import { junkIn, minSwipePrice, worthSwiping } from "swipeworth";
 

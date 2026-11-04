@@ -128,11 +128,11 @@ export class Chaos extends JobCreep {
         } else {
             target = this.pos.findClosestByRange(targets);
         }
-        return target ? this.dismantle(target) : null;
+        return target ? this.chew(target) : null;
     }
 
     @taskbroken
-    dismantle(target: Structure): Task2Ret {
+    chew(target: Structure): Task2Ret {
         // Danger and age are start()'s to handle.
         if (this.spent || this.threatened) return "start";
         if (!target || (target as OwnedStructure).my || !target.hits) return "start";

@@ -161,7 +161,7 @@ export class Warboy extends JobCreep {
         if (loot) return this.scavenge(loot);
 
         const mineral = thoriumMineral(Game.rooms[this.homeName]);
-        if (mineral) return this.harvest(mineral);
+        if (mineral) return this.mine(mineral);
 
         // Nothing left to gather: a partial load is still worth the trip.
         if (this.thorium > 0) return this.deliver();
@@ -200,7 +200,7 @@ export class Warboy extends JobCreep {
     }
 
     @taskbroken
-    harvest(mineral: Mineral): Task2Ret {
+    mine(mineral: Mineral): Task2Ret {
         if (!this.c.store.getFreeCapacity() || this.shouldDeliver) return "start";
         if (!mineral.mineralAmount) return "start";
         const err = this.c.harvest(mineral);

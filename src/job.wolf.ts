@@ -19,7 +19,7 @@ import { atExit } from "Rewalker";
 // then an invader core, then any other enemy creep, in each. A wolf that
 // chased something out of its room so goes back for the next intruder
 // instead of taking up whatever it finds where the chase ended. A target in
-// another room is walked to (moveChase, multi-room) until attack() can take
+// another room is walked to (moveChase, multi-room) until fight() can take
 // it.
 //
 // The enemy creep it last fought is remembered on the class (lastTarget, an
@@ -81,7 +81,7 @@ export class Wolf extends JobRole {
 
         const target = this.pickTarget();
         if (target) {
-            if (target.pos.roomName === this.pos.roomName) return this.attack(target);
+            if (target.pos.roomName === this.pos.roomName) return this.fight(target);
             // In the mission room while we are elsewhere: head over, and
             // remember a creep so pursue() keeps after it if it leaves.
             if (target instanceof Creep) this.track(target);
@@ -233,7 +233,7 @@ export class Wolf extends JobRole {
     }
 
     @taskbroken
-    attack(target: Creep | AnyStructure): Task2Ret {
+    fight(target: Creep | AnyStructure): Task2Ret {
         const c = this.cc;
         if (target.pos.roomName !== this.pos.roomName) return "start";
         if (target instanceof Creep) this.track(target);

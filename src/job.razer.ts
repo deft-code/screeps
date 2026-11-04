@@ -93,14 +93,14 @@ export class Razer extends JobCreep {
         const targets = this.targets();
         if (!targets.length) return null;
         const near = _.find(targets, t => this.pos.isNearTo(t));
-        if (near) return this.dismantle(near);
+        if (near) return this.chew(near);
         const kept = this.memory.razeId && Game.getObjectById(this.memory.razeId);
-        if (kept && _.contains(targets, kept)) return this.dismantle(kept);
+        if (kept && _.contains(targets, kept)) return this.chew(kept);
         delete this.memory.razeId;
         const i = rewalker.planWalk(this.c, targets.map(t => ({ pos: t.pos, range: 1 })));
         const target = i >= 0 ? targets[i] : this.pos.findClosestByRange(targets);
         if (target) this.memory.razeId = target.id;
-        return target ? this.dismantle(target) : null;
+        return target ? this.chew(target) : null;
     }
 
     // Walk onto the nearest foreign construction site (Scout.stomp), or
@@ -114,7 +114,7 @@ export class Razer extends JobCreep {
     }
 
     @taskbroken
-    dismantle(target: Structure): Task2Ret {
+    chew(target: Structure): Task2Ret {
         if (!target || !dozeableStruct(target)) return "start";
         if (!this.pos.isNearTo(target)) return this.moveTarget(target, 1);
         // A rampart on the tile shields the rest: it comes down first.

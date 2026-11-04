@@ -1,6 +1,21 @@
-
+// MyCreep: the wrapper for one of my creeps, keyed by name, and the role
+// registry that picks a job class for a name (@register / @registerAs). The
+// wrapper exists from the egg (Mission.layEgg) on: `c` is null until the
+// creep spawns, the Task2 lifecycle (run / init / start / after, memory.task2)
+// runs while it lives, and Mission.runCreeps drops the wrapper (unget) when
+// it dies.
+//
+// MyCreep extends TCreep (tcreep.ts) and fills the MyBaseCreep contract
+// (mybasecreep.ts): per-tick intents, intent-tracking wrappers for every
+// Creep action, home and birth rooms, Rewalker walks. The intents record is
+// the Creep's own `tick.intents`, which the legacy roles on Creep.prototype
+// (creep.role.ts) share, so a wrapper call and a legacy goXxx see each
+// other's work.
 import * as debug from "debug";
 import { NullStrat } from "strat";
+import { TCreep } from "tcreep";
+import { IntentLog, Intents, issue, issueWork, MyBaseCreep, walkRoom, walkTo } from "mybasecreep";
+import { WalkReturnCode } from "Rewalker";
 
 interface Task2Memory {
     name: string
@@ -117,8 +132,12 @@ function register_inner(klass: typeof MyCreep, name: string) {
 
 }
 
-export class MyCreep extends debug.Debuggable {
-    constructor(readonly name: string) { super(); }
+export class MyCreep extends TCreep implements MyBaseCreep {
+    constructor(name: string) { super(name); }
+
+    // For an egg or a corpse (no Creep this tick): the legacy roles' record
+    // lives on the Creep, so there is none to share.
+    private readonly _intents = new IntentLog();
 
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         return [null, []];
@@ -126,8 +145,24 @@ export class MyCreep extends debug.Debuggable {
 
     priority = 0;
 
+    protected lookup(): Creep | undefined {
+        return Game.creeps[this.name];
+    }
+
+    // Typed as the Creep for the job code, which only runs while it exists
+    // (run() returns false otherwise); null at runtime for an egg or corpse,
+    // as TAnyCreep.c. `exists` says which.
+    get c(): Creep {
+        return this.resolve() as Creep;
+    }
+
+    // As before the wrappers: the live creep's position, throwing for an egg.
     get pos(): RoomPosition {
         return this.c.pos;
+    }
+
+    get my(): boolean {
+        return true;
     }
 
     toString(): string {
@@ -142,21 +177,156 @@ export class MyCreep extends debug.Debuggable {
         return getRoleName(this.name);
     }
 
-    get c(): Creep {
-        return Game.creeps[this.name]!;
-    }
-
     get memory(): CreepMemory {
         return Memory.creeps[this.name];
     }
 
-    get ticksToLive() {
+    // Eggs count as a full life so population maths (Mission.nCreeps) keep working.
+    get ticksToLive(): number {
         return this.c?.ticksToLive || CREEP_LIFE_TIME;
     }
 
-    get spawnTime() {
-        return this.c?.spawnTime || 0;
+    // The room the creep was spawned in (spawn.ts writes memory.home as the
+    // egg hatches; "egg" until then).
+    get birthName(): string | undefined {
+        const home = this.memory?.home;
+        return home && home !== "egg" ? home : undefined;
     }
+
+    // The room the creep works for; JobCreep answers the mission's.
+    get homeName(): string | undefined {
+        return this.birthName;
+    }
+
+    // --- intents and the Creep actions, each recording its intent on OK ------------
+
+    get intents(): Intents {
+        const c = this.c;
+        if (c) return (c as unknown as { intents: Intents }).intents;
+        return this._intents.current;
+    }
+
+    move(direction: DirectionConstant): ScreepsReturnCode {
+        return issue(this, "move", () => this.c.move(direction), direction);
+    }
+
+    moveTo(target: RoomPosition | { pos: RoomPosition }, opts?: MoveToOpts): ScreepsReturnCode {
+        return issue(this, "move", () => this.c.moveTo(target, opts), target);
+    }
+
+    moveByPath(path: PathStep[] | RoomPosition[] | string): ScreepsReturnCode {
+        return issue(this, "move", () => this.c.moveByPath(path), path);
+    }
+
+    // Walk toward pos with the Rewalker, honouring memory.rewalksk (keeper
+    // rooms without their keeper layer): OK within range, a direction while
+    // stepping, else an error.
+    walkTo(pos: RoomPosition, range = 1): WalkReturnCode {
+        return walkTo(this, pos, range, !!this.memory.rewalksk);
+    }
+
+    // Toward the middle of a room until inside its 20-range core.
+    walkRoom(roomName: string, range = 20): WalkReturnCode {
+        return walkRoom(this, roomName, range, !!this.memory.rewalksk);
+    }
+
+    withdraw(target: Structure | Tombstone | Ruin, resource: ResourceConstant, amount?: number): ScreepsReturnCode {
+        return issue(this, "withdraw", () => this.c.withdraw(target, resource, amount), target);
+    }
+
+    transfer(target: AnyCreep | Structure, resource: ResourceConstant, amount?: number): ScreepsReturnCode {
+        return issue(this, "transfer", () => this.c.transfer(target, resource, amount), target);
+    }
+
+    pickup(resource: Resource): ScreepsReturnCode {
+        return issue(this, "pickup", () => this.c.pickup(resource), resource);
+    }
+
+    drop(resource: ResourceConstant, amount?: number): ScreepsReturnCode {
+        return issue(this, "drop", () => this.c.drop(resource, amount), resource);
+    }
+
+    say(message: string, toPublic = false): ScreepsReturnCode {
+        return issue(this, "say", () => this.c.say(message, toPublic), message);
+    }
+
+    suicide(): ScreepsReturnCode {
+        return issue(this, "suicide", () => this.c.suicide());
+    }
+
+    attack(target: AnyCreep | Structure): ScreepsReturnCode {
+        return issue(this, "melee", () => this.c.attack(target), target);
+    }
+
+    heal(target: AnyCreep): ScreepsReturnCode {
+        return issue(this, "melee", () => this.c.heal(target), target);
+    }
+
+    rangedAttack(target: AnyCreep | Structure): ScreepsReturnCode {
+        return issue(this, "range", () => this.c.rangedAttack(target), target);
+    }
+
+    rangedMassAttack(): ScreepsReturnCode {
+        return issue(this, "range", () => this.c.rangedMassAttack());
+    }
+
+    rangedHeal(target: AnyCreep): ScreepsReturnCode {
+        return issue(this, "range", () => this.c.rangedHeal(target), target);
+    }
+
+    harvest(target: Source | Mineral | Deposit): ScreepsReturnCode {
+        return issueWork(this, () => this.c.harvest(target), target);
+    }
+
+    build(site: ConstructionSite): ScreepsReturnCode {
+        return issueWork(this, () => this.c.build(site), site);
+    }
+
+    repair(target: Structure): ScreepsReturnCode {
+        return issueWork(this, () => this.c.repair(target), target);
+    }
+
+    dismantle(target: Structure): ScreepsReturnCode {
+        return issueWork(this, () => this.c.dismantle(target), target);
+    }
+
+    upgradeController(controller: StructureController): ScreepsReturnCode {
+        return issueWork(this, () => this.c.upgradeController(controller) as ScreepsReturnCode, controller);
+    }
+
+    attackController(controller: StructureController): ScreepsReturnCode {
+        return issueWork(this, () => this.c.attackController(controller), controller);
+    }
+
+    claimController(controller: StructureController): ScreepsReturnCode {
+        return issueWork(this, () => this.c.claimController(controller) as ScreepsReturnCode, controller);
+    }
+
+    reserveController(controller: StructureController): ScreepsReturnCode {
+        return issueWork(this, () => this.c.reserveController(controller) as ScreepsReturnCode, controller);
+    }
+
+    generateSafeMode(controller: StructureController): ScreepsReturnCode {
+        return issueWork(this, () => this.c.generateSafeMode(controller), controller);
+    }
+
+    signController(controller: StructureController, text: string): ScreepsReturnCode {
+        return issue(this, "sign", () => this.c.signController(controller, text), controller);
+    }
+
+    pull(target: Creep): ScreepsReturnCode {
+        return issue(this, "pull", () => this.c.pull(target), target);
+    }
+
+    notifyWhenAttacked(enabled: boolean): ScreepsReturnCode {
+        return this.c.notifyWhenAttacked(enabled);
+    }
+
+    cancelOrder(method: string): ScreepsReturnCode {
+        return this.c.cancelOrder(method);
+    }
+
+    // --- the lifecycle ------------------------------------------------------------
 
     eggRun() {
         this.log("Spoiled Egg!");

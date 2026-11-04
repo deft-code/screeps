@@ -165,6 +165,7 @@ import 'team.egg';
 
 
 import 'powercreep';
+import 'enemy';
 
 import 'creep';
 

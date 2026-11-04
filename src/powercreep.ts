@@ -1,174 +1,87 @@
-// Power creeps: a complete rebuild (Sept 2026) on the TCreep wrapper design.
+// Power creeps on the TAnyCreep wrapper (tanycreep.ts, docs/tcreep-design.md).
+//
+//   TPowerCreep        any power creep: powers, level, class; inspection only
+//   EnemyPowerCreep    someone else's, id-keyed, kept by the enemy registry (enemy.ts)
+//   MyPowerCreep       one of mine, keyed by name, there whether or not it is
+//                      spawned: every PowerCreep intent with intent tracking,
+//                      one wrapper per power, home and birth rooms, Rewalker
+//                      walks, renewing, and the swipe quest (swipe.ts)
+//
+// getPowerCreep(name) hands out the MyPowerCreep for a name (one per global;
+// `exists` says whether the account has it), myPowerCreeps() lists mine.
 //
 // The 2019 prototype-extension roles (HarleyQuinn, Heimdall, Genesis,
-// Magellan; Tasker-driven task*/idle* methods for operating extensions,
-// sources, observers, renewing, enabling rooms, ping-pong between flags) were
-// removed here. For reference see docs/legacy-systems.md and git history before
-// this rewrite (`git log -- src/powercreep.ts`). Worth remembering from them:
-//   - a power creep must be renewed at a power spawn or power bank before
-//     ticksToLive runs out (they had taskHomeRenew at ~200 TTL);
-//   - powers only work in rooms whose controller has power enabled
-//     (enableRoom, once per room, needs the creep adjacent);
-//   - PWR_GENERATE_OPS was run whenever idle and off cooldown;
-//   - foreign controllers were left alone when signed/owned by listed players.
-// Behaviour now belongs to services such as ms.furiosa.ts, built on the
-// wrappers below.
-import * as debug from "debug";
-import { defaultRewalker, walkIncomplete } from "Rewalker";
-import { anything, byValue, swipeWorth, unitValue, worthless, Worth } from "swipeworth";
-
-const rewalker = defaultRewalker();
-
-// Ticks a structure that refused a withdraw (hostile rampart on top) is skipped.
-const kSwipeSkipTicks = 1500;
-// Withdrawing from a nuker is bugged; everything else with a store is fair game.
-const kNoSwipe: StructureConstant[] = [STRUCTURE_NUKER];
-
-interface SwipeMemory {
-    // structure being emptied; re-picked when gone, empty or skipped
-    target?: Id<AnyStoreStructure>
-    // structure id -> tick until which it is left alone
-    skip?: { [id: string]: number }
-    // the target room had nothing left when we set off home with a partial load
-    dry?: boolean
-}
+// Magellan) were removed in Sept 2026; docs/legacy-systems.md and git history
+// before that rewrite have them. Worth remembering from them: a power creep
+// must be renewed at a power spawn or power bank before ticksToLive runs
+// out; powers only work in rooms whose controller has power enabled
+// (enableRoom, once per room, adjacent); PWR_GENERATE_OPS ran whenever idle
+// and off cooldown. Behaviour belongs to services such as ms.furiosa.ts.
+import type { DebugMemory } from "debug";
+import { WalkReturnCode } from "Rewalker";
+import { CreepKind, TAnyCreep } from "tanycreep";
+import { IntentLog, Intents, issue, MyBaseCreep, walkRoom, walkTo } from "mybasecreep";
+import * as swipe from "swipe";
+import { swipeWorth } from "swipeworth";
 
 declare global {
     interface PowerCreepMemory {
         debug?: number
-        // room of the power spawn this creep was last spawned at (MyPowerCreep.spawn)
+        // Room of the power spawn this creep was last spawned at (MyPowerCreep.spawn).
+        birth?: string
+        // Room the creep works for; set by a service, else the birth room.
+        // Before Nov 2026 spawn() wrote the birth room here.
         home?: string
-        swipe?: SwipeMemory
     }
 }
 
-// Resources a store holds that are `worth` taking, in random order (same
-// helper as job.swiper.ts).
-function stocked(store: StoreDefinition | Store<ResourceConstant, false>, worth: Worth = anything): ResourceConstant[] {
-    const st = store as unknown as { [res: string]: number };
-    return _.shuffle(Object.keys(st).filter(res => st[res] > 0 && worth(res as ResourceConstant))) as ResourceConstant[];
-}
+export abstract class TPowerCreep extends TAnyCreep<PowerCreep> {
+    readonly kind: CreepKind = "powerCreep";
 
-// ---------------------------------------------------------------------------
-// TPowerCreep / MyPowerCreep: persistent wrappers in the TCreep style
-// (docs/tcreep-design.md). Keyed by power creep name; the game object is
-// re-resolved every tick through `obj`, and nothing but the name and packed
-// positions is kept across ticks.
-//
-//   TPowerCreep    any power creep, mine or foreign: inspection only, no intents
-//   MyPowerCreep   one of mine: every intent the PowerCreep API offers
-//
-// getPowerCreep(name) hands out the right class from a module registry.
-// ---------------------------------------------------------------------------
-
-type GPowerCreep = PowerCreep;
-
-// Hostile power creeps in view this tick, by name. Built at most once per tick.
-let foreignTick = -1;
-let foreign = new Map<string, GPowerCreep>();
-function foreignPowerCreeps(): Map<string, GPowerCreep> {
-    if (foreignTick === Game.time) return foreign;
-    foreignTick = Game.time;
-    foreign = new Map();
-    for (const room of _.values(Game.rooms) as Room[]) {
-        for (const pc of room.find(FIND_HOSTILE_POWER_CREEPS)) {
-            foreign.set(pc.name, pc);
-        }
-    }
-    return foreign;
-}
-
-export class TPowerCreep extends debug.Debuggable {
-    private _tick = -1;
-    private _obj: GPowerCreep | undefined;
-    lastSeen = 0;
-    lastRoom?: string;
-    lastXY?: number;
-
-    constructor(readonly name: string) {
-        super();
+    get className(): PowerClassConstant | undefined {
+        return this.c?.className;
     }
 
-    // Game.powerCreeps holds every one of mine, spawned or not; anyone else's
-    // is only known while it stands in a room we see.
-    protected lookup(): GPowerCreep | undefined {
-        return Game.powerCreeps[this.name] || foreignPowerCreeps().get(this.name);
+    get level(): number {
+        return this.c?.level ?? 0;
     }
 
-    // The game object for this tick, or undefined; the only place it is fetched.
-    get obj(): GPowerCreep | undefined {
-        if (this._tick !== Game.time) {
-            this._tick = Game.time;
-            this._obj = this.lookup();
-            if (this._obj) {
-                this.lastSeen = Game.time;
-                if (this._obj.pos) {
-                    this.lastRoom = this._obj.pos.roomName;
-                    this.lastXY = this._obj.pos.x * 100 + this._obj.pos.y;
-                }
-            }
-        }
-        return this._obj;
+    get powers(): PowerCreepPowers {
+        return this.c?.powers ?? {};
     }
 
-    // The actual PowerCreep; throws when it cannot be resolved this tick.
-    get p(): GPowerCreep {
-        const o = this.obj;
-        if (!o) throw new Error(`${this.name}: no PowerCreep object this tick`);
-        return o;
-    }
-
-    // Debuggable wants a memory; only my power creeps have one.
-    get memory(): PowerCreepMemory {
-        return Memory.powerCreeps[this.name] = Memory.powerCreeps[this.name] || {};
-    }
-
-    // MyPowerCreep for one of mine (this instance when it already is one), else null.
-    mine(): MyPowerCreep | null {
-        if (this instanceof MyPowerCreep) return this;
-        if (!Game.powerCreeps[this.name]) return null;
-        return getPowerCreep(this.name) as MyPowerCreep;
-    }
-
-    // --- state ---------------------------------------------------------------
-
-    get exists(): boolean { return this.obj !== undefined; }
-    get my(): boolean { return !!Game.powerCreeps[this.name]; }
     // Standing in a room somewhere (an unspawned one of mine has no room).
-    get spawned(): boolean { return !!this.obj?.room; }
-    get onThisShard(): boolean {
-        const o = this.obj;
-        return !!o && (!o.shard || o.shard === Game.shard.name);
+    get spawned(): boolean {
+        return !!this.c?.room;
     }
-    get pos(): RoomPosition | undefined { return this.obj?.pos; }
-    get room(): Room | undefined { return this.obj?.room; }
-    get id(): Id<GPowerCreep> | undefined { return this.obj?.id; }
-    get owner(): string | undefined { return this.obj?.owner?.username; }
-    get className(): PowerClassConstant | undefined { return this.obj?.className; }
-    get level(): number { return this.obj?.level || 0; }
-    get hits(): number { return this.obj?.hits || 0; }
-    get hitsMax(): number { return this.obj?.hitsMax || 0; }
-    get hurts(): number { return this.hitsMax - this.hits; }
-    get ticksToLive(): number { return this.obj?.ticksToLive || 0; }
-    get store(): StoreDefinition | undefined { return this.obj?.store; }
-    get saying(): string | undefined { return this.obj?.saying; }
-    get powers(): PowerCreepPowers { return this.obj?.powers || {}; }
-    get deleteTime(): number | undefined { return this.obj?.deleteTime; }
+
+    get onThisShard(): boolean {
+        const c = this.c;
+        return !!c && (!c.shard || c.shard === Game.shard.name);
+    }
+
+    get deleteTime(): number | undefined {
+        return this.c?.deleteTime;
+    }
+
     // Wall-clock ms until spawn is allowed again; 0 when it may spawn now.
     get spawnCooldown(): number {
-        const at = this.obj?.spawnCooldownTime;
+        const at = this.c?.spawnCooldownTime;
         return at ? Math.max(0, at - Date.now()) : 0;
     }
 
     hasPower(power: PowerConstant): boolean {
         return this.powers[power] !== undefined;
     }
+
     powerLevel(power: PowerConstant): number {
         return this.powers[power]?.level || 0;
     }
+
     powerCooldown(power: PowerConstant): number {
         return this.powers[power]?.cooldown || 0;
     }
+
     // Usable now: known, off cooldown, and (when the power needs it) enough ops.
     powerReady(power: PowerConstant): boolean {
         if (!this.hasPower(power) || this.powerCooldown(power) > 0) return false;
@@ -176,126 +89,276 @@ export class TPowerCreep extends debug.Debuggable {
         const ops = _.isArray(info.ops) ? info.ops[this.powerLevel(power) - 1] : info.ops;
         return !ops || (this.store?.[RESOURCE_OPS] || 0) >= ops;
     }
-    // Room the creep was last spawned in; where it renews. Set by MyPowerCreep.spawn.
-    get homeName(): string | undefined { return this.memory.home; }
-    get home(): Room | undefined { return this.homeName ? Game.rooms[this.homeName] : undefined; }
 
     // The room's controller has power enabled for us (needed to use powers there).
     get roomPowerEnabled(): boolean {
         return !!this.room?.controller?.isPowerEnabled;
     }
+}
 
-    toString() {
+// Someone else's power creep: as EnemyCreep (tcreep.ts).
+export class EnemyPowerCreep extends TPowerCreep {
+    private readonly _id: Id<PowerCreep>;
+    private _pos: RoomPosition;
+    private readonly _mem: DebugMemory = {};
+
+    constructor(c: PowerCreep) {
+        super(c.name);
+        this._id = c.id;
+        this._pos = new RoomPosition(c.pos.x, c.pos.y, c.pos.roomName);
+    }
+
+    protected lookup(): PowerCreep | null {
+        const c = Game.getObjectById(this._id);
+        if (!c || c.my) return null;
+        this._pos = c.pos;
+        return c;
+    }
+
+    get id(): Id<PowerCreep> {
+        return this._id;
+    }
+
+    get my(): boolean {
+        return false;
+    }
+
+    get pos(): RoomPosition {
+        return this.c?.pos ?? this._pos;
+    }
+
+    get roomName(): string {
+        return this.pos.roomName;
+    }
+
+    get xy(): number {
         const pos = this.pos;
-        if (pos) return `<a href="/a/#!/room/${Game.shard.name}/${pos.roomName}">${this.name}</a>`;
-        return `[PowerCreep ${this.name}${this.exists ? "" : " (missing)"}]`;
+        return pos.x * 100 + pos.y;
+    }
+
+    get memory(): DebugMemory {
+        return this._mem;
+    }
+
+    delete(): void { }
+
+    toString(): string {
+        const c = this.c;
+        if (c) return `<a href="/a/#!/room/${Game.shard.name}/${c.pos.roomName}">${this.owner}:${this.name}</a>`;
+        return `[enemy power creep ${this.name} last ${this.roomName} ${Game.time - this.lastSeen} ago]`;
     }
 }
 
-// Every intent the PowerCreep API offers, on top of TPowerCreep's inspection.
-// `intents` records what was issued this tick (CLAUDE.md convention) so a
-// second action of the same kind can be avoided.
-export class MyPowerCreep extends TPowerCreep {
-    private _intentsTick = -1;
-    private _intents: { [kind: string]: any } = {};
+// One of mine. Game.powerCreeps holds every one of the account's, spawned or
+// not, so `c` resolves even while the creep is off the map (`spawned` false,
+// `pos` null) and `exists` is false only for a name the account does not have.
+export class MyPowerCreep extends TPowerCreep implements MyBaseCreep {
+    private readonly _intents = new IntentLog();
 
-    get intents(): { [kind: string]: any } {
-        if (this._intentsTick !== Game.time) {
-            this._intentsTick = Game.time;
-            this._intents = {};
-        }
-        return this._intents;
+    protected lookup(): PowerCreep | undefined {
+        return Game.powerCreeps[this.name];
     }
 
-    private issue<K extends string>(kind: K, err: ScreepsReturnCode, what: any = true): ScreepsReturnCode {
-        if (err === OK) this.intents[kind] = what;
-        else this.dlog(kind, "failed", err);
-        return err;
+    get my(): boolean {
+        return true;
+    }
+
+    get memory(): PowerCreepMemory {
+        return Memory.powerCreeps[this.name] = Memory.powerCreeps[this.name] || {};
+    }
+
+    get intents(): Intents {
+        return this._intents.current;
+    }
+
+    // Room of the power spawn it was last spawned at (spawn() records it).
+    get birthName(): string | undefined {
+        return this.memory.birth || this.memory.home;
+    }
+
+    // The room it works for: memory.home when a service set one, else birth.
+    get homeName(): string | undefined {
+        return this.memory.home || this.birthName;
+    }
+
+    get home(): Room | undefined {
+        return this.homeName ? Game.rooms[this.homeName] : undefined;
     }
 
     // --- lifecycle -----------------------------------------------------------
 
-    // Spawn at a power spawn and remember its room as home.
+    // Spawn at a power spawn and remember its room as the birth room (and as
+    // home, when none is set).
     spawn(ps: StructurePowerSpawn): ScreepsReturnCode {
-        const err = this.issue("spawn", this.p.spawn(ps), ps);
-        if (err === OK) this.memory.home = ps.room.name;
+        const err = issue(this, "spawn", () => this.tryc.spawn(ps), ps);
+        if (err === OK) {
+            this.memory.birth = ps.room.name;
+            if (!this.memory.home) this.memory.home = ps.room.name;
+        }
         return err;
     }
+
     renew(target: StructurePowerSpawn | StructurePowerBank): ScreepsReturnCode {
-        return this.issue("renew", this.p.renew(target), target);
+        return issue(this, "renew", () => this.tryc.renew(target), target);
     }
+
     upgrade(power: PowerConstant): ScreepsReturnCode {
-        return this.issue("upgrade", this.p.upgrade(power), power);
+        return issue(this, "upgrade", () => this.tryc.upgrade(power), power);
     }
+
     rename(name: string): ScreepsReturnCode {
-        return this.p.rename(name);
+        return this.tryc.rename(name);
     }
+
     // Schedule (or with cancel=true undo) the account-level deletion.
     delete(cancel = false): ScreepsReturnCode {
-        return this.p.delete(cancel);
+        return this.tryc.delete(cancel);
     }
+
     suicide(): ScreepsReturnCode {
-        return this.issue("suicide", this.p.suicide());
+        return issue(this, "suicide", () => this.tryc.suicide());
     }
+
     notifyWhenAttacked(enabled: boolean): ScreepsReturnCode {
-        return this.p.notifyWhenAttacked(enabled);
+        return this.tryc.notifyWhenAttacked(enabled);
     }
+
     cancelOrder(method: string): ScreepsReturnCode {
-        return this.p.cancelOrder(method);
+        return this.tryc.cancelOrder(method);
     }
 
     // --- powers ----------------------------------------------------------------
 
+    // One power a tick: the `power` intent. The wrappers below pass the
+    // target type each power takes; usePower itself takes anything.
     usePower(power: PowerConstant, target?: RoomObject): ScreepsReturnCode {
-        return this.issue("usePower", this.p.usePower(power, target), power);
+        return issue(this, "power", () => this.tryc.usePower(power, target), power);
     }
+
     enableRoom(controller: StructureController): ScreepsReturnCode {
-        return this.issue("enableRoom", this.p.enableRoom(controller), controller);
+        return issue(this, "enableRoom", () => this.tryc.enableRoom(controller), controller);
+    }
+
+    generateOps(): ScreepsReturnCode {
+        return this.usePower(PWR_GENERATE_OPS);
+    }
+
+    operateSpawn(spawn: StructureSpawn): ScreepsReturnCode {
+        return this.usePower(PWR_OPERATE_SPAWN, spawn);
+    }
+
+    operateTower(tower: StructureTower): ScreepsReturnCode {
+        return this.usePower(PWR_OPERATE_TOWER, tower);
+    }
+
+    operateStorage(storage: StructureStorage): ScreepsReturnCode {
+        return this.usePower(PWR_OPERATE_STORAGE, storage);
+    }
+
+    operateLab(lab: StructureLab): ScreepsReturnCode {
+        return this.usePower(PWR_OPERATE_LAB, lab);
+    }
+
+    operateExtension(from: StructureStorage | StructureTerminal | StructureContainer): ScreepsReturnCode {
+        return this.usePower(PWR_OPERATE_EXTENSION, from);
+    }
+
+    operateObserver(observer: StructureObserver): ScreepsReturnCode {
+        return this.usePower(PWR_OPERATE_OBSERVER, observer);
+    }
+
+    operateTerminal(terminal: StructureTerminal): ScreepsReturnCode {
+        return this.usePower(PWR_OPERATE_TERMINAL, terminal);
+    }
+
+    disruptSpawn(spawn: StructureSpawn): ScreepsReturnCode {
+        return this.usePower(PWR_DISRUPT_SPAWN, spawn);
+    }
+
+    disruptTower(tower: StructureTower): ScreepsReturnCode {
+        return this.usePower(PWR_DISRUPT_TOWER, tower);
+    }
+
+    disruptSource(source: Source): ScreepsReturnCode {
+        return this.usePower(PWR_DISRUPT_SOURCE, source);
+    }
+
+    shield(): ScreepsReturnCode {
+        return this.usePower(PWR_SHIELD);
+    }
+
+    regenSource(source: Source): ScreepsReturnCode {
+        return this.usePower(PWR_REGEN_SOURCE, source);
+    }
+
+    regenMineral(mineral: Mineral): ScreepsReturnCode {
+        return this.usePower(PWR_REGEN_MINERAL, mineral);
+    }
+
+    disruptTerminal(terminal: StructureTerminal): ScreepsReturnCode {
+        return this.usePower(PWR_DISRUPT_TERMINAL, terminal);
+    }
+
+    operatePower(powerSpawn: StructurePowerSpawn): ScreepsReturnCode {
+        return this.usePower(PWR_OPERATE_POWER, powerSpawn);
+    }
+
+    fortify(target: StructureRampart | StructureWall): ScreepsReturnCode {
+        return this.usePower(PWR_FORTIFY, target);
+    }
+
+    operateController(controller: StructureController): ScreepsReturnCode {
+        return this.usePower(PWR_OPERATE_CONTROLLER, controller);
+    }
+
+    operateFactory(factory: StructureFactory): ScreepsReturnCode {
+        return this.usePower(PWR_OPERATE_FACTORY, factory);
     }
 
     // --- movement --------------------------------------------------------------
 
     move(direction: DirectionConstant): ScreepsReturnCode {
-        return this.issue("move", this.p.move(direction), direction);
+        return issue(this, "move", () => this.tryc.move(direction), direction);
     }
+
     moveTo(target: RoomPosition | { pos: RoomPosition }, opts?: MoveToOpts): ScreepsReturnCode {
-        return this.issue("move", this.p.moveTo(target, opts), target);
+        return issue(this, "move", () => this.tryc.moveTo(target, opts), target);
     }
+
     moveByPath(path: PathStep[] | RoomPosition[] | string): ScreepsReturnCode {
-        return this.issue("move", this.p.moveByPath(path), path);
+        return issue(this, "move", () => this.tryc.moveByPath(path), path);
+    }
+
+    // Walk toward pos; OK once within range, a direction while moving, else an error.
+    walkTo(pos: RoomPosition, range = 1): WalkReturnCode {
+        return walkTo(this, pos, range);
+    }
+
+    // Toward the middle of a room until inside its 20-range core.
+    walkRoom(roomName: string, range = 20): WalkReturnCode {
+        return walkRoom(this, roomName, range);
     }
 
     // --- resources -------------------------------------------------------------
 
     withdraw(target: Structure | Tombstone | Ruin, resource: ResourceConstant, amount?: number): ScreepsReturnCode {
-        return this.issue("withdraw", this.p.withdraw(target, resource, amount), target);
+        return issue(this, "withdraw", () => this.tryc.withdraw(target, resource, amount), target);
     }
+
     transfer(target: AnyCreep | Structure, resource: ResourceConstant, amount?: number): ScreepsReturnCode {
-        return this.issue("transfer", this.p.transfer(target, resource, amount), target);
+        return issue(this, "transfer", () => this.tryc.transfer(target, resource, amount), target);
     }
+
     pickup(resource: Resource): ScreepsReturnCode {
-        return this.issue("pickup", this.p.pickup(resource), resource);
+        return issue(this, "pickup", () => this.tryc.pickup(resource), resource);
     }
+
     drop(resource: ResourceConstant, amount?: number): ScreepsReturnCode {
-        return this.issue("drop", this.p.drop(resource, amount), resource);
+        return issue(this, "drop", () => this.tryc.drop(resource, amount), resource);
     }
 
     say(message: string, toPublic = false): ScreepsReturnCode {
-        return this.p.say(message, toPublic);
-    }
-
-    // --- movement helpers (Rewalker) ---------------------------------------------
-
-    // Walk toward pos; OK once within range, a direction while moving, else an error.
-    walkTo(pos: RoomPosition, range = 1): ScreepsReturnCode | DirectionConstant {
-        const ret = rewalker.walkTo(this.p, pos, range);
-        if (ret > 0) this.intents.move = pos;
-        return ret;
-    }
-
-    // Toward the middle of a room until inside its 20-range core.
-    moveRoom(roomName: string, range = 20): ScreepsReturnCode | DirectionConstant {
-        return this.walkTo(new RoomPosition(25, 25, roomName), range);
+        return issue(this, "say", () => this.tryc.say(message, toPublic), message);
     }
 
     // --- renew ------------------------------------------------------------------
@@ -304,25 +367,26 @@ export class MyPowerCreep extends TPowerCreep {
     // creeps live 5000 ticks per renew and die for good when TTL runs out.
     idleRenew(): boolean {
         if (this.intents.renew) return true;
-        const p = this.p;
-        if (!p.room) return false;
-        const ps = _.find(p.room.findStructs(STRUCTURE_POWER_SPAWN) as StructurePowerSpawn[], s => s.my && p.pos.isNearTo(s));
+        const room = this.room;
+        if (!room) return false;
+        const ps = _.find(room.findStructs(STRUCTURE_POWER_SPAWN) as StructurePowerSpawn[], s => s.my && this.isNearTo(s));
         if (!ps) return false;
         return this.renew(ps) === OK;
     }
 
-    // Walk to the power spawn in `roomName` (default: the room we spawned in)
-    // and renew there. Returns a status string.
+    // Walk to the power spawn in `roomName` (default: the home room) and
+    // renew there. Returns a status string.
     runRenew(roomName = this.homeName): string {
         if (!roomName) return "renew: no home room";
-        const p = this.p;
-        if (p.pos.roomName !== roomName) {
-            this.moveRoom(roomName);
+        const pos = this.pos;
+        if (!pos) return "renew: not spawned";
+        if (pos.roomName !== roomName) {
+            this.walkRoom(roomName);
             return `renew: to ${roomName}`;
         }
-        const ps = _.find(p.room!.findStructs(STRUCTURE_POWER_SPAWN) as StructurePowerSpawn[], s => s.my);
+        const ps = _.find(this.room!.findStructs(STRUCTURE_POWER_SPAWN) as StructurePowerSpawn[], s => s.my);
         if (!ps) return `renew: no power spawn in ${roomName}`;
-        if (!p.pos.isNearTo(ps)) {
+        if (!pos.isNearTo(ps)) {
             this.walkTo(ps.pos, 1);
             return "renew: to power spawn";
         }
@@ -330,171 +394,30 @@ export class MyPowerCreep extends TPowerCreep {
         return err === OK ? "renewed" : `renew failed ${err}`;
     }
 
-    // --- swipe: loot a room's structures and haul home (job.swiper.ts, for a power creep) ---
-    //
-    // Fill up from the non-own structure holding the most valuable resource
-    // (swipeworth.unitValue; nukers and rampart-covered tiles excepted), taking
-    // its resources most valuable first, then walk straight to
-    // the home storage (terminal, else drop at the controller) and unload one
-    // resource per tick. A room run dry sends the partial load home and is
-    // remembered as dry. Returns a short status string for the caller's logs,
-    // or false once the creep is empty and the target room has nothing left,
-    // whether it stands there or has just unloaded at home. Only what is worth
-    // the trip is taken or counts as "left" (swipeworth.ts, priced for
-    // homeRoom); unloading takes everything aboard.
-    swipeWorth: Worth = anything;
+    // --- swipe: loot a room's structures and haul home (swipe.ts) ----------------
 
+    // The shared swipe quest, choosing targets by the value of what they hold
+    // (a power creep's store is small and its life long), renewing at any
+    // own power spawn passed on the way and grabbing what lies within reach
+    // (swipe.nomNearby). A status string, or false once the creep is empty
+    // and the target room has nothing left worth the trip (swipeworth.ts,
+    // priced for homeRoom).
     questSwipe(targetRoom: string, homeRoom: string): string | false {
-        const ret = this.swipeStep(targetRoom, homeRoom);
-        this.idleNom();
-        return ret;
-    }
-
-    // Grab what lies within reach (a pile, then a tombstone, then a ruin)
-    // with whatever intents the tick has left, except the worthless: a
-    // Konmari drops that along the swipe roads. No movement.
-    idleNom(): boolean {
-        const p = this.p;
-        if (!p.room || !p.store.getFreeCapacity()) return false;
-        if (!this.intents.pickup) {
-            const pile = _.find(p.room.lookForAtRange(LOOK_RESOURCES, p.pos, 1, true),
-                spot => !worthless(spot[LOOK_RESOURCES].resourceType));
-            if (pile) return this.pickup(pile[LOOK_RESOURCES]) === OK;
-        }
-        if (this.intents.withdraw || this.intents.transfer) return false;
-        for (const look of [LOOK_TOMBSTONES, LOOK_RUINS] as (LOOK_TOMBSTONES | LOOK_RUINS)[]) {
-            for (const spot of p.room.lookForAtRange(look, p.pos, 1, true)) {
-                const holder = (spot as any)[look] as Tombstone | Ruin;
-                const res = _.first(stocked(holder.store, r => !worthless(r)));
-                if (res) return this.withdraw(holder, res) === OK;
-            }
-        }
-        return false;
-    }
-
-    swipeStep(targetRoom: string, homeRoom: string): string | false {
-        const p = this.p;
-        this.swipeWorth = swipeWorth(homeRoom);
         this.idleRenew();
-        const mem = this.memory.swipe = this.memory.swipe || {};
-        const holding = p.store.getUsedCapacity() > 0;
-        if (!p.store.getFreeCapacity()) return this.swipeDeliver(homeRoom);
-
-        if (p.pos.roomName !== targetRoom) {
-            if (mem.dry) {
-                if (holding) return this.swipeDeliver(homeRoom);
-                delete this.memory.swipe;
-                return false;
-            }
-            delete mem.target;
-            this.moveRoom(targetRoom);
-            return "to target";
-        }
-
-        // Picked afresh every tick: once the best resource of a structure is
-        // aboard, another structure may hold the most valuable one left.
-        const target = this.pickSwipeTarget(mem);
-        mem.target = target?.id;
-        if (target) {
-            delete mem.dry;
-            return this.swipeFrom(target, mem);
-        }
-        if (holding) {
-            mem.dry = true;
-            return this.swipeDeliver(homeRoom);
-        }
-        delete this.memory.swipe;
-        return false;
-    }
-
-    // Structures that are not ours, hold anything, have no rampart on top and
-    // have not refused us recently; the one holding the most valuable resource
-    // (per unit) wins, the nearer one on a tie.
-    pickSwipeTarget(mem: SwipeMemory): AnyStoreStructure | null {
-        const p = this.p;
-        if (!p.room) return null;
-        const skip = mem.skip || {};
-        const targets = p.room.find(FIND_STRUCTURES, {
-            filter: (st: AnyStructure) => !(st as OwnedStructure).my &&
-                !_.contains(kNoSwipe, st.structureType) &&
-                (st as AnyStoreStructure).store !== undefined &&
-                stocked((st as AnyStoreStructure).store, this.swipeWorth).length > 0 &&
-                !(skip[st.id] > Game.time) &&
-                !_.any(st.pos.lookFor(LOOK_STRUCTURES), r => r.structureType === STRUCTURE_RAMPART),
-        }) as AnyStoreStructure[];
-        if (!targets.length) return null;
-        const best = (t: AnyStoreStructure) => unitValue(_.first(byValue(t.store, this.swipeWorth))!);
-        const top = Math.max(...targets.map(best));
-        return p.pos.findClosestByRange(targets.filter(t => best(t) >= top));
-    }
-
-    swipeFrom(target: AnyStoreStructure, mem: SwipeMemory): string {
-        const p = this.p;
-        if (!p.pos.isNearTo(target)) {
-            const ret = this.walkTo(target.pos, 1);
-            // An incomplete search for a walk inside the target's own room is
-            // not a long trip cut short by maxOps: the structure is walled in.
-            if (ret === ERR_NO_PATH || walkIncomplete(p, target.pos)) {
-                const skip = mem.skip = mem.skip || {};
-                skip[target.id] = Game.time + kSwipeSkipTicks;
-                delete mem.target;
-                delete p.memory._walk;
-                this.log("no path to", target.structureType, "at", target.pos, "- skipping it for", kSwipeSkipTicks);
-                return "no path, retarget";
-            }
-            return `to ${target.structureType}`;
-        }
-        const res = _.first(byValue(target.store, this.swipeWorth))!;
-        const err = this.withdraw(target, res);
-        if (err === OK) return `swiping ${res}`;
-        if (err === ERR_NOT_OWNER) {
-            const skip = mem.skip = mem.skip || {};
-            skip[target.id] = Game.time + kSwipeSkipTicks;
-            this.log(target.structureType, "at", target.pos, "is covered, skipping");
-        } else {
-            this.log("withdraw from", target.structureType, "at", target.pos, "failed", err);
-        }
-        delete mem.target;
-        return "retarget";
-    }
-
-    // Straight to the home store from wherever we are (one cross-room walk).
-    swipeDeliver(homeRoom: string): string {
-        const p = this.p;
-        const home = Game.rooms[homeRoom];
-        if (!home) {
-            this.moveRoom(homeRoom);
-            return "to home";
-        }
-        const res = _.first(stocked(p.store));
-        if (!res) return "empty";
-        const store = home.storage || home.terminal;
-        if (store) {
-            if (!p.pos.isNearTo(store)) {
-                this.walkTo(store.pos, 1);
-                return "to store";
-            }
-            this.transfer(store, res);
-            return `unloading ${res}`;
-        }
-        if (home.controller) {
-            if (this.walkTo(home.controller.pos, 3) !== OK) return "to controller";
-            this.drop(res);
-            return `dropping ${res}`;
-        }
-        this.log("nowhere to deliver in", homeRoom);
-        return "stuck: no store";
+        const ret = swipe.questSwipe(this, targetRoom, homeRoom, swipeWorth(homeRoom), "value");
+        swipe.nomNearby(this);
+        return ret;
     }
 }
 
-// Registry: one wrapper per name for the life of the global. Mine are always
-// MyPowerCreep; anyone else's a plain TPowerCreep.
-const powerCreeps = new Map<string, TPowerCreep>();
-export function getPowerCreep(name: string): TPowerCreep {
+// Registry: one wrapper per name for the life of the global, for my power
+// creeps only (foreign ones are enemy.ts's). The wrapper exists whether the
+// account has the creep or not; `exists` says.
+const powerCreeps = new Map<string, MyPowerCreep>();
+export function getPowerCreep(name: string): MyPowerCreep {
     let t = powerCreeps.get(name);
-    const mine = !!Game.powerCreeps[name];
-    if (!t || (mine && !(t instanceof MyPowerCreep))) {
-        t = mine ? new MyPowerCreep(name) : new TPowerCreep(name);
+    if (!t) {
+        t = new MyPowerCreep(name);
         powerCreeps.set(name, t);
     }
     return t;
@@ -502,5 +425,5 @@ export function getPowerCreep(name: string): TPowerCreep {
 
 // All of my power creeps, spawned or not.
 export function myPowerCreeps(): MyPowerCreep[] {
-    return _.keys(Game.powerCreeps).map(n => getPowerCreep(n) as MyPowerCreep);
+    return _.keys(Game.powerCreeps).map(getPowerCreep);
 }

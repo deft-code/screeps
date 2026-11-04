@@ -157,7 +157,7 @@ export class Thoreater extends JobCreep {
             return "wait";
         }
         const mineral = thoriumMineral(this.c.room);
-        if (mineral) return this.harvest(mineral);
+        if (mineral) return this.mine(mineral);
 
         // The extractor is gone (a mined-out mineral recycled above): bank a
         // partial load, then wait.
@@ -187,7 +187,7 @@ export class Thoreater extends JobCreep {
     }
 
     @taskbroken
-    harvest(mineral: Mineral): Task2Ret {
+    mine(mineral: Mineral): Task2Ret {
         if (this.shouldDeposit || this.wouldSpill) return "start";
         if (!mineral.mineralAmount) return "start";
         const err = this.c.harvest(mineral);

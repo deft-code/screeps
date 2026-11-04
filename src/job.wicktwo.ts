@@ -71,7 +71,7 @@ import type { AssaultTwo } from "ms.assaulttwo";
 //   spawnNearLabs: spawn() prefers a home spawn with a lab within
 //     kLabRange, and spawnDirections() (read by the spawn daemon) steps the
 //     hatchling out toward the lab holding or claimed for its first boost.
-// Standing beside a structure target (attack()), reposition(): of the
+// Standing beside a structure target (fight()), reposition(): of the
 // tiles within 1 of the target and one step from us that we could stand
 // on, and our own, the one where a mass attack deals the most
 // (massDamage(pos)); moved to when it deals as much as here or more (the
@@ -185,7 +185,7 @@ export class Wicktwo extends JobCreep {
     creepId: Id<Creep> | null = null;
     structId: Id<Structure> | null = null;
 
-    get assault(): AssaultTwo {
+    get assaultMission(): AssaultTwo {
         return this.mission as AssaultTwo;
     }
 
@@ -233,7 +233,7 @@ export class Wicktwo extends JobCreep {
     }
 
     wantedBoosts(): Boost[] {
-        return this.ctor.boosts(!!this.assault?.boostRanged);
+        return this.ctor.boosts(!!this.assaultMission?.boostRanged);
     }
 
     // The wanted boosts with a bare part still on the body.
@@ -246,14 +246,14 @@ export class Wicktwo extends JobCreep {
     }
 
     start(): Task2Ret {
-        const m = this.assault;
+        const m = this.assaultMission;
         if (!m) return "wait";
         if (this.escape()) return "wait";
         // Recycling comes before boosting: a wick that hatches into a paused
         // mission hands its body back unboosted.
         if (m.recycling) return this.recycleAt(this.originSpawn());
         if (!this.boosted && this.pos.roomName === this.homeName) return this.boost();
-        if (!m.manual && m.mode === "attack") return this.attack();
+        if (!m.manual && m.mode === "attack") return this.fight();
         return this.stage();
     }
 
@@ -348,7 +348,7 @@ export class Wicktwo extends JobCreep {
     // Stage: wait by the staging flag (the staging room without one), and
     // engage a militant creep while one is in the staging room.
     stage(): Task2Ret {
-        const m = this.assault;
+        const m = this.assaultMission;
         const staging = m.getRoomName("staging");
         if (staging && this.pos.roomName === staging) {
             const foe = this.pickCreep(this.militants(this.c.room));
@@ -365,8 +365,8 @@ export class Wicktwo extends JobCreep {
 
     // Attack: in the target room, the walk goes to the listed target, else
     // one of our own; nothing left, hold by the mission flag.
-    attack(): Task2Ret {
-        const m = this.assault;
+    fight(): Task2Ret {
+        const m = this.assaultMission;
         if (this.pos.roomName !== m.roomName) return this.moveRoom(m.roomName);
         const c = this.cc;
         const room = c.room;
@@ -457,7 +457,7 @@ export class Wicktwo extends JobCreep {
 
     // Nothing left: within kHoldRange of the mission flag, where it is.
     hold(): Task2Ret {
-        const flag = this.assault.flag;
+        const flag = this.assaultMission.flag;
         if (flag && flag.pos.roomName === this.pos.roomName && !this.pos.inRangeTo(flag.pos, kHoldRange)) {
             this.movePos(flag.pos, kHoldRange);
         }
@@ -536,7 +536,7 @@ export class Wicktwo extends JobCreep {
     after() {
         const c = this.cc;
         if (!c) return;
-        const m = this.assault;
+        const m = this.assaultMission;
         const inTarget = !!m && this.pos.roomName === m.roomName;
         this.fire(inTarget ? m.targets() : [], inTarget);
         if (!c.hurts && this.towerThreat(c.room) && healSelf(c)) return;
