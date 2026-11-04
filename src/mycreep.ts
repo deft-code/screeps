@@ -322,11 +322,22 @@ export class MyCreep extends TCreep implements MyBaseCreep {
         return this.c.signController(controller, text);
     }
 
-    // Pull `target` along; it has to move(this.c) itself the same tick.
+    // Pull `target` along. A pull only works when the pulled creep moves
+    // toward the puller the same tick, so when it is one of ours and has
+    // not moved yet, its move(this.c) is issued here too (recording its
+    // `pulled`); one that already moved this tick is left to its own step.
     pull(target: Creep): ScreepsReturnCode {
         const err = this.c.pull(target);
-        if (err === OK) this.intents.setPull(target);
-        else this.dlog("pull", "failed", err);
+        if (err !== OK) {
+            this.dlog("pull", "failed", err);
+            return err;
+        }
+        this.intents.setPull(target);
+        if (target.my) {
+            const pulled = getMyCreep(target.name);
+            if (pulled.intents.canMove()) pulled.move(this.c);
+            else this.dlog("pull", target.name, "already moved this tick");
+        }
         return err;
     }
 

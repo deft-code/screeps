@@ -585,7 +585,7 @@ enemyOf / enemyById / enemiesIn      enemy.ts       the registry (tobj.ts Regist
   by `spawn()`), `walkTo(pos, range)` and `walkRoom(room, range)` on the
   Rewalker, which record the step's direction. `move(direction | creep)`
   on MyCreep records the direction, or being pulled the direction to the puller and its name
-  (`setPulled`); `pull(creep)` records the pulled creep's name. There is no
+  (`setPulled`); `pull(creep)` records the pulled creep's name and, when the pulled creep is ours and its move slot is free, issues its move toward the puller as well. There is no
   `moveTo` or `moveByPath` wrapper: walks go through the Rewalker. The shared
   bodies are the exported functions `issue`/`issueWork`/`walkTo`/`walkRoom`/
   `planWalk`, called from each class's own methods (the two cannot share a
