@@ -33,13 +33,17 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
    `start()` (keeper and hostile flees, retargeting, mission-room checks)
    until it returns `"start"`, so each move is checked live. Still on
    `@taskbroken`: guard `hunt`/`duel`
-   /`healCreep`/`retreat`, wolf `attack`/`retreat`, crow `retreat`, warboy
-   `harvest`/`deliver`/`scavenge`, thoreater `harvest`/`deposit`, chemist
+   /`healCreep`/`retreat`, wolf `fight`/`retreat`, crow `retreat`, warboy
+   `mine`/`deliver`/`scavenge`, thoreater `mine`/`deposit`, chemist
    `fetch`/`fill`/`drain`/`gather`/`stash`, cleanup `gather`/`deliver`,
-   chaos `dismantle`, claimer/reserver `claim`/`reserve`, immortan
-   `reserve`, paver `take`, konmari `loadFrom`, swiper `withdrawFrom`,
+   chaos `chew`, claimer/reserver `claim`/`reserve`, immortan
+   `reserve`, paver `take`, konmari `loadFrom`,
    warrunner `load`/`retire`, prospector/thoreater/cleanup `recycle`,
-   razer `dismantle`/`decomm`, bulldozer `doze`/`boost`, JobCreep `dropAt`.
+   razer `chew`/`decomm`, bulldozer `doze`/`boost`, JobCreep `dropAt`
+   (the swiper's `withdrawFrom` is gone: Swiper runs `swipe.questSwipe`
+   every tick). The `dismantle`/`harvest`/`attack` task names became
+   `chew`/`mine`/`fight` in Nov 2026 when `MyCreep` got intent-tracking
+   wrappers of the engine's names.
    First on the fixed `@task`: Fedex `donate` (15 Oct 2026, a new method).
 6. **A base layout can wall off its own exit** (W24S7 in Season 11, Oct
    2026: the terrain left a two-tile gap between the room and its north

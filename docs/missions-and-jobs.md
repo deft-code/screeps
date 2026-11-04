@@ -28,11 +28,11 @@ Process                      run(): Priority; kill()           (process.ts)
      │                                            Keeps a home: a flag named Furiosa pins it to the flag's room (waits there if it
      │                                            has no power spawn); else the stored room if ours with a power spawn, else a
      │                                            random own power spawn's room, else none. Spawns Game.powerCreeps.Furiosa (via
-     │                                            MyPowerCreep.spawn, which records memory.home on the creep) at the home power
+     │                                            MyPowerCreep.spawn, which records memory.birth on the creep) at the home power
      │                                            spawn when she exists but is unspawned and the spawn cooldown has passed.
      │                                            Spawned: the Furiosa flag's child flags ("<prefix><n>_Furiosa", sorted by name)
      │                                            pick the behaviour; first known prefix wins, unknown ones are logged and skipped.
-     │                                            swipe -> MyPowerCreep.questSwipe(child flag room, Furiosa flag room), going for the structure that holds the most valuable resource (buy-order price per unit) and taking its resources most valuable first, only what swipeworth.ts prices as worth it for the flag room; the child flag is removed once
+     │                                            swipe -> MyPowerCreep.questSwipe(child flag room, Furiosa flag room): the shared swipe quest (swipe.ts, also the Swiper job's) with targets by value, going for the structure that holds the most valuable resource (buy-order price per unit) and taking its resources most valuable first, only what swipeworth.ts prices as worth it for the flag room; the child flag is removed once
      │                                            questSwipe returns false (creep empty and the room has nothing left, judged at home after the last
      │                                            partial unload too), so the next child takes over without a trip back.
      │                                            No usable child flag: walk to within 5 of the Furiosa flag and wait. TTL < 300: runRenew
@@ -50,7 +50,7 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               one Hubminer while the Meta_min extractor stands on a non-thorium mineral with minerals left and under 100k of it in storage + terminal (Hubminer.want); Hubminecarts, 1 while its container holds anything, 2 past half full (Hubminecart.want);
                                                               all spawned "local"; idles (paced log) while the room is not ours or has no spawn of its own (status `no-spawn`). Distinct from the `Hub` job class (separate registries).
          ├─ Swipe            @register  (ms.swipe.ts)          "Swipe <target> <home>"; Scout while the target is invisible, else two Swipers (kSwipers);
-         │                                                     winds down once the target room has no swipe targets left (job.swiper swipeTargets)
+         │                                                     winds down once the target room has no swipe targets left (swipe.ts swipeTargets)
          │                                                     worth(res) (swipeworth.ts, shared with Furiosa's questSwipe): energy always; else market.getBuyOrderPrice(res) >= 2 x getSellOrderPrice(energy, home) (energy delivered to home);
          │                                                     unpriceable resources (under 10k units bid) are skipped; no market (season) or no energy price = take everything.
          │                                                     Swiper and the wind-down test both use it, so "clean" means nothing worth taking is left
@@ -314,9 +314,9 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       Swipe target and drops 20 units per tick while outside the home room; empty -> home for more; nothing worthless left -> suicide
      ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs from the spawns nearest home (JobCreep.homeName: mission
      │                       "home", else "spawn", else the nest's room, else a random spawn's, so "Once Swiper <room>" works), sized to energy on hand (max 50 parts);
-     │                       loots the Swipe target: @task withdrawFrom the cheapest-path non-own structure with anything in its store (Rewalker.planWalk over all candidates), one resource at a time in random order
-     │                       (nuker excluded; rampart-covered ones skipped 1500 ticks via memory.skip) until full, or until the room is empty and it holds anything,
-     │                       then unloads at home until empty (JobCreep.unloadHome), else dropAt the controller
+     │                       loots the Swipe target through swipe.ts's questSwipe (shared with Furiosa) with targets by path: the cheapest-path non-own structure holding anything worth taking (one Rewalker.planWalk over all candidates, kept while it still qualifies), one resource at a time in random order
+     │                       (nuker excluded; rampart-covered or unreachable ones skipped 1500 ticks via memory.swipe.skip) until full, or until the room is empty and it holds anything,
+     │                       then unloads at home until empty (swipe.deliverHome: storage, terminal, else the home container with the most space, else dropped at the controller); after() nomNearby
      ├─ JobCreep.unloadLatch/unloadHome  (job.creep.ts) shared by Trucker and Swiper: latched (memory.unload) until empty; walks
      │                       straight to the home storage, else terminal (ours, with space), else the home container with the most free
      │                       space (memory.dropid), then the next; every transfer passes what fits; null when home has no space
@@ -345,7 +345,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 after() idleNom + idleRecharge; body 'upgrader' (2W/1C per level) via "local";
          │                                                 Upgrader.want(room) = 0 at RCL8, without storage, or below 100k, else storage energy / 100k (linear, fractional: 150k = 1.5)
          ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
-         ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task attack/retreat, body 'wolf' via "close"; attack() closes on its target, creep or structure, with moveChase;
+         ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task fight/retreat, body 'wolf' via "close"; fight() closes on its target, creep or structure, with moveChase;
          │                                                 pickTarget(): armed hostiles, then an invader core, then any enemy creep (never Source Keepers), from the mission room first while it is in view
          │                                                 (from anywhere) and only then from the room the wolf is in; a target in another room is walked to with moveChase (a creep is tracked so
          │                                                 pursue() follows it if it leaves); with no target it pursues lastTarget (the creep it last fought: to it while visible, else to where it was last
@@ -708,7 +708,7 @@ re-deciding. The first argument
 that is a game object (has a string `id`) is stored as its id with `task.id`
 set to its 1-based position; `runTask` swaps `Game.getObjectById(...)` back in
 and returns `"start"` when the object is gone. Users: `Swiper.dropRange`,
-`Wolf.attack`, `Wolf.retreat`, `Reserver.reserve`.
+`Wolf.fight`, `Wolf.retreat`, `Reserver.reserve`.
 
 Default `start()` (MyCreep and JobRole) is `this.c.run(); this.c.after();
 return "wait"`, which hands control to the legacy prototype role dispatch

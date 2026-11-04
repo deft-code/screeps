@@ -17,6 +17,21 @@ CreepRole.after(): _.camelCase('after ' + this.role) if it exists
 `this.role` is the first word of the creep name. `run()` refuses spawning
 creeps. `roleUndefined` logs `Missing Role!` and returns `false`.
 
+## The wrappers (Nov 2026)
+
+Every creep and power creep has a wrapper class on `TAnyCreep`
+(`tanycreep.ts`): `MyCreep` (`mycreep.ts`, by name, there from the egg on),
+`EnemyCreep` (`tcreep.ts`, by id, through `enemy.ts`), and `MyPowerCreep` /
+`EnemyPowerCreep` (`powercreep.ts`). `c` is the game object this tick or
+null and every reader has a null-safe default. `MyCreep` and `MyPowerCreep`
+share the `MyBaseCreep` contract (`mybasecreep.ts`): per-tick `intents`,
+action wrappers that refuse (`ERR_BUSY`) a kind already issued this tick and
+record it on `OK`, `homeName`/`birthName`, `walkTo`/`walkRoom`. A MyCreep's
+intents are its Creep's `tick.intents`, the record the legacy chain below
+reads and writes, so new jobs may mix `this.withdraw(...)` with legacy
+`this.c.goWithdraw(...)`. Full description: [tcreep-design.md](tcreep-design.md)
+Appendix D. The legacy chain on `Creep.prototype` is unchanged:
+
 ## The mixin chain
 
 TypeScript classes each `extends` the previous one for typing, but at runtime

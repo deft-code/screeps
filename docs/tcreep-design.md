@@ -523,41 +523,101 @@ Docs to update at phase 1: `creep-roles.md` (dispatch and mixin chain sections),
 `runtime-tick.md` (RetireDaemon row), `memory-layout.md` (new creep fields),
 `file-inventory.md`, `known-issues.md` (items 3 and 7 closed), `CLAUDE.md`.
 
-## Appendix D: first shipped wrappers, `TPowerCreep` / `MyPowerCreep` (Sept 2026)
+## Appendix D: the shipped creep wrappers (Nov 2026, `creep-refactor`)
 
-`src/powercreep.ts` was rebuilt around the first wrappers built on this design
-that `src/` actually imports. They are self-contained rather than built on
-`spike/tobj.ts`, since nothing in `src/` may import `spike/`:
+The first wrappers that `src/` actually runs on, built in Sept 2026 for power
+creeps (`TPowerCreep`/`MyPowerCreep`) and generalised in Nov 2026 to one base
+for every creep and power creep, mine or anyone's. They are self-contained
+rather than built on `spike/tobj.ts` (nothing in `src/` may import `spike/`);
+the enemy wrappers use the live `src/tobj.ts` `Registry`.
 
-- `TPowerCreep(name)`: any power creep, mine or foreign. `obj` resolves once per
-  tick (`Game.powerCreeps[name]`, else a per-tick index of
-  `FIND_HOSTILE_POWER_CREEPS` over visible rooms); `p` returns the game object
-  or throws. Inspection only: `exists`, `my`, `spawned`, `onThisShard`, `pos`,
-  `room`, `level`, `className`, `hits`, `store`, `powers`, `hasPower`,
-  `powerLevel`, `powerCooldown`, `powerReady` (cooldown and ops),
-  `roomPowerEnabled`, `spawnCooldown` (wall-clock ms). `mine()` returns the
-  `MyPowerCreep` for one of mine, else null. Keeps only `name`, `lastSeen`,
-  `lastRoom`, `lastXY` across ticks.
-- `MyPowerCreep extends TPowerCreep`: every PowerCreep intent (`spawn`, `renew`,
-  `upgrade`, `rename`, `delete`, `suicide`, `usePower`, `enableRoom`, `move`,
-  `moveTo`, `moveByPath`, `withdraw`, `transfer`, `pickup`, `drop`, `say`, ...),
-  each recording `intents.<kind>` on `OK` per the CLAUDE.md convention.
-  `spawn(ps)` records the power spawn's room as `memory.home` (`homeName`/`home`
-  getters on `TPowerCreep`). Movement helpers `walkTo(pos, range)` / `moveRoom(room)` wrap Rewalker.
-  `idleRenew()` renews at an adjacent own power spawn without moving (questSwipe
-  calls it first); `runRenew(room = homeName)` walks to that room's power spawn and renews.
-  Behaviours are plain methods a service calls each tick; the first is
-  `questSwipe(targetRoom, homeRoom)`, the `job.swiper.ts` loop for a power creep:
-  fill from the cheapest-path non-own stocked structure (`planWalk` over the
-  candidates; nuker and rampart-covered tiles excluded, refusals skipped 1500
-  ticks), then straight to the home storage/terminal (else drop at the
-  controller) one resource per tick; state in `memory.swipe = { target, skip }`;
-  returns a status string, or false (and clears the state) once the creep is
-  empty and the target room has nothing left: standing there, or back home after
-  unloading the last partial load (`memory.swipe.dry`).
-- `getPowerCreep(name)` is the registry (one wrapper per name per global; mine
-  always come back as `MyPowerCreep`), `myPowerCreeps()` lists mine.
+```
+TAnyCreep<G extends AnyCreep>        tanycreep.ts   abstract; keyed by name
+ ├─ TCreep                           tcreep.ts      abstract; body stats (partsByType, active(), melee/ranged/hostile/keeper/assault, weight, spawnTime)
+ │   ├─ MyCreep                      mycreep.ts     mine, by name; exists from the egg on; Task2 lifecycle; the role registry
+ │   └─ EnemyCreep                   tcreep.ts      anyone else's, by id, in the enemy registry
+ └─ TPowerCreep                      powercreep.ts  abstract; level, className, powers, hasPower/powerLevel/powerCooldown/powerReady, spawned, spawnCooldown
+     ├─ MyPowerCreep                 powercreep.ts  mine, by name; exists whether spawned or not
+     └─ EnemyPowerCreep              powercreep.ts  anyone else's, by id, in the enemy registry
+MyBaseCreep (interface)              mybasecreep.ts what MyCreep and MyPowerCreep share; the helper bodies they both call
+enemyOf / enemyById / enemiesIn      enemy.ts       the registry (tobj.ts Registry, 100-tick collections)
+```
 
+- `TAnyCreep`: `c` is the Creep or PowerCreep this tick, else null,
+  resolved once per tick through the subclass's `lookup()` and recording
+  `lastSeen`/`lastRoom`/`lastXY`; `tryc` throws instead. Every reader is
+  null-safe with its empty value: `hits`/`hitsMax`/`hurts`/`ticksToLive`/
+  `carried`/`free` 0, `pos`/`room`/`store` null, `effects` [], `my` false,
+  `isNearTo`/`inRangeTo`/`isEqualTo` false, `getRangeTo` Infinity. `obj`/
+  `tryObj` alias `c`/`tryc` so a wrapper fits a `Registry`. Nothing of the
+  game object is kept across ticks.
+- `MyCreep`'s `c` is typed as the non-null `Creep` for the job code, which
+  only runs while the creep exists (`run()` answers false otherwise); at
+  runtime it is null for an egg or corpse exactly as the base says, and
+  `exists` tells. `pos` keeps the asserting form (`this.c.pos`) the jobs rely
+  on; the base's geometry readers read the live object and answer false for
+  an egg.
+- `MyBaseCreep` (`mybasecreep.ts`): `intents` (per tick: `move`, `withdraw`,
+  `transfer`, `pickup`, `drop`, `melee`, `range`, `say`, `power`, ...), the
+  action wrappers (`withdraw`/`transfer`/`pickup`/`drop`/`say`/`move`, and on
+  MyCreep every Creep action, on MyPowerCreep every PowerCreep action plus
+  one wrapper per power: `generateOps()`, `operateSpawn(spawn)`, `shield()`,
+  ...), `homeName` (the room it works for: a mission's home, a power creep's
+  `memory.home`; else the birth room) and `birthName` (the room it spawned
+  in: `memory.home` on a creep, written by `spawn.ts`; `memory.birth` on a
+  power creep, written by `spawn()`), `walkTo(pos, range)` and
+  `walkRoom(room, range)` on the Rewalker. The shared bodies are the
+  exported functions `issue`/`issueWork`/`walkTo`/`walkRoom`/`planWalk`,
+  called from each class's own methods (the two cannot share a class).
+  `issue` answers `ERR_BUSY` without calling the engine when the kind's
+  slot is already taken this tick, records `intents.<kind>` on `OK` and
+  `dlog`s anything else; `issueWork` is the same over the `melee` + `range`
+  pair for harvest/build/repair/dismantle/upgradeController/attackController/
+  claimController/reserveController/generateSafeMode, as creep.build.ts and
+  creep.repair.ts have always done. A `MyCreep`'s record is its Creep's
+  `tick.intents`, the one the legacy roles on `Creep.prototype` use, so a
+  wrapper call and a legacy `goXxx` see each other's work.
+- Collisions resolved while introducing the wrappers: the jobs' own Task2
+  methods `dismantle` (Chaos, Razer) became `chew`, `harvest` (Thoreater,
+  Warboy) `mine`, `attack` (Wolf, Wicktwo) `fight`, and Wicktwo's typed
+  mission getter `assault` became `assaultMission` (the body-stat `assault`
+  is TCreep's). All were `@taskbroken`, so nothing in memory named them.
+- `EnemyCreep`/`EnemyPowerCreep`: made from a creep in view by `enemyOf`,
+  keyed by id, `lookup` = `Game.getObjectById` (null while out of sight or
+  once dead, and for anything of mine); `pos` answers the live position,
+  else the last seen; no Memory (the debug flag lives on the heap). The
+  registry drops a wrapper missing at two collections, 100 to 200 ticks.
+  `enemiesIn(room)` wraps every hostile creep and power creep in a room.
+- `MyPowerCreep`: `getPowerCreep(name)` is the registry for mine (one
+  wrapper per name per global, there whether or not the account has the
+  creep; `exists` says), `myPowerCreeps()` lists mine. `spawn(ps)`,
+  `renew`, `upgrade`, `rename`, `delete`, `suicide`, `usePower`,
+  `enableRoom`, `idleRenew()` (an adjacent own power spawn, no movement),
+  `runRenew(room = homeName)` and `questSwipe(targetRoom, homeRoom)`: the
+  shared quest with targets by value, `idleRenew` first and `nomNearby`
+  after.
+- `swipe.ts`: the loot state machine for any `MyBaseCreep`, keyed on
+  `memory.swipe = { target, skip, dry, unload, dropid }`:
+  `questSwipe(me, targetRoom, homeName, worth, pick)` (a status string, or
+  false once the creep is empty and the room has nothing left worth
+  taking), `swipeTargets`/`isSwipeTarget` (not ours, stocked with something
+  `worth` taking, no rampart over it, not a nuker, not on the skip list),
+  `pickTarget` ("path": cheapest walk by one `planWalk` over every
+  candidate, kept while it still qualifies; "value": the most valuable
+  resource per unit, re-picked every tick), `swipeFrom` (skips a target for
+  1500 ticks on `ERR_NOT_OWNER` or no path), `deliverHome` (storage,
+  terminal, the home container with the most space, else dropped within 3
+  of the controller; every transfer sized to what fits; the `unload` latch
+  finishes a load begun), `nomNearby` (piles, tombstones and ruins within
+  reach, the worthless excepted). `job.swiper.ts` is `questSwipe` with
+  "path" plus `nomNearby` in `after()`; Furiosa's swipe is the same with
+  "value".
+
+What the design above still describes and this does not do: the forwarders
+(`interface TCreep extends Pick<Creep, ...>`), the mixin chain re-rooted at
+the wrapper, the `Life` state machine and `RetireDaemon` sweep for my creeps
+(Mission.runCreeps still drops a wrapper the tick its creep is gone), and
+the tombstone lookup. Those remain the plan for the next steps.
 
 ## Appendix A: spike
 

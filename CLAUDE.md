@@ -91,6 +91,7 @@ per-room strats start themselves. What each process does:
 | `LabPlan <room>` | stock-aware lab chooser (`labplan.ts`): walks the reaction chains of a console-edited priority list (`Memory.labplan[room].plan`, `add`/`remove`/`setQuota`/`reset`) and sets the labs to the deepest reaction whose inputs are stocked, else an idle ladder (`docs/balance-design.md`); turns `struct.lab.js`'s autoReactAll off in that room |
 | `Balance` | terminal balancer, no creeps: levels energy, brings RCL8 rooms to 10k of each base mineral, feeds lower rooms' minerals to their nearest RCL8 room, sends all thorium to one room, levels catalyzed boosts among RCL8 rooms (`docs/balance-design.md`); rooms via `addRoom`/`removeRoom` |
 | `Once <Job> <room> [n]`, `Always <Job> <room> [n]` | one creep of a job class at a time, `n` in turn (`Once`) or one per lifetime for good (`Always`); the generic test harness for any job |
+| `Furiosa` | the power creep of that name (`ms.furiosa.ts`, on `MyPowerCreep`): keeps a home power-spawn room (a flag named `Furiosa` pins it), spawns her there off cooldown, renews under 300 TTL, and runs the Furiosa flag's child flags in name order: `swipe<n>_Furiosa` loots the child's room into the flag's room through the shared swipe quest (`swipe.ts`, targets by value); no child flag = wait within 5 of the flag |
 | `Swipe`, `Experiment`, `Selloff <room>`, `PaveAll` | purple-flag or command services: swiping loot, the road-weight experiment, terminal selling (no market on a seasonal shard), pavers for unowned road rooms with our sites |
 | `ClaimedStrat` per owned room | `room.strat` constructor `exec`s itself: towers, safe mode, labs, links, metastruct construction and traffic replans, factory |
 | `FlagService` daemon | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
@@ -110,9 +111,15 @@ main.js
  ├─ process.ts      Process/Service, priority rows critical>normal>low>late(>extra), canRun CPU gate
  ├─ mission.ts      Mission = Service with eggs->hatch->creeps lists in Memory.missions
  │   └─ ms.*.ts     @register, scheduled by command string
- ├─ mycreep.ts      MyCreep wrapper per creep name; role registry (@register/@registerAs); Task2
- │   ├─ job.creep.ts -> job.*.ts            pure Task2 jobs (this.c is the Creep)
- │   └─ job.role.ts  -> job.worker/ctrl/hub/hauler/srcer/guard/immortan.ts   start() = creep.run()+after()  (bridge)
+ ├─ tanycreep.ts    TAnyCreep<G>: the base of every creep/power creep wrapper, mine or anyone's; `c` = the game object this tick or null, every reader null-safe
+ │   ├─ tcreep.ts        TCreep (body stats) -> EnemyCreep (id-keyed, enemy.ts registry) and MyCreep
+ │   │   └─ mycreep.ts   MyCreep wrapper per creep name (exists from the egg on); role registry (@register/@registerAs); Task2; intent-tracking action wrappers
+ │   │       ├─ job.creep.ts -> job.*.ts            pure Task2 jobs (this.c is the Creep)
+ │   │       └─ job.role.ts  -> job.worker/ctrl/hub/hauler/srcer/guard/immortan.ts   start() = creep.run()+after()  (bridge)
+ │   └─ powercreep.ts    TPowerCreep (powers) -> EnemyPowerCreep and MyPowerCreep (every PowerCreep intent, one wrapper per power, renew; getPowerCreep(name))
+ │   mybasecreep.ts   MyBaseCreep: the contract MyCreep and MyPowerCreep share (intents, action wrappers, home/birth rooms, walkTo/walkRoom) and the shared helper bodies
+ │   enemy.ts         enemyOf(creep) / enemiesIn(room): EnemyCreep/EnemyPowerCreep by id in a tobj.ts Registry
+ │   swipe.ts         the swipe quest for any MyBaseCreep (Swiper job and Furiosa): targets, skip list, deliver home, nomNearby
  ├─ spawn.ts        SpawnDaemon + energyDef; spawnold.js supplies findSpawns/buildBody body table
  ├─ creep.role.ts   dispatch: creep name "asrc3" -> role "asrc" -> Creep.prototype.roleAsrc()
  │   creep.ts > creep.role.ts > creep.move.ts > creep.carry.ts > creep.harvest/build/repair.ts (mixins)
@@ -416,10 +423,13 @@ legacy systems did: [docs/legacy-systems.md](docs/legacy-systems.md).
   `docs/file-inventory.md`. Do not write live game state (rooms, schedules,
   dates, results) into this file; it goes stale within days. History that
   explains a design belongs in the relevant `docs/*-design.md`.
-- `spike/` plus `tsconfig.spike.json` is a compile-only prototype of
+- `spike/` plus `tsconfig.spike.json` is the compile-only prototype of
   [docs/tcreep-design.md](docs/tcreep-design.md). Nothing imports it and
-  `gulp` never sees it; check it with `npx tsc -p tsconfig.spike.json` and
-  re-run `node spike/surface.js` after moving creep code.
+  `gulp` never sees it. Since `src/tobj.ts`, `src/tstruct.ts` and
+  `src/tcreep.ts` exist (Oct-Nov 2026) the spike's own copies are shadowed
+  by `tsconfig.spike.json`'s path order and `npx tsc -p tsconfig.spike.json`
+  no longer passes; the shipped wrappers (Appendix D of the design doc)
+  supersede it. `node spike/surface.js` still reports the member surface.
 - Commit messages: five-word subjects; commit only when asked or at the
   milestones of an unattended run.
 
