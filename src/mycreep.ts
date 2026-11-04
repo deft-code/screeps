@@ -295,11 +295,12 @@ export class MyCreep extends TCreep implements MyBaseCreep {
         return issueWork(this, () => this.c.dismantle(target), target);
     }
 
-    // The controller actions and generateSafeMode are not tracked: they
-    // conflict with nothing, so a double issue is harmless.
     upgradeController(controller: StructureController): ScreepsReturnCode {
-        return this.c.upgradeController(controller) as ScreepsReturnCode;
+        return issueWork(this, () => this.c.upgradeController(controller) as ScreepsReturnCode, controller);
     }
+
+    // The CLAIM actions and generateSafeMode are not tracked: they conflict
+    // with nothing, so a double issue is harmless.
 
     attackController(controller: StructureController): ScreepsReturnCode {
         return this.c.attackController(controller);

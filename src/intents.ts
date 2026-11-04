@@ -14,13 +14,13 @@
 //   melee      the adjacent-only actions: attack, heal (canAttack / setAttack)
 //   range      rangedAttack, rangedMassAttack, rangedHeal (canRange / setRange)
 //   melee+range  the work actions, which the engine allows one of a tick and
-//              none while attacking: harvest, build, repair, dismantle
-//              (canWork / setWork)
+//              none while attacking: harvest, build, repair, dismantle,
+//              upgradeController (canWork / setWork)
 //   say, power, upgrade   the odd ones; set(kind, what) / has(kind)
 //
 // Not tracked, since they conflict with nothing and a double issue is
-// harmless: the controller actions (upgrade, attack, claim, reserve,
-// generateSafeMode), spawn, renew, enableRoom, suicide, signController,
+// harmless: the CLAIM actions (attackController, claimController,
+// reserveController) and generateSafeMode, spawn, renew, enableRoom, suicide, signController,
 // notifyWhenAttacked, cancelOrder, rename, delete.
 
 export type IntentKind = "move" | "pull" | "pulled" | "withdraw" | "transfer" | "pickup" | "drop"
