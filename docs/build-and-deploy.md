@@ -20,7 +20,7 @@ tasks are implemented in `console-tools.js`.
 
 | Task | What it does |
 |---|---|
-| `npx gulp compile` | Compiles `src/**/*` (TS plus passthrough JS via `allowJs`) to `distjs/`, external sourcemaps to `sourcemaps/`. Dependency of every deploy task. Compile errors set `global.compileFailed` but do **not** abort the push. |
+| `npx gulp compile` | Compiles `src/**/*` (TS plus passthrough JS via `allowJs`) to `distjs/`, external sourcemaps to `sourcemaps/`. Dependency of every deploy task. `compileTs` counts gulp-typescript's errors (it still emits the JavaScript) and the `tsErrors` task then fails the series, so a type error (like a require cycle, `cycles`) stops `deploy`/`season`/`ptr` before the push; before 4 Nov 2026 the error was only flagged and the push went ahead. |
 | `npx gulp cycles` | Walks the static `require("x")` calls in `distjs/*.js` and fails on any cycle, printing the chain (`a -> b -> a`). Runs as the second half of `compile`, so a cycle **does** abort the push. Needed because the Screeps loader throws `Circular reference to module` on any cycle that tsc and node both tolerate. Dynamic requires such as `require(importName)` in `process.ts` are ignored. |
 | `npx gulp season` | compile, then push `distjs/*.js` to the seasonal server (`path: /season`, branch `default`). Season 11 (`shardSeason`), the last target, ended 1 Nov 2026; nothing is deployed and watched now (CLAUDE.md, Status). |
 | `npx gulp deploy` | compile, then push to `credentials.branch` on MMO (`shard2` is the only MMO shard the code accepts). |

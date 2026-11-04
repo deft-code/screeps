@@ -14,15 +14,27 @@ const tsProject = ts.createProject('tsconfig.json', { typescript: require('types
 const sourcemaps = require('gulp-sourcemaps');
 const { SourceMapConsumer } = require('source-map');
 
+// gulp-typescript reports a type error and still emits the JavaScript, so a
+// push after a failed compile would ship it. compileTs counts the errors
+// (reported by gulp-typescript itself) and finishes writing distjs/, then
+// tsErrors fails the series so deploy/season/ptr never reach the push.
+let tsErrorCount = 0
+
 gulp.task('compileTs', function () {
+    tsErrorCount = 0
     return tsProject.src()
       .pipe(sourcemaps.init())
       .pipe(tsProject())
-      .on('error', (err) => global.compileFailed = true)
+      .on('error', () => { tsErrorCount++ })
       .js
       .pipe(sourcemaps.write('../sourcemaps', { addComment: false }))
       .pipe(gulp.dest('distjs'));
   })
+
+gulp.task('tsErrors', function (done) {
+  if (tsErrorCount) return done(new Error('TypeScript errors (' + tsErrorCount + ' reported); nothing pushed'))
+  done()
+})
 
 // The Screeps loader throws "Circular reference to module" for any require
 // cycle, while tsc and node both tolerate them. Walk the static requires in
@@ -59,7 +71,7 @@ gulp.task('cycles', function (done) {
   done()
 })
 
-gulp.task('compile', gulp.series('compileTs', 'cycles'))
+gulp.task('compile', gulp.series('compileTs', 'tsErrors', 'cycles'))
 
 gulp.task('watchCompile', gulp.series('compile', function watchCompile() {
   return gulp.watch('src/*', gulp.series('compile'));

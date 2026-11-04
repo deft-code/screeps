@@ -282,9 +282,12 @@ Debugging patterns that worked:
 - Any module is requirable by bare name in the console, so verify code right
   after a push: `require("job.warboy").Warboy.body`,
   `require("spawnold").buildBody(Object.values(Game.spawns),{body:"immortan"},{maxRCL:8})`.
-- Push and check in one line: `npx gulp season 2>&1 | grep -i "error\|Committed"`.
-  `Committed` = pushed; any `error` line is a TS error that did **not** stop the
-  push. `npx gulp compile` compiles without pushing.
+- Push and check in one line: `npx gulp deploy 2>&1 | grep -i "error\|Committed"`.
+  `Committed` = pushed; a TS error fails the `compile` series (`tsErrors`
+  task, since 4 Nov 2026) so nothing is pushed and the line is absent. The
+  exit status of a pipeline is the last command's, so test the gulp output,
+  not `$?`, when chaining a push after a compile. `npx gulp compile`
+  compiles without pushing.
 - Every push is a global reset: module-level state (memo `Map`s, constants
   edited in-game) is rebuilt from source, `Memory` (creep memory included)
   survives. Pushes are rate limited (the `RateLimiting: (N/240 ...)` counter in
@@ -422,8 +425,10 @@ legacy systems did: [docs/legacy-systems.md](docs/legacy-systems.md).
   methods on `Creep.prototype` until a Task2 port exists.
 - Keep `main.js` import order: TS roles before the `mods` loop, and
   `process.Service.boot()` after every `@register`.
-- Compile errors do not stop `gulp season`/`deploy`; check the gulp output.
-  `npx gulp compile` alone checks TypeScript and module cycles.
+- A TypeScript error or a require cycle fails `gulp compile`, and with it
+  `deploy`/`season`/`ptr`, before anything is pushed (`tsErrors` and
+  `cycles` tasks); `distjs/` is still written. `npx gulp compile` alone
+  runs both checks.
 - When you change what a mission or job does, update its row here and in
   `docs/missions-and-jobs.md`, `docs/creep-roles.md` and
   `docs/file-inventory.md`. Do not write live game state (rooms, schedules,
