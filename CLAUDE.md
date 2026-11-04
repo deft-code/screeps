@@ -146,8 +146,10 @@ Docs: [missions-and-jobs](docs/missions-and-jobs.md),
 
 Base-room roles laid by `GlobalRespawn`/`Hub` (legacy `roleXxx` methods behind
 the `job.role.ts` bridge): `startup`/`reboot` (`role.bootstrap.js`), `worker`
-(`role.worker.js`), `ctrl` (`role.ctrl.js`), `hauler` (`role.hauler.js`), `hub`
-(`role.hub.ts`), `asrc`/`bsrc` (`role.src.ts`); and pure jobs `upgrader`
+(`role.worker.js`), `hauler` (`role.hauler.js`), `hub`
+(`role.hub.ts`), `asrc`/`bsrc` (`role.src.ts`); and pure jobs `ctrl`
+(`job.ctrl.ts`: ctrl spot, fill to one upgrade's worth then upgrade, the
+`carry` nudge when empty), `upgrader`
 (`job.upgrader.ts`, only while RCL < 8 and storage >= 100k energy),
 `ctrlhauler` (`job.ctrlhauler.ts`), `hubminer` (`job.hubminer.ts`, drop-mines
 the `min` meta's mineral, never thorium), `hubminecart` (`job.hubminecart.ts`, a

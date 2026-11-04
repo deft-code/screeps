@@ -35,7 +35,7 @@ export class CtrlHauler extends JobRole {
         if ((room.storage?.store.energy || 0) < kStorageEnergy) return 0;
         const cont = CtrlHauler.container(room);
         if (!cont || cont.store.energy > 0) return 0;
-        // The ctrl creep withdraws from an adjacent storage itself (role.ctrl.js).
+        // The ctrl creep withdraws from an adjacent storage itself (job.ctrl.ts).
         if (room.storage?.pos.isNearTo(cont)) return 0;
         const ctrls = mission.roleCreeps("ctrl").filter(c => c.c);
         if (!ctrls.length || _.any(ctrls, c => c.c.store.energy > 0)) return 0;

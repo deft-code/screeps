@@ -322,7 +322,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       space (memory.dropid), then the next; every transfer passes what fits; null when home has no space
      └─ JobRole              bridge to legacy roles: start() calls creep.run()/after() (job.role.ts)
          ├─ Worker  @register              (job.worker.ts)
-         ├─ Ctrl    @register              (job.ctrl.ts)   boosts XGH2O, ecap rules; spawns only with the room full (energyAvailable >= min(capacity, 5000))
+         ├─ Ctrl    @register              (job.ctrl.ts)   pure job (no role.ctrl.js, no boosts): ctrl spot, fill from an adjacent store to one upgrade's worth (empty: carry nudge so the withdraw feeds the same tick's upgrade), upgrade; ecap rules; spawns only with the room full (energyAvailable >= min(capacity, 5000))
          ├─ Hub     @register              (job.hub.ts)    needs storage + meta 'hub' spot
          ├─ Hauler  @register  priority 9  (job.hauler.ts) energy = min(2500, ecap/2)
          ├─ CtrlHauler @register priority -1 (job.ctrlhauler.ts) storage -> Meta_ctrl container shuttle; body 'hauler' (<= 1500 energy, local);

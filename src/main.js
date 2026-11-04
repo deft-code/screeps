@@ -195,7 +195,6 @@ const mods = [
   'role.cleaner',
   'role.collector',
   'role.coresrc',
-  'role.ctrl',
   'role.declaimer',
   'role.defender',
   'role.drain',

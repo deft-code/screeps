@@ -126,7 +126,7 @@ Status legend:
 | `src/creep.work.js` | LIVE | 2017 | Upgrade/reserve/harvest-spot tasks used by startup/worker/ctrl. |
 | `src/creep.oldrepair.js` | LIVE (partly) | 2020 | `taskTurtle*` used by worker/bootstrap; references undefined `room.wallMax`/`room.turtle`. |
 | `src/creep.attack.js`, `creep.dismantle.js`, `creep.heal.js` | DEAD | 2017 | Combat helpers for roles no job spawns. |
-| `src/role.bootstrap.js` (`startup`), `role.reboot.js`, `role.worker.js`, `role.ctrl.js`, `role.hauler.js` | LIVE | 2017-18 | Live legacy roles. |
+| `src/role.bootstrap.js` (`startup`), `role.reboot.js`, `role.worker.js`, `role.hauler.js` | LIVE | 2017-18 | Live legacy roles (`role.ctrl.js` was ported into `job.ctrl.ts` and deleted, Nov 2026). |
 | `src/role.hub.ts`, `src/role.src.ts` (`asrc`/`bsrc`) | LIVE | 2019-20 | Live TS roles. |
 | `src/role.cap.ts`, `role.mason.ts`, `role.mineral.ts`, `role.shovel.ts`, `role.shunt.ts` (`core`/`aux`), `role.depositfarmer.ts` | REACHABLE | 2020 | TS roles with no job class. |
 | `src/role.archer.js`, `bulldozer`, `caboose`, `cart`, `chemist`, `claimer`, `cleaner`, `collector`, `coresrc`, `declaimer`, `defender`, `drain`, `dropper`, `farmer`, `guard`, `harvester`, `manual`, `medic`, `minecart`, `miner`, `paver`, `power`, `ram`, `rambo`, `reserver`, `scout`, `srcer`, `stomper`, `trucker`, `upgrader`, `wolf`, `zombiefarmer` (`.js`) | REACHABLE (no job) | 2017-19 | Legacy roles merged onto `Creep`; see [creep-roles.md](creep-roles.md). |
