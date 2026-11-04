@@ -320,7 +320,7 @@ export class MyPowerCreep extends TPowerCreep implements MyBaseCreep {
 
     // One step; the move intent is the direction. No moveTo or moveByPath:
     // walks go through the Rewalker (walkTo / walkRoom).
-    move(direction: DirectionConstant): ScreepsReturnCode {
+    moveDir(direction: DirectionConstant): ScreepsReturnCode {
         const err = this.tryc.move(direction);
         if (err === OK) this.intents.setMove(direction);
         else this.dlog("move", "failed", err);

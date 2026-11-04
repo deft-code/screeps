@@ -231,9 +231,9 @@ export class Toxic extends Guard {
     // An exit tile bounces the creep back across the border next tick.
     stepOffEdge() {
         const { x, y } = this.pos;
-        if (x === 0) this.moveDir(RIGHT);
-        else if (x === 49) this.moveDir(LEFT);
-        else if (y === 0) this.moveDir(BOTTOM);
-        else if (y === 49) this.moveDir(TOP);
+        if (x === 0) this.walkDir(RIGHT);
+        else if (x === 49) this.walkDir(LEFT);
+        else if (y === 0) this.walkDir(BOTTOM);
+        else if (y === 49) this.walkDir(TOP);
     }
 }

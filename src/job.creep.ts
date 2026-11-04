@@ -59,13 +59,13 @@ export class JobCreep extends MyCreep {
         const y = this.pos.y;
         if (target.pos.roomName === this.pos.roomName) {
             if (x === 0) {
-                this.moveDir(RIGHT);
+                this.walkDir(RIGHT);
             } else if (x === 49) {
-                this.moveDir(LEFT);
+                this.walkDir(LEFT);
             } else if (y === 0) {
-                this.moveDir(BOTTOM);
+                this.walkDir(BOTTOM);
             } else if (y === 49) {
-                this.moveDir(TOP);
+                this.walkDir(TOP);
             }
             this.dlog('moveRoom done');
             return "start";
@@ -77,14 +77,12 @@ export class JobCreep extends MyCreep {
         return this.moveTarget(target, range);
     }
 
-    moveDir(dir: DirectionConstant): Task2Ret {
-        const ret = this.c.move(dir);
-        if (ret === ERR_BUSY || ret === ERR_TIRED) {
-            return "wait";
-        }
-        if (ret === OK) {
-            return "wait";
-        }
+    // One step as a Task2 answer: "wait" while the step went through (or
+    // the creep is tired or busy), "start" on any other error. The intent
+    // is recorded by MyCreep.moveDir.
+    walkDir(dir: DirectionConstant): Task2Ret {
+        const ret = this.walkDir(dir);
+        if (ret === OK || ret === ERR_BUSY || ret === ERR_TIRED) return "wait";
         return "start";
     }
 
@@ -110,7 +108,7 @@ export class JobCreep extends MyCreep {
     moveChase(target: HasPos): Task2Ret {
         if (!this.pos.isNearTo(target.pos)) return this.moveTarget(target, 1);
         if (this.pos.isEqualTo(target.pos)) return "wait";
-        return this.moveDir(this.pos.getDirectionTo(target.pos));
+        return this.walkDir(this.pos.getDirectionTo(target.pos));
     }
 
     // Both walks honour memory.rewalksk (creep.move.ts): keeper rooms

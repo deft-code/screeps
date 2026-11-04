@@ -63,7 +63,7 @@ export interface MyBaseCreep {
     pickup(resource: Resource): ScreepsReturnCode;
     drop(resource: ResourceConstant, amount?: number): ScreepsReturnCode;
     say(message: string, toPublic?: boolean): ScreepsReturnCode;
-    move(direction: DirectionConstant): ScreepsReturnCode;
+    moveDir(direction: DirectionConstant): ScreepsReturnCode;
     // A Rewalker walk: OK within range, a direction while stepping, else an error.
     walkTo(pos: RoomPosition, range?: number): WalkReturnCode;
     // Toward a room's middle until inside its core.

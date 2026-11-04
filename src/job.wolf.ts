@@ -201,7 +201,7 @@ export class Wolf extends JobRole {
         }
         if (this.pos.isNearTo(exit)) {
             this.crossing = true;
-            this.moveDir(this.pos.getDirectionTo(exit));
+            this.walkDir(this.pos.getDirectionTo(exit));
         } else {
             this.movePos(exit, 1);
         }

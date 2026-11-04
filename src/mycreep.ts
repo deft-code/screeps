@@ -207,19 +207,22 @@ export class MyCreep extends TCreep implements MyBaseCreep {
         return this._intents.current;
     }
 
-    // One step in a direction, or (being pulled) onto the puller's tile:
-    // the move intent is the direction either way, and a pulled creep
-    // records its puller's name as well. No moveTo or moveByPath: walks go
-    // through the Rewalker (walkTo / walkRoom).
-    move(target: DirectionConstant | Creep): ScreepsReturnCode {
+    // One step in a direction. No moveTo or moveByPath: walks go through
+    // the Rewalker (walkTo / walkRoom).
+    moveDir(direction: DirectionConstant): ScreepsReturnCode {
+        const err = this.c.move(direction);
+        if (err === OK) this.intents.setMove(direction);
+        else this.dlog("move", "failed", err);
+        return err;
+    }
+
+    // The pulled creep's half of a pull: step onto the puller's tile. The
+    // move intent is the direction to the puller, `pulled` its name.
+    pullBy(puller: Creep): ScreepsReturnCode {
         const c = this.c;
-        const err = typeof target === "number" ? c.move(target) : c.move(target);
-        if (err === OK) {
-            if (typeof target === "number") this.intents.setMove(target);
-            else this.intents.setPulled(target, c.pos);
-        } else {
-            this.dlog("move", "failed", err);
-        }
+        const err = c.move(puller);
+        if (err === OK) this.intents.setPulled(puller, c.pos);
+        else this.dlog("pullBy", puller.name, "failed", err);
         return err;
     }
 
@@ -324,8 +327,8 @@ export class MyCreep extends TCreep implements MyBaseCreep {
 
     // Pull `target` along. A pull only works when the pulled creep moves
     // toward the puller the same tick, so when it is one of ours and has
-    // not moved yet, its move(this.c) is issued here too (recording its
-    // `pulled`); one that already moved this tick is left to its own step.
+    // not moved yet, its pullBy(this.c) is issued here too; one that
+    // already moved this tick is left to its own step.
     pull(target: Creep): ScreepsReturnCode {
         const err = this.c.pull(target);
         if (err !== OK) {
@@ -335,7 +338,7 @@ export class MyCreep extends TCreep implements MyBaseCreep {
         this.intents.setPull(target);
         if (target.my) {
             const pulled = getMyCreep(target.name);
-            if (pulled.intents.canMove()) pulled.move(this.c);
+            if (pulled.intents.canMove()) pulled.pullBy(this.c);
             else this.dlog("pull", target.name, "already moved this tick");
         }
         return err;

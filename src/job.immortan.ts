@@ -133,7 +133,7 @@ export class Immortan extends JobRole {
         // move and the claim below go out in the same tick.
         if (thoriumAt(this.pos) >= kAgingThorium) {
             const spot = this.cleanSpot(reactor);
-            if (spot) this.moveDir(this.pos.getDirectionTo(spot));
+            if (spot) this.walkDir(this.pos.getDirectionTo(spot));
         }
         this.tend(reactor);
         // Ownership can be taken by anyone; sit here and re-claim the tick it
