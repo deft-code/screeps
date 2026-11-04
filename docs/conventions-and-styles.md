@@ -68,16 +68,21 @@ the layer you are editing; new behaviour goes in the 2022 style.
   persist resumable tasks in `memory.task2`.
 - Population control is TTL-based (`nCreeps`) instead of tick pacing.
 
-Intents in a job (Nov 2026): issue engine actions through the wrapper's own
-methods (`this.withdraw(target, res)`, `this.transfer(...)`, `this.heal(...)`,
-`this.walkTo(pos, range)`; on a power creep `this.operateSpawn(spawn)` and
-the other per-power wrappers): they answer `ERR_BUSY` when that kind was
-already issued this tick and record `intents.<kind>` on `OK`, so a job need
-not test `this.intents` by hand. `this.c.withdraw(...)` is still legal but
-records nothing. Shared logic for a creep and a power creep takes a
-`MyBaseCreep` (`mybasecreep.ts`), as `swipe.ts` does; a job's own Task2
-methods must not reuse the engine's action names (`attack`, `harvest`,
-`dismantle`, ...), which are the wrappers'.
+Intents in a job (Nov 2026): before deciding on an action, check its slot
+with the `intents.ts` predicates (`this.intents.canWork()`, `canAttack()`,
+`canRange()`, `canMove()`, `canTransfer()`, `canWithdraw()`, `canPickup()`,
+`canDrop()`) and skip the target picking as well as the intent when it is
+taken; issue the action through the wrapper's own method
+(`this.withdraw(target, res)`, `this.transfer(...)`, `this.heal(...)`,
+`this.walkTo(pos, range)`; on a power creep `this.operateSpawn(spawn)` and the
+other per-power wrappers), which records the intent on `OK` (`setWork`,
+`setAttack`, `setMove(tile)`, ...) and refuses nothing. `this.c.withdraw(...)`
+is still legal but records nothing; a legacy `goXxx` records through the
+same `set*` methods. No `moveTo`/`moveByPath`: walks go through the Rewalker.
+Shared logic for a creep and a power creep takes a `MyBaseCreep`
+(`mybasecreep.ts`), as `swipe.ts` does; a job's own Task2 methods must not
+reuse the engine's action names (`attack`, `harvest`, `dismantle`, ...),
+which are the wrappers'.
 
 ## Naming rules that code depends on
 

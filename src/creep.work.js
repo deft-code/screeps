@@ -14,7 +14,7 @@ module.exports = class CreepWork {
   }
 
   idleUpgrade () {
-    if (this.intents.melee || this.intents.range) return false
+    if (!this.intents.canWork()) return false
 
     return this.goUpgradeController(this.room.controller, false)
   }
@@ -55,7 +55,7 @@ module.exports = class CreepWork {
   goUpgradeController (controller, move = true) {
     const err = this.upgradeController(controller)
     if (err === OK) {
-      this.intents.melee = this.intents.range = controller
+      this.intents.setWork(controller)
       return controller.progress || 'MAX!'
     }
     if (move && err === ERR_NOT_IN_RANGE) {
@@ -65,7 +65,7 @@ module.exports = class CreepWork {
   }
 
   idleHarvest () {
-    if (this.intents.melee || this.intents.range) return false
+    if (!this.intents.canWork()) return false
     const srcs = this.room.find(FIND_SOURCES_ACTIVE)
     const src = _.find(srcs, s => this.pos.isNearTo(s))
     return this.goHarvest(src, false)
@@ -131,7 +131,7 @@ module.exports = class CreepWork {
     const where = this.movePos({pos: spot})
     const err = this.harvest(src)
     if (err === OK) {
-      this.intents.melee = src
+      this.intents.setWork(src)
       this.dlog('harvest', where, err, src.energy)
       return src.energy
     }

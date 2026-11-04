@@ -77,9 +77,9 @@ export class Micro extends JobRole {
 
     shoot(target: Creep) {
         const c = this.cc;
-        if (c.intents.range || !this.pos.inRangeTo(target, 3)) return;
+        if (!c.intents.canRange() || !this.pos.inRangeTo(target, 3)) return;
         const err = c.rangedAttack(target);
-        if (err === OK) c.intents.range = target;
+        if (err === OK) c.intents.setRange(target);
         else this.log("rangedAttack failed", err, target);
     }
 

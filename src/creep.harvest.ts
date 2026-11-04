@@ -8,7 +8,7 @@ export class CreepHarvest extends CreepCarry {
         const err = this.harvest(src);
         this.dlog(`goharvest ${err}`);
         if (err === OK) {
-            this.intents.melee = this.intents.range = src;
+            this.intents.setWork(src);
             return 'harvesting';
         }
         if (move && err === ERR_NOT_IN_RANGE) {

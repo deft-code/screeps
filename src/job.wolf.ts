@@ -246,7 +246,7 @@ export class Wolf extends JobRole {
             this.log("attack failed", err, target);
             return "start";
         }
-        if (err === OK) c.intents.melee = target;
+        if (err === OK) c.intents.setAttack(target);
         // moveChase: walk to range 1, then step at the target's square every
         // tick so a fleeing creep stays in reach. Creeps and structures
         // alike: it takes any target.
@@ -266,14 +266,14 @@ export class Wolf extends JobRole {
     after() {
         if (!this.c) return;
         const c = this.cc;
-        if (!c.intents.melee) {
+        if (c.intents.canAttack()) {
             const enemy = this.pos.findClosestByRange(this.enemies);
             if (enemy && this.pos.isNearTo(enemy) && c.attack(enemy) === OK) {
-                c.intents.melee = enemy;
+                c.intents.setAttack(enemy);
             }
         }
-        if (!c.intents.melee && c.hurts && c.activeByType.get(HEAL)) {
-            if (c.heal(c) === OK) c.intents.melee = c;
+        if (c.intents.canAttack() && c.hurts && c.activeByType.get(HEAL)) {
+            if (c.heal(c) === OK) c.intents.setAttack(c);
         }
     }
 }

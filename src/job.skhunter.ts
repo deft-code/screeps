@@ -140,12 +140,12 @@ export class Skhunter extends JobCreep {
     swing() {
         this.healedSelf = false;
         const c = this.cc;
-        if (c.intents.melee) return;
+        if (!c.intents.canAttack()) return;
         const enemies = this.enemies;
         const adjacent = this.pos.findClosestByRange(enemies.filter(e => this.pos.isNearTo(e)));
         if (adjacent) {
             if (c.attack(adjacent) === OK) {
-                c.intents.melee = adjacent;
+                c.intents.setAttack(adjacent);
                 return;
             }
             this.log("attack failed", adjacent);
@@ -153,7 +153,7 @@ export class Skhunter extends JobCreep {
         const threatened = _.any(enemies, e => this.pos.inRangeTo(e, kThreatRange));
         if ((c.hurts || threatened) && c.activeByType.get(HEAL)) {
             if (c.heal(c) === OK) {
-                c.intents.melee = c;
+                c.intents.setAttack(c);
                 this.healedSelf = true;
                 return;
             }

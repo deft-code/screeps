@@ -30,7 +30,7 @@ export function randomResource(resources: GenericStore): ResourceConstant {
 export class CreepCarry extends CreepMove {
   idleTransferAny() {
     if (!this.store.energy) return false
-    if (this.intents.transfer) return false
+    if (!this.intents.canTransfer()) return false
 
     const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
 
@@ -43,7 +43,7 @@ export class CreepCarry extends CreepMove {
   }
 
   idleTransferExtn(): TaskRet {
-    if (this.intents.transfer) return false;
+    if (!this.intents.canTransfer()) return false;
     if (!this.store.energy) return false;
     const looks = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true);
     for (const look of looks) {
@@ -58,7 +58,7 @@ export class CreepCarry extends CreepMove {
 
   idleTransferExtra() {
     if (!this.store.energy) return false
-    if (this.intents.transfer) return false
+    if (!this.intents.canTransfer()) return false
 
     const spots = this.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
 
@@ -195,13 +195,13 @@ export class CreepCarry extends CreepMove {
   goTransfer(target: XferStruct, resource: ResourceConstant, move = true) {
     this.dlog('goTransfer', target, resource);
 
-    if (this.intents.transfer) {
+    if (!this.intents.canTransfer()) {
       return (move && this.moveNear(target)) || 'waitTransfer';
     }
 
     const err = this.transfer(target, resource);
     if (err === OK) {
-      this.intents.transfer = target;
+      this.intents.setTransfer(target);
       target.tick.transfer = this.name;
       return 'success';
     }
@@ -213,7 +213,7 @@ export class CreepCarry extends CreepMove {
   }
 
   idleWithdrawExtra() {
-    if (this.intents.withdraw) return false;
+    if (!this.intents.canWithdraw()) return false;
     if (!this.store.getFreeCapacity()) return false;
 
     const spots =
@@ -246,8 +246,8 @@ export class CreepCarry extends CreepMove {
   }
 
   idleRecharge() {
-    if (this.intents.withdraw) return false;
-    if (!this.intents.move && this.store.getFreeCapacity() < this.store.energy) return false;
+    if (!this.intents.canWithdraw()) return false;
+    if (this.intents.canMove() && this.store.getFreeCapacity() < this.store.energy) return false;
 
     const lruins = _.shuffle(this.room.lookForAtRange(LOOK_RUINS, this.pos, 1, true));
     for (const lruin of lruins) {
@@ -413,7 +413,7 @@ export class CreepCarry extends CreepMove {
     this.dlog('goWithdraw', target, resource)
     const err = this.withdraw(target, resource)
     if (err === OK) {
-      this.intents.withdraw = target
+      this.intents.setWithdraw(target)
       return 'success'
     }
     if (err === ERR_NOT_IN_RANGE) {
@@ -425,7 +425,7 @@ export class CreepCarry extends CreepMove {
 
   idleNomNom() {
     if (!this.store.getFreeCapacity()) return false
-    if (this.intents.pickup) return false
+    if (!this.intents.canPickup()) return false
 
     const spot = _.sample(this.room.lookForAtRange(LOOK_RESOURCES, this.pos, 1, true))
     if (spot) {
@@ -454,7 +454,7 @@ export class CreepCarry extends CreepMove {
   // ruin. No movement; one pickup or withdraw intent at most.
   idleNomType(resource: ResourceConstant) {
     if (!this.store.getFreeCapacity()) return false
-    if (this.intents.pickup) return false
+    if (!this.intents.canPickup()) return false
 
     const spot = _.find(
       this.room.lookForAtRange(LOOK_RESOURCES, this.pos, 1, true),
@@ -464,7 +464,7 @@ export class CreepCarry extends CreepMove {
       return this.goPickup(spot[LOOK_RESOURCES], false)
     }
 
-    if (this.intents.withdraw) return false
+    if (!this.intents.canWithdraw()) return false
 
     const tomb = _.find(
       this.room.lookForAtRange(LOOK_TOMBSTONES, this.pos, 1, true),
@@ -518,7 +518,7 @@ export class CreepCarry extends CreepMove {
   goPickup(resource: Resource, move = true) {
     const err = this.pickup(resource)
     if (err === OK) {
-      this.intents.pickup = resource
+      this.intents.setPickup(resource)
       return 'success'
     }
     if (err === ERR_NOT_IN_RANGE) {

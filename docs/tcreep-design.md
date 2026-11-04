@@ -557,26 +557,38 @@ enemyOf / enemyById / enemiesIn      enemy.ts       the registry (tobj.ts Regist
   `exists` tells. `pos` keeps the asserting form (`this.c.pos`) the jobs rely
   on; the base's geometry readers read the live object and answer false for
   an egg.
-- `MyBaseCreep` (`mybasecreep.ts`): `intents` (per tick: `move`, `withdraw`,
-  `transfer`, `pickup`, `drop`, `melee`, `range`, `say`, `power`, ...), the
-  action wrappers (`withdraw`/`transfer`/`pickup`/`drop`/`say`/`move`, and on
-  MyCreep every Creep action, on MyPowerCreep every PowerCreep action plus
-  one wrapper per power: `generateOps()`, `operateSpawn(spawn)`, `shield()`,
-  ...), `homeName` (the room it works for: a mission's home, a power creep's
-  `memory.home`; else the birth room) and `birthName` (the room it spawned
-  in: `memory.home` on a creep, written by `spawn.ts`; `memory.birth` on a
-  power creep, written by `spawn()`), `walkTo(pos, range)` and
-  `walkRoom(room, range)` on the Rewalker. The shared bodies are the
-  exported functions `issue`/`issueWork`/`walkTo`/`walkRoom`/`planWalk`,
-  called from each class's own methods (the two cannot share a class).
-  `issue` answers `ERR_BUSY` without calling the engine when the kind's
-  slot is already taken this tick, records `intents.<kind>` on `OK` and
-  `dlog`s anything else; `issueWork` is the same over the `melee` + `range`
-  pair for harvest/build/repair/dismantle/upgradeController/attackController/
-  claimController/reserveController/generateSafeMode, as creep.build.ts and
-  creep.repair.ts have always done. A `MyCreep`'s record is its Creep's
-  `tick.intents`, the one the legacy roles on `Creep.prototype` use, so a
-  wrapper call and a legacy `goXxx` see each other's work.
+- `Intents` (`intents.ts`): the per-tick record, an instance per creep per
+  tick (a Creep's `tick.intents`, made by `CreepRole.intents`; a
+  MyPowerCreep's `IntentLog`). Slots `move` (the tile stepped toward),
+  `pull`/`pulled` (names), `withdraw`, `transfer`, `pickup`, `drop`, `melee`
+  (attack, heal), `range` (the ranged three), both for the work actions, and
+  the odd ones (`say`, `power`, `renew`, ...). Checks `canMove()`,
+  `canWithdraw()`, `canTransfer()`, `canPickup()`, `canDrop()`, `canAttack()`,
+  `canRange()`, `canWork()` (both slots), `canRenew()`, `has(kind)`; records
+  `setMove(tile)`, `setPulled(puller)` (the puller's tile plus its name),
+  `setPull(creep)`, `setWithdraw`/`setTransfer`/`setPickup`/`setDrop`,
+  `setAttack`, `setRange`, `setWork` (both), `setRenew`, `set(kind, what)`.
+  Every access in the code base, the legacy JS mixins included, goes
+  through these (Nov 2026). Nothing refuses: a caller that wants to skip an
+  action when its slot is taken checks first, target picking and all.
+- `MyBaseCreep` (`mybasecreep.ts`): `intents`, the action wrappers
+  (`withdraw`/`transfer`/`pickup`/`drop`/`say`/`move`, and on MyCreep every
+  Creep action, on MyPowerCreep every PowerCreep action plus one wrapper per
+  power: `generateOps()`, `operateSpawn(spawn)`, `shield()`, ...), each
+  recording its intent on `OK` and `dlog`ing anything else, `homeName` (the
+  room it works for: a mission's home, a power creep's `memory.home`; else
+  the birth room) and `birthName` (the room it spawned in: `memory.home` on
+  a creep, written by `spawn.ts`; `memory.birth` on a power creep, written
+  by `spawn()`), `walkTo(pos, range)` and `walkRoom(room, range)` on the
+  Rewalker, which record the tile stepped toward. `move(direction | creep)`
+  on MyCreep records the tile, or being pulled the puller's tile and name
+  (`setPulled`); `pull(creep)` records the pulled creep's name. There is no
+  `moveTo` or `moveByPath` wrapper: walks go through the Rewalker. The shared
+  bodies are the exported functions `issue`/`issueWork`/`walkTo`/`walkRoom`/
+  `planWalk`, called from each class's own methods (the two cannot share a
+  class). A `MyCreep`'s record is its Creep's `tick.intents`, the one the
+  legacy roles on `Creep.prototype` use, so a wrapper call and a legacy
+  `goXxx` see each other's work.
 - Collisions resolved while introducing the wrappers: the jobs' own Task2
   methods `dismantle` (Chaos, Razer) became `chew`, `harvest` (Thoreater,
   Warboy) `mine`, `attack` (Wolf, Wicktwo) `fight`, and Wicktwo's typed

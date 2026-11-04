@@ -18,9 +18,10 @@
 // (enableRoom, once per room, adjacent); PWR_GENERATE_OPS ran whenever idle
 // and off cooldown. Behaviour belongs to services such as ms.furiosa.ts.
 import type { DebugMemory } from "debug";
-import { WalkReturnCode } from "Rewalker";
+import { positionAtDirection, WalkReturnCode } from "Rewalker";
 import { CreepKind, TAnyCreep } from "tanycreep";
-import { IntentLog, Intents, issue, MyBaseCreep, walkRoom, walkTo } from "mybasecreep";
+import { IntentLog, issue, MyBaseCreep, walkRoom, walkTo } from "mybasecreep";
+import { Intents } from "intents";
 import * as swipe from "swipe";
 import { swipeWorth } from "swipeworth";
 
@@ -317,16 +318,14 @@ export class MyPowerCreep extends TPowerCreep implements MyBaseCreep {
 
     // --- movement --------------------------------------------------------------
 
+    // One step; the move intent is the tile stepped toward. No moveTo or
+    // moveByPath: walks go through the Rewalker (walkTo / walkRoom).
     move(direction: DirectionConstant): ScreepsReturnCode {
-        return issue(this, "move", () => this.tryc.move(direction), direction);
-    }
-
-    moveTo(target: RoomPosition | { pos: RoomPosition }, opts?: MoveToOpts): ScreepsReturnCode {
-        return issue(this, "move", () => this.tryc.moveTo(target, opts), target);
-    }
-
-    moveByPath(path: PathStep[] | RoomPosition[] | string): ScreepsReturnCode {
-        return issue(this, "move", () => this.tryc.moveByPath(path), path);
+        const c = this.tryc;
+        const err = c.move(direction);
+        if (err === OK) this.intents.setMove(positionAtDirection(c.pos, direction));
+        else this.dlog("move", "failed", err);
+        return err;
     }
 
     // Walk toward pos; OK once within range, a direction while moving, else an error.
@@ -366,7 +365,7 @@ export class MyPowerCreep extends TPowerCreep implements MyBaseCreep {
     // Renew at a power spawn we happen to stand next to; no movement. Power
     // creeps live 5000 ticks per renew and die for good when TTL runs out.
     idleRenew(): boolean {
-        if (this.intents.renew) return true;
+        if (!this.intents.canRenew()) return true;
         const room = this.room;
         if (!room) return false;
         const ps = _.find(room.findStructs(STRUCTURE_POWER_SPAWN) as StructurePowerSpawn[], s => s.my && this.isNearTo(s));

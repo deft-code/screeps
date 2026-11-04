@@ -5,7 +5,7 @@ module.exports = class CreepHeal {
   // reach: fighters (ATTACK or RANGED_ATTACK parts) before civilians, the
   // most hurt first (heal.ts healPick).
   idleHeal() {
-    if (this.intents.melee) return false
+    if (!this.intents.canAttack()) return false
 
     if (this.hurts) {
       return this.goHeal(this, false)
@@ -18,7 +18,7 @@ module.exports = class CreepHeal {
       return this.goHeal(creep, false)
     }
 
-    if (this.intents.range) {
+    if (!this.intents.canRange()) {
       // Overheal
       if (this.room.hostiles.length > 0) {
         return this.goHeal(this, false)
@@ -44,7 +44,7 @@ module.exports = class CreepHeal {
   goHeal(creep, move = true) {
     const err = this.heal(creep)
     if (err === OK) {
-      this.intents.melee = creep
+      this.intents.setAttack(creep)
       move && this.moveBump(creep)
       return creep.hurts
     }
@@ -57,7 +57,7 @@ module.exports = class CreepHeal {
   goRangedHeal(creep, move = true) {
     const err = this.rangedHeal(creep)
     if (err === OK) {
-      this.intents.melee = this.intents.range = creep
+      this.intents.setWork(creep)
       return creep.hurts
     }
     if (move && err === ERR_NOT_IN_RANGE) {

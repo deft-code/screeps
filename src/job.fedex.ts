@@ -142,7 +142,7 @@ export class Fedex extends Trucker {
             return "wait";
         }
         const err = c.withdraw(storage, RESOURCE_ENERGY, amount);
-        if (err === OK) c.intents.withdraw = storage;
+        if (err === OK) c.intents.setWithdraw(storage);
         else this.log("withdraw failed", err, amount, storage);
         return "wait";
     }
@@ -197,10 +197,10 @@ export class Fedex extends Trucker {
         if (wants <= 0 || (wants < kMinHandout && !this.pos.isNearTo(taker))) return "start";
         if (this.fleeing) return "wait";
         if (!this.pos.isNearTo(taker)) return this.moveTarget(taker, 1);
-        if (c.intents.transfer) return "wait";
+        if (!c.intents.canTransfer()) return "wait";
         const amount = Math.min(c.store.energy, wants);
         const err = c.transfer(taker, RESOURCE_ENERGY, amount);
-        if (err === OK) c.intents.transfer = taker;
+        if (err === OK) c.intents.setTransfer(taker);
         else this.log("donate failed", err, amount, taker);
         return "wait";
     }

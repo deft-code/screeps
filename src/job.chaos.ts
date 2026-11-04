@@ -149,14 +149,14 @@ export class Chaos extends JobCreep {
     // move, not the Rewalker, so nothing gets bumped for it.
     doDismantle(target: Structure): boolean {
         const c = this.cc;
-        if (c.intents.melee || c.intents.range) return false;
+        if (!c.intents.canWork()) return false;
         const err = c.dismantle(target);
         if (err !== OK) {
             this.log("dismantle", target, "failed", err);
             return false;
         }
-        c.intents.melee = c.intents.range = target;
-        if (target.structureType === STRUCTURE_ROAD && !c.intents.move && !this.pos.isEqualTo(target.pos)) {
+        c.intents.setWork(target);
+        if (target.structureType === STRUCTURE_ROAD && c.intents.canMove() && !this.pos.isEqualTo(target.pos)) {
             c.moveDir(this.pos.getDirectionTo(target));
         }
         return true;
@@ -167,7 +167,7 @@ export class Chaos extends JobCreep {
     // mission room (the walk in, a flight, a room just left).
     idleDismantle(): boolean {
         const c = this.cc;
-        if (c.intents.melee || c.intents.range) return false;
+        if (!c.intents.canWork()) return false;
         const room = c.room;
         if (room.controller?.my || room.controller?.reservation?.username === whoami()) return false;
         if (Game.map.getRoomLinearDistance(room.name, this.mission.roomName) > kIdleRooms) return false;

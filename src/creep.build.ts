@@ -14,7 +14,7 @@ export function buildRange(pos: RoomPosition): number {
 @injecter(Creep)
 export class CreepBuild extends CreepHarvest {
   idleBuild() {
-    if (this.intents.melee || this.intents.range) return false;
+    if (!this.intents.canWork()) return false;
     const site = _(this.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3))
       .sortBy(site => site.progressTotal - site.progress)
       .first();
@@ -77,7 +77,7 @@ export class CreepBuild extends CreepHarvest {
     const err = this.build(site!);
     let ret : TaskRet = false;
     if (err === OK) {
-      this.intents.melee = this.intents.range = site;
+      this.intents.setWork(site);
       ret = "building";
     }
     const range = buildRange(site.pos);

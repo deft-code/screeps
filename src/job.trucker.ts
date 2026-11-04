@@ -196,7 +196,7 @@ export class Trucker extends JobRole {
     idleFillHome(): string | false {
         const c = this.cc;
         if (this.pos.roomName !== this.homeName) return false;
-        if (c.intents.transfer || !c.store.energy) return false;
+        if (!c.intents.canTransfer() || !c.store.energy) return false;
         const structs = c.room.lookForAtRange(LOOK_STRUCTURES, this.pos, 1, true)
             .map(look => look[LOOK_STRUCTURES])
             .filter(s => isStoreStruct(s) && ((s.store as GenericStore).getFreeCapacity(RESOURCE_ENERGY) || 0) > 0) as AnyStoreStructure[];
@@ -213,7 +213,7 @@ export class Trucker extends JobRole {
     // meant for creep.carry.ts once every job wants it.
     idleShare(): string | false {
         const c = this.cc;
-        if (c.intents.transfer) return false;
+        if (!c.intents.canTransfer()) return false;
         const carried = c.store.energy;
         if (!carried) return false;
         const wants = new Map<string, number>();
@@ -229,7 +229,7 @@ export class Trucker extends JobRole {
         const amount = Math.min(carried, wants.get(name)!);
         const err = c.transfer(target, RESOURCE_ENERGY, amount);
         if (err !== OK) return false;
-        c.intents.transfer = target;
+        c.intents.setTransfer(target);
         return `share ${amount} ${target.name}`;
     }
 }

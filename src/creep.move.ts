@@ -2,7 +2,7 @@ import * as lib from 'lib';
 import { injecter } from 'roomobj';
 import { CreepRole } from 'creep.role';
 import { errStr, dirStr } from 'debug';
-import { defaultRewalker, Rewalker } from 'Rewalker';
+import { defaultRewalker, Rewalker, positionAtDirection } from 'Rewalker';
 
 type HasPos = { pos: RoomPosition };
 type ObjPos = RoomPosition | HasPos;
@@ -58,7 +58,7 @@ export class CreepMove extends CreepRole {
       case BOTTOM_RIGHT:
       case RIGHT:
       case TOP_RIGHT:
-        this.intents.move = pos;
+        this.intents.setMove(positionAtDirection(this.pos, ret as DirectionConstant));
         return `move ${dirStr(ret as DirectionConstant)}@${pos}`;
       case OK:
         return false;
@@ -74,7 +74,7 @@ export class CreepMove extends CreepRole {
         if (this.debug) this.say(errStr(err));
       // fallthrough
       case OK:
-        this.intents.move = intent
+        this.intents.setMove(positionAtDirection(this.pos, intent))
         return `move ${intent}`
     }
     this.dlog('Move Error!', err, intent)

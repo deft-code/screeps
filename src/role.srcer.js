@@ -42,7 +42,7 @@ module.exports = class CreepSrcer {
 
     const err = this.harvest(src)
     if (err === OK) {
-      this.intents.melee = src
+      this.intents.setWork(src)
     }
     this.dlog(`harvest ${err}`)
 

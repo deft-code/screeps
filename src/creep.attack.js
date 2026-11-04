@@ -2,7 +2,7 @@ module.exports = class CreepAttack {
   goRangedAttack (target, move = true) {
     const err = this.rangedAttack(target)
     if (err === OK) {
-      this.intents.range = target
+      this.intents.setRange(target)
       return target.hits
     }
     if (err === ERR_NOT_IN_RANGE) {
@@ -19,14 +19,14 @@ module.exports = class CreepAttack {
     if (err !== OK) return false
 
     if (err === OK) {
-      this.intents.range = 'mass attack'
+      this.intents.setRange('mass attack')
       return this.intents.range
     }
     return false
   }
 
   idleAttack () {
-    if (this.intents.melee) return false
+    if (!this.intents.canAttack()) return false
 
     const creep = this.pos.findClosestByRange(this.room.enemies)
     if (creep && this.pos.isNearTo(creep)) {
@@ -45,7 +45,7 @@ module.exports = class CreepAttack {
     const err = this.attack(target)
     if (err === OK) {
       move && this.moveBump(target)
-      this.intents.melee = target
+      this.intents.setAttack(target)
       return target.id;
     }
     if (err === ERR_NOT_IN_RANGE) {

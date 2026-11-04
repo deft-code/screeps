@@ -101,7 +101,7 @@ module.exports = class CreepChemist {
 
     const err = this.harvest(mineral)
     if (err === OK) {
-      this.intents.melee = this.intents.range = mineral
+      this.intents.setWork(mineral)
       return mineral.mineralAmount
     }
     if (err === ERR_TIRED) {

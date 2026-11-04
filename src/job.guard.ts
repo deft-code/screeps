@@ -266,10 +266,10 @@ export class Guard extends JobRole {
     // Mass attack when adjacent, ranged attack otherwise; one ranged intent per tick.
     shoot(target: Creep, range: number): boolean {
         const c = this.cc;
-        if (c.intents.range) return false;
+        if (!c.intents.canRange()) return false;
         const err = range <= 1 ? c.rangedMassAttack() : c.rangedAttack(target);
         if (err !== OK) return false;
-        c.intents.range = range <= 1 ? "mass attack" : target;
+        c.intents.setRange(range <= 1 ? "mass attack" : target);
         return true;
     }
 
@@ -283,12 +283,12 @@ export class Guard extends JobRole {
         if (this.fighters().length) return "start";
         if (target.hits >= target.hitsMax) return "start";
         const near = this.pos.isNearTo(target);
-        if (near && c.heal(target) === OK) c.intents.melee = target;
+        if (near && c.heal(target) === OK) c.intents.setAttack(target);
         // moveChase: a Rewalker walk to range 1, then a plain step toward the
         // target, so it can keep moving without losing the heal and is never
         // bumped. Beside it the move intent is left unset for an idle to use,
         // and an earlier move this tick is not overridden.
-        if (!near || !c.intents.move) this.moveChase(target);
+        if (!near || c.intents.canMove()) this.moveChase(target);
         return "wait";
     }
 
@@ -321,7 +321,7 @@ export class Guard extends JobRole {
     after() {
         if (!this.c) return;
         const c = this.cc;
-        if (!c.intents.range) {
+        if (c.intents.canRange()) {
             const enemy = this.pos.findClosestByRange(this.potshots());
             if (enemy) this.shoot(enemy, this.pos.getRangeTo(enemy));
         }

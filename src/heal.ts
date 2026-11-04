@@ -30,9 +30,9 @@ export function healPick(hurt: Creep[], score: (c: Creep) => number = c => c.hit
 // Heal ourselves, taking the heal intent (intents.melee); false when it is
 // taken, no HEAL part works or the call fails.
 export function healSelf(c: CreepMove): boolean {
-    if (c.intents.melee || !c.activeByType.get(HEAL)) return false;
+    if (!c.intents.canAttack() || !c.activeByType.get(HEAL)) return false;
     if (c.heal(c) !== OK) return false;
-    c.intents.melee = c;
+    c.intents.setAttack(c);
     return true;
 }
 
@@ -44,20 +44,20 @@ export function healSelf(c: CreepMove): boolean {
 // tick's damage, so one queued under fire is never wasted. True when a heal
 // was queued.
 export function healIdle(c: CreepMove, overheal: boolean): boolean {
-    if (c.intents.melee || !c.activeByType.get(HEAL)) return false;
+    if (!c.intents.canAttack() || !c.activeByType.get(HEAL)) return false;
     if (c.hurts) return healSelf(c);
     const near = hurtFriendlies(c.room.lookForAtRange(LOOK_CREEPS, c.pos, 3, true)
         .map(spot => spot[LOOK_CREEPS] as Creep));
     const adjacent = healPick(near.filter(f => c.pos.isNearTo(f)));
     if (adjacent) {
         if (c.heal(adjacent) !== OK) return false;
-        c.intents.melee = adjacent;
+        c.intents.setAttack(adjacent);
         return true;
     }
     const far = healPick(near);
-    if (far && !c.intents.range) {
+    if (far && c.intents.canRange()) {
         if (c.rangedHeal(far) !== OK) return false;
-        c.intents.melee = c.intents.range = far;
+        c.intents.setWork(far);
         return true;
     }
     return overheal && healSelf(c);

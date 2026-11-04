@@ -24,11 +24,13 @@ Every creep and power creep has a wrapper class on `TAnyCreep`
 `EnemyCreep` (`tcreep.ts`, by id, through `enemy.ts`), and `MyPowerCreep` /
 `EnemyPowerCreep` (`powercreep.ts`). `c` is the game object this tick or
 null and every reader has a null-safe default. `MyCreep` and `MyPowerCreep`
-share the `MyBaseCreep` contract (`mybasecreep.ts`): per-tick `intents`,
-action wrappers that refuse (`ERR_BUSY`) a kind already issued this tick and
-record it on `OK`, `homeName`/`birthName`, `walkTo`/`walkRoom`. A MyCreep's
-intents are its Creep's `tick.intents`, the record the legacy chain below
-reads and writes, so new jobs may mix `this.withdraw(...)` with legacy
+share the `MyBaseCreep` contract (`mybasecreep.ts`): per-tick `intents`
+(`intents.ts`: `canWork()`/`canAttack()`/`canRange()`/`canMove()`/... checks
+before an action, `setWork`/`setAttack`/`setMove(tile)`/... records after),
+action wrappers that record on `OK` and refuse nothing, `homeName`/
+`birthName`, `walkTo`/`walkRoom`. A MyCreep's intents are its Creep's
+`tick.intents`, the record the legacy chain below reads and writes through
+the same helpers, so new jobs may mix `this.withdraw(...)` with legacy
 `this.c.goWithdraw(...)`. Full description: [tcreep-design.md](tcreep-design.md)
 Appendix D. The legacy chain on `Creep.prototype` is unchanged:
 

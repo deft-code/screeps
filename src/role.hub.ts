@@ -144,7 +144,7 @@ export class CreepHub extends CreepCarry {
             }
         }
 
-        if (!xfer && !wd && !this.intents.transfer && !this.intents.withdraw) {
+        if (!xfer && !wd && this.intents.canTransfer() && this.intents.canWithdraw()) {
             return this.withdrawMineral(store, term);
         }
         return false;
@@ -168,7 +168,7 @@ export class CreepHub extends CreepCarry {
             this.dlog('terminal minerals', res, amount);
             const err = this.withdraw(store, res, amount);
             if (err === OK) {
-                this.intents.withdraw = store;
+                this.intents.setWithdraw(store);
                 return 'minerals';
             }
             this.dlog('mineral withdraw failed', err, res, amount);
@@ -192,7 +192,7 @@ export class CreepHub extends CreepCarry {
         this.dlog('terminal drain', res, amount);
         const err = this.withdraw(term, res, amount);
         if (err === OK) {
-            this.intents.withdraw = term;
+            this.intents.setWithdraw(term);
             return 'drain';
         }
         this.dlog('terminal drain failed', err, res, amount);

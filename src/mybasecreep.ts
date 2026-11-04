@@ -4,51 +4,29 @@
 // bodies are the functions below, which the two classes call from their
 // own methods. Code that works on either (swipe.ts) takes a MyBaseCreep.
 //
-// Intents: a record of what the creep has told the engine this tick, by
-// kind (CLAUDE.md convention: set `intents.<kind>` after a successful intent,
-// check it before another). A MyCreep's record is its Creep's `tick.intents`,
-// the one the legacy roles on Creep.prototype read and write, so both layers
-// see one record; a MyPowerCreep keeps its own IntentLog. Kinds:
-//
-//   move        move / moveTo / moveByPath / a Rewalker step
-//   withdraw    withdraw
-//   transfer    transfer
-//   pickup      pickup
-//   drop        drop
-//   melee       the adjacent-only actions: attack, heal, and the work actions
-//   range       the ranged actions: rangedAttack, rangedMassAttack, rangedHeal
-//   say, suicide, power (usePower), enableRoom, renew, spawn, upgrade
-//
-// The work actions (harvest, build, repair, dismantle, upgradeController,
-// attackController, claimController, reserveController, generateSafeMode)
-// take both melee and range, as creep.build.ts/creep.repair.ts have always
-// done: the engine lets a creep do only one of them a tick, and none while
-// it attacks.
-import { defaultRewalker, WalkReturnCode } from "Rewalker";
+// Intents: the per-tick record of what the creep has told the engine
+// (intents.ts: can*() checks before deciding, set*() after a successful
+// intent). A MyCreep's record is its Creep's `tick.intents`, the one the
+// legacy roles on Creep.prototype read and write, so both layers see one
+// record; a MyPowerCreep keeps its own IntentLog. The action wrappers only
+// record: a caller that wants to skip an action when its slot is taken
+// checks `intents.canX()` first, target picking and all, as the legacy
+// roles do.
+import { defaultRewalker, positionAtDirection, WalkReturnCode } from "Rewalker";
 import { CreepKind, Target } from "tanycreep";
+import { IntentKind, Intents } from "intents";
 
 const rewalker = defaultRewalker();
-
-export interface Intents {
-    move?: any
-    withdraw?: any
-    transfer?: any
-    pickup?: any
-    drop?: any
-    melee?: any
-    range?: any
-    [kind: string]: any
-}
 
 // A per-tick intent record on the heap.
 export class IntentLog {
     private tick = -1;
-    private log: Intents = {};
+    private log = new Intents();
 
     get current(): Intents {
         if (this.tick !== Game.time) {
             this.tick = Game.time;
-            this.log = {};
+            this.log = new Intents();
         }
         return this.log;
     }
@@ -104,37 +82,30 @@ interface Issuer {
     dlog(...args: any[]): void;
 }
 
-// Issue an intent of `kind`: ERR_BUSY without calling `act` when the slot is
-// already taken this tick (the check-before-another half of the
-// convention), else act() with its intent recorded on OK and logged
-// (dlog) on anything else.
-export function issue(me: Issuer, kind: keyof Intents & string, act: () => ScreepsReturnCode, what: any = true): ScreepsReturnCode {
-    if (me.intents[kind]) {
-        me.dlog(kind, "busy with", me.intents[kind]);
-        return ERR_BUSY;
-    }
+// Issue an intent of `kind`: act(), recorded as `what` in the slot on OK and
+// logged (dlog) on anything else. Nothing is refused: a caller that wants
+// to skip when the slot is taken checks intents.canX() first.
+export function issue(me: Issuer, kind: IntentKind, act: () => ScreepsReturnCode, what: any = true): ScreepsReturnCode {
     const err = act();
-    if (err === OK) me.intents[kind] = what;
+    if (err === OK) me.intents.set(kind, what);
     else me.dlog(kind, "failed", err);
     return err;
 }
 
-// As issue, for the actions that take both the melee and the range slot.
+// As issue, for the work actions, which take both the melee and the range slot.
 export function issueWork(me: Issuer, act: () => ScreepsReturnCode, what: any = true): ScreepsReturnCode {
-    if (me.intents.melee || me.intents.range) {
-        me.dlog("work busy with", me.intents.melee, me.intents.range);
-        return ERR_BUSY;
-    }
     const err = act();
-    if (err === OK) me.intents.melee = me.intents.range = what;
+    if (err === OK) me.intents.setWork(what);
     else me.dlog("work", "failed", err);
     return err;
 }
 
-// Walk toward pos with the Rewalker; a step taken records the move intent.
+// Walk toward pos with the Rewalker; a step taken records the tile stepped
+// toward as the move intent.
 export function walkTo(me: Issuer, pos: RoomPosition, range = 1, ignoreSK = false): WalkReturnCode {
-    const ret = rewalker.walkTo(me.tryc, pos, range, ignoreSK);
-    if (ret > 0) me.intents.move = pos;
+    const c = me.tryc;
+    const ret = rewalker.walkTo(c, pos, range, ignoreSK);
+    if (ret > 0) me.intents.setMove(positionAtDirection(c.pos, ret as DirectionConstant));
     return ret;
 }
 

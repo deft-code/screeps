@@ -118,6 +118,7 @@ main.js
  │   │       └─ job.role.ts  -> job.worker/ctrl/hub/hauler/srcer/guard/immortan.ts   start() = creep.run()+after()  (bridge)
  │   └─ powercreep.ts    TPowerCreep (powers) -> EnemyPowerCreep and MyPowerCreep (every PowerCreep intent, one wrapper per power, renew; getPowerCreep(name))
  │   mybasecreep.ts   MyBaseCreep: the contract MyCreep and MyPowerCreep share (intents, action wrappers, home/birth rooms, walkTo/walkRoom) and the shared helper bodies
+ │   intents.ts       Intents: the per-tick record (a Creep's tick.intents) with the can*() checks and set*() records every layer uses
  │   enemy.ts         enemyOf(creep) / enemiesIn(room): EnemyCreep/EnemyPowerCreep by id in a tobj.ts Registry
  │   swipe.ts         the swipe quest for any MyBaseCreep (Swiper job and Furiosa): targets, skip list, deliver home, nomNearby
  ├─ spawn.ts        SpawnDaemon + energyDef; spawnold.js supplies findSpawns/buildBody body table
@@ -176,7 +177,12 @@ else with a `roleXxx` method is loaded but no job spawns it.
   `checkFlag` into `memory.task`; `go*` one intent, optional move; `idle*` no
   move. Return `TaskRet`: truthy string while busy, `false` when done.
   `Task2Ret` (`"again"|"start"|"wait"|false`) in the job layer.
-- Set `this.intents.<kind>` after a successful intent; check it before another.
+- Intents (`intents.ts`): check `this.intents.canWork()`/`canAttack()`/
+  `canRange()`/`canMove()`/`canTransfer()`/... before deciding on an action
+  (skip the target picking too), and record after a successful one with
+  `setWork(target)`/`setAttack`/`setRange`/`setMove(tile)`/`setTransfer`/...
+  The wrapper actions on `MyCreep`/`MyPowerCreep` record by themselves and
+  refuse nothing. No `moveTo`/`moveByPath`: walks go through the Rewalker.
 - Prototype extension: `@extender` (class extends the game class), `@injecter(Klass)`,
   `lib.merge(Klass, Mixin)`, or direct `Klass.prototype.x =`. Later merges win.
 - Registries by decorator: `@register`/`@registerAs` (jobs, missions), `@daemon`,

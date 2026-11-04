@@ -1,6 +1,6 @@
 module.exports = class CreepDismantle {
   idleDismantle () {
-    if (this.intents.melee) return false
+    if (!this.intents.canAttack()) return false
     if (!this.room.controller) return false
     if (this.room.controller.my) return false
     if (this.room.controller.reservation.username === 'deft-code') return false
@@ -38,7 +38,7 @@ module.exports = class CreepDismantle {
   goDismantle (struct, move = true) {
     const err = this.dismantle(struct)
     if (err === OK) {
-      this.intents.melee = struct
+      this.intents.setAttack(struct)
       return struct.hits
     }
     if (move && err === ERR_NOT_IN_RANGE) {

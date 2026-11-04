@@ -130,7 +130,7 @@ export class Hubminer extends JobCreep {
 
         const err = this.c.harvest(mineral);
         if (err === OK) {
-            this.cc.intents.melee = this.cc.intents.range = mineral;
+            this.cc.intents.setWork(mineral);
         } else if (err !== ERR_TIRED) {
             this.log("harvest failed", err);
         }

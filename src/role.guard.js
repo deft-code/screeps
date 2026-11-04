@@ -12,7 +12,7 @@ module.exports = class CreepGuard {
   }
 
   afterGuard () {
-    if (!this.intents.range) {
+    if (this.intents.canRange()) {
       const creep = this.pos.findClosestByRange(this.room.enemies)
       if (creep) {
         if (this.pos.isNearTo(creep)) {

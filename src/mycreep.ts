@@ -14,8 +14,9 @@
 import * as debug from "debug";
 import { NullStrat } from "strat";
 import { TCreep } from "tcreep";
-import { IntentLog, Intents, issue, issueWork, MyBaseCreep, walkRoom, walkTo } from "mybasecreep";
-import { WalkReturnCode } from "Rewalker";
+import { IntentLog, issue, issueWork, MyBaseCreep, walkRoom, walkTo } from "mybasecreep";
+import { positionAtDirection, WalkReturnCode } from "Rewalker";
+import { Intents } from "intents";
 
 interface Task2Memory {
     name: string
@@ -206,16 +207,20 @@ export class MyCreep extends TCreep implements MyBaseCreep {
         return this._intents.current;
     }
 
-    move(direction: DirectionConstant): ScreepsReturnCode {
-        return issue(this, "move", () => this.c.move(direction), direction);
-    }
-
-    moveTo(target: RoomPosition | { pos: RoomPosition }, opts?: MoveToOpts): ScreepsReturnCode {
-        return issue(this, "move", () => this.c.moveTo(target, opts), target);
-    }
-
-    moveByPath(path: PathStep[] | RoomPosition[] | string): ScreepsReturnCode {
-        return issue(this, "move", () => this.c.moveByPath(path), path);
+    // One step in a direction, or (being pulled) onto the puller's tile:
+    // the move intent is the tile stepped toward either way, and a pulled
+    // creep records its puller's name as well. No moveTo or moveByPath:
+    // walks go through the Rewalker (walkTo / walkRoom).
+    move(target: DirectionConstant | Creep): ScreepsReturnCode {
+        const c = this.c;
+        const err = typeof target === "number" ? c.move(target) : c.move(target);
+        if (err === OK) {
+            if (typeof target === "number") this.intents.setMove(positionAtDirection(c.pos, target));
+            else this.intents.setPulled(target);
+        } else {
+            this.dlog("move", "failed", err);
+        }
+        return err;
     }
 
     // Walk toward pos with the Rewalker, honouring memory.rewalksk (keeper
@@ -314,8 +319,12 @@ export class MyCreep extends TCreep implements MyBaseCreep {
         return issue(this, "sign", () => this.c.signController(controller, text), controller);
     }
 
+    // Pull `target` along; it has to move(this.c) itself the same tick.
     pull(target: Creep): ScreepsReturnCode {
-        return issue(this, "pull", () => this.c.pull(target), target);
+        const err = this.c.pull(target);
+        if (err === OK) this.intents.setPull(target);
+        else this.dlog("pull", "failed", err);
+        return err;
     }
 
     notifyWhenAttacked(enabled: boolean): ScreepsReturnCode {

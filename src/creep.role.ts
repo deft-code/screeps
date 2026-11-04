@@ -5,6 +5,7 @@ import { TaskRet } from 'Tasker';
 import { injecter } from 'roomobj';
 import { getMyCreep, MyCreep } from 'mycreep';
 import { JobCreep } from 'job.creep';
+import { Intents } from 'intents';
 
 declare global {
   interface CreepTaskMem {
@@ -33,9 +34,10 @@ declare global {
 @injecter(Creep)
 export class CreepRole extends CreepExtra {
   ticksToLive: number
-  get intents(): any {
+  // This tick's intent record (intents.ts), shared with the MyCreep wrapper.
+  get intents(): Intents {
     if (!this.tick.intents) {
-      return this.tick.intents = {};
+      return this.tick.intents = new Intents();
     }
     return this.tick.intents;
   }
@@ -369,7 +371,7 @@ export class CreepRole extends CreepExtra {
   // ERR_FULL: debit its store by the renew cost for the call and put it
   // back afterwards. Skipped when this tick's transfer intent is spent.
   renewRefill(s: StructureSpawn) {
-    if (this.intents.transfer) return;
+    if (!this.intents.canTransfer()) return;
     // Renew cost: ceil(body cost / 2.5 / body size) (Screeps rules).
     const bodyCost = _.sum(this.body, part => BODYPART_COST[part.type]);
     const cost = Math.ceil(bodyCost / 2.5 / this.body.length);
@@ -379,7 +381,7 @@ export class CreepRole extends CreepExtra {
     s.store.energy = was - cost;
     try {
       if (this.transfer(s, RESOURCE_ENERGY, amount) === OK) {
-        this.intents.transfer = s;
+        this.intents.setTransfer(s);
         s.tick.transfer = this.name;
       }
     } finally {

@@ -58,7 +58,7 @@ function shouldRepair(struct: Structure, repairPower: number): boolean {
 export class CreepRepair extends CreepBuild {
     idleRepairAny() {
         this.dlog('start idle repair, melee/range intents:', this.intents.melee, this.intents.range);
-        if (this.intents.melee || this.intents.range) return false;
+        if (!this.intents.canWork()) return false;
         let repair = this.memory.repairid ? Game.getObjectById<Structure>(this.memory.repairid) : null;
         this.dlog('idle repair', repair);
         if (!repair || !repair.hurts) {
@@ -173,7 +173,7 @@ export class CreepRepair extends CreepBuild {
         this.dlog(`gorepair ${err}`);
         let ret: TaskRet = false;
         if (err === OK) {
-            this.intents.melee = this.intents.range = struct;
+            this.intents.setWork(struct);
             ret = 'repaired';
         }
         // Same edge rule as goBuild: repair from closer in near exits so the

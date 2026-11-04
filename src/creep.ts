@@ -1,4 +1,5 @@
 import { extender } from 'roomobj';
+import type { Intents } from 'intents';
 
 declare global {
   interface CreepCache {
@@ -12,7 +13,7 @@ declare global {
   }
   interface CreepTick {
     weight?: number
-    intents?: any
+    intents?: Intents
   }
 }
 

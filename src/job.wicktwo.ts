@@ -491,7 +491,7 @@ export class Wicktwo extends JobCreep {
     // The firing ladder (file header). `structs` allows the structure rungs.
     fire(listed: Structure[], structs: boolean): boolean {
         const c = this.cc;
-        if (c.intents.range) return false;
+        if (!c.intents.canRange()) return false;
         const room = c.room;
         const inRange = (o: RoomObject) => this.pos.inRangeTo(o, kShotRange);
         // Spawns are spared while a tower stands (file header).
@@ -516,14 +516,14 @@ export class Wicktwo extends JobCreep {
     shoot(target: Creep | Structure): boolean {
         const c = this.cc;
         if (c.rangedAttack(target) !== OK) return false;
-        c.intents.range = target;
+        c.intents.setRange(target);
         return true;
     }
 
     massAttack(): boolean {
         const c = this.cc;
         if (c.rangedMassAttack() !== OK) return false;
-        c.intents.range = "mass attack";
+        c.intents.setRange("mass attack");
         return true;
     }
 

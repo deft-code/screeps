@@ -260,12 +260,12 @@ export function nomNearby(me: MyBaseCreep): boolean {
     const room = me.room;
     const pos = me.pos;
     if (!room || !pos || !me.free) return false;
-    if (!me.intents.pickup) {
+    if (me.intents.canPickup()) {
         const pile = _.find(room.lookForAtRange(LOOK_RESOURCES, pos, 1, true),
             spot => !worthless(spot[LOOK_RESOURCES].resourceType));
         if (pile) return me.pickup(pile[LOOK_RESOURCES]) === OK;
     }
-    if (me.intents.withdraw || me.intents.transfer) return false;
+    if (!me.intents.canWithdraw() || !me.intents.canTransfer()) return false;
     for (const look of [LOOK_TOMBSTONES, LOOK_RUINS] as (LOOK_TOMBSTONES | LOOK_RUINS)[]) {
         for (const spot of room.lookForAtRange(look, pos, 1, true)) {
             const holder = (spot as any)[look] as Tombstone | Ruin;
