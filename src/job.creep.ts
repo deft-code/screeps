@@ -81,7 +81,7 @@ export class JobCreep extends MyCreep {
     // the creep is tired or busy), "start" on any other error. The intent
     // is recorded by MyCreep.moveDir.
     walkDir(dir: DirectionConstant): Task2Ret {
-        const ret = this.walkDir(dir);
+        const ret = this.moveDir(dir);
         if (ret === OK || ret === ERR_BUSY || ret === ERR_TIRED) return "wait";
         return "start";
     }
