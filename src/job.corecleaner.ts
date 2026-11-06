@@ -20,8 +20,9 @@ import type { InvaderCoreThree } from "ms.invadercorethree";
 // of the core's room (an exit tile would bounce it back out) that is
 // within kWaitRange of the spot. The stronghold's towers fire at the
 // hostile nearest the core, the drill on its spot; with no drill in the
-// room, or once it has lost hits there (memory.backoff), the cleaner backs
-// out of the room toward home and waits there.
+// room, or once a tower has hit it (the room's event log; memory.backoff),
+// the cleaner backs out of the room toward home and waits there. A tile
+// within a keeper's reach is walked on from, like an exit tile.
 //
 // Once the core is gone (towers and defenders are dead weight without
 // it), clean():
@@ -40,6 +41,8 @@ const kMove = 25;
 const kWaitRange = 40;
 // Stop this far short of a spot we cannot wait within range of.
 const kEntryRange = 3;
+// A keeper shoots this far.
+const kKeeperReach = 3;
 
 declare global {
     interface CreepMemory {
@@ -68,9 +71,6 @@ export class Corecleaner extends JobCreep {
 
     // The structure being walked to or dismantled.
     target: TStruct | null = null;
-
-    // Our hits the tick before, while in the core's room (approach).
-    private lastHits?: number;
 
     get coreMission(): InvaderCoreThree {
         return this.mission as unknown as InvaderCoreThree;
@@ -102,20 +102,32 @@ export class Corecleaner extends JobCreep {
         const c = this.c;
         const inRoom = this.pos.roomName === spot.roomName;
         const edge = atExit(this.pos);
-        // Hits lost between two ticks in the core's room: the towers are on us.
-        if (inRoom && this.lastHits !== undefined && c.hits < this.lastHits) this.memory.backoff = true;
-        this.lastHits = inRoom ? c.hits : undefined;
+        if (inRoom && c.hits < c.hitsMax && !this.memory.backoff && this.towerShot()) {
+            this.log("shot by a tower in", spot.roomName, "; backing off until the core is gone");
+            this.memory.backoff = true;
+        }
         if (!m.drillOnSite() || this.memory.backoff) {
             // Out of the room and one step off its edge, then hold.
             if (inRoom || edge) this.moveRoom(this.homeName);
             return "wait";
         }
-        if (inRoom && !edge && this.pos.inRangeTo(spot, kWaitRange)) return "wait";
+        // No waiting on an exit tile (it bounces us out) or in a keeper's
+        // reach (a room's way in may pass one): on along the path.
+        const pressed = edge || this.pos.findInRange(FIND_HOSTILE_CREEPS, kKeeperReach, { filter: e => e.keeper }).length > 0;
+        if (inRoom && !pressed && this.pos.inRangeTo(spot, kWaitRange)) return "wait";
         // A stored walk with no steps left is one a detour replanned at the
         // wide range and that ran out short of the room: plan again at 1.
         const planned = rewalker.walkingTo(c, spot) && rewalker.walkSteps(c) > 0;
-        rewalker.walkTo(c, spot, planned && !edge ? kWaitRange : 1, !!this.memory.rewalksk);
+        rewalker.walkTo(c, spot, planned && !pressed ? kWaitRange : 1, !!this.memory.rewalksk);
         return "wait";
+    }
+
+    // A tower hit us last tick (the room's event log): a keeper's shot on
+    // the way in does not count.
+    towerShot(): boolean {
+        const id = this.c.id;
+        return _.any(this.c.room.getEventLog(), e => e.event === EVENT_ATTACK && e.data.targetId === id
+            && Game.getObjectById(e.objectId as Id<Structure>) instanceof StructureTower);
     }
 
     // The core is gone: the ladder of the file header.

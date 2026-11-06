@@ -450,7 +450,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Corecleaner @register          (job.corecleaner.ts) InvaderCoreThree's dismantler (5 Nov 2026): fixed 25 WORK, 25 MOVE (3750, 1250 hits a tick) from the home room (readySpawn),
          │                                                 priority 3. Core standing -> approach(): the walk to the spot is planned at range 1 and walked at range 40 (Rewalker.walkingTo:
          │                                                 a stored walk to the same destination is never replanned for a new range; a walk with no steps left is planned again at 1), so it
-         │                                                 stops one tile inside the core's room on the path that leads in; with no drill in the room, or once it lost hits there (memory.backoff), it backs out toward home.
+         │                                                 stops one tile inside the core's room on the path that leads in; with no drill in the room, or once a tower has hit it (the room's event log; memory.backoff), it backs out toward home; a tile in a keeper's reach is walked on from.
          │                                                 Core gone -> clean(): the mission's targets() in order; none: the rampart beside it with the fewest hits; none beside:
          │                                                 Rewalker.planWalk over every rampart; no ramparts: the towers; nothing: suicide. target is a TStruct; never a container.
          ├─ Coresweeper @register          (job.coresweeper.ts) InvaderCoreThree's hauler (5 Nov 2026): CARRY, MOVE x 25 (2500) from the home room (readySpawn). pick(): of the mission's
