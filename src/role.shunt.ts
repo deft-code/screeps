@@ -13,6 +13,13 @@ declare global {
 
 }
 
+declare global {
+  interface Creep {
+    // Lay a site of stype on the creep's spot (role.coresrc.ts calls it too).
+    structAtSpot(stype: BuildableStructureConstant): void
+  }
+}
+
 @injecter(Creep)
 class CreepShunt extends CreepCarry {
   roleAux() { return this.roleCore() }

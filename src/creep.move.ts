@@ -7,6 +7,14 @@ import { defaultRewalker, Rewalker } from 'Rewalker';
 type HasPos = { pos: RoomPosition };
 type ObjPos = RoomPosition | HasPos;
 
+// Walk options. Only `range` is read (the Rewalker plans the walk);
+// allowHostile/ignoreCreeps are what the 2017 roles passed to the old mover.
+export interface MoveOpts {
+  range?: number
+  allowHostile?: boolean
+  ignoreCreeps?: boolean
+}
+
 const rewalker = defaultRewalker();
 
 declare global {
@@ -41,8 +49,12 @@ export class CreepMove extends CreepRole {
     return what
   }
 
-  moveTarget(target: ObjPos, opts: { range: number }) {
+  moveTarget(target: ObjPos, opts: MoveOpts & { range: number }) {
     const pos = lib.getPos(target);
+    if (!pos) {
+      this.dlog('moveTarget: no position', target);
+      return false;
+    }
     const ret = rewalker.walkTo(this as unknown as Creep, pos, opts.range, !!this.memory.rewalksk);
     switch (ret) {
       case ERR_TIRED:
@@ -167,7 +179,7 @@ export class CreepMove extends CreepRole {
     return false
   }
 
-  moveRoom(obj: HasPos | null, opts = { range: 1 }) {
+  moveRoom(obj: HasPos | null, opts: MoveOpts = { range: 1 }) {
     if (!obj) return false
     const x = this.pos.x
     const y = this.pos.y
@@ -190,7 +202,7 @@ export class CreepMove extends CreepRole {
     const range = Math.max(1, Math.min(ox, oy, 49 - ox, 49 - oy) - 1)
     this.dlog('moveRoom', range, obj.pos.roomName, this.room)
     opts = _.defaults(opts, { range: range })
-    return this.moveTarget(obj, opts)
+    return this.moveTarget(obj, opts as MoveOpts & { range: number })
   }
 
   taskMoveRoom(obj: (RoomObject & _HasId) | null) {
@@ -198,7 +210,7 @@ export class CreepMove extends CreepRole {
     return this.moveRoom(obj)
   }
 
-  taskMoveFlag(flag: Flag | null, opts = { range: 1 }) {
+  taskMoveFlag(flag: Flag | null, opts: MoveOpts = { range: 1 }) {
     flag = this.checkFlag('move flag', flag)
     return this.moveRoom(flag, opts)
   }

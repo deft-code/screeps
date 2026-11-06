@@ -31,6 +31,11 @@ export type TaskRet = false | // task failed, (run Role)
     'again' | // task proceeding, run task again
     string; // task proceeding, stop
 
+// What the 2017 legacy mixins (creep.work.ts and the role.*.ts chain) hand
+// back: a TaskRet, or a number (hits, energy, progress) standing in for a
+// truthy "still busy" string.
+export type LegacyRet = TaskRet | number;
+
 export function dynamicRole(c: any, prefix: string): unknown {
     const role = c.role;
     const fname = _.camelCase(prefix + ' ' + role);

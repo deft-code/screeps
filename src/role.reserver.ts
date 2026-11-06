@@ -1,0 +1,24 @@
+import { injecter } from 'roomobj';
+import { CreepHeal } from 'creep.heal';
+
+// Flag-team remote reserver that lays road sites on swamps as it goes;
+// job.reserver.ts replaced it.
+@injecter(Creep)
+export class CreepReserver extends CreepHeal {
+  roleReserver () {
+    return this.taskTask() || this.taskMoveFlag(this.team) ||
+        this.taskReserve(this.team.room?.controller)
+  }
+
+  afterRoadPooper () {
+    const t = Game.map.getRoomTerrain(this.pos.roomName)
+    if (t.get(this.pos.x, this.pos.y) !== TERRAIN_MASK_SWAMP) return
+    if (this.room.find(FIND_MY_CONSTRUCTION_SITES).length) return
+    if (_.size(Game.constructionSites) > 50) return
+    this.pos.createConstructionSite(STRUCTURE_ROAD)
+  }
+
+  afterReserver () {
+    this.afterRoadPooper()
+  }
+}

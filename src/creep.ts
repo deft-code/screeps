@@ -15,6 +15,10 @@ declare global {
     weight?: number
     intents?: Intents
   }
+  interface Creep {
+    // CreepExtra below, for code that holds a plain Creep.
+    hurts: number
+  }
 }
 
 @extender

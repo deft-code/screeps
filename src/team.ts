@@ -17,6 +17,11 @@ declare global {
     creeps?: string[];
     depositDist?: number
   }
+  interface Flag {
+    // TeamExtra below, for the legacy roles that hold a plain Flag.
+    creeps: Creep[]
+    roleCreeps(role: string): Creep[]
+  }
 }
 
 @injecter(Flag)

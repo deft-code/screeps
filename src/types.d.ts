@@ -1,11 +1,12 @@
+// The Screeps VM's global object (Node's `global`; no @types/node here).
+// Console helpers hang off it (main.ts, console.ts).
+declare var global: typeof globalThis & { [name: string]: any };
+
+// Referenced by dead code only; nothing ever sets them (docs/known-issues.md).
 interface Game {
     storages: StructureStorage[]
     terminals: StructureTerminal[]
-}
-
-interface RoomVisual {
-    structure(x: number, y: number, stype: StructureConstant, opts?: { opacity: number }): ScreepsReturnCode
-    animatedPosition(x: number, y: number): ScreepsReturnCode
+    ncreeps?: number
 }
 
 
@@ -73,11 +74,6 @@ interface Console {
 interface Creep {
     run(): void
     after(): void
-    // creep.work.js mixin (plain JS, so declared here); returns legacy TaskRet
-    idleEmergencyUpgrade(): false | string
-    idleUpgrade(): false | string
-    goUpgradeController(controller: StructureController | undefined, move?: boolean): false | string
-    taskHarvestSpots(): false | string
     assault: boolean
     hostile: boolean
     keeper: boolean
@@ -124,7 +120,7 @@ interface Room {
         asArray: true,
     ): LookForAtAreaResultArray<AllLookAtTypes[T], T>;
     requestBoosts(boosts: ResourceConstant[] | undefined): void
-    requestBoost(boost: ResourceConstant | undefined, nearSpawn?: boolean): StructureLab
+    requestBoost(boost: ResourceConstant | null | undefined, nearSpawn?: boolean): StructureLab | null
 
     run(): void
     after(): void
@@ -151,6 +147,8 @@ interface Flag {
 
 interface RoomPosition {
     xy: number
+    // path.ts: on the room's edge.
+    exit: boolean
 }
 
 type AllStructureTypes = {
@@ -182,6 +180,9 @@ interface Ruins {
 
 interface Structure {
     hurts: number
+    // struct.ts: type tag + packed position, and the packed position.
+    note: string
+    xy: number
 }
 
 interface StructureContainer {
@@ -202,7 +203,7 @@ interface StructureFactory {
 }
 
 interface StructureLab {
-    planType: ResourceConstant
+    planType: ResourceConstant | null
     boost: ResourceConstant | null
     mineralFill(): boolean
     mineralDrain(): boolean
@@ -229,8 +230,8 @@ interface StructureStorage {
 }
 
 interface StructureTerminal {
-    requestMineral(r: ResourceConstant, amt?: number): string
-    autoBuy(r: ResourceConstant): string
+    requestMineral(r: ResourceConstant, amt?: number): string | false
+    autoBuy(r: ResourceConstant): ScreepsReturnCode | false
 }
 
 interface StructureTower {
