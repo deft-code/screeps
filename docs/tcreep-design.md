@@ -1,7 +1,7 @@
 # TCreep: wrapper classes instead of prototype mixins
 
 Status: design plus a compile-only prototype (`spike/`, `tsconfig.spike.json`),
-written 2026-09-11. Nothing here is wired into `main.js` or deployed. The
+written 2026-09-11. Nothing here is wired into `main.ts` or deployed. The
 prototype compiles clean against the live tree under the pinned TypeScript
 (3.9.10) and `spike/surface.js` reports the member surface it was sized from.
 
@@ -10,7 +10,9 @@ Decisions already taken (approved 2026-09-11):
 - Coexistence follows **Path A**: flip the whole mixin layer onto the wrapper in
   one commit and merge the legacy JS mixins onto the wrapper prototype, so every
   role keeps running unchanged; roles are then converted one at a time.
-- Legacy JS roles stay untyped JS until each one is ported.
+- Legacy roles stay legacy until each one is ported. (They became typed
+  `@injecter(Creep)` classes on the `CreepWork -> CreepHeal` chain on 5 Nov
+  2026, same shape and dispatch; see docs/conventions-and-styles.md, Era 1.)
 - The compiler stays at TypeScript 3.9; an upgrade is a separate study.
 - `tick`, `cache`, `toString`, `Debuggable` and a thinned `CreepExtra` stay on
   the game prototypes for now.
@@ -46,14 +48,14 @@ Measured on the live tree (`node spike/surface.js`):
 
 | quantity | value |
 |---|---|
-| legacy JS mixins merged in `main.js` | 42 |
+| legacy JS mixins merged in `main.ts` | 42 |
 | TS mixin chain files / members | 7 / 106 |
 | TS role files still using `@injecter(Creep)` / members | 9 / 29 |
 | distinct `this.X` names used by legacy creep code | 237 |
 | of which raw Creep API (forwarders) | 36 |
 | busiest raw members: room / store / pos / memory | 235 / 126 / 125 / 113 uses |
 | member collisions between wrapper classes and the chain | 11 names, all renames |
-| `this.X` references that are dangling today | 1 (`role.chemist.js`, dead role) |
+| `this.X` references that are dangling today | 1 (`role.chemist.ts`, dead role) |
 | chain edits to re-root at `TCreep` (measured by diff) | -51 / +20 lines over 1,313 |
 | spike compile | 0 errors, 181 files, check time 0.9 s |
 
@@ -276,7 +278,7 @@ TCreep                 tcreep.ts        lifecycle, forwarders, tombstone, missio
           └ CreepCarry creep.carry.ts   transfer/withdraw/pickup families
              └ CreepHarvest └ CreepBuild └ CreepRepair
                 └ MyCreep   mycreep.ts   registry, spawn(), localSpawn, Task2 lifecycle (init/start/after/run/runTask), walk*
-                   + 42 legacy JS mixins merged onto MyCreep.prototype (creep.attack/dismantle/heal/oldrepair/work, role.*.js)
+                   + 41 legacy mixins merged onto MyCreep.prototype (creep.attack/dismantle/heal/oldrepair/work, the 2017 role.*.ts)
                    + role.*.ts classes merged onto MyCreep.prototype until each is converted
                    └ Worker, Ctrl, Hauler, Srcer, Startup, Reboot, Scout, Swiper, Farmer, Hub ...  one class per role
 ```
@@ -304,7 +306,7 @@ methods is fine for V8; lookups are inline-cached.
 
 JS-vs-TS and JS-vs-JS collisions: none (the `afterWorker` duplicate is already
 fixed). The merge order still matters for the future, so `mycreep.ts` keeps the
-`main.js` list order and `surface.js` keeps reporting collisions.
+`main.ts` list order and `surface.js` keeps reporting collisions.
 
 ### 4.2 Legacy JS mixins on the wrapper
 
@@ -312,7 +314,7 @@ fixed). The merge order still matters for the future, so `mycreep.ts` keeps the
 current order. Their bodies use only forwarded API, chain members, `Debuggable`,
 memory and each other; `surface.js` confirms every live role's transitive
 closure resolves (the single unresolved name, `this.findStructs` in
-`role.chemist.js`, is broken today too). Members that TypeScript calls are
+`role.chemist.ts`, is broken today too). Members that TypeScript calls are
 declared once by interface merge:
 
 ```ts
@@ -330,7 +332,7 @@ The body-stat getters (`partsByType`, `activeByType`, `info`, `hurts`,
 `hostile`, `assault`, `weight`, `bodyCost`, `bodyInfo`) become exported
 functions over a `Creep`, cached in the creep's own `cache`. `CreepStats` (the
 wrapper view) and the kept `@extender CreepExtra` (needed by `strat.ts` for
-enemy creeps and by `struct.tower.js`) are both one-line delegations, so there
+enemy creeps and by `struct.tower.ts`) are both one-line delegations, so there
 is one implementation. Phase 4 removes the extender once those two callers use
 the functions.
 
@@ -355,11 +357,11 @@ that changes where the code lives and nothing about what it does.
 | `src/job.creep.ts`, `src/job.role.ts` | delete (or keep as `export { MyCreep as JobCreep, MyCreep as JobRole }` shims) | — |
 | `src/job.*.ts` (10) | `extends MyCreep`; `moveRoom` -> `walkRoom` (7 sites); Farmer/Swiper `home` -> `homeRoom`; Farmer `this.cc` -> `this` | ~25 lines |
 | `src/role.*.ts` (9) | `@injecter(Creep)` -> `@injecter(MyCreep)` with the import | 2 lines each |
-| `src/main.js` | remove the `mods` loop; import `mycreep` before `role.*.ts` and `job.*.ts` | ~-50 lines |
+| `src/main.ts` | (the `mods` loop went with the Nov 2026 TS conversion; the mixins are plain imports now) import `mycreep` before `role.*.ts` and `job.*.ts` | ~-50 lines |
 | `src/mission.ts` | `runCreeps` no longer deletes memory / `unget`s; `spawnHatches` calls `hatchRun()`; fix double push | ~10 lines |
 | `src/types.d.ts` | move the legacy `interface Creep { run, after, idle*, ... }` declarations to `interface MyCreep` | ~-15 lines |
-| `src/console.js` | `global.mc = name => require('mycreep').getMyCreep(name)` | 2 lines |
-| `src/spawn.ts`, `src/strat.ts`, `src/struct.tower.js`, `src/debug.ts`, `src/Rewalker.ts` | none | 0 |
+| `src/console.ts` | `global.mc = name => require('mycreep').getMyCreep(name)` | 2 lines |
+| `src/spawn.ts`, `src/strat.ts`, `src/struct.tower.ts`, `src/debug.ts`, `src/Rewalker.ts` | none | 0 |
 | docs | `creep-roles.md`, `conventions-and-styles.md`, `missions-and-jobs.md`, `runtime-tick.md`, `memory-layout.md`, `file-inventory.md`, `CLAUDE.md` | text |
 
 After the flip, `Creep.prototype` carries only `CreepExtra` (thin),
@@ -441,12 +443,12 @@ keeps working because both read the same memory field.
 | consumer | uses | flip | phase 4 |
 |---|---|---|---|
 | `strat.ts` `legacyInit` | `c.hostile/assault/melee` on enemy creeps | unchanged (`CreepExtra` kept) | `isHostile(c)` etc. from `creep.ts` |
-| `struct.tower.js` | `c.hurts` on my creeps and power creeps (undefined for power creeps today) | unchanged | `hurts(c)` |
+| `struct.tower.ts` | `c.hurts` on my creeps and power creeps (undefined for power creeps today) | unchanged | `hurts(c)` |
 | `spawn.ts` | `Game.creeps[x].log(...)` | unchanged (`Debuggable` kept) | `getMyCreep(x).log` |
 | `creep.role.ts` `spawningRun(room)` | never called | deleted | — |
 | `mission.ts`, `job.role.ts` | `this.c.run()/after()` bridge | replaced by `legacyRun()` on the wrapper | — |
 | logs everywhere | `${creep}` HTML link | unchanged (`toString` kept) | engine `[creep name]` if removed |
-| `console.js` | `busyCreeps` reads memory only | add `mc()` | — |
+| `console.ts` | `busyCreeps` reads memory only | add `mc()` | — |
 
 ## 9. Structures (phase 2)
 
@@ -515,7 +517,7 @@ the `RoomVisual` helpers stay as prototype infrastructure.
 | 1b convert | Hub and Srcer (spike shows Hub); then Ctrl, Worker, Hauler, Bootstrap/Startup/Reboot as `MyCreep` subclasses; delete the `role.*.ts`/`role.*.js` files as they empty out | one file per live role | about half a session per role |
 | 2 structures | `TStruct`, claims, link/container modes, labs, terminal, tower/link/lab/factory runners | structure logic on wrappers, `struct.*` merges removed | 2 to 3 sessions |
 | 3 rooms and others | `TRoom` facade, then callers; flags, sources, sites, tombstones | `Room.prototype` reduced to infra | 3 or more sessions, incremental |
-| 4 cleanup | `strat.ts`/`struct.tower.js` to functions; remove `CreepExtra`, then `Debuggable`/`tick`/`cache` from `Creep`; drop `@injecter`/`@extender` for creeps; remove `checkId` stack check; `@task` id serialisation | game prototypes untouched by creep code | 1 session |
+| 4 cleanup | `strat.ts`/`struct.tower.ts` to functions; remove `CreepExtra`, then `Debuggable`/`tick`/`cache` from `Creep`; drop `@injecter`/`@extender` for creeps; remove `checkId` stack check; `@task` id serialisation | game prototypes untouched by creep code | 1 session |
 
 Docs to update at phase 1: `creep-roles.md` (dispatch and mixin chain sections),
 `conventions-and-styles.md` (era 3 rules: no `@injecter(Creep)`, `walk*` vs
@@ -687,7 +689,7 @@ is why the flip is one commit and not many.
   `obj`, `memory` and `mission` only.
 - A creep spawned by hand from the console has no mission; its wrapper is a bare
   `MyCreep` (`Missing Role!`) and is retired normally when it dies.
-- `role.js` (orphan, not imported) defines `Creep.prototype.role`; leave it
+- `role.ts` (orphan, not imported) defines `Creep.prototype.role`; leave it
   unimported or delete it.
 - `powercreep.ts` merges its own extras onto `PowerCreep.prototype` and uses
   `Tasker`; a `TPowerCreep` mirrors `TCreep` when power creeps come back

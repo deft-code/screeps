@@ -60,7 +60,7 @@ RANGED_ATTACK; `assault` = hostile or >1 WORK or >1 HEAL; `melee` = ATTACK.
   metastruct points).
 - `room.packPos(pos)` / `room.unpackPos(xy)` and `pos.xy` (`x*100+y`), `pos.exit`.
 
-## Towers (`src/struct.tower.js`, `runTowers`)
+## Towers (`src/struct.tower.ts`, `runTowers`)
 
 Priority order each tick, one tower per action where noted: emergency repair of
 structures about to decay (all towers) -> heal a creep hurt more than
@@ -82,7 +82,7 @@ terminal)` and `hubNeed(room)` drive the hub creep. `balanceSplit` (called
 from nowhere live) flips hub links to move energy between storage and
 terminal. Visuals: mode glyph and a cooldown arc on each link.
 
-## Labs (`src/struct.lab.js`, `src/labplan.ts`)
+## Labs (`src/struct.lab.ts`, `src/labplan.ts`)
 
 `runLabs(room)` (owned rooms): ensures `Memory.rooms[x].labs`, calls
 `terminal.autoReactAll()` every 500 ticks unless the room is managed by a
@@ -132,7 +132,7 @@ nothing calls it yet. The same method is ported onto the wrapper
 `TObserver` (`src/tstruct.observer.ts`, `TObserver.make(observer).observeMax(room)`),
 the first `TStruct` subclass of the wrapper migration; also unused so far.
 
-## Terminal (`src/struct.terminal.js`)
+## Terminal (`src/struct.terminal.ts`)
 
 Prototype helpers: `energyFill()` (< 50k), `energyDrain()` (> 60k), `sell`,
 `buy`, `safeBuy`, `deal`, `buyOrder`, `sellOrder`, `order`, `autoBuy` (needs
@@ -151,18 +151,18 @@ ask the terminal to `requestMineral`/`autoBuy`. `needs(orig)` walks
 
 ## Containers, controller, sources, tombstones
 
-- `container.mode` (`struct.container.js`): `src` if within 2 of a source or
+- `container.mode` (`struct.container.ts`): `src` if within 2 of a source or
   mineral, `sink` if within 4 of the controller, else `hub`; memoised in
   `Memory.rooms[x].containers[id]` with a version `v` that forces a recompute
   when `calcMode` changes. Haulers drain only `src`, fill `sink` and `hub`,
   and recharge from `sink` only when nothing else in the room has energy.
 - `controller.resTicks`, `controller.reservable` (hardcoded username
   `deft-code`).
-- `source.spots` / `source.bestSpot` (`source.js`): walkable neighbours scored
+- `source.spots` / `source.bestSpot` (`source.ts`): walkable neighbours scored
   by open tiles; used by `taskHarvestSpots`. Also gives `Source`/`Mineral` a
   `note` and `regenTTL` (PWR_REGEN_SOURCE effect).
 - `struct.ts`: `note` (`stype6` from `tstruct.ts` + xy), `toString()` link, `obstacle`, `hurts`,
-  `repairs`. `constructionsite.ts`, `tombs.js`: `note`/`toString`.
+  `repairs`. `constructionsite.ts`, `tombs.ts`: `note`/`toString`.
 
 ## Intel and radar (`src/intel.ts`, `src/radar.ts`)
 
@@ -174,7 +174,7 @@ deposits/power banks). `roomKind(name)` classifies Hwy / Portal / SourceKeeper /
 Regular from coordinates. `RoomIntel.get(name)` is the read API (`owner`,
 `rcl`, `staleness`, `coreLvl`, `powerTTL`, `depositPos/Cooldown/TTL`).
 `theRadar` collects observers per tick and would scan a 21x21 neighbourhood,
-but `theRadar.run()` is only called after the dead `return` in `main.js`.
+but `theRadar.run()` is only called after the dead `return` in `main.ts`.
 
 ## Market (`src/market.ts`)
 

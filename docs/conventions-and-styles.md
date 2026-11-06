@@ -3,19 +3,34 @@
 The repo spans 2017-2026 and three distinct styles coexist. Match the style of
 the layer you are editing; new behaviour goes in the 2022 style.
 
-## Era 1: 2017 plain JS (`role.*.js`, `creep.*.js`, `struct.*.js`, `lib.js`, `spawnold.js`, `team.egg.js`)
+## Era 1: 2017 roles (the legacy `role.*.ts` mixins, `creep.work/oldrepair/attack/dismantle/heal.ts`, `struct.*.ts`, `lib.ts`, `spawnold.ts`, `team.egg.ts`)
+
+Written as plain JS in 2017 and converted to TypeScript on 5 Nov 2026 with
+their shape kept, so they read as they did:
 
 - `standard`-style: no semicolons, 2-space indent, space before parens
   (`roleHauler () {`), single quotes.
-- Mixins are classes that are never instantiated:
-  `module.exports = class CreepHauler { roleHauler () {...} }`, merged with
-  `lib.merge(Creep, require('role.hauler'))` (own property descriptors copied
-  onto the prototype; later merges overwrite earlier ones).
-- Structure extras use the same trick: `class TerminalExtra {...}; lib.merge(StructureTerminal, TerminalExtra)`.
+- Mixins are `@injecter(Creep)` classes that are never instantiated, typed
+  through a chain: `CreepWork extends CreepRepair`, then `CreepOldRepair`,
+  `CreepAttack`, `CreepDismantle`, `CreepHeal`, and every legacy `role.*.ts`
+  class `extends CreepHeal`. A member one module calls on another
+  (`taskRaze`, `dropRoom`, `taskHealRoom`, ...) is declared on the global
+  `Creep` interface in the module that defines it, with `LegacyRet`
+  (`Tasker.ts`: a `TaskRet` or a number standing in for a truthy "busy").
+  `main.ts` imports them after the Era-2 roles, so they overwrite on a
+  collision (`afterWorker`). Until Nov 2026 they were
+  `module.exports = class CreepHauler {...}` merged by
+  `lib.merge(Creep, require('role.hauler'))` from a `mods` list in main.js.
+- Structure extras are `@extender` classes (`class TerminalExtra extends
+  StructureTerminal`); members other modules call are declared on the global
+  interface (`types.d.ts` or the module) for callers that hold the game type.
+- Memory fields the roles use are declared where used (`creep.work.ts`:
+  `src`, `store`, `tower`, `link`, ...); `lib.byId(id)` reads an optional id.
+  Room members nothing sets (`turtle`, `wallMax`, `base`, `myStorage`) are
+  declared optional beside the code that reads them, so it compiles as it
+  always ran (docs/known-issues.md).
 - Direct `Klass.prototype.fn = function () {...}` for one-offs
-  (`Room.prototype.findStructs`, `Flag.prototype.*Egg`).
-- CommonJS exports (`exports.run = ...`) mixed with `import` statements (TS
-  compiles both).
+  (`Room.prototype.packPos` in `path.ts`).
 - Behaviour is flag-centric: `this.team` (a `Flag`), `Game.flags[...]`,
   `flag.memory.creeps`.
 - Debug output through `this.dlog(...)` gated by `creep.debug`.

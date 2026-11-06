@@ -274,25 +274,25 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      ├─ Startup  @register   body table keyed by energyCapacity      (job.startup.ts)
      │   └─ Pioneer @register (job.pioneer.ts) startup for another room, laid by the Startup mission: same body table capped at 6
      │                       WORK/CARRY pairs, spawned via the "remote" strategy (nearest spawns outside the mission room), and
-     │                       init() sets memory.home to the mission room so roleBootstrap works there (rolePioneer in role.bootstrap.js)
+     │                       init() sets memory.home to the mission room so roleBootstrap works there (rolePioneer in role.bootstrap.ts)
      ├─ Reboot   @register   priority 10, body from energyAvailable   (job.reboot.ts)
      ├─ Scout    @register   [MOVE] from the "home" room if any, walks to the mission room (job.scout.ts); there, shadows the
      │                       armed hostiles (not keepers): 5 from any with RANGED_ATTACK, 3 from melee-only; idleFlee when
      │                       inside, else closes on the one with least slack (distance - range) and holds at 0; with no
      │                       hostiles, walks onto the nearest foreign construction site to stomp it (not under ramparts or
      │                       obstacles, not while the owner's controller is in safe mode)
-     ├─ Paver    @register   (job.paver.ts) port of role.paver.js; body 'farmer' via the "close" spawn strategy, only once that room holds >= 550 energy; shield(): while its legacy build task (memory.task) is on a road/container site and an enemy creep (not a keeper) is within 4 of it, stands on that site (reached with moveChase) so the enemy cannot remove it, unless one of our creeps is on it already (after armed hostiles are fled, before the task resumes); an empty paver drops its build task first; three modes in memory.pmode:
+     ├─ Paver    @register   (job.paver.ts) port of role.paver.ts; body 'farmer' via the "close" spawn strategy, only once that room holds >= 550 energy; shield(): while its legacy build task (memory.task) is on a road/container site and an enemy creep (not a keeper) is within 4 of it, stands on that site (reached with moveChase) so the enemy cannot remove it, unless one of our creeps is on it already (after armed hostiles are fled, before the task resumes); an empty paver drops its build task first; three modes in memory.pmode:
      │                       work (walk to the mission room, taskBuildAny, then taskRepairOrdered on roads/containers; empty -> gather or forage),
      │                       gather (mission room is not SK and has a source: taskRechargeHarvest there until full), forage (SK room or no source:
      │                       walk the Rewalker route toward memory.home taking the nearest piles >= 50, tombstones, ruins, our stores or a
      │                       non-SK source in each room, nothing within 5 of a lair; taskRechargeHarvest at home as last resort; full -> work);
      │                       after(): idleNom + idleBuild|idleRepairAny; spawned by PaveAll
-     ├─ Harvester @register  (job.harvester.ts) per-tick logic in init() via decide()/perTick, start() "wait" (14 Oct 2026); port of role.harvester.js for Remote (and Startup below RCL3); donatable() 0 (takes nothing off a passing trucker); 6W/1C/3M from "home" (falls back to the nearest spawns) (floor 3W/1C/2M); claims a source meta
+     ├─ Harvester @register  (job.harvester.ts) per-tick logic in init() via decide()/perTick, start() "wait" (14 Oct 2026); port of role.harvester.ts for Remote (and Startup below RCL3); donatable() 0 (takes nothing off a passing trucker); 6W/1C/3M from "home" (falls back to the nearest spawns) (floor 3W/1C/2M); claims a source meta
      │                       from the mission's `sourceMetas()` (HarvestMission: Remote's rsrc metas, Startup's asrc/bsrc metas; targetid() = the source, myspot = the container tile)
      │                       (memory.rsrc; if all are claimed it shadows the harvester with the fewest ticks to live), stands on the
      │                       container tile drop-mining; lays the container site itself when the spot has neither container nor site (the genesis asrc/bsrc meta holds its container back until the room has a spawn, Meta_asrc.findSite, and a full harvester on a bare spot stood idle: W28S8, 15 Oct 2026), builds it and repairs the container, withdrawing from it for that;
      │                       after() idles (nom/build/repair) only while inside the mission room
-     ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.js for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
+     ├─ Trucker  @register   (job.trucker.ts) port of role.trucker.ts for Remote; 2 CARRY per MOVE from the nearest spawns (closeSpawns, offroad
      │                       when empty); loads from a container in the remote room picked by pickCont(): the ones holding a full load (our free capacity), else those over 50, else any, and within that tier the cheapest walk (Rewalker.planWalk over all), cached in memory.contid while it stays in the best tier, and walked to from any room once the remote is in view, so a route that crosses another room is not undone by a walk to the room centre (sweeps dropped energy), once more than half full unloads
      │                       at home until empty (JobCreep.unloadHome); after() idleNom picks up adjacent energy
      ├─ Fedex    @register   (job.fedex.ts) extends Trucker for Xfer, XferStartup and Startup (one per pioneer in the room); CARRY, CARRY, MOVE x 17 (33 CARRY) sized to the home room's capacity, home spawns only; in the home room fills to full from the storage;
@@ -322,7 +322,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       space (memory.dropid), then the next; every transfer passes what fits; null when home has no space
      └─ JobRole              bridge to legacy roles: start() calls creep.run()/after() (job.role.ts)
          ├─ Worker  @register              (job.worker.ts)
-         ├─ Ctrl    @register              (job.ctrl.ts)   pure job (no role.ctrl.js, no boosts): ctrl spot, fill from an adjacent store to one upgrade's worth (empty: carry nudge so the withdraw feeds the same tick's upgrade), upgrade; ecap rules; spawns only with the room full (energyAvailable >= min(capacity, 5000))
+         ├─ Ctrl    @register              (job.ctrl.ts)   pure job (no role.ctrl.ts, no boosts): ctrl spot, fill from an adjacent store to one upgrade's worth (empty: carry nudge so the withdraw feeds the same tick's upgrade), upgrade; ecap rules; spawns only with the room full (energyAvailable >= min(capacity, 5000))
          ├─ Hub     @register              (job.hub.ts)    needs storage + meta 'hub' spot
          ├─ Hauler  @register  priority 9  (job.hauler.ts) energy = min(2500, ecap/2)
          ├─ CtrlHauler @register priority -1 (job.ctrlhauler.ts) storage -> Meta_ctrl container shuttle; body 'hauler' (<= 1500 energy, local);
@@ -338,19 +338,19 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 Hub/Thorhub lay nJobs(Hubminecart, Hubminecart.want(room)): 1 while the Meta_min container holds anything, 2 past half full;
          │                                                 empty: withdraw from that container; loaded: Chemist.deliver (a lab wanting it, else terminal, else storage); empty under
          │                                                 50 TTL, or with container and mineral both empty, it recycles at the nearest spawn
-         ├─ Chemist @register              (job.chemist.ts) pure Task2 port of role.chemist.js (overrides start()); Hub mission only, Chemist.want(room) = 1 with a terminal and a lab;
+         ├─ Chemist @register              (job.chemist.ts) pure Task2 port of role.chemist.ts (overrides start()); Hub mission only, Chemist.want(room) = 1 with a terminal and a lab;
          │                                                 body 'chemist' (10C/5M, local). Empty: @task drain a lab whose mineralDrain() says so, energy for a claimed boost lab under 1000 (1 Nov 2026), fetch a lab's planType (labWant: up to 800, 2400 boosting; claimed boost labs first, emptiest first, then reaction labs emptiest first)
          │                                                 from terminal then storage, fetch lab energy from the richer depot (> 5k), fetch G for the nuker, @task gather stray non-energy (nearest pile/tombstone/ruin/container; sets memory.stray); loaded: @task fill the lab/nuker wanting it, else stash in terminal/storage (storage first for a gathered load)
-         ├─ Upgrader @register priority -1 (job.upgrader.ts) port of role.upgrader.js; surplus sink: taskRecharge then goUpgradeController,
+         ├─ Upgrader @register priority -1 (job.upgrader.ts) port of role.upgrader.ts; surplus sink: taskRecharge then goUpgradeController,
          │                                                 after() idleNom + idleRecharge; body 'upgrader' (2W/1C per level) via "local";
          │                                                 Upgrader.want(room) = 0 at RCL8, without storage, or below 100k, else storage energy / 100k (linear, fractional: 150k = 1.5)
-         ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.js; Task2 start() calls legacy task* helpers
-         ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.js; Task2 @task fight/retreat, body 'wolf' via "close"; fight() closes on its target, creep or structure, with moveChase;
+         ├─ Farmer  @register              (job.farmer.ts) port of role.farmer.ts; Task2 start() calls legacy task* helpers
+         ├─ Wolf    @register              (job.wolf.ts)   port of role.wolf.ts; Task2 @task fight/retreat, body 'wolf' via "close"; fight() closes on its target, creep or structure, with moveChase;
          │                                                 pickTarget(): armed hostiles, then an invader core, then any enemy creep (never Source Keepers), from the mission room first while it is in view
          │                                                 (from anywhere) and only then from the room the wolf is in; a target in another room is walked to with moveChase (a creep is tracked so
          │                                                 pursue() follows it if it leaves); with no target it pursues lastTarget (the creep it last fought: to it while visible, else to where it was last
          │                                                 seen and over the exit it left by), then walks to the mission room and holds near the centre
-         ├─ Guard   @register              (job.guard.ts)  port of role.guard.js; Task2 @task hunt/duel/healCreep/retreat, kites melees via idleFlee;
+         ├─ Guard   @register              (job.guard.ts)  port of role.guard.ts; Task2 @task hunt/duel/healCreep/retreat, kites melees via idleFlee;
          │                                                 picks its fight in the arena (the mission room while visible from anywhere, else its own room; Source Keepers are never targets, arenaEnemies/arenaMelees/potshots, so SkFarm's guards work in a keeper room): without vision it walks to the room first, with vision it heads straight for its target from wherever it is and only walks to the room when nothing there needs it;
          │                                                 engage() shoots and closes to range 2 (3 on a melee target, since kite backs off at 2; 2 while that melee is fatigued, for the 10 damage instead of 4); an unarmed target (no active ATTACK or RANGED_ATTACK) is chased with moveChase instead, to range 1 and then a step at it every tick; pickEnemy(): the closest enemy, but civilians are left out (and a hunted civilian dropped) while a disarmed fighter is present (not hostile, body built with ATTACK, RANGED_ATTACK or HEAL); order with no melee about: armed enemies and disarmed fighters, then healing a hurt friendly (healCreep, dropped when a fighter shows up; pickHurt and after() heal our fighters with ATTACK or RANGED_ATTACK parts before civilians, heal.ts healPick), then civilians (dropped for a hurt friendly);
          │                                                 with nothing to do hold() drifts to within 3 of the room centre (RoomIntel.centerPos), but only after 3 idle ticks
@@ -400,7 +400,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 priority 3. start(): escape() first: in a foreign room in safe mode (every action of ours but moving is blocked there,
          │                                                 healing included) with a hostile tower, a PathFinder step toward the nearest exit over the Rewalker matrix; then at home with a wanted boost missing (XGHO2 on TOUGH, XLHO2 on HEAL, XKHO2 on RANGED_ATTACK when the mission's
          │                                                 boostRanged is on; the subclass's static boosts(ranged) in the order taken) -> boost(): a MOVE boost heading the missing list is
-         │                                                 asked for alone (requestBoost(boost, nearSpawn): struct.lab.js picks the free lab nearest a spawn) until it is on; else
+         │                                                 asked for alone (requestBoost(boost, nearSpawn): struct.lab.ts picks the free lab nearest a spawn) until it is on; else
          │                                                 room.requestBoost for each missing one every tick and boostCreep at a lab holding enough mineral
          │                                                 and energy for the bare parts, waiting beside the first lab otherwise; mission.recycling -> recycleAt(originSpawn); mode attack
          │                                                 (and not manual) -> attack(): walk into the target room; there, the mission's targets() clear the own-target ids; a working melee
@@ -432,8 +432,8 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 range 5 from every exit tile and hostile, sit until full, then travel); harass with no hostiles (engage assaulters, heal friendlies,
          │                                                 hold within 5 of the room centre (RoomIntel.centerPos, cached in Memory.rooms[x].intel.center). Guard.after() fires
          │                                                 and heals opportunistically in every mode
-         ├─ Reserver @register             (job.reserver.ts) port of role.reserver.js; @task reserve, body 'reserver' via "close"
-         ├─ Claimer  @register             (job.claimer.ts) port of role.claimer.js for Startup; body 'claimer' ([MOVE, CLAIM]) via "remote";
+         ├─ Reserver @register             (job.reserver.ts) port of role.reserver.ts; @task reserve, body 'reserver' via "close"
+         ├─ Claimer  @register             (job.claimer.ts) port of role.claimer.ts for Startup; body 'claimer' ([MOVE, CLAIM]) via "remote";
          │                                                 @task claim: claimController, or attackController when someone else owns it; idles once `my`
          ├─ Immortan @register             (job.immortan.ts) Season 11 reactor reserver; body 'immortan' ([MOVE x5, CARRY, CLAIM], full speed on swamps) via "close", walks to the sector core,
          │                                                  @task reserve calls creep.claimReactor(reactor) at range 1 (needs a CLAIM part) whenever it is not ours, or every tick
@@ -482,7 +482,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
 
 ```js
 // From the game console. scheduleService is a global wrapper around Service.schedule
-// (main.js) and works; require('process').Service.schedule(...) is the long form.
+// (main.ts) and works; require('process').Service.schedule(...) is the long form.
 scheduleService('GlobalRespawn')
 scheduleService('Hub W25S7')         // args[1]=owned room; GlobalRespawn without startups, from the room's own spawns
 scheduleService('Swipe W5N8 W6N8')   // args[1]=target, args[2]=home
@@ -725,5 +725,5 @@ mixins run under the 2022 mission system.
    `buildBody` ([spawning.md](spawning.md)).
 3. Either rely on an existing `roleFoo()` prototype method, or override
    `start()` with Task2 logic.
-4. Import the module from `main.js` (or from the mission that uses it) so the
+4. Import the module from `main.ts` (or from the mission that uses it) so the
    decorator runs; then call `this.nJobs(Foo, n)` from a mission.

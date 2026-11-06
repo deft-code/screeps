@@ -1,14 +1,15 @@
 # Runtime: What Actually Runs Each Tick
 
-Entry point: `src/main.js` (`module.exports.loop = main`). This file is mostly
-history. The live path is short, and everything after the `return` on
-`src/main.js:353` is dead code. Read this doc before trusting anything you find
-by grepping for a function name.
+Entry point: `src/main.ts` (`export const loop = main`). Until 5 Nov 2026 it
+was `main.js` and carried the 2017-2020 tick loop after an unconditional
+`return`; that dead code is gone (docs/legacy-systems.md). The live path is
+short. Read this doc before trusting anything you find by grepping for a
+function name.
 
 ## Module load (global reset)
 
 Screeps re-executes module bodies on every global reset (code push, or the
-server recycling the VM). Order in `main.js`:
+server recycling the VM). Order in `main.ts`:
 
 1. `debug`, `shed`, `cache` are imported; `cache.injectAll()` adds the `tick` and
    `cache` properties to `Room` and `RoomObject` prototypes.
@@ -27,14 +28,16 @@ server recycling the VM). Order in `main.js`:
    prototype extensions, decorator registrations, `@daemon` instantiation,
    `Memory.*` defaulting, and `markethack.enable()` patching `Object.prototype`
    (every shard but `shardSeason`, whose market is switched off).
-4. The `mods` array (`src/main.js:79-123`) lists 39 legacy JS mixins (5
-   `creep.*.js`, 34 `role.*.js`). Each is `lib.merge`d onto `Creep.prototype`.
-   Because this runs *after* the TS `role.*.ts` imports, a JS method wins any
-   name collision (`afterWorker` is the one real collision).
+4. The legacy mixins are imported last: `creep.attack`, `creep.dismantle`,
+   `creep.heal`, `creep.oldrepair`, `creep.work` and the 36 2017 `role.*`
+   modules, each an `@injecter(Creep)` class copied onto `Creep.prototype` as
+   it loads (until Nov 2026 a `mods` array of JS files `lib.merge`d here).
+   Because this runs *after* the 2019 `role.*.ts` imports, a legacy method
+   wins any name collision (`afterWorker` is the one real collision).
 5. `process.Service.boot()` re-instantiates every service named in
    `Memory.scheduler.services`. This is how `GlobalRespawn` comes back after a
    reset: it is never constructed anywhere in code.
-## The loop (`main()`, `src/main.js:338`)
+## The loop (`main()`, `src/main.ts`)
 
 ```
 if shard not in {shard2, shardSeason}: log "WRONG SHARD", return
@@ -114,12 +117,16 @@ The rows a running build settles into (Season 11 shape; the mission rows depend 
 Row ordering means: mission lays eggs (critical) -> rooms run (normal) -> flags
 (low) -> spawner consumes eggs (late), all in one tick.
 
-## Dead code after the `return`
+## Dead code that followed the `return` (removed 5 Nov 2026)
 
-These are still compiled and their modules still load, but nothing calls them:
-tiered `strat.run/after/optional` scheduling, `powerCreeps` run, `spawnold.run`
-(old flag-egg spawner), `terminals.run` (market automation), `flag.darkRun`
-(flag teams), `powerHack`, `market.run`, `theRadar.run`, `depositRun`,
-`hackAlloy`, `Memory.flags` cleanup, heap stats and `gc()`. `theRadar.run()`
-was moved above the `return` in Oct 2026 and is live. Consequences: no
-terminal trading, no deposit farming, no power creeps on the current build. See [legacy-systems.md](legacy-systems.md).
+Until the conversion to TypeScript, `main.js` kept the old tick after an
+unconditional `return`: tiered `strat.run/after/optional` scheduling,
+`powerCreeps` run, `spawnold.run` (old flag-egg spawner), `terminals.run`
+(market automation), `flag.darkRun` (flag teams), `powerHack`, `market.run`,
+`depositRun`, `hackAlloy`, `Memory.flags` cleanup, heap stats and `gc()`.
+`theRadar.run()` was moved above the `return` in Oct 2026 and is live. The
+rest is deleted from `main.ts` (unreachable code fails the compile); the
+modules it called (`spawnold.run`, `struct.terminal.run`, `team.ts`, ...)
+still load and are still unused. Consequences: no terminal trading, no
+deposit farming, no power creeps on the current build. See
+[legacy-systems.md](legacy-systems.md).

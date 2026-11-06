@@ -5,8 +5,8 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
 
 ## Affects the live path
 
-1. **`afterWorker` defined twice**: `src/role.worker.js` and
-   `src/role.mason.ts:19`. The JS mixin is merged later in `main.js` and wins,
+1. **`afterWorker` defined twice**: `src/role.worker.ts` and
+   `src/role.mason.ts:19`. The worker's is imported later in `main.ts` and wins,
    which is the intended behaviour for workers, but the mason copy is
    unreachable and was probably meant to be `afterMason`.
 2. ~~Strat never evolves~~ Fixed 2026-09: `NullStrat.evolve()` returns a
@@ -55,7 +55,7 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
    this; look at a new layout's exits before committing it. The fallback skips rooms the route costs call
    deadly (a hostile base with towers such as Kalgen's W18S6, a deployed
    core), so a dead-ended walk never cuts through one.
-5. **`room.turtle` and `room.wallMax` do not exist** (`src/creep.oldrepair.js`).
+5. **`room.turtle` and `room.wallMax` do not exist** (`src/creep.oldrepair.ts`).
    `taskTurtleMode` is always false; `taskTurtlePrep` only triggers on safe mode
    at RCL3+; `taskRepairWall`/`idleRepairRoad` compare against `undefined`.
    These are called by the live `roleWorker` and `roleBootstrap`.
@@ -72,12 +72,12 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
 
 ## Latent bugs in code that is loaded but currently unreachable
 
-9. *(Fixed Sept 2026.)* The tower "overheal" branch in `src/struct.tower.js`
+9. *(Fixed Sept 2026.)* The tower "overheal" branch in `src/struct.tower.ts`
     called a never-exported `dynMaxHits`; it now uses `room.maxHits` (the
     metastruct maxHits via `strat.maxHits`).
 10. **`Game.terminals`, `Game.storages`, `Game.ncreeps` are never assigned**
-    (defined by a deleted `globals.js`). Used by `struct.terminal.js` market
-    functions, `team.ts:427`, `team.egg.js:5`.
+    (defined by a deleted `globals.js`). Used by `struct.terminal.ts` market
+    functions, `team.ts:427`, `team.egg.ts:5`.
 11. **`markethack` depends on engine internals** (`src/markethack.ts`):
     `enable()` runs at import (not on `shardSeason`) and patches
     `Object.prototype` with a Symbol getter that `getOrderById(symbol)` trips on
@@ -102,12 +102,12 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
 
 ## Hardcoded MMO / personal state
 
-- Shard guard accepts only `shard2` and `shardSeason` (`src/main.js:343`).
-- Username `deft-code` in `routes.ts`, `struct.controller.js`, `team.ts`,
-  `creep.dismantle.js`, `history.ts`.
+- Shard guard accepts only `shard2` and `shardSeason` (`src/main.ts`).
+- Username `deft-code` in `routes.ts`, `struct.controller.ts`, `team.ts`,
+  `creep.dismantle.ts`, `history.ts`.
 - Room names `W21N15`, `W29N11`, `W23N15`, `W49N10`, `W41N10`, spawn `Aycaga`,
-  object id `5c574d80b8cfe8383392fb37`, market order ids, in `main.js`,
-  `powercreep.ts`, `role.power.js`.
+  object id `5c574d80b8cfe8383392fb37`, market order ids, in `main.ts`,
+  `powercreep.ts`, `role.power.ts`.
 - Player names `TuN9aN0`, `smokeman`, `Disconnect`, `omnomwombat` territory
   in `powercreep.ts`.
 - `mineralPlan()` has a `swc` shard branch.
@@ -133,7 +133,7 @@ current build; anything fixed has moved to [Fixed](#fixed) at the bottom.
   (`protectedBlocker`, logged every 100 ticks), so a remaining clash costs
   one unbuilt structure and a log line instead of a site a tick.
 
-- **Console scheduling helpers** (`src/main.js:12-16`). `global.spawn =
+- **Console scheduling helpers** (`src/main.ts`). `global.spawn =
   process.spawn` assigned `undefined` and `console.schedule =
   process.Service.shedule` was a typo. Replaced by `global.spawnService(cmd)`
   and `global.scheduleService(cmd)`, arrow wrappers that resolve `process`

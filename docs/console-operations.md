@@ -62,7 +62,7 @@ re-`require`ing is unreliable.
 ## Inspecting creeps
 
 ```js
-lup('<id>')                                  // Game.getObjectById shorthand (console.js)
+lup('<id>')                                  // Game.getObjectById shorthand (console.ts)
 busyCreeps(10)                               // top CPU users by memory.cpu per tick alive
 Game.creeps.asrc0.debug = 500                // enable creep.dlog for 500 ticks (Debuggable setter)
 Game.creeps.asrc0.debug = false
@@ -124,7 +124,7 @@ Game.rooms.X.addSpot('ctrl', new RoomPosition(20, 21, 'X'))   // manual spot ove
 Game.rooms.X.drawSpots()
 ```
 
-## Destructive helpers (console.js) — read before using
+## Destructive helpers (console.ts) — read before using
 
 | call | effect |
 |---|---|

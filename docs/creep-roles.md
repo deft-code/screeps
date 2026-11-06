@@ -58,11 +58,11 @@ Creep
              ├─ RoleMineral (role.mineral.ts) roleMineral
              └─ RoleDepositFarmer (role.depositfarmer.ts)
 
-Legacy JS mixins merged by main.js's `mods` loop (lib.merge, overwrite on collision):
- creep.attack.js  goAttack/goRangedAttack/goMassAttack/idleAttack/taskAttack...
- creep.dismantle.js  goDismantle/taskDismantle(Any)/idleDismantle
- creep.heal.js    goHeal/goRangedHeal/idleHeal
- creep.oldrepair.js  idleRepairRoad, taskRepairWall, taskTurtleMode/Prep/Turtle
+Legacy mixins (2017, TypeScript since Nov 2026): the chain CreepWork -> CreepOldRepair -> CreepAttack -> CreepDismantle -> CreepHeal, each @injecter(Creep), imported by main.ts after the TS roles so they overwrite on collision:
+ creep.attack.ts  goAttack/goRangedAttack/goMassAttack/idleAttack/taskAttack...
+ creep.dismantle.ts  goDismantle/taskDismantle(Any)/idleDismantle
+ creep.heal.ts    goHeal/goRangedHeal/idleHeal
+ creep.oldrepair.ts  idleRepairRoad, taskRepairWall, taskTurtleMode/Prep/Turtle
 
 ### Repair order (`taskRepairOrdered`, creep.repair.ts, Oct 2026)
 
@@ -114,9 +114,9 @@ extensions present the lowest one is made whole first, then the next.
 Until Oct 2026 a task ran to `hits + 100k` whatever `maxHits` said and the
 pick always found the lowest rampart again, so ramparts climbed for ever
 (66M in W25S7 against a 20M max) while roads waited.
- creep.work.js    idleEmergencyUpgrade, idleUpgrade, taskUpgrade(Room), goUpgradeController, taskReserve, idleHarvest, taskHarvestSpots, taskHarvest, taskCampSrc(s)
+ creep.work.ts    idleEmergencyUpgrade, idleUpgrade, taskUpgrade(Room), goUpgradeController, taskReserve, idleHarvest, taskHarvestSpots, taskHarvest, taskCampSrc(s)
                   (taskHarvest remembers task.spot but adopts the current tile when bumped onto another source-adjacent one, so farmers do not walk back and re-bump)
- role.*.js (34 files)  roleXxx/afterXxx and role-private task helpers
+ role.*.ts (36 legacy files, each `extends CreepHeal`)  roleXxx/afterXxx and role-private task helpers
 ```
 
 ## Live roles on the current build
@@ -125,14 +125,14 @@ Spawned by `GlobalRespawn` -> `JobRole`/`JobCreep` -> these prototype methods:
 
 | Creep name prefix | Job class | Method | File | Behaviour |
 |---|---|---|---|---|
-| `startup` | `Startup` | `roleStartup` -> `roleBootstrap` | `role.bootstrap.js` | Generalist: emergency upgrade, harvest from source spots, fill towers/extensions/spawns, build towers, turtle repairs, build/repair ordered, upgrade, camp sources. Until RCL2 it only upgrades (only in a room we own; in an unowned room every upgrade task returns false and it falls through to building and repairing). `after`: nom, recharge, transfer extra, build/repair/upgrade when over half full, harvest. |
-| `reboot` | `Reboot` | `roleReboot` -> `roleBootstrap` | `role.reboot.js` | Same as startup; exists to spawn from whatever energy is available when the room has no creeps. |
-| `pioneer` | `Pioneer` | `rolePioneer` -> `roleBootstrap` | `role.bootstrap.js` | Same as startup, laid by the `Startup <room>` mission (not GlobalRespawn): spawned outside the mission room and homed on it, so `atHome`/`home` point at the assisted room. Also sent before the claim to build the planned roads/containers (`Startup.canPioneerEarly`). |
-| `worker` | `Worker` | `roleWorker` | `role.worker.js` | Build towers, turtle mode, build ordered, repair ordered, turtle prep/turtle, upgrade when storage > 10k or no storage; otherwise recharge (harvest fallback). `after`: idle nom/recharge/build/repair/upgrade, then `idleImmortal` when beside a spawn. |
-| `ctrl` | `Ctrl` | Task2 `start()` (no `roleCtrl`; `role.ctrl.js` deleted Nov 2026) | `job.ctrl.ts` | Sit on the `ctrl` spot (within 3 of the controller without one), then every tick fill before upgrading: under one full-power upgrade's energy (WORK parts, 15 at RCL8) it withdraws from an adjacent store (storage, else the one used last, kept on the heap, else the fullest; never towers/extensions/spawns), and when empty nudges `carry.energy` so the same tick's upgrade passes the API gate (the engine runs withdraw before upgrade). No boosts. No `after`; the container on the spot is planned by `Meta_ctrl` and retired at RCL6 to decay ([metastruct.md](metastruct.md)). |
-| `hauler` | `Hauler` | `roleHauler` | `role.hauler.js` | Fill towers, then extensions/spawns (`taskTransferPool`), pick up drops, drain src containers / terminal surplus, distribute to labs/nuker/power spawn/sink containers, dump minerals to terminal/storage. `after`: idle nom/recharge, then `idleImmortal` when beside a spawn. |
+| `startup` | `Startup` | `roleStartup` -> `roleBootstrap` | `role.bootstrap.ts` | Generalist: emergency upgrade, harvest from source spots, fill towers/extensions/spawns, build towers, turtle repairs, build/repair ordered, upgrade, camp sources. Until RCL2 it only upgrades (only in a room we own; in an unowned room every upgrade task returns false and it falls through to building and repairing). `after`: nom, recharge, transfer extra, build/repair/upgrade when over half full, harvest. |
+| `reboot` | `Reboot` | `roleReboot` -> `roleBootstrap` | `role.reboot.ts` | Same as startup; exists to spawn from whatever energy is available when the room has no creeps. |
+| `pioneer` | `Pioneer` | `rolePioneer` -> `roleBootstrap` | `role.bootstrap.ts` | Same as startup, laid by the `Startup <room>` mission (not GlobalRespawn): spawned outside the mission room and homed on it, so `atHome`/`home` point at the assisted room. Also sent before the claim to build the planned roads/containers (`Startup.canPioneerEarly`). |
+| `worker` | `Worker` | `roleWorker` | `role.worker.ts` | Build towers, turtle mode, build ordered, repair ordered, turtle prep/turtle, upgrade when storage > 10k or no storage; otherwise recharge (harvest fallback). `after`: idle nom/recharge/build/repair/upgrade, then `idleImmortal` when beside a spawn. |
+| `ctrl` | `Ctrl` | Task2 `start()` (no `roleCtrl`; `role.ctrl.ts` deleted Nov 2026) | `job.ctrl.ts` | Sit on the `ctrl` spot (within 3 of the controller without one), then every tick fill before upgrading: under one full-power upgrade's energy (WORK parts, 15 at RCL8) it withdraws from an adjacent store (storage, else the one used last, kept on the heap, else the fullest; never towers/extensions/spawns), and when empty nudges `carry.energy` so the same tick's upgrade passes the API gate (the engine runs withdraw before upgrade). No boosts. No `after`; the container on the spot is planned by `Meta_ctrl` and retired at RCL6 to decay ([metastruct.md](metastruct.md)). |
+| `hauler` | `Hauler` | `roleHauler` | `role.hauler.ts` | Fill towers, then extensions/spawns (`taskTransferPool`), pick up drops, drain src containers / terminal surplus, distribute to labs/nuker/power spawn/sink containers, dump minerals to terminal/storage. `after`: idle nom/recharge, then `idleImmortal` when beside a spawn. |
 | `hub` | `Hub` | `roleHub` | `role.hub.ts` | Stationary on the `hub` spot: a per-tick rung ladder (transfer side, then withdraw side; the refactor into a snapshot and two rung chains is planned in [hub-design.md](hub-design.md)) that shuttles energy among storage, terminal, hub link, and adjacent spawn/tower using `storageBalance` and `hubNeed`; with an empty hand and nothing else to do, move non-energy stock from storage into the terminal while the terminal holds under 150k non-energy, under 5k of that resource and under 180k in all (minerals in hand go to the terminal first, or to the storage while the terminal is past 180k total); the withdraw side's last rung takes a hand of the terminal's largest mineral stock, thorium excepted (the depot reads it from the terminal), while the terminal is past 185k total (`withdrawTerminalMineral`, 21 Oct 2026). `after`: renew in place (`idleImmortal`). |
-| `upgrader` | `Upgrader` | Task2 `start()` (no `roleUpgrader` call) | `job.upgrader.ts` | Surplus sink, laid while RCL < 8 and storage holds >= 100k energy (storage energy / 100k, so 150k = 1.5; priority -1): `taskRecharge` from storage/links/containers, then `goUpgradeController`. `after`: `idleNom` + `idleRecharge`. `role.upgrader.js` is the unported original. |
+| `upgrader` | `Upgrader` | Task2 `start()` (no `roleUpgrader` call) | `job.upgrader.ts` | Surplus sink, laid while RCL < 8 and storage holds >= 100k energy (storage energy / 100k, so 150k = 1.5; priority -1): `taskRecharge` from storage/links/containers, then `goUpgradeController`. `after`: `idleNom` + `idleRecharge`. `role.upgrader.ts` is the unported original. |
 | `asrc`, `bsrc` | `Srcer` | `roleAsrc`/`roleBsrc` | `role.src.ts` | Static miner on the meta spot: harvest, fill adjacent extensions/spawn, manage the source link mode (`src`/`dump`/`pause`), sip from container/link when recharging. `after`: idle build/repair. |
 
 Everything else with a `roleXxx` method is loaded but not spawned by any job.
@@ -144,12 +144,12 @@ To bring one back, write a `Job*` class ([missions-and-jobs.md](missions-and-job
 | `shovel` | `role.shovel.ts` | Second hub creep for factory/power spawn/terminal. |
 | `core`, `aux` | `role.shunt.ts` | Link/storage shunt (pre-hub design). |
 | `mason` | `role.mason.ts` | Boosted wall/rampart repairer. |
-| `mineral`, `minecart` | `role.mineral.ts`, `role.minecart.js` | Extractor miner and its hauler. |
+| `mineral`, `minecart` | `role.mineral.ts`, `role.minecart.ts` | Extractor miner and its hauler. |
 | `depositfarmer` | `role.depositfarmer.ts` | Highway deposit farming (needs the dead radar/deposit pipeline). |
-| `harvester`, `harvestaga`, `miner`, `srcer`, `coresrc`, `auxsrc` | `.js` | Older source miners; `srcer` (159 lines) is the pre-meta static miner. |
-| `trucker`, `truckaga`, `collector`, `cart`, `farmer`, `zombiefarmer`, `dropper` | `.js` | Remote-mining logistics for the flag team system. |
-| `upgrader`, `paver`, `reserver`, `claimer`, `declaimer`, `scout`, `manual`, `recycle` | `.js`/`.ts` | Utility roles. `role.recycle.ts` is not imported at all. `paver`, `reserver`, `claimer`, `scout` have Task2 job ports (`job.*.ts`) that the missions use instead. |
-| `guard`, `mini`, `tower`, `wolf`, `micro`, `defender`, `medic`, `caboose`, `archer`, `rambo`, `ram`, `bulldozer`, `opener`, `cleaner`, `stomper`, `drain`, `chemist`, `power` | `.js` | Combat, siege, lab, and power roles. `role.power.js` has hardcoded MMO room `W29N11`. |
+| `harvester`, `harvestaga`, `miner`, `srcer`, `coresrc`, `auxsrc` | 2017 mixins | Older source miners; `srcer` (159 lines) is the pre-meta static miner. |
+| `trucker`, `truckaga`, `collector`, `cart`, `farmer`, `zombiefarmer`, `dropper` | 2017 mixins | Remote-mining logistics for the flag team system. |
+| `upgrader`, `paver`, `reserver`, `claimer`, `declaimer`, `scout`, `manual`, `recycle` | 2017 mixins / `.ts` | Utility roles. `role.recycle.ts` is not imported at all. `paver`, `reserver`, `claimer`, `scout` have Task2 job ports (`job.*.ts`) that the missions use instead. |
+| `guard`, `mini`, `tower`, `wolf`, `micro`, `defender`, `medic`, `caboose`, `archer`, `rambo`, `ram`, `bulldozer`, `opener`, `cleaner`, `stomper`, `drain`, `chemist`, `power` | 2017 mixins | Combat, siege, lab, and power roles. `role.power.ts` has hardcoded MMO room `W29N11`. |
 
 ## Task and return conventions (legacy layer)
 

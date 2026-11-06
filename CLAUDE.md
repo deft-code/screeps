@@ -1,8 +1,9 @@
 # Screeps AI (deft-code/screeps)
 
-Game AI for [Screeps](https://screeps.com), 2017-2026, ~30k lines in `src/`
-(120 TypeScript, 65 JavaScript). Compiled with gulp-typescript to `distjs/` and
-pushed with gulp-screeps. The shard guard in `src/main.js` accepts the seasonal
+Game AI for [Screeps](https://screeps.com), 2017-2026, ~30k lines of
+TypeScript in `src/` (the last JavaScript was converted on 5 Nov 2026).
+Compiled with gulp-typescript to `distjs/` and
+pushed with gulp-screeps. The shard guard in `src/main.ts` accepts the seasonal
 shard `shardSeason` and MMO `shard2` and refuses every other shard.
 
 Detailed docs live in `docs/`. Read the one that matches your task before
@@ -50,15 +51,15 @@ follows from that:
 
 ## What is actually running
 
-`src/main.js` has an unconditional `return` right after `process.runAll()`;
-everything below it is dead. The live loop is:
+`src/main.ts`'s loop is short (until 5 Nov 2026 the file was `main.js` and
+carried the 2017-2020 tick after an unconditional `return`; that dead code
+is gone, [docs/legacy-systems.md](docs/legacy-systems.md) records it):
 
 ```
 shard guard -> genPixels (shard2 only)
 run(rooms, 500, r => r.strat.init())   # hostile lists, updateIntel, Rewalker.gatherIntel per visible room
 process.runAll()                       # everything else happens here
 theRadar.run()                         # observers serve observe requests, idle ones scan stale rooms
-return                                 # the rest of the function is dead
 ```
 
 `process.runAll()` runs a priority table of processes
@@ -88,7 +89,7 @@ per-room strats start themselves. What each process does:
 | `Thormine <room> [dest]` | thoreaters mine a room's thorium into its terminal, which ships to `dest` every cooldown; with `teardownEnabled = true` (persisted) it tears the room down when the thorium is gone: winds down every mission homed there, drains energy with cleanups, ships it, destroys everything but roads and ramparts, unclaims (`abortTeardown()` until destruction starts) |
 | `StealReactor <core>` | radar-watches a sector's core and keeps one usurper (MOVE x5 CLAIM) on the way from the nearest spawning room no matter what (since 1 Nov 2026; before, only while the reactor was fueled, not ours and free of CLAIM creeps, and the route freshly seen) to claim the reactor, then die to a keeper next door |
 | `ThorSurvey <room> [NW\|NE\|SW\|SE\|all]` | temporary (1 Nov 2026): radar-observes the non-highway rooms of that room's sector, or a quadrant of it, and records each one's thorium (structure stores, piles, tombstones, ruins, creeps, the mineral) in `Memory.thorsurvey`; `status()`/`table()` list them most thorium first. Not intel; delete with its memory once a raid target is picked |
-| `LabPlan <room>` | stock-aware lab chooser (`labplan.ts`): walks the reaction chains of a console-edited priority list (`Memory.labplan[room].plan`, `add`/`remove`/`setQuota`/`reset`) and sets the labs to the deepest reaction whose inputs are stocked, else an idle ladder (`docs/balance-design.md`); turns `struct.lab.js`'s autoReactAll off in that room |
+| `LabPlan <room>` | stock-aware lab chooser (`labplan.ts`): walks the reaction chains of a console-edited priority list (`Memory.labplan[room].plan`, `add`/`remove`/`setQuota`/`reset`) and sets the labs to the deepest reaction whose inputs are stocked, else an idle ladder (`docs/balance-design.md`); turns `struct.lab.ts`'s autoReactAll off in that room |
 | `Balance` | terminal balancer, no creeps: levels energy, brings RCL8 rooms to 10k of each base mineral, feeds lower rooms' minerals to their nearest RCL8 room, sends all thorium to one room, levels catalyzed boosts among RCL8 rooms (`docs/balance-design.md`); rooms via `addRoom`/`removeRoom` |
 | `Once <Job> <room> [n]`, `Always <Job> <room> [n]` | one creep of a job class at a time, `n` in turn (`Once`) or one per lifetime for good (`Always`); the generic test harness for any job |
 | `Furiosa` | the power creep of that name (`ms.furiosa.ts`, on `MyPowerCreep`): keeps a home power-spawn room (a flag named `Furiosa` pins it), spawns her there off cooldown, renews under 300 TTL, and runs the Furiosa flag's child flags in name order: `swipe<n>_Furiosa` loots the child's room into the flag's room through the shared swipe quest (`swipe.ts`, targets by value); no child flag = wait within 5 of the flag |
@@ -107,7 +108,7 @@ purple service flags ([docs/missions-and-jobs.md](docs/missions-and-jobs.md)).
 ## Architecture in one screen
 
 ```
-main.js
+main.ts
  ├─ process.ts      Process/Service, priority rows critical>normal>low>late(>extra), canRun CPU gate
  ├─ mission.ts      Mission = Service with eggs->hatch->creeps lists in Memory.missions
  │   └─ ms.*.ts     @register, scheduled by command string
@@ -121,19 +122,19 @@ main.js
  │   intents.ts       Intents: the per-tick record (a Creep's tick.intents) with the can*() checks and set*() records every layer uses
  │   enemy.ts         enemyOf(creep) / enemiesIn(room): EnemyCreep/EnemyPowerCreep by id in a tobj.ts Registry
  │   swipe.ts         the swipe quest for any MyBaseCreep (Swiper job and Furiosa): targets, skip list, deliver home, nomNearby
- ├─ spawn.ts        SpawnDaemon + energyDef; spawnold.js supplies findSpawns/buildBody body table
+ ├─ spawn.ts        SpawnDaemon + energyDef; spawnold.ts supplies findSpawns/buildBody body table
  ├─ creep.role.ts   dispatch: creep name "asrc3" -> role "asrc" -> Creep.prototype.roleAsrc()
  │   creep.ts > creep.role.ts > creep.move.ts > creep.carry.ts > creep.harvest/build/repair.ts (mixins)
- │   role.*.ts (@injecter) and role.*.js (lib.merge via main.js `mods`) add roleXxx/afterXxx
+ │   role.*.ts (@injecter(Creep)) add roleXxx/afterXxx; the 2017 ones extend the creep.work -> creep.heal chain and are imported last, so they win a collision
  ├─ strat.ts        NullStrat/ClaimedStrat per room (also processes); registerStrat/setRoomStrat override via Memory.rooms[x].strat (strat.thor.ts: ThorStrat)
  ├─ metastruct.ts   base templates + flag-driven planning + construction upkeep + maxHits + spot lookup
  │   ├─ metatraffic.ts  road planner: metas declare traffic() src/dest entries, MetaManager plans the room's roads; the shared road weights (2:3:6)
  │   └─ roadplan.ts     room-to-room road planner on those weights (RoadPlanner): Remote legs, Startup's road, the Experiment service
  ├─ struct.link/tower/lab/factory/terminal/container/controller/observer  structure logic and prototype helpers
- ├─ Rewalker.ts     movement engine (matrix.js is dead)
+ ├─ Rewalker.ts     movement engine (matrix.ts is dead)
  ├─ staging.ts / heal.ts / suppress.ts / labplan.ts   shared mission helpers
- ├─ cache.ts / debug.ts / roomobj.ts / lib.js / shed.ts   infrastructure
- ├─ reactor.ts      Season 11 helpers: sectorCore, findReactors, thoriumMineral; defines the season globals as undefined off-season (main.js imports it first)
+ ├─ cache.ts / debug.ts / roomobj.ts / lib.ts / shed.ts   infrastructure
+ ├─ reactor.ts      Season 11 helpers: sectorCore, findReactors, thoriumMineral; defines the season globals as undefined off-season (main.ts imports it first)
  └─ intel.ts / radar.ts / market.ts / deposit.ts          intel and radar are live; the rest only registers
 ```
 
@@ -145,8 +146,8 @@ Docs: [missions-and-jobs](docs/missions-and-jobs.md),
 ## Live creep roles
 
 Base-room roles laid by `GlobalRespawn`/`Hub` (legacy `roleXxx` methods behind
-the `job.role.ts` bridge): `startup`/`reboot` (`role.bootstrap.js`), `worker`
-(`role.worker.js`), `hauler` (`role.hauler.js`), `hub`
+the `job.role.ts` bridge): `startup`/`reboot` (`role.bootstrap.ts`), `worker`
+(`role.worker.ts`), `hauler` (`role.hauler.ts`), `hub`
 (`role.hub.ts`), `asrc`/`bsrc` (`role.src.ts`); and pure jobs `ctrl`
 (`job.ctrl.ts`: ctrl spot, fill to one upgrade's worth then upgrade, the
 `carry` nudge when empty), `upgrader`
@@ -193,7 +194,7 @@ else with a `roleXxx` method is loaded but no job spawns it.
   `Memory` only for what must survive a global reset.
 - Bare module names (`import 'strat'`, `require('role.x')`); every `src/`
   basename must be unique; no subdirectories.
-- Three coding styles coexist (2017 standard-style JS, 2019 TS decorators,
+- Three coding styles coexist (2017 standard-style task chains, TypeScript since Nov 2026; 2019 TS decorators;
   2022 TS jobs). New behaviour goes in the 2022 style; see
   [docs/conventions-and-styles.md](docs/conventions-and-styles.md) including a
   legacy-role -> job migration recipe.
@@ -210,7 +211,7 @@ else with a `roleXxx` method is loaded but no job spawns it.
 "process:60:50"` maps stack tokens to `.ts` lines; `npx gulp console` and
 `consoleTail` reach the live console from the shell (next section). Never run
 `gulp fetch` casually (overwrites `src/*.js` from the server). `gulp
-sim`/`swc`/`plus` push raw JS and cannot run the TS code. There is no test
+sim`/`swc`/`plus` push `src/*.js`, which no longer exists: dead. There is no test
 suite: `npx gulp compile` (TypeScript plus the module-cycle check) and
 watching the live game are the checks. `gulp consoleLog` is `consoleTail`
 for 60 s; `gulp market`/`money` are 2017 MMO API probes. Details:
@@ -381,7 +382,7 @@ keeper tiles and route costs, written by `Rewalker.gatherIntel` from `strat.init
   always returns `null`).
 - `GlobalRespawn` uses the spawn named `Home`, else the first spawn in
   `Game.spawns`; with no spawns at all it throws every tick.
-- `afterWorker` exists in both `role.worker.js` (wins) and `role.mason.ts`.
+- `afterWorker` exists in both `role.worker.ts` (wins) and `role.mason.ts`.
 - `Game.terminals`/`Game.storages`/`Game.ncreeps` are referenced but never
   defined (dead paths only).
 - `room.turtle` / `room.wallMax` do not exist; `taskTurtle*` in live roles
@@ -410,12 +411,12 @@ keeper tiles and route costs, written by `Rewalker.gatherIntel` from `strat.init
 
 ## Legacy and orphans
 
-`team.ts`/`team.egg.js` (flag teams), `spawnold.run`, `room.keeper.js`,
-`planner.js`, `struct.terminal.run`, `matrix.js`,
-and 30-odd `role.*.js` files are loaded but not driven.
-`FindRoute.ts`, `PriorityQueue.js`, `history.ts`, `memprof.ts`, `memhack.js`,
-`profiler.ts`, `role.js`, `role.legacy.js`, `role.recycle.ts`, `server.js`,
-`stack.js`, and the root `hacking.js`/`markethack.js` are not imported at all.
+`team.ts`/`team.egg.ts` (flag teams), `spawnold.run`, `room.keeper.ts`,
+`planner.ts`, `struct.terminal.run`, `matrix.ts`,
+and 30-odd 2017 `role.*.ts` mixins are loaded but not driven.
+`FindRoute.ts`, `PriorityQueue.ts`, `history.ts`, `memprof.ts`, `memhack.ts`,
+`profiler.ts`, `role.ts`, `role.legacy.ts`, `role.recycle.ts`, `server.ts`,
+`stack.ts`, and the root `hacking.js`/`markethack.js` are not imported at all.
 Status of every file: [docs/file-inventory.md](docs/file-inventory.md); what the
 legacy systems did: [docs/legacy-systems.md](docs/legacy-systems.md).
 
@@ -423,9 +424,10 @@ legacy systems did: [docs/legacy-systems.md](docs/legacy-systems.md).
 
 - Before changing a function, check `docs/file-inventory.md` for whether it is
   live, reachable, dead, or orphaned; grep alone will mislead you.
-- Prefer adding a `job.*.ts` class over extending `role.*.js`. Keep role
+- Prefer adding a `job.*.ts` class over extending a 2017 `role.*.ts` mixin. Keep role
   methods on `Creep.prototype` until a Task2 port exists.
-- Keep `main.js` import order: TS roles before the `mods` loop, and
+- Keep `main.ts` import order: the 2019 `role.*.ts` modules before the 2017
+  mixins (`creep.attack` ... `role.zombiefarmer`, which win a collision), and
   `process.Service.boot()` after every `@register`.
 - A TypeScript error or a require cycle fails `gulp compile`, and with it
   `deploy`/`season`/`ptr`, before anything is pushed (`tsErrors` and

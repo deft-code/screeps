@@ -5,7 +5,7 @@ These modules are still compiled and imported, so their prototype extensions and
 on the current build. Know them so you can (a) not mistake them for live code
 and (b) mine them when porting behaviour to the job system.
 
-## Flag-driven teams (`src/team.ts`, `src/team.egg.js`, `src/spawnold.js run()`, `src/flag.ts run()`)
+## Flag-driven teams (`src/team.ts`, `src/team.egg.ts`, `src/spawnold.ts run()`, `src/flag.ts run()`)
 
 The 2017-2020 orchestration layer. A **team** was a flag with primary
 `COLOR_BLUE`; its secondary colour chose the behaviour and its name's first word
@@ -34,21 +34,21 @@ asrc, bsrc, worker, shovel, controller, mineral, chemist`) is the closest
 ancestor of `GlobalRespawn` and a good checklist for what jobs are still
 missing (`defender`, `shovel`, `mineral`/`minecart`, `chemist`, `cap`, `mason`).
 
-## Old base planner (`src/room.keeper.js`, `src/planner.js`)
+## Old base planner (`src/room.keeper.ts`, `src/planner.ts`)
 
 Pre-metastruct construction: `RoomKeeper` kept `Memory.rooms[x].keeper.plans`
-per structure type and placed sites in RCL order; `planner.js` (`BasePlan`)
+per structure type and placed sites in RCL order; `planner.ts` (`BasePlan`)
 laid out a base from an orange flag and committed to the keeper. `runKeeper`
 is exported but never called; `planner` is not imported (its `require` in
 `flag.ts` is commented out). Superseded by [metastruct.md](metastruct.md).
 
-## Class-based Role experiment (`src/role.js`, `src/role.legacy.js`, 2018)
+## Class-based Role experiment (`src/role.ts`, `src/role.legacy.ts`, 2018)
 
 A `Role` class per creep (`require('role.' + role)`) with `init/pre/run/after`
 hooks and a `Creep.prototype.role` getter. Neither file is imported; if it were,
 the `role` getter would clash with `CreepRole.role`. Dead end.
 
-## Market automation (`src/struct.terminal.js run()`, `src/market.ts run()`, `src/markethack.js`)
+## Market automation (`src/struct.terminal.ts run()`, `src/market.ts run()`, `src/markethack.js`)
 
 The live replacement, since Sept 2026, is the `Selloff <room>` service
 (`ms.selloff.ts`, [missions-and-jobs.md](missions-and-jobs.md)): buy-order
@@ -60,7 +60,8 @@ longer depend on a swiper happening to look at a resource
 ([runtime-tick.md](runtime-tick.md)).
 
 Terminal balancing, auto-buying core minerals, selling surplus and price EMAs
-in `Memory.market`. All callers are after the `return` in `main.js`.
+in `Memory.market`. Its callers sat after the `return` in `main.js`, removed
+on 5 Nov 2026 (git history has them).
 
 `markethack` is no longer legacy: the 2020 `getRawMarket` hack (a `Symbol`
 getter on `Object.prototype` that grabs the engine's raw order table, skipping
@@ -86,15 +87,19 @@ has the mechanism and the trade-offs.
   Sept 2026 (see git history before the rewrite); the file now holds only the
   `TPowerCreep`/`MyPowerCreep` wrappers and `ms.furiosa.ts` drives power creeps.
 
-## `main.js` hacks
+## `main.js` hacks (removed 5 Nov 2026)
 
 `powerHack` (buy power, process power in two MMO rooms, spawn `power` creeps
 from `Game.spawns.Aycaga`), `hackAlloy`, `doCrazy` (cost-matrix experiment),
 `doMarket`, `evil` (order manipulation, disabled by `if (Game.time) return`),
 `drawStaleness`, heap/GC monitoring, `init()` (creates a `Startup` flag; never
-called). All dead.
+called), and the flag-team tick (`strat.run/after/optional` by thirds,
+`spawnold.run`, `struct.terminal.run`, `depositRun`, `Memory.flags` cleanup).
+All dead behind an unconditional `return`; deleted when `main.js` became
+`main.ts` (unreachable code fails the compile). Git history before 5 Nov 2026
+has them.
 
-## Console client hacks (`src/console.js`)
+## Console client hacks (`src/console.ts`)
 
 `global.injectAbuse` / `global.clientAbuse` print HTML that, when clicked in the
 web client, patches the Angular room controller to write click/selection info
@@ -106,12 +111,12 @@ into `Memory.client`. `global.lup`, `busyCreeps`, `purgeWalls`, `wipe`,
 
 | file | what it was |
 |---|---|
-| `src/FindRoute.ts` + `src/PriorityQueue.js` | 2022 reimplementation of `Game.map.findRoute` with sector-aware costs |
+| `src/FindRoute.ts` + `src/PriorityQueue.ts` | 2022 reimplementation of `Game.map.findRoute` with sector-aware costs |
 | `src/history.ts` | market transaction history aggregation into `Memory.history` |
 | `src/memprof.ts` | incremental `Memory` size profiler |
-| `src/memhack.js`, `src/profiler.ts` | fully commented-out Memory parse hack and CPU profiler |
+| `src/memhack.ts`, `src/profiler.ts` | fully commented-out Memory parse hack and CPU profiler |
 | `src/role.recycle.ts` | `roleRecycle` walks to a spawn to be recycled (never merged onto `Creep`) |
-| `src/server.js`, `src/stack.js` | 2017 utilities (server identity, stack formatting) |
+| `src/server.ts`, `src/stack.ts` | 2017 utilities (server identity, stack formatting) |
 | `hacking.js` (repo root) | hijacks `Function.prototype.bind` to capture the Screeps runtime object; not deployed (only `src/` is compiled) |
 | `markethack.js` (repo root) | older copy of `src/markethack.js` |
 | `.tern-project`, `watch.sh` | editor/watch tooling from 2017 |

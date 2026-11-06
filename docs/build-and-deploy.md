@@ -13,14 +13,14 @@ tasks are implemented in `console-tools.js`.
 - Line endings are LF everywhere: `.gitattributes` (`* text=auto eol=lf`)
   normalises on commit and checkout regardless of `core.autocrlf`, and
   `.editorconfig` tells editors the same (VS Code needs the EditorConfig
-  extension). Indent width is not pinned for TS/JS because the 2017 JavaScript
-  uses 2 spaces and the 2022 TypeScript uses 4.
+  extension). Indent width is not pinned because the 2017 files (TypeScript
+  since Nov 2026) use 2 spaces and the 2022 TypeScript uses 4.
 
 ## Tasks
 
 | Task | What it does |
 |---|---|
-| `npx gulp compile` | Compiles `src/**/*` (TS plus passthrough JS via `allowJs`) to `distjs/`, external sourcemaps to `sourcemaps/`. Dependency of every deploy task. `compileTs` counts gulp-typescript's errors (it still emits the JavaScript) and the `tsErrors` task then fails the series, so a type error (like a require cycle, `cycles`) stops `deploy`/`season`/`ptr` before the push; before 4 Nov 2026 the error was only flagged and the push went ahead. |
+| `npx gulp compile` | Compiles `src/**/*` (all TypeScript since 5 Nov 2026; `allowJs` stays on but `src/` holds no JS) to `distjs/`, external sourcemaps to `sourcemaps/`. Dependency of every deploy task. `compileTs` counts gulp-typescript's errors (it still emits the JavaScript) and the `tsErrors` task then fails the series, so a type error (like a require cycle, `cycles`) stops `deploy`/`season`/`ptr` before the push; before 4 Nov 2026 the error was only flagged and the push went ahead. |
 | `npx gulp cycles` | Walks the static `require("x")` calls in `distjs/*.js` and fails on any cycle, printing the chain (`a -> b -> a`). Runs as the second half of `compile`, so a cycle **does** abort the push. Needed because the Screeps loader throws `Circular reference to module` on any cycle that tsc and node both tolerate. Dynamic requires such as `require(importName)` in `process.ts` are ignored. |
 | `npx gulp season` | compile, then push `distjs/*.js` to the seasonal server (`path: /season`, branch `default`). Season 11 (`shardSeason`), the last target, ended 1 Nov 2026; nothing is deployed and watched now (CLAUDE.md, Status). |
 | `npx gulp deploy` | compile, then push to `credentials.branch` on MMO (`shard2` is the only MMO shard the code accepts). |
@@ -36,8 +36,8 @@ All console tasks read `SCREEPS_WORLD` (`season`/`ptr`/`mmo`, default `season`)
 and `SCREEPS_SHARD` (default `shardSeason`/`shard0`/`shard2` per world) and
 authenticate with `credentials.token`. Usage recipe for inspecting game state:
 CLAUDE.md, "Console from the shell".
-| `npx gulp sim` | Pushes raw `src/*.js` (no compile) to branch `sim`. Legacy: TS files are skipped, so it cannot run the current code. |
-| `npx gulp swc` / `plus` | Push raw `src/*.js` to private servers with a hardcoded password. Legacy. |
+| `npx gulp sim` | Pushes raw `src/*.js` (no compile) to branch `sim`. Dead: `src/` has held no JS since Nov 2026, so the push is empty. |
+| `npx gulp swc` / `plus` | Push raw `src/*.js` to private servers with a hardcoded password. Dead, as `sim`. |
 | `npx gulp market` / `money` | One-off HTTP API dumps (market stats, money history). |
 | `npx gulp fetch` | **Overwrites `src/*.js` with the server's live modules.** Do not run casually. |
 | `npx gulp clean` | Deletes `dist/*` and `distjs/*`. |

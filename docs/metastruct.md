@@ -282,7 +282,7 @@ Roads, containers and ramparts (`kDecays`) are left to decay unrepaired
 instead of being destroyed; `purge` keeps its older rules.
 `MetaStructure.migrate()` is a per-class hook run when the manager loads (before
 its `save()`) for one-shot memory upgrades. First user: the `Meta_ctrl`
-container, previously built ad hoc by `role.ctrl.js` `structAtSpot` with no
+container, previously built ad hoc by `role.ctrl.ts` `structAtSpot` with no
 repair and no removal.
 
 ## Services metas provide to the rest of the bot

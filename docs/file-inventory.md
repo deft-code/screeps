@@ -1,8 +1,10 @@
 # File Inventory
 
 Every file under `src/` plus the repo root, with its reachability on the current
-build (traced from `main.js`; the `return` at `src/main.js:353` is treated as
-the end of the live loop). Dates are first commit of the file.
+build (traced from `main.ts`, whose loop ends at `theRadar.run()`; the dead
+code that followed a `return` there was removed on 5 Nov 2026, when the last
+JavaScript in `src/` was converted to TypeScript). Dates are first commit of
+the file.
 
 Status legend:
 - **LIVE**: executes on the current tick path (module load or loop).
@@ -17,14 +19,14 @@ Status legend:
 
 | file | status | since | purpose |
 |---|---|---|---|
-| `src/main.js` | LIVE | 2017 | Entry; imports, mixin merge, `Service.boot()`, `loop`. Lines 356-439 are dead. |
+| `src/main.ts` | LIVE | 2017 | Entry; imports (the 2017 mixins last), `Service.boot()`, `loop`. TypeScript since Nov 2026; the dead tail after `return` is gone. |
 | `src/process.ts` | LIVE | 2022 | Process/Service/priority rows/`runAll`/`canRun`. |
 | `src/mission.ts` | LIVE | 2019/2022 | `Mission` base: eggs/hatch/creeps, `nCreeps`, `layEgg`, `findName`. |
 | `src/tanycreep.ts` | LIVE | 2026 | `TAnyCreep<G>`: the abstract base of every creep and power creep wrapper, keyed by name; `c` is the game object this tick or null, every reader null-safe ([tcreep-design.md](tcreep-design.md) Appendix D). |
 | `src/tcreep.ts` | LIVE | 2026 | `TCreep` (body stats over `creep.ts`'s extras: `partsByType`, `active()`, `melee`/`ranged`/`hostile`/`keeper`/`assault`, `weight`, `spawnTime`) and `EnemyCreep` (someone else's creep by id, position last seen). |
 | `src/intents.ts` | LIVE | 2026 | `Intents`: the per-tick intent record (a Creep's `tick.intents`, a MyPowerCreep's `IntentLog`): `can*()` checks (`canWork` both slots, `canAttack` melee, `canRange`, `canMove`, `canTransfer`, ...) and `set*()` records (`setMove(dir)`, `setPulled(puller)`, `setWork`, ...). Every intent access in `src/` goes through it. |
 | `src/mybasecreep.ts` | LIVE | 2026 | `MyBaseCreep`: the contract `MyCreep` and `MyPowerCreep` share (`intents`, action wrappers, `homeName`/`birthName`, `walkTo`/`walkRoom`) and the shared bodies `issue`/`issueWork` (record on OK, refuse nothing), `walkTo`/`walkRoom` (record the step's direction), `planWalk`. |
-| `src/enemy.ts` | LIVE (`main.js`) | 2026 | `enemyOf(creep)`/`enemyById(id)`/`enemiesIn(room)`: `EnemyCreep`/`EnemyPowerCreep` wrappers by id in a `tobj.ts` `Registry` (100-tick collections). |
+| `src/enemy.ts` | LIVE (`main.ts`) | 2026 | `enemyOf(creep)`/`enemyById(id)`/`enemiesIn(room)`: `EnemyCreep`/`EnemyPowerCreep` wrappers by id in a `tobj.ts` `Registry` (100-tick collections). |
 | `src/swipe.ts` | REACHABLE (Swiper, Furiosa) | 2026 | The swipe quest for any `MyBaseCreep`: `questSwipe` over `memory.swipe`, `swipeTargets`/`isSwipeTarget`, `pickTarget` (by path or by value), `swipeFrom`, `deliverHome`/`unloadStore`/`unloadLatch`, `nomNearby`. |
 | `src/mycreep.ts` | LIVE | 2022, on `TCreep` since Nov 2026 | `MyCreep` wrapper (exists from the egg on; `c` typed non-null for the jobs, null at runtime for an egg), role registry, `@task`, `Task2Ret`, intent-tracking wrappers for every Creep action sharing the Creep's `tick.intents` with the legacy roles. |
 | `src/spawn.ts` | LIVE | 2022 | `SpawnDaemon`, `energyDef`, `runSpawns`. |
@@ -35,7 +37,7 @@ Status legend:
 | `src/job.creep.ts` | LIVE | 2022 | `JobCreep` base with Rewalker moves. |
 | `src/job.role.ts` | LIVE | 2022 | `JobRole` bridge to legacy roles; `localSpawn`. |
 | `src/job.startup.ts`, `job.reboot.ts`, `job.worker.ts`, `job.ctrl.ts`, `job.hub.ts`, `job.hauler.ts`, `job.srcer.ts`, `job.upgrader.ts` | LIVE | 2022 | Job classes spawned by GlobalRespawn (all but Startup also by the Hub mission). `Reboot.spawn` prefers the mission room's spawns. |
-| `src/reactor.ts` | LIVE (load-time side effect) / REACHABLE (season missions) | 2026 | Season 11 helpers: `sectorCore`, `findReactors`, `thoriumMineral`, the `ReactorObject` typing. At load it defines `RESOURCE_THORIUM`, `FIND_REACTORS` and `LOOK_REACTORS` as `undefined` where the server lacks them, since a bare undeclared global throws a ReferenceError (`if (!RESOURCE_THORIUM)` included; `updateIntel` threw every tick on shard2 before this). `main.js` imports it first. |
+| `src/reactor.ts` | LIVE (load-time side effect) / REACHABLE (season missions) | 2026 | Season 11 helpers: `sectorCore`, `findReactors`, `thoriumMineral`, the `ReactorObject` typing. At load it defines `RESOURCE_THORIUM`, `FIND_REACTORS` and `LOOK_REACTORS` as `undefined` where the server lacks them, since a bare undeclared global throws a ReferenceError (`if (!RESOURCE_THORIUM)` included; `updateIntel` threw every tick on shard2 before this). `main.ts` imports it first. |
 | `src/ms.reactordepot.ts`, `src/job.warrunner.ts` | REACHABLE | 2022 | `ReactorDepot <home> [cap]`: `Reactor` subclass whose runners (Warrunner, a Warboy subclass without WORK) load thorium from the home terminal while it holds > 1000, instead of mining (Sept 2026). |
 | `src/ms.balance.ts` | REACHABLE | 2026 | `Balance`: levels energy across the terminals of the rooms given by `addRoom`/`removeRoom` (`Memory.balance.rooms`); when none is on cooldown the fullest sends half the gap (>= 5k) to the emptiest, shrunk to what its energy can pay in transfer fee. With `setMineralRoom(room)` (`Memory.balance.minerals`) every other listed terminal first sends that room its minerals and compounds (not energy, not thorium), one resource of 100+ per cooldown. No creeps. |
 | `src/ms.thormine.ts`, `src/job.thoreater.ts`, `src/job.cleanup.ts` | REACHABLE | 2022 | `Thormine <room> [dest]`: thoreaters mine the room's thorium into its terminal, the mission ships it to `dest` (default W25S7). Gated on thorium left, an extractor on it and a terminal. Exhausted + empty terminal + `teardownEnabled` (off by default, set from the console) = teardown: wind down homed missions, Cleanup creeps drain energy to the terminal, ship, destroy all structures, unclaim (Sept 2026). |
@@ -63,7 +65,7 @@ Status legend:
 | `src/job.trucker.ts` | REACHABLE | 2026 | Trucker job for Remote: rsrc containers -> home storage (or, with none, home containers by most free space; `JobCreep.unloadHome`), paced by the source regen / haul rate. |
 | `src/job.paver.ts` | REACHABLE | 2026 | Paver job for Once: harvest, build any site, repair roads/containers in the mission room. |
 | `src/job.ctrlhauler.ts` | LIVE | 2026 | CtrlHauler job for GlobalRespawn/Hub: refills the Meta_ctrl container from storage while storage >= 100k and not adjacent to the container, and both container and ctrl creep are empty. |
-| `src/job.chemist.ts` | REACHABLE (Hub mission) | 2026 | Chemist job, Task2 port of `role.chemist.js`: fills labs with their `planType` and energy (claimed boost labs first, emptiest first; energy for a claimed lab under 1000 before any mineral run, since 1 Nov 2026), drains labs per `mineralDrain()`, carries ghodium to the nuker, moves stray non-energy (piles, tombstones, ruins, containers) into the storage. One per Hub room with a terminal and a lab. |
+| `src/job.chemist.ts` | REACHABLE (Hub mission) | 2026 | Chemist job, Task2 port of `role.chemist.ts`: fills labs with their `planType` and energy (claimed boost labs first, emptiest first; energy for a claimed lab under 1000 before any mineral run, since 1 Nov 2026), drains labs per `mineralDrain()`, carries ghodium to the nuker, moves stray non-energy (piles, tombstones, ruins, containers) into the storage. One per Hub room with a terminal and a lab. |
 | `src/ms.bulldoze.ts` | REACHABLE (by command string) | 2026 | `"Bulldoze <target> [home]"` (home = spawn room; `aim(x, y)` places its anchor flag, `dozers` setter): keeps a list of tiles to clear (`memory.doze`) with a child flag per tile, seeded by a breach plan from the anchor toward the nearest hostile spawn. `bulldoze*` flags in the target room add a tile / move it to the front and are removed; a breach path from the home room's first spawn to the first tile (plains = swamp, blocked tiles cost `round(log10(hits)*20)`) adds every blocked tile on the way; draws markers; one Bulldozer while the list is not empty. |
 | `src/job.bulldozer.ts` | REACHABLE (Bulldoze mission) | 2026 | Dismantler, 1 WORK per MOVE (25W/25M): one `planWalk` over all the mission's tiles with the regular matrix, dismantles what stands on the one it reaches (rampart first); takes an XZH2O boost in the home room when a lab has it. Exports `dozeable(pos)`. |
 | `src/ms.raze.ts` | REACHABLE (by command string) | 2026 | `"Raze <room> [home]"`: one Razer clears a room of foreign structures and sites; winds down when the razer decommissions or the room visibly holds no structure another player owns. |
@@ -90,15 +92,15 @@ Status legend:
 | `src/suppress.ts` | REACHABLE | 2026 | `suppressMicro`/`suppressPup(mission)`: the unarmed-enemy rules shared by `Farm`/`Remote` and `Hub`/`Thorhub`. |
 | `src/job.micro.ts` | REACHABLE | 2026 | Micro job for `Farm`/`Remote`/`Hub`/`Thorhub`: [RANGED_ATTACK, MOVE]; laid once per lifetime after 50 ticks of enemy creeps with no armed hostile; shoots only enemies without RANGED_ATTACK, kites melee, flees ranged. |
 | `src/job.pup.ts` | REACHABLE | 2026 | Pup job for `Farm`/`Remote`/`Hub`/`Thorhub`: a Wolf with `memory.size` ATTACK + MOVE pairs; three per lifetime while unarmed enemies with HEAL are in the room, sized heal power / 30 / 2. |
-| `src/job.farmer.ts`, `src/job.wolf.ts`, `src/job.guard.ts`, `src/job.mini.ts`, `src/job.reserver.ts` | REACHABLE | 2026 | Jobs for `Farm`/`Remote`; Task2 ports of `role.farmer.js`, `role.wolf.js`, `role.guard.js` (`Mini` = `Guard` on the `mini` body) and `role.reserver.js`. |
+| `src/job.farmer.ts`, `src/job.wolf.ts`, `src/job.guard.ts`, `src/job.mini.ts`, `src/job.reserver.ts` | REACHABLE | 2026 | Jobs for `Farm`/`Remote`; Task2 ports of `role.farmer.ts`, `role.wolf.ts`, `role.guard.ts` (`Mini` = `Guard` on the `mini` body) and `role.reserver.ts`. |
 | `src/strat.ts` | LIVE | 2020 | `NullStrat`/`ActiveStrat`/`ClaimedStrat` per room with `evolve()`; hostile lists; runs towers/labs/links/meta/factory; `ActiveStrat` builds mission metas in unclaimed rooms. |
 | `src/shed.ts` | LIVE | 2019 | `run(objs, bucket, fn)` CPU-guarded loop; `canRun`. |
 | `src/cache.ts` | LIVE | 2019 | `tick`/`cache` properties on Room/RoomObject; `theTick.inject`. |
 | `src/debug.ts` | LIVE | 2019 | Logging with source locations; `Debuggable` mixin. |
-| `src/lib.js` | LIVE | 2017 | `merge`, `roProp`, room-name helpers, tower falloff math. |
+| `src/lib.ts` | LIVE | 2017 | `merge`, `roProp`, `byId` (optional-id lookup), room-name helpers, tower falloff math. |
 | `src/roomobj.ts` | LIVE | 2019 | `@extender`, `@injecter`; `effectTTL/effectLvl`. |
 | `src/guards.ts` | LIVE | 2019 | Type guards (`isSType`, `isStoreStruct`, ...). |
-| `src/constants.js` | LIVE | 2017 | RCL energy caps, reaction tables, `EnergyReserve`. |
+| `src/constants.ts` | LIVE | 2017 | RCL energy caps, reaction tables, `EnergyReserve`. |
 | `src/types.d.ts` | LIVE | 2019 | Global type augmentations. |
 | `src/tobj.ts` | LIVE (loaded via `tstruct`) | 2026 | `TObj<T>` wrapper keyed by id with the `pos` it was made at (`xy` packed x*100+y and `roomName` derived; `obj` = `Game.getObjectById`, else null; `tryObj` throws) and `Registry`: hot/cold maps with `get(id, make)` / `peek(id)`; a collection every 500-1000 ticks (period plus a random period of jitter), run on fetch, re-sorts by whether `obj` resolves and drops wrappers gone for two periods. The spike's tobj.ts without lifecycle tracking or the sweep daemon. |
 | `src/tstruct.ts` | LIVE (`stype6` via `struct.ts`; the wrapper is unused) | 2026 | `TStruct<S extends Structure = Structure> extends TObj<S>` (structType; `s` / `trys` typed `S`) in one shared `Registry`: `make(struct)` builds the class a subclass `@register`ed for the structure type (derived from the class name: TObserver -> observer, camel-cased), else TStruct, typed through the augmentable `Wrappers` map; `makeId(id)` returns an existing wrapper or null; `note` / `toString` as `struct.ts`, whose `stype6` now lives here. Loaded for `stype6`; no live code makes a wrapper yet (first pieces of [tcreep-design.md](tcreep-design.md) phase 2). |
@@ -112,7 +114,7 @@ Status legend:
 |---|---|---|---|
 | `src/metastruct.ts` | LIVE | 2019 | Base templates, planning via genesis flags, construction upkeep, maxHits, spawn energy order, link modes; the manager's traffic (roads for every meta's `traffic()` entries, replanned after any change). |
 | `src/flag.ts` | LIVE | 2019 | `FlagExtra`: parent/child naming, `self`, `role`, `dupe`, colours in `toString`. `run()`/`darkRun()` dead. |
-| `src/Visual.js` | LIVE (draw) | 2019 | `RoomVisual.structure/animatedPosition/speech/resource` used by metastruct `draw`. |
+| `src/Visual.ts` | LIVE (draw) | 2019 | `RoomVisual.structure/animatedPosition/speech/resource` used by metastruct `draw`. |
 
 ## Creep prototype layer
 
@@ -123,15 +125,15 @@ Status legend:
 | `src/creep.move.ts` | LIVE | 2019 | Rewalker-backed moves, `moveRoom`, `moveSpot`, flee/retreat. |
 | `src/creep.carry.ts` | LIVE | 2019 | Transfer/withdraw/pickup families. |
 | `src/creep.harvest.ts`, `creep.build.ts`, `creep.repair.ts` | LIVE | 2020 | `goHarvest`; build tasks; repair tasks + `repairable`. |
-| `src/creep.work.js` | LIVE | 2017 | Upgrade/reserve/harvest-spot tasks used by startup/worker/ctrl. |
-| `src/creep.oldrepair.js` | LIVE (partly) | 2020 | `taskTurtle*` used by worker/bootstrap; references undefined `room.wallMax`/`room.turtle`. |
-| `src/creep.attack.js`, `creep.dismantle.js`, `creep.heal.js` | DEAD | 2017 | Combat helpers for roles no job spawns. |
-| `src/role.bootstrap.js` (`startup`), `role.reboot.js`, `role.worker.js`, `role.hauler.js` | LIVE | 2017-18 | Live legacy roles (`role.ctrl.js` was ported into `job.ctrl.ts` and deleted, Nov 2026). |
+| `src/creep.work.ts` | LIVE | 2017 | Upgrade/reserve/harvest-spot tasks used by startup/worker; first link of the legacy mixin chain (`CreepWork` -> `CreepOldRepair` -> `CreepAttack` -> `CreepDismantle` -> `CreepHeal`) every 2017 `role.*.ts` class extends. |
+| `src/creep.oldrepair.ts` | LIVE (partly) | 2020 | `taskTurtle*` used by worker/bootstrap; references undefined `room.wallMax`/`room.turtle`. |
+| `src/creep.attack.ts`, `creep.dismantle.ts`, `creep.heal.ts` | DEAD | 2017 | Combat helpers for roles no job spawns. |
+| `src/role.bootstrap.ts` (`startup`), `role.reboot.ts`, `role.worker.ts`, `role.hauler.ts` | LIVE | 2017-18 | Live legacy roles (`role.ctrl.js` was ported into `job.ctrl.ts` and deleted, Nov 2026). |
 | `src/role.hub.ts`, `src/role.src.ts` (`asrc`/`bsrc`) | LIVE | 2019-20 | Live TS roles. |
 | `src/role.cap.ts`, `role.mason.ts`, `role.mineral.ts`, `role.shovel.ts`, `role.shunt.ts` (`core`/`aux`), `role.depositfarmer.ts` | REACHABLE | 2020 | TS roles with no job class. |
-| `src/role.archer.js`, `bulldozer`, `caboose`, `cart`, `chemist`, `claimer`, `cleaner`, `collector`, `coresrc`, `declaimer`, `defender`, `drain`, `dropper`, `farmer`, `guard`, `harvester`, `manual`, `medic`, `minecart`, `miner`, `paver`, `power`, `ram`, `rambo`, `reserver`, `scout`, `srcer`, `stomper`, `trucker`, `upgrader`, `wolf`, `zombiefarmer` (`.js`) | REACHABLE (no job) | 2017-19 | Legacy roles merged onto `Creep`; see [creep-roles.md](creep-roles.md). |
+| `src/role.archer.ts`, `bulldozer`, `caboose`, `cart`, `chemist`, `claimer`, `cleaner`, `collector`, `coresrc`, `declaimer`, `defender`, `drain`, `dropper`, `farmer`, `guard`, `harvester`, `manual`, `medic`, `minecart`, `miner`, `paver`, `power`, `ram`, `rambo`, `reserver`, `scout`, `srcer`, `stomper`, `trucker`, `upgrader`, `wolf`, `zombiefarmer` (`.js`) | REACHABLE (no job) | 2017-19 | Legacy roles merged onto `Creep`; see [creep-roles.md](creep-roles.md). |
 | `src/role.recycle.ts` | ORPHAN | 2019 | Not imported. |
-| `src/role.js`, `src/role.legacy.js` | ORPHAN | 2018 | Class-based role experiment. |
+| `src/role.ts`, `src/role.legacy.ts` | ORPHAN | 2018 | Class-based role experiment. |
 
 ## Rooms and structures
 
@@ -139,20 +141,20 @@ Status legend:
 |---|---|---|---|
 | `src/room.ts` | LIVE | 2017/19 | `findStructs`, `lookForAtRange`, spots, `energyFreeAvailable`, `maxHits`. |
 | `src/path.ts` | LIVE (packing) | 2017 | `pos.xy`, `packPos/unpackPos`; `Path` class dead. |
-| `src/source.js` | LIVE | 2017 | `source.spots/bestSpot/note/regenTTL`. |
-| `src/struct.ts`, `constructionsite.ts`, `tombs.js` | LIVE | 2017-20 | `note`/`toString`/`hurts`/`repairs`. |
+| `src/source.ts` | LIVE | 2017 | `source.spots/bestSpot/note/regenTTL`. |
+| `src/struct.ts`, `constructionsite.ts`, `tombs.ts` | LIVE | 2017-20 | `note`/`toString`/`hurts`/`repairs`. |
 | `src/struct.link.ts` | LIVE | 2019 | Link modes, `runLinks`, `storageBalance`, `hubNeed`. |
-| `src/struct.tower.js` | LIVE | 2017 | `runTowers` (overheal branch broken). |
-| `src/heal.ts` | LIVE | 2026 | Heal-target choice shared by every fighter that heals when idle: `isFighter` (ATTACK or RANGED_ATTACK parts), `hurtFriendlies`, `healPick` (fighters before civilians, then the caller's score, hits lost by default). Used by `JobCreep.pickHurt` (Guard, Crow, Toxic), `Guard.after` and `creep.heal.js` `idleHeal` (Skhunter, legacy roles). `healSelf` and `healIdle` (31 Oct 2026) are the job-layer idle heal cascade (self while hurt, adjacent friendly, rangedHeal within 3, overheal self on request) that `Guard.after` and the wick run. |
+| `src/struct.tower.ts` | LIVE | 2017 | `runTowers` (overheal branch broken). |
+| `src/heal.ts` | LIVE | 2026 | Heal-target choice shared by every fighter that heals when idle: `isFighter` (ATTACK or RANGED_ATTACK parts), `hurtFriendlies`, `healPick` (fighters before civilians, then the caller's score, hits lost by default). Used by `JobCreep.pickHurt` (Guard, Crow, Toxic), `Guard.after` and `creep.heal.ts` `idleHeal` (Skhunter, legacy roles). `healSelf` and `healIdle` (31 Oct 2026) are the job-layer idle heal cascade (self while hurt, adjacent friendly, rangedHeal within 3, overheal self on request) that `Guard.after` and the wick run. |
 | `src/struct.observer.ts` | LIVE (prototype) | 2026 | `observeMax(roomName)` on `StructureObserver`: `observeRoom` with the API's range check sidestepped by lending `this.effects` a `PWR_OPERATE_OBSERVER` entry for the call (the server never checks range; confirmed Oct 2026). Nothing calls it yet. |
-| `src/struct.lab.js` | LIVE | 2017 | `runLabs`, `autoReactAll` (skipped in a room a `LabPlan` manages), boosts. |
+| `src/struct.lab.ts` | LIVE | 2017 | `runLabs`, `autoReactAll` (skipped in a room a `LabPlan` manages), boosts. |
 | `src/labplan.ts` | REACHABLE | 2026 | `"LabPlan <room>"`: stock-aware lab chooser; walks `Reactions` from a console-edited priority list of products and quotas (`Memory.labplan[room].plan`) and calls `terminal.setLabs()` with the deepest reaction whose inputs are stocked; holds a running product 500 ticks before switching. |
 | `src/struct.factory.ts` | LIVE | 2020 | `runFactory` (alloy). |
-| `src/struct.container.js`, `struct.controller.js` | LIVE | 2017 | `mode`; `resTicks/reservable`. |
-| `src/struct.terminal.js` | LIVE (helpers) / DEAD (`run`) | 2017 | Fill/drain thresholds used by hauler; market automation dead. |
-| `src/room.keeper.js` | DEAD | 2017 | Old construction planner. |
+| `src/struct.container.ts`, `struct.controller.ts` | LIVE | 2017 | `mode`; `resTicks/reservable`. |
+| `src/struct.terminal.ts` | LIVE (helpers) / DEAD (`run`) | 2017 | Fill/drain thresholds used by hauler; market automation dead. |
+| `src/room.keeper.ts` | DEAD | 2017 | Old construction planner. |
 | `src/intel.ts` | LIVE | 2020 | Room intel, `roomKind`, coordinates. |
-| `src/radar.ts` | LIVE (`run` from `main.js` since 13 Oct 2026) | 2020 | Observer scanning on `TObserver` wrappers (`tstruct.observer.ts`) kept in a heap map by id (`add` / `remove`; `strat.ts` adds its room's observer every tick at RCL8 and `run` removes any not in sight): requests queue on the heap in three sets until the next `run()`: `observeNow(...rooms)` (priority, scored 1000 ticks staler), `observe(...rooms)` and `observeBackground(...rooms)` (1000 fresher, and ignored while the room was seen within 50 ticks); `run` sorts them stalest first and gives each the next free observer through `observeMax` (any room on the map, no range check) unless the room is in sight and claimed or holds our creeps or power creeps (a visible room with no creeps is re-observed to keep the vision); observers left over `scan` for the unseen or stalest open room in range not observed this tick (a set `run` keeps and passes in; nothing per tick lives in the tick cache any more) (highways stale at 10 ticks, others at 100). |
+| `src/radar.ts` | LIVE (`run` from `main.ts` since 13 Oct 2026) | 2020 | Observer scanning on `TObserver` wrappers (`tstruct.observer.ts`) kept in a heap map by id (`add` / `remove`; `strat.ts` adds its room's observer every tick at RCL8 and `run` removes any not in sight): requests queue on the heap in three sets until the next `run()`: `observeNow(...rooms)` (priority, scored 1000 ticks staler), `observe(...rooms)` and `observeBackground(...rooms)` (1000 fresher, and ignored while the room was seen within 50 ticks); `run` sorts them stalest first and gives each the next free observer through `observeMax` (any room on the map, no range check) unless the room is in sight and claimed or holds our creeps or power creeps (a visible room with no creeps is re-observed to keep the vision); observers left over `scan` for the unseen or stalest open room in range not observed this tick (a set `run` keeps and passes in; nothing per tick lives in the tick cache any more) (highways stale at 10 ticks, others at 100). |
 | `src/market.ts` | LIVE (`MarketSweep` daemon) / REACHABLE (swipeworth, Selloff) | 2020, rewritten 2026 | `MarketSweep` prices every traded resource each 100 ticks (`sweep()` by hand); `buyOrderPriceEma(res)` (prices the tick, returns the `buy95` average), `bidUnits(res, minPrice)`, `getBuyOrderPrice`/`getSellOrderPrice` (+ `tryGet*`) tick prices over the best 10k units via `markethack`, energy by effective price, feeding the `Memory.market` averages. |
 | `src/swipeworth.ts` | REACHABLE (Swipe mission, Furiosa swipe) | 2026 | `worthSwiping(res, home)` / `minSwipePrice(home)`: a resource is worth looting when it sells for 2x what energy costs delivered to the home room; energy always; everything when there is no market. `worthless(res)`: the buy-order price's short moving average (`market.buyOrderPriceEma`, `buy95`) is under energy's; with a thin book, nobody bids energy's price or better (what swipers and Furiosa will not pick up off the ground). `junkIn(store)`: the worthless minus the catalyzed boosts (`X...`), what Konmari throws out. |
 | `src/job.konmari.ts` | REACHABLE (Swipe mission sparkJoy) | 2026 | Carries junk (worthless, catalyzed boosts excepted) out of the home stores and drops them 20 a tick outside the home room. |
@@ -164,20 +166,20 @@ Status legend:
 |---|---|---|---|
 | `src/Rewalker.ts` | LIVE | 2019 | Pathing/walking engine. |
 | `src/routes.ts` | LIVE (`dist`) | 2019 | Room distance cache; `isHostile`. |
-| `src/matrix.js` | DEAD | 2017 | Cost matrices for teams. |
+| `src/matrix.ts` | DEAD | 2017 | Cost matrices for teams. |
 | `src/spots.ts` | LIVE | 2020 | `getSpots`: walkable tiles beside a source/controller, used by `job.reserver`, `ms.farm`, `ms.startup`, `ms.thormine` (and dead `team.ts`). |
-| `src/FindRoute.ts`, `src/PriorityQueue.js` | ORPHAN | 2022 | Custom findRoute. |
+| `src/FindRoute.ts`, `src/PriorityQueue.ts` | ORPHAN | 2022 | Custom findRoute. |
 
 ## Legacy orchestration and misc
 
 | file | status | since | purpose |
 |---|---|---|---|
-| `src/team.ts`, `src/team.egg.js` | DEAD | 2017/19 | Flag teams and egg factories. |
-| `src/spawnold.js` | LIVE (`findSpawns`, `buildBody`) / DEAD (`run`) | 2017 | Body table still used by `JobRole`. |
+| `src/team.ts`, `src/team.egg.ts` | DEAD | 2017/19 | Flag teams and egg factories. |
+| `src/spawnold.ts` | LIVE (`findSpawns`, `buildBody`) / DEAD (`run`) | 2017 | Body table still used by `JobRole`. |
 | `src/powercreep.ts` | LIVE | 2026 | `TPowerCreep` (powers, level, class) on `TAnyCreep`, `EnemyPowerCreep` (by id, for `enemy.ts`) and `MyPowerCreep` (every PowerCreep intent through `issue`, one wrapper per power, `spawn` records `memory.birth`, `idleRenew`/`runRenew`, `questSwipe` on `swipe.ts`) plus `getPowerCreep(name)` / `myPowerCreeps()` ([tcreep-design.md](tcreep-design.md) Appendix D). The 2019 prototype roles are gone (git history; [legacy-systems.md](legacy-systems.md)). |
-| `src/console.js` | REACHABLE (console) | 2019 | Global console helpers and client hacks. |
+| `src/console.ts` | REACHABLE (console) | 2019 | Global console helpers and client hacks. |
 | `src/markethack.ts` | LIVE (side effect) / REACHABLE (console, no importer yet) | 2020, rewritten 2026 | `getAllOrders` / `getOrderById` with `Game.market`'s signatures, read from the engine's raw order table (a Symbol getter on `Object.prototype`, installed at import) with a fallback to the API; no-op on `shardSeason`. `status()` from the console. See [legacy-systems.md](legacy-systems.md). |
-| `src/history.ts`, `memprof.ts`, `memhack.js`, `profiler.ts`, `server.js`, `stack.js`, `planner.js` | ORPHAN | 2017-20 | See [legacy-systems.md](legacy-systems.md). |
+| `src/history.ts`, `memprof.ts`, `memhack.ts`, `profiler.ts`, `server.ts`, `stack.ts`, `planner.ts` | ORPHAN | 2017-20 | See [legacy-systems.md](legacy-systems.md). |
 
 ## Repo root
 

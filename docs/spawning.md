@@ -2,9 +2,9 @@
 
 Two spawners exist. Only the first is live.
 
-| | New (`src/spawn.ts`) | Old (`src/spawnold.js` `run()`) |
+| | New (`src/spawn.ts`) | Old (`src/spawnold.ts` `run()`) |
 |---|---|---|
-| Trigger | `SpawnDaemon` process, `late` row, bucket gate 2000 | `spawn.run()` after the `return` in `main.js` (dead) |
+| Trigger | `SpawnDaemon` process, `late` row, bucket gate 2000 | `spawn.run()` after the `return` in `main.ts` (dead) |
 | Egg source | `Memory.creeps[name].nest === "egg"` (laid by Missions) | `Memory.creeps[name].egg` object (laid by flag teams) |
 | Body | `MyCreep.spawn(spawns)` per job class | `buildBody(spawns, eggMem)` |
 | Still used from old file | `findSpawns` and `buildBody` via `JobRole.localSpawn` | |
@@ -31,7 +31,7 @@ Two spawners exist. Only the first is live.
 
 ## Body definitions
 
-### `energyDef({ move, base?, per, energy, max? })` (both spawn.ts and spawnold.js)
+### `energyDef({ move, base?, per, energy, max? })` (both spawn.ts and spawnold.ts)
 
 Grows `level` from 2 while `defCost(level) <= energy` and `level <= max` (50),
 then steps back one and builds `per` repeated `level` times, plus
@@ -82,7 +82,7 @@ RANGED_ATTACK]`, `move: 1`, `movesFirst`, room capacity >= 550):
 | 12 | `12T 25M 12RA H` | 50 | 3420 |
 
 (`move: 1` is one MOVE per `per` part, so 2n of them plus the base MOVE.
-Checked by running `distjs/spawnold.js` under node with stubbed constants.)
+Checked by running `distjs/spawnold.ts` under node with stubbed constants.)
 A room needs 560 energy available for the level-1 guard, although the spawn
 gate is capacity >= 550; a full RCL 4 room (1300) gets level 3, and RCL 7 and 8
 rooms the 50-part cap. `wolf` (`per: [ATTACK]`,
@@ -140,14 +140,14 @@ passes `body: "srcer"`). Live keys are marked.
 | `wolf` | `Farm`/`Remote` (`Wolf`) | `energyDef({move:1, per:[ATTACK]})` sized from `max(550, energyAvailable)` (a drained room waits: 4 ATTACK + 4 MOVE at least), spawn with capacity >= 700 |
 | `guard` | `Farm`/`Remote` (`Guard`) | `energyDef({move:1, base:[M,H], per:[TOUGH,RA], movesFirst})` sized from `energyAvailable`, spawn with capacity >= 550; worked example above |
 | `mini` | `Farm`/`Remote` (`Mini`) | fixed `[RA, M, M, H]` (400), first spawn with that much available; does not scale |
-| `bootstrap`, `bulldozer`, `cart`, `chemist`, `claimer`, `cap`, `cleaner`, `collector`, `coresrc`, `declaimer`, `defender`, `depositfarmer`, `farmer`, `immortan`, `mason`, `micro`, `minecart`, `miner`, `mineral`, `rambo`, `reserver`, `scout`, `shunt`, `tower` | no | see `src/spawnold.js:271-586` |
+| `bootstrap`, `bulldozer`, `cart`, `chemist`, `claimer`, `cap`, `cleaner`, `collector`, `coresrc`, `declaimer`, `defender`, `depositfarmer`, `farmer`, `immortan`, `mason`, `micro`, `minecart`, `miner`, `mineral`, `rambo`, `reserver`, `scout`, `shunt`, `tower` | no | see `src/spawnold.ts:271-586` |
 
 `eggMem` fields honoured by `buildBody`: `body`, `energy`, `ecap`, `lvl`, `max`,
 `move`, `per`, `base` (the last three via `_.defaults` into `energyDef`).
 
 ## Naming
 
-`findName(role)` in `mission.ts` (and the dead twin in `team.egg.js`) returns
+`findName(role)` in `mission.ts` (and the dead twin in `team.egg.ts`) returns
 `role + i` for the lowest `i` with no `Memory.creeps` entry, rotating a start
 offset so names are reused slowly. The role is always recoverable from the
 name: `_.words(name)[0].toLowerCase()`. Never give a creep a name whose first

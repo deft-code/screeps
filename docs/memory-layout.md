@@ -94,16 +94,16 @@ delete by hand: it restarts from empty.
 | `intel` | `intel.ts` | yes | `{ last, enabled?, owner?: [userIdx, rcl], core?: [lvl, expire], power?: [xy, amount, expire], deposit?: [xy, cooldown, expire], src?: xy[], ctrl?: xy, min?: xy, thor?: [xy, amount], center?: xy, portal? }` (`src`/`ctrl`/`min` written once on first sight, `thor` rewritten every visit and deleted when the thorium is gone, `owner` deleted when the controller is neither owned nor reserved; `RoomIntel.srcPos`/`ctrlPos`/`minPos`/`thorPos`/`thorAmount` read them; the keeper tiles that were `sk` here until Oct 2026 live in `Memory.Rewalker`; `center` is the room centre from `findRoomCenter` over `src` and `ctrl`, computed and cached on the first `RoomIntel.centerXY`/`centerPos` read, never expires, `recenter()` redoes it) |
 | `meta` | `metastruct.ts` | yes | `{ name?: string, metas: MetaMem[], traffic?: TrafficPlanMem, keep?, drop?, roadkeep?, roaddrop?: xy[], rampart?, constructedWall?: {xy: MAXHITS} }`; `name` is the genesis flag's name (stamped by every `runGenesis` pass) and names the room's spawns; `MetaMem.retire?: {xy: rcl}` retires a tile from that RCL; `MetaMem.traffic?: [{src, dest, range?, rcl, swamp?, swampCost?}]` are stored traffic entries (`rroad_*`; `src: -1` is the room's traffic origin); `traffic` is the manager's road plan, a `MetaMem` named `traffic` with `structs.road` by level plus `sig` (input hash, `""` = replan pending), `at` (tick) and `fail?: string[]`; see [metastruct.md](metastruct.md) |
 | `links` | `struct.link.ts` | yes | `{ [xy]: { mode: "^"|"+"|"-"|"="|"x" } }` (old entries may still say `"src"`/`"sink"`) |
-| `labs` | `struct.lab.js`, `labplan.ts` | yes | `{ current?: resource, order?: labId[], managed?: true (a LabPlan chooses here; autoReactAll stays off), [labId]: { note, planType?, boost?, boostTime? } }` |
+| `labs` | `struct.lab.ts`, `labplan.ts` | yes | `{ current?: resource, order?: labId[], managed?: true (a LabPlan chooses here; autoReactAll stays off), [labId]: { note, planType?, boost?, boostTime? } }` |
 | `spots` | `room.ts` | yes (read) | `{ [name]: xy }` manual standing spots; metastruct points are the usual source |
-| `containers` | `struct.container.js` | yes | `{ [id]: { v: 2, mode: "src"|"sink"|"hub" } }` |
+| `containers` | `struct.container.ts` | yes | `{ [id]: { v: 2, mode: "src"|"sink"|"hub" } }` |
 | `strat` | `strat.ts` (`setRoomStrat`), `strat.thor.ts` | yes | name of a registered strat override for an owned room (`"thorclaimed"`); absent = `ClaimedStrat` |
 | `nstructs`, `thostiles`, `tassaulters`, `tenemies`, `hostilestime`, `assaulterstime`, `enemiestime` | `strat.ts` | yes | hostile presence ratchets |
 | `structs` | `tstruct.ts` | yes | `{ [note]: StructMemory }`: `TStruct.memory` keyed by `note` (`stype6` + packed xy, e.g. `obser3306`) so it survives a rebuild under a new id; `TStruct.delete()` drops it, which the `Registry` does once the structure has been gone for two collection periods. Nothing writes it yet. |
-| `bestSpots` | `source.js` | yes (read) | `{ [srcNote]: [x, y] }` manual override of best harvest tile |
+| `bestSpots` | `source.ts` | yes (read) | `{ [srcNote]: [x, y] }` manual override of best harvest tile |
 | `role` | manual | yes (read) | overrides `room.role` |
-| `keeper` | `room.keeper.js` | dead | old planner `{ plans: {stype: xy[]}, last, lastStructs, rcl }` |
-| `stalls` | `matrix.js` | dead | per-creep stall tracking |
+| `keeper` | `room.keeper.ts` | dead | old planner `{ plans: {stype: xy[]}, last, lastStructs, rcl }` |
+| `stalls` | `matrix.ts` | dead | per-creep stall tracking |
 
 ### `Memory.Rewalker` (`Rewalker.ts`)
 
@@ -144,8 +144,8 @@ code; effectively unused.
 | key | writer | notes |
 |---|---|---|
 | `Memory.market` | `market.ts` `getBuyOrderPrice`/`getSellOrderPrice` on demand and the `MarketSweep` daemon for every traded resource each 100 ticks (milli-credits; energy = effective price for our terminal room) | `{ [resource]: { buy, buy95, buy99, buy9500, buy9900, sell, sell95, sell99, sell9500, sell9900 } }`: last tick price and its 1/20 and 1/100 moving averages (`xx9500`/`xx9900` = the same x100). Read by `swipeworth.ts` (`buyOrderPriceEma`). Entries for resources no longer traded stay. |
-| `Memory.evil`, `Memory.client`, `Memory.theMatrix`, `Memory.logo` | `main.js` hacks, `console.js`, `team.ts` | dead paths |
-| `Memory.servers` | `server.js` | orphan module |
+| `Memory.evil`, `Memory.client`, `Memory.theMatrix`, `Memory.logo` | `main.ts` hacks, `console.ts`, `team.ts` | dead paths |
+| `Memory.servers` | `server.ts` | orphan module |
 | `Memory.history` | `history.ts` | orphan module |
 | `Memory.zProfileAccumulator`, `Memory.zPostProfile` | `profiler.ts` | commented out |
 

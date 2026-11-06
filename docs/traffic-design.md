@@ -361,7 +361,7 @@ since the rroad metas hold no tiles.
 ## 6. Noticed while measuring (not part of this change)
 
 - W26S8 `ClaimedStrat` throws `creep_repair_1.dynMaxHits is not a function`
-  (the known `struct.tower.js` overheal branch) on some ticks, which skips
+  (the known `struct.tower.ts` overheal branch) on some ticks, which skips
   that tick's upkeep, including site placement. Fixed Sept 2026: the branch
   now calls `room.maxHits`.
 - Every upkeep pass in all three owned rooms logs `purging extension` /
