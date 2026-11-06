@@ -4,7 +4,7 @@ import * as debug from "debug";
 import { Scout } from "job.scout";
 import { Canopener } from "job.canopener";
 import { Looter } from "job.looter";
-import { dozeableStruct } from "job.bulldozer";
+import { coverAt } from "job.bulldozer";
 
 // Loots a beaten invader stronghold: "Loot <room> [home]". The core is
 // gone, its containers stay, each under a rampart that stops withdraw.
@@ -38,10 +38,9 @@ export class Loot extends Mission {
     }
 
     // The rampart shielding `cont` from withdraw (one on its tile that is
-    // not ours and still has hits: job.bulldozer dozeableStruct), or null.
+    // not ours and still has hits: job.bulldozer coverAt), or null.
     static coverOf(cont: StructureContainer): StructureRampart | null {
-        return _.find(cont.pos.lookFor(LOOK_STRUCTURES),
-            s => s.structureType === STRUCTURE_RAMPART && dozeableStruct(s)) as StructureRampart || null;
+        return coverAt(cont.pos);
     }
 
     // The ramparts the canopeners take down: one per covered container.

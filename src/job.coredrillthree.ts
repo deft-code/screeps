@@ -1,6 +1,6 @@
 import { register, Task2Ret } from "mycreep";
 import { Wickthree } from "job.wickthree";
-import { Boost, coverHits } from "job.wicktwo";
+import { Boost, coverHits, kRampartSkip, kShotRange } from "job.wicktwo";
 import { healIdle, healSelf } from "heal";
 import { isActiveMilitant } from "creep.enemy";
 import { TStruct } from "tstruct";
@@ -36,9 +36,6 @@ import type { InvaderCoreThree } from "ms.invadercorethree";
 // Healing as the wick: self every tick while the core stands and a tower
 // has energy, else the idle cascade (heal.ts healIdle).
 const kStayTTL = 500;
-const kShotRange = 3;
-// A creep under a rampart over this many hits is not shot through it.
-const kRampartSkip = 10000;
 
 declare global {
     interface CreepMemory {

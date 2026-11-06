@@ -5,7 +5,7 @@ import { Boost, boostsShort, coverHits } from "job.wicktwo";
 import { Coredrillthree } from "job.coredrillthree";
 import { Corecleaner } from "job.corecleaner";
 import { Coresweeper } from "job.coresweeper";
-import { dozeableStruct } from "job.bulldozer";
+import { coverAt } from "job.bulldozer";
 import { isActiveMilitant } from "creep.enemy";
 import { FlagExtra, createFlagAt } from "flag";
 import { roomCenterPos } from "intel";
@@ -73,7 +73,8 @@ import * as debug from "debug";
 //   cleaners are replaced only until the loot can be reached; the last one
 //   spends what life it has left on the other ramparts and the towers).
 //   One Coresweeper (job.coresweeper.ts) once accessEta() is coreDist +
-//   kSweeperLead or less: 0 with loot open, else the hits of the ruin's
+//   kSweeperLead or less: 0 with loot open that it would take (energy
+//   counts only once nothing else is left), else the hits of the ruin's
 //   targets (with none, the next cover target) over the dismantle power of
 //   the cleaners in the room.
 //   An armed creep that is neither the Invader's nor a keeper in the room
@@ -121,6 +122,8 @@ const kFootprint = 3;
 // Lead times on top of coreDist (file header).
 const kCleanerLead = 100;
 const kSweeperLead = 150;
+// A sweeper's round trip must leave this many ticks of a lifetime.
+const kTripSlack = 100;
 // coreDist for a job that asks before it is planned.
 const kUnknownDist = 200;
 // Ticks between target plans, and between retries of a failed spot or
@@ -135,12 +138,6 @@ const kAccessOps = 4000;
 const kNeighbours: [number, number][] = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
 
 const rewalker = defaultRewalker();
-
-// The foreign rampart over `pos` (withdraw through one is ERR_NOT_OWNER), or null.
-export function coverAt(pos: RoomPosition): StructureRampart | null {
-    return _.find(pos.lookFor(LOOK_STRUCTURES),
-        s => s.structureType === STRUCTURE_RAMPART && dozeableStruct(s)) as StructureRampart || null;
-}
 
 // A tile a creep of ours could stand on: off the room's edge, not a wall,
 // no foreign rampart or obstacle structure, no enemy creep. Needs vision.
@@ -161,6 +158,7 @@ export class InvaderCoreThree extends Mission {
     coverTargets: TStruct[] = [];
     private plannedAt = -kPlanPace;
     private _holders?: [number, Holder[]];
+    private _open?: [number, Holder[]];
 
     get roomName() {
         return this.args[1];
@@ -204,6 +202,13 @@ export class InvaderCoreThree extends Mission {
         return this.mem?.coreDist ?? kUnknownDist;
     }
 
+    // The stronghold is too far for a sweeper's round trip (it would
+    // suicide at home the tick it hatched): the mission lays nothing.
+    get tooFar(): boolean {
+        const dist = this.mem?.coreDist;
+        return dist !== undefined && 2 * dist + kTripSlack >= CREEP_LIFE_TIME;
+    }
+
     get coreDead(): boolean {
         return this.mem?.deadAt !== undefined;
     }
@@ -221,6 +226,11 @@ export class InvaderCoreThree extends Mission {
         this.placeSpot();
         this.planDist();
         this.placeFlag();
+        if (this.tooFar) {
+            if (Game.time % kLogPace === 0) debug.log(this.name, "coreDist", this.mem.coreDist, "leaves no round trip in a lifetime; nothing laid");
+            super.run();
+            return "normal";
+        }
         if (this.coreDead) this.salvage();
         else this.siege(observed);
         super.run();
@@ -424,8 +434,9 @@ export class InvaderCoreThree extends Mission {
         if (!observed && !this.room) this.nJobs(Scout, 1);
         this.askBoosts();
         const core = this.core?.s;
-        const waiting = core ? (core.ticksToDeploy || core.effectTTL(EFFECT_INVULNERABILITY)) : 0;
-        if (waiting) {
+        // An expired effect may still be listed, its ticks negative.
+        const waiting = core ? Math.max(core.ticksToDeploy || 0, core.effectTTL(EFFECT_INVULNERABILITY), 0) : 0;
+        if (waiting > 0) {
             if (Game.time % kLogPace === 0) debug.log(this.name, "core deploying or invulnerable for", waiting);
         } else if (this.spotPos) {
             this.recruitDrill();
@@ -469,6 +480,9 @@ export class InvaderCoreThree extends Mission {
 
     salvage() {
         const mem = this.mem;
+        // A drill still an egg has nothing left to shoot.
+        const drill = this.drillRole;
+        if (this.hasEgg(drill)) this.purgeEggs(_.uniq(this.eggs.map(e => e.role)).filter(r => r !== drill));
         this.nJobs(Scout, 1);
         const room = this.room;
         if (!room) return;
@@ -521,12 +535,34 @@ export class InvaderCoreThree extends Mission {
     // to stand on.
     accessible(pos: RoomPosition): boolean {
         if (coverAt(pos)) return false;
-        return _.any(kNeighbours, ([dx, dy]) => openTile(new RoomPosition(pos.x + dx, pos.y + dy, pos.roomName)));
+        return _.any(kNeighbours, ([dx, dy]) => {
+            const x = pos.x + dx;
+            const y = pos.y + dy;
+            return x >= 0 && x <= 49 && y >= 0 && y <= 49 && openTile(new RoomPosition(x, y, pos.roomName));
+        });
     }
 
-    // The loot a sweeper can reach now.
+    // The loot a sweeper can reach now. Cached for the tick.
     openLoot(): Holder[] {
-        return this.holders().filter(h => this.accessible(h.pos));
+        if (this._open && this._open[0] === Game.time) return this._open[1];
+        const list = this.holders().filter(h => this.accessible(h.pos));
+        this._open = [Game.time, list];
+        return list;
+    }
+
+    // `h` holds something other than energy.
+    static otherThanEnergy(h: Holder): boolean {
+        if (h instanceof Resource) return h.resourceType !== RESOURCE_ENERGY;
+        const store = h.store as unknown as { [res: string]: number };
+        return _.any(Object.keys(store), res => res !== RESOURCE_ENERGY && store[res] > 0);
+    }
+
+    // Open loot a sweeper would take now: energy counts only once nothing
+    // else is left anywhere (Coresweeper.pick).
+    takeable(): boolean {
+        const open = this.openLoot();
+        if (!open.length) return false;
+        return _.any(open, InvaderCoreThree.otherThanEnergy) || !this.otherLootLeft();
     }
 
     // Loot is left; true without vision (not known to be gone).
@@ -537,9 +573,7 @@ export class InvaderCoreThree extends Mission {
     // Something other than energy is left; true without vision.
     otherLootLeft(): boolean {
         if (!this.room) return true;
-        return _.any(this.holders(), h => h instanceof Resource
-            ? h.resourceType !== RESOURCE_ENERGY
-            : _.any(Object.keys(h.store), res => res !== RESOURCE_ENERGY));
+        return _.any(this.holders(), InvaderCoreThree.otherThanEnergy);
     }
 
     // The access matrix (file header): the ticks to clear each blocked
@@ -618,7 +652,7 @@ export class InvaderCoreThree extends Mission {
 
     // Ticks until a sweeper has something to take (file header).
     accessEta(): number {
-        if (this.openLoot().length) return 0;
+        if (this.takeable()) return 0;
         const ruin = _.compact(this.ruinTargets.map(t => t.s)) as Structure[];
         const next = ruin.length ? ruin : _.compact(this.coverTargets.map(t => t.s)).slice(0, 1) as Structure[];
         const hits = _.sum(next, s => s.hits);

@@ -331,7 +331,7 @@ createFlagAt('W30S4', 25, 25, 'Loot', COLOR_ORANGE, COLOR_CYAN)   // any room, v
 Memory.creeps.hub1.fillTerminal = 50000       // hub creep fills the terminal from storage to this energy, ignoring storageBalance
 getService('Thormine W29S4').teardownEnabled = true   // teardown gate (see the Thormine row)
 Game.rooms.W25S7.findStructs(STRUCTURE_OBSERVER)[0].observeMax('W40S7')  // observe any room, range be damned (struct.observer.ts)
-scheduleService('InvaderCore W4N6 W3N4')      // stronghold: evolves into InvaderCoreThree for a level 3 core; status() shows eta, targets, loot
+scheduleService('InvaderCore W25S6 W25S7')    // stronghold: evolves into InvaderCoreThree for a level 3 core; status() shows eta, targets, loot
 getService('SkFarm W25S6 W25S7').harvesting = false   // no skharvester/sktrucker eggs (persisted; = true restores)
 getService('SkFarm W25S6 W25S7').invaderless = true   // background-radar the sector's 8 keeper rooms; no skharvesters while a core there is live
 getService('LabPlan W25S7').add('XZHO2', 3000)   // lab targets: add(res, quota) appends, remove, setQuota, reset, replan; status() shows chain stocks

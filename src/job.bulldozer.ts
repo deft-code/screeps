@@ -65,6 +65,14 @@ export function dozeable(pos: RoomPosition): Structure[] {
     return _.sortBy(structs, s => s.structureType === STRUCTURE_RAMPART ? 0 : 1);
 }
 
+// The rampart shielding what is on `pos` from withdraw (one that is not
+// ours and still has hits; withdraw through it is ERR_NOT_OWNER), or null.
+// Needs vision.
+export function coverAt(pos: RoomPosition): StructureRampart | null {
+    return _.find(pos.lookFor(LOOK_STRUCTURES),
+        s => s.structureType === STRUCTURE_RAMPART && dozeableStruct(s)) as StructureRampart || null;
+}
+
 // Dismantler for the Bulldoze mission ("Bulldoze <target> <home>"). The
 // mission keeps the list of tiles to clear (dozePositions); the job plans one
 // walk over all of them with the regular Rewalker matrix, so it ends up next

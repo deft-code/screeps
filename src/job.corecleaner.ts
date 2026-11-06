@@ -20,8 +20,8 @@ import type { InvaderCoreThree } from "ms.invadercorethree";
 // of the core's room (an exit tile would bounce it back out) that is
 // within kWaitRange of the spot. The stronghold's towers fire at the
 // hostile nearest the core, the drill on its spot; with no drill in the
-// room, or once anything has hurt us, the cleaner backs out of the room
-// toward home and waits there.
+// room, or once it has lost hits there (memory.backoff), the cleaner backs
+// out of the room toward home and waits there.
 //
 // Once the core is gone (towers and defenders are dead weight without
 // it), clean():
@@ -40,6 +40,14 @@ const kMove = 25;
 const kWaitRange = 40;
 // Stop this far short of a spot we cannot wait within range of.
 const kEntryRange = 3;
+
+declare global {
+    interface CreepMemory {
+        // Corecleaner: shot at in the core's room while the core stood;
+        // it stays out until the core is gone.
+        backoff?: boolean
+    }
+}
 
 const rewalker = defaultRewalker();
 
@@ -60,6 +68,9 @@ export class Corecleaner extends JobCreep {
 
     // The structure being walked to or dismantled.
     target: TStruct | null = null;
+
+    // Our hits the tick before, while in the core's room (approach).
+    private lastHits?: number;
 
     get coreMission(): InvaderCoreThree {
         return this.mission as unknown as InvaderCoreThree;
@@ -91,7 +102,10 @@ export class Corecleaner extends JobCreep {
         const c = this.c;
         const inRoom = this.pos.roomName === spot.roomName;
         const edge = atExit(this.pos);
-        if (!m.drillOnSite() || c.hits < c.hitsMax) {
+        // Hits lost between two ticks in the core's room: the towers are on us.
+        if (inRoom && this.lastHits !== undefined && c.hits < this.lastHits) this.memory.backoff = true;
+        this.lastHits = inRoom ? c.hits : undefined;
+        if (!m.drillOnSite() || this.memory.backoff) {
             // Out of the room and one step off its edge, then hold.
             if (inRoom || edge) this.moveRoom(this.homeName);
             return "wait";

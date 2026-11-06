@@ -92,8 +92,8 @@ const kFleeTo = 3;
 // Range to close to on a ranged or unarmed creep target.
 const kEngageRange = 2;
 // A creep under a rampart over this many hits is not shot through it.
-const kRampartSkip = 10000;
-const kShotRange = 3;
+export const kRampartSkip = 10000;
+export const kShotRange = 3;
 // Wait within this range of the staging flag (AssaultTwo kStagedRange too).
 export const kStagedRange = 5;
 const kHoldRange = 3;
