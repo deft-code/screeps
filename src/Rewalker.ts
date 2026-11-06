@@ -562,8 +562,8 @@ const kMaxOps = 20000
 // loop-back trails; the trade is a longer extension search each tick.
 const kChaseCutback = 2
 
-// Added cost of a tile beside a rampart a hostile melee creep can stand on
-// (applyRampartReach).
+// Added cost of a tile beside a stronghold's rampart while its core and a
+// melee defender stand (applyRampartReach).
 const kRampartReach = 150
 
 // Ceiling for the weight a long-stationary creep of ours puts on its tile.

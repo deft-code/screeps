@@ -76,7 +76,7 @@ import * as debug from "debug";
 //   kSweeperLead or less: 0 with loot other than energy open, else the
 //   hits of the ruin's targets (with none, the next cover target) over the
 //   dismantle power of the cleaners in the room, plus a replacement's
-//   spawn and walk when those cleaners die first.
+//   walk (coreDist) when those cleaners die first.
 //   An armed creep that is neither the Invader's nor a keeper in the room
 //   schedules Capture <room> (ms.capture.ts), once (memory.capture).
 //   Nothing but energy left in sight (lootLeft): wind down. Energy does
@@ -662,10 +662,10 @@ export class InvaderCoreThree extends Mission {
         const rate = _.sum(cleaners, k => k.c.getActiveBodyparts(WORK) * DISMANTLE_POWER);
         if (!rate) return Infinity;
         const eta = Math.ceil(hits / rate);
-        // Cleaners that die first leave the rest to a replacement, which is
-        // a spawn and a walk away.
+        // Cleaners that die first leave the rest to a replacement: laid a
+        // spawn time before the last one dies (nJobs), so a walk behind it.
         const life = _.max(cleaners.map(k => k.ticksToLive));
-        return eta <= life ? eta : eta + this.coreDist + kCleanerLead;
+        return eta <= life ? eta : eta + this.coreDist;
     }
 
     // The flag goes with the mission (evolve() kills too).

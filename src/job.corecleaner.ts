@@ -72,6 +72,9 @@ export class Corecleaner extends JobCreep {
     // The structure being walked to or dismantled.
     target: TStruct | null = null;
 
+    // Our hits the tick before, while in the core's room (approach).
+    private lastHits?: number;
+
     get coreMission(): InvaderCoreThree {
         return this.mission as unknown as InvaderCoreThree;
     }
@@ -102,7 +105,10 @@ export class Corecleaner extends JobCreep {
         const c = this.c;
         const inRoom = this.pos.roomName === spot.roomName;
         const edge = atExit(this.pos);
-        if (inRoom && c.hits < c.hitsMax && !this.memory.backoff && this.towerShot()) {
+        // The event log is read only on a tick our hits fell in the room.
+        const fell = inRoom && this.lastHits !== undefined && c.hits < this.lastHits;
+        this.lastHits = inRoom ? c.hits : undefined;
+        if (fell && !this.memory.backoff && this.towerShot()) {
             this.log("shot by a tower in", spot.roomName, "; backing off until the core is gone");
             this.memory.backoff = true;
         }
@@ -113,7 +119,8 @@ export class Corecleaner extends JobCreep {
         }
         // No waiting on an exit tile (it bounces us out) or in a keeper's
         // reach (a room's way in may pass one): on along the path.
-        const pressed = edge || this.pos.findInRange(FIND_HOSTILE_CREEPS, kKeeperReach, { filter: e => e.keeper }).length > 0;
+        const pressed = edge
+            || (inRoom && this.pos.findInRange(FIND_HOSTILE_CREEPS, kKeeperReach, { filter: e => e.keeper }).length > 0);
         if (inRoom && !pressed && this.pos.inRangeTo(spot, kWaitRange)) return "wait";
         // A stored walk with no steps left is one a detour replanned at the
         // wide range and that ran out short of the room: plan again at 1.

@@ -395,6 +395,13 @@ keeper tiles and route costs, written by `Rewalker.gatherIntel` from `strat.init
 - `MetaManager.purge(STRUCTURE_EXTRACTOR)` destroys a built extractor no meta
   claims, the first time a meta's extractor site hits `ERR_RCL_NOT_ENOUGH`.
   Plan `min`/`reactor` on the tile the extractor already occupies.
+- Strongholds: the melee defenders walk their ramparts and hit one tile
+  out from any of them, so a walk must stay two tiles off the bunker while
+  the core stands (`Rewalker.applyRampartReach`; one hit on top of three
+  towers strips a wick's TOUGH parts and it dies). The towers refill from
+  the core when empty and fire only at the hostile nearest the core. Once
+  the core is gone the towers and defenders do nothing, the defenders keep
+  their tiles, and the core's ruin lasts until the stronghold collapses.
 - A base layout can seal its own exit (two extensions in the only terrain
   gap did, in Season 11); `findRoute` still routes through it, so
   `Rewalker._search` falls back to an unrestricted search when the
