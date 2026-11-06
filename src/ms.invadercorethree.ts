@@ -74,9 +74,9 @@ import * as debug from "debug";
 //   spends what life it has left on the other ramparts and the towers).
 //   One Coresweeper (job.coresweeper.ts) once accessEta() is coreDist +
 //   kSweeperLead or less: 0 with loot other than energy open, else the
-//   hits of the ruin's
-//   targets (with none, the next cover target) over the dismantle power of
-//   the cleaners in the room.
+//   hits of the ruin's targets (with none, the next cover target) over the
+//   dismantle power of the cleaners in the room, plus a replacement's
+//   spawn and walk when those cleaners die first.
 //   An armed creep that is neither the Invader's nor a keeper in the room
 //   schedules Capture <room> (ms.capture.ts), once (memory.capture).
 //   Nothing but energy left in sight (lootLeft): wind down. Energy does

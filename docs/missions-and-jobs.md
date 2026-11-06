@@ -190,6 +190,16 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     targets' hits over the cleaners' dismantle power) <= coreDist + 150; a drill still an egg is purged; an armed
          │                                                     creep that is neither the Invader's nor a keeper schedules "Capture <room>" once (memory.capture); nothing but energy in sight (lootLeft(); energy piles under 200 are not loot at all) -> windDown.
          │                                                     tooFar (2 x coreDist + 100 >= a lifetime: no sweeper round trip) lays nothing at all. kill() removes the flag.
+                                                                     First run (5-6 Nov 2026, shard2, W4N6 from W3N4, coreDist 205): the first drill died 8 ticks after reaching
+                                                                     the spot: its walk rounded the bunker's corner beside a rampart, a defender crossed the bunker and hit it once
+                                                                     (750 on top of the towers' 1800 is more than the TOUGH parts absorb), and without TOUGH the towers out-damage
+                                                                     the heals; hence Rewalker.applyRampartReach. The second drill held the spot at full hits for 700 ticks (towers
+                                                                     540 through the TOUGH against 624 healed; they refill from the core when empty) and took the 500k rampart and
+                                                                     the 100k core at 840 a tick. The towers fired only at the drill: the cleaner waited one tile inside the room
+                                                                     untouched. The core's ruin lasts until the stronghold collapses, not 500 ticks; defenders and towers do nothing
+                                                                     once the core is gone, and the defenders keep their tiles. Three 500k ramparts took two cleaners; two sweepers
+                                                                     and four trips carried home muscle 2, tissue 2, phlegm 171, cell 2 and ~3100 units of bars, composite, battery,
+                                                                     crystal, ghodium_melt, liquid and oxidant. Cost: two drills and 1.17M credits of XLHO2/XKHO2 for the second.
          ├─ Assault          @register  (ms.assault.ts)        "Assault <room> <home>"; vision of the room (theRadar.observeNow, else nJobs(Scout, 1) from home), then with it in sight
          │                                                     counts the hostile towers and evolve()s into the sibling for that count (2: "AssaultTwo <room> <home>", 3: "AssaultThree <room> <home>"; a count with no
          │                                                     sibling is logged every 100 ticks and the mission waits). The scout goes along with the evolve.
