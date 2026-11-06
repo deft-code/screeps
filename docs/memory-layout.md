@@ -59,6 +59,11 @@ ours already standing for the room is adopted when the id is missing or stale.
                           planned?: tick,                             // present once planning was attempted; windDown removes the metas
                           legSteps?: 115 }                            // longest planned source leg, one-way trucker trip
   "Hub W25S7": { ..., srcDist?: { asrc: { xy, dist, at } } }          // Rewalker steps nearest spawn -> asrc/bsrc spot; remeasured when the spot moves or after 5000 ticks
+  "InvaderCoreThree W4N6 W3N4": { ..., flag?: "InvaderCore",         // the mission flag, on the spot
+                          corexy?, level?, collapse?,                 // the core's tile and level, the tick its stronghold collapses, as last seen
+                          spotxy?, spotAt?,                           // the drill's tile; tick of the last failed search for one
+                          coreDist?, distAt?,                         // walk cost home centre -> spot; tick of the last try at planning it
+                          deadAt?, capture? }                         // tick the core was first seen gone; tick Capture was scheduled
 ```
 
 ### `Memory.creeps[name]` (`mission.ts`, `spawn.ts`, roles)
@@ -72,7 +77,7 @@ After spawn: `nest = spawnName`, `home = roomName`. Roles then add:
 `task` (legacy `{task, id?, flag?, first?, resource?, max?, spot?}`), `task2`
 (`{name, args, id?}`), `_walk` (Rewalker `[destXY, destRoom, [xy, room, dirs], incomplete?]`), `rewalksk` (true: Rewalker walks keeper rooms without their keeper layer, Skhunter),
 `srcid/contid/linkid` (srcer), `struct` (ctrl), `repairid`, `spawnid`, `ecap` (room capacity at the first `idleImmortal`; renewing stops once the room exceeds it),
-`swipe` (Swiper: the swipe quest's state, `swipe.ts`: `{ target, skip: { [id]: untilTick }, dry, unload, dropid }`), `noboost` (Bulldozer: a lab refused it, stop asking), `idle`/`decomm` (Razer: ticks with nothing to do; decommissioning, walking back to its spawn to be recycled), `retreat`/`fled` (Chaos: the owned room it walks into once hurt or old; the tick it last fled), `contid` (Trucker: the remote container it is heading to load from), `tripStart`/`tripLeg` (Fedex: last tick loading at the home storage; ticks the last loaded leg took, which sizes the too-old-for-another-trip check), `size` (Pup: ATTACK parts asked for, set on the egg by `suppressPup` in `suppress.ts`), `stray` (Chemist: the load in hand was gathered off the floor and goes to the storage), `boosts[]`, `debug` (expiry tick), `spot`, `start`, `team`.
+`swipe` (Swiper: the swipe quest's state, `swipe.ts`: `{ target, skip: { [id]: untilTick }, dry, unload, dropid }`), `noboost` (Bulldozer: a lab refused it, stop asking), `idle`/`decomm` (Razer: ticks with nothing to do; decommissioning, walking back to its spawn to be recycled), `retire` (Coredrillthree: decided once the core is gone, true = home to be recycled, false = wrecking ramparts), `retreat`/`fled` (Chaos: the owned room it walks into once hurt or old; the tick it last fled), `contid` (Trucker: the remote container it is heading to load from), `tripStart`/`tripLeg` (Fedex: last tick loading at the home storage; ticks the last loaded leg took, which sizes the too-old-for-another-trip check), `size` (Pup: ATTACK parts asked for, set on the egg by `suppressPup` in `suppress.ts`), `stray` (Chemist: the load in hand was gathered off the floor and goes to the storage), `boosts[]`, `debug` (expiry tick), `spot`, `start`, `team`.
 Legacy team eggs used `{ team: flagName, egg: { team, body, laid, spawn, priority, ... } }`
 and are no longer created; `Mission.hatchEggs` treats any `nest !== "egg"` as
 a stuck egg and resets it.

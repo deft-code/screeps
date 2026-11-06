@@ -1,7 +1,7 @@
 import { Mission, MissionMemory } from "mission";
 import { register, Priority, Service } from "process";
 import { Scout } from "job.scout";
-import { Wicktwo, kStagedRange, Boost } from "job.wicktwo";
+import { Wicktwo, kStagedRange, Boost, homeStock, boostNeed, boostsShort } from "job.wicktwo";
 import { Wickthree } from "job.wickthree";
 import { Ballerina } from "job.ballerina";
 import { FlagExtra, createFlagAt } from "flag";
@@ -653,30 +653,22 @@ export class AssaultTwo extends Mission {
 
     // Units of `res` in the home room: terminal, storage and the labs.
     homeStock(res: ResourceConstant): number {
-        const home = this.getRoom("home");
-        if (!home) return 0;
-        const labs = home.findStructs(STRUCTURE_LAB) as StructureLab[];
-        return (home.terminal?.store[res] || 0) + (home.storage?.store[res] || 0)
-            + _.sum(labs, l => l.mineralType === res ? l.mineralAmount || 0 : 0);
+        return homeStock(this.getRoom("home"), res);
     }
 
     // Units of `b` one wick of ours takes.
     boostNeed(b: Boost): number {
-        const wick = this.wickClass;
-        return wick.bare(wick.body, b.part) * LAB_BOOST_MINERAL;
+        return boostNeed(this.wickClass.body, b);
     }
 
     // Every boost a wick wants, enough for its parts, in the home room.
     boostsInStock(): boolean {
-        return _.every(this.wantedBoosts(), b => this.homeStock(b.boost) >= this.boostNeed(b));
+        return !this.boostsShort();
     }
 
     // What the home lacks for one wick, "XGHO2:120/40" per short boost.
     boostsShort(): string {
-        return this.wantedBoosts()
-            .map(b => [b.boost, this.boostNeed(b), this.homeStock(b.boost)] as [string, number, number])
-            .filter(([, need, have]) => have < need)
-            .map(([res, need, have]) => `${res}:${need}/${have}`).join(" ");
+        return boostsShort(this.getRoom("home"), this.wickClass.body, this.wantedBoosts());
     }
 
     recruit() {

@@ -38,6 +38,17 @@ Three generations of movement code exist. Only **Rewalker** is live.
   `ERR_NO_PATH`; `incomplete`, `cost`, `ops`), store nothing, and copy the
   goals before `cleanGoal` edits them. `moveTerrain(creep)` says which tier a
   creep is in. `ms.hub.ts` `srcDist` uses `planRoad`.
+  `planBetween(from, to, range=1, terrain="offroad", opts?)` is `plan` with
+  one goal: the walk between two points (`ms.invadercorethree.ts` takes its
+  `cost` as `coreDist`).
+- The stored walk, for a job that decides by what is already planned:
+  `walkDest(creep)` (its destination, or null with none stored),
+  `walkSteps(creep)` (steps left on the stored path) and
+  `walkingTo(creep, dest)`. `walkTo` follows a stored walk to the same
+  destination as it is, whatever range it is asked for; only a new
+  destination replans (a detour or a path that runs out replans at the range
+  then asked). `Corecleaner.approach` plans to range 1 of its spot and walks
+  at range 40, so it stops early on the path that leads all the way in.
 
 Helpers exported for everyone: `coordsToXY/coordsFromXY/toXY/fromXY` (the
 `x*100+y` packing shared with `path.ts`), `getDirectionTo` (cross-room aware),

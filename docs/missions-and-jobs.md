@@ -167,6 +167,28 @@ Process                      run(): Priority; kill()           (process.ts)
                                                               kills and deschedules itself when the creep and its tombstone are gone
          ├─ Always           @register  (ms.always.ts)         "Always <Job> <room> [perLife]"; Once that never winds down: paceNJobs(job, perLife
                                                               (args[3], default 1)), one egg per lifetime, never while one is unhatched; windDown() to stop
+         ├─ InvaderCore      @register  (ms.invadercore.ts)    "InvaderCore <room> [home]" (5 Nov 2026); vision of the stronghold (theRadar.observeNow, else nJobs(Scout, 1)), then evolve()s into the
+         │                                                     sibling for the core's level (3: "InvaderCoreThree <room> <home>"; any other level, or no core, is logged every 100 ticks and the
+         │                                                     mission waits). Without a home the owned room with a spawn nearest by Rewalker.getRouteDist is taken.
+         ├─ InvaderCoreThree @register  (ms.invadercorethree.ts) "InvaderCoreThree <room> <home>" (5 Nov 2026); kills a level 3 invader core and carries the stronghold's loot home.
+         │                                                     watchCore(): the core as a TStruct (heap), memory.corexy/level/collapse while it stands, memory.deadAt the tick the room is
+         │                                                     seen without it (a mission scheduled late adopts the core's ruin). Spot (memory.spotxy, findSpot): a PathFinder flee from the
+         │                                                     core's tile to range 3 (the bunker's own tiles cost 1), ending on a standable tile at least 4 from every keeper lair and 3 from
+         │                                                     every keeper tile the Rewalker tracks; +50 for a tile beside a rampart (the melee defenders hold the ramparts). Flag InvaderCore /
+         │                                                     InvaderCoreN (memory.flag) on the spot, secondary red while the core stands and yellow after; moved by hand within 3 of the
+         │                                                     core it moves the spot, anywhere else it is put back. coreDist (memory.coreDist): Rewalker.planBetween(home centre, spot)
+         │                                                     .cost, offroad, once per spot. Siege: one drill (drillClass = Coredrillthree) while boostsShort() is empty (home terminal +
+         │                                                     storage + labs hold every boost for one); askBoosts() only while a drill is an egg, a hatch or bare at home; a deploying or
+         │                                                     invulnerable core is waited out; nJobs(Corecleaner, 1) once coreEta() (core hits + its rampart over the shot damage of the
+         │                                                     drills within 3) <= coreDist + 100. Salvage (core gone): nJobs(Scout, 1); holders() = containers, ruins, tombstones and piles
+         │                                                     within 3 of the core's tile holding anything, openLoot() those with no foreign rampart over them and an open tile beside them;
+         │                                                     planTargets() every 20 ticks and the tick a listed one falls: accessMatrix (a blocked tile costs 1 + cleaner ticks / 8, an
+         │                                                     enemy creep its ticks to live, the ramparts over loot containers free) -> ruinTargets = blockers on the cheapest path from the
+         │                                                     spot to beside the core's tile, coverTargets = the container ramparts and the blockers of the other loot, all TStructs;
+         │                                                     targets() = the live ones, the ruin's first. nJobs(Corecleaner, 1) while targets() is not empty; nJobs(Coresweeper, 1) once
+         │                                                     accessEta() (0 with loot open, else the ruin targets' hits over the cleaners' dismantle power) <= coreDist + 150; an armed
+         │                                                     creep that is neither the Invader's nor a keeper schedules "Capture <room>" once (memory.capture); no loot in sight -> windDown.
+         │                                                     kill() removes the flag.
          ├─ Assault          @register  (ms.assault.ts)        "Assault <room> <home>"; vision of the room (theRadar.observeNow, else nJobs(Scout, 1) from home), then with it in sight
          │                                                     counts the hostile towers and evolve()s into the sibling for that count (2: "AssaultTwo <room> <home>", 3: "AssaultThree <room> <home>"; a count with no
          │                                                     sibling is logged every 100 ticks and the mission waits). The scout goes along with the evolve.
@@ -418,6 +440,23 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 mode the tick their spawn was hit), then healSelf while a tower with
          │                                                 energy is in the room and we are whole, else heal.ts healIdle with overheal while an enemy creep is within 3.
          │   └─ Ballerina @register        (job.ballerina.ts) Wicktwo on the Crow body with wantedBoosts() = []: laid by AssaultTwo once the target is tower-free.
+         │   └─ Coredrillthree @register   (job.coredrillthree.ts) InvaderCoreThree's fighter (5 Nov 2026): Wickthree with every boost (wantedBoosts() = boosts(true)). start(): core gone ->
+         │                                                 afterCore(): memory.retire decided once (ticksToLive > 500): recycleAt(originSpawn), else wreck(): beside the mission's first
+         │                                                 target, else the nearest rampart (goal, a TStruct), Wicktwo.reposition around it; bare at home -> boost(); else onto the
+         │                                                 mission's spot (movePos range 0). after(): fireDrill(): an armed enemy beside us not under a rampart over 10k -> mass attack;
+         │                                                 the core within 3 -> rangedAttack (lands on its rampart first); wrecking -> mass attack while massDamage() > 0; else
+         │                                                 idleRanged(): the nearest enemy creep within 3, armed first. Heals as the wick (self every tick only while the core stands).
+         ├─ Corecleaner @register          (job.corecleaner.ts) InvaderCoreThree's dismantler (5 Nov 2026): fixed 25 WORK, 25 MOVE (3750, 1250 hits a tick) from the home room (readySpawn),
+         │                                                 priority 3. Core standing -> approach(): the walk to the spot is planned at range 1 and walked at range 40 (Rewalker.walkingTo:
+         │                                                 a stored walk to the same destination is never replanned for a new range; a walk with no steps left is planned again at 1), so it
+         │                                                 stops one tile inside the core's room on the path that leads in; with no drill in the room, or hurt, it backs out toward home.
+         │                                                 Core gone -> clean(): the mission's targets() in order; none: the rampart beside it with the fewest hits; none beside:
+         │                                                 Rewalker.planWalk over every rampart; no ramparts: the towers; nothing: suicide. target is a TStruct; never a container.
+         ├─ Coresweeper @register          (job.coresweeper.ts) InvaderCoreThree's hauler (5 Nov 2026): CARRY, MOVE x 25 (2500) from the home room (readySpawn). pick(): of the mission's
+         │                                                 openLoot() the resource with the highest swipeworth.unitValue, the nearer holder on a tie; energy only once nothing else is
+         │                                                 left (otherLootLeft()) or within coreDist + 50 ticks of life; one withdraw or pickup a tick. Full, or loaded under coreDist +
+         │                                                 15 ticks: unloadHome (dropAt the controller with no store), latched. Empty at home under 2 x coreDist, or empty anywhere
+         │                                                 under coreDist + 15: suicide. Nothing open: wait within 2 of the spot. No loot left: unload, then recycleAt(originSpawn).
          │   └─ Crow @register             (job.crow.ts)   Capture's fighter: fixed 25 MOVE, 24 RANGED_ATTACK, 1 HEAL (5100, Crow.power = 240) from the home room's spawns only (the daemon
          │                                                 waits for the energy); decide(): retreat (to the staging flag, range 2, not home) when hurt as Guard, else in staging mode stage():
          │                                                 walk to within 2 of the staging flag (the staging room without one) and wait, chasing nothing (shots and heals within reach are
@@ -505,6 +544,7 @@ scheduleService('Capture W25S5')     // args[1]=target room; home (RCL7+, neares
 scheduleService('Raze W27S4 W27S5')  // args[1]=room to clear, args[2]=home (spawns nearest it); one Razer, winds down when it decommissions
 scheduleService('StealReactor W15S5')  // args[1]=a sector's core; one Usurper at a time walks from the nearest spawning room to claim its reactor, no matter what
 scheduleService('Loot W24S6 W25S7')  // args[1]=beaten stronghold room, args[2]=home (spawns); canopeners open the containers, a looter empties them, winds down when all are empty
+scheduleService('InvaderCore W4N6 W3N4')  // args[1]=stronghold room, args[2]=home (spawns and labs; the nearest spawning room when left out); evolves into InvaderCoreThree for a level 3 core
 scheduleService('Nidoran W23S4')     // args[1]=seed room (its reserver/owner is the target player unless args[2] names one); paired Chaos dismantlers rotate through the player's reserved rooms within 2 hops
 scheduleService('Once Scout W5N8')   // args[1]=job class, args[2]=room; one creep, then winds down
 scheduleService('Once Toxic W25S5 3')  // optional args[3]=count: that many creeps one after another (memory.laid), then winds down

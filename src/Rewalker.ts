@@ -722,6 +722,31 @@ export class Rewalker {
         return step.walkTo()
     }
 
+    // The walk stored for `c` (walkTo and planWalk keep it in memory._walk),
+    // for a job that decides by what is already planned: where it is headed
+    // (the destination as of the last store, whatever range it was planned
+    // or is being walked at) and how many steps of the path are left. null
+    // with no walk stored: none planned yet, or the last walkTo arrived.
+    walkDest(c: Creep | PowerCreep): RoomPosition | null {
+        const walk = c.memory._walk as MemState | undefined
+        return walk ? fromXY(walk[0], walk[1]) : null
+    }
+
+    walkSteps(c: Creep | PowerCreep): number {
+        const walk = c.memory._walk as MemState | undefined
+        return walk ? walk[2][2].length : 0
+    }
+
+    // A walk to `dest` is stored for `c`. walkTo follows a stored walk to
+    // the same destination as it is, at whatever range it is asked for: only
+    // a new destination replans. So a walk planned to range 1 and then
+    // walked at a wider range stops early on the very path that leads all
+    // the way in (Corecleaner.approach).
+    walkingTo(c: Creep | PowerCreep, dest: RoomPosition): boolean {
+        const walk = c.memory._walk as MemState | undefined
+        return !!walk && walk[0] === toXY(dest) && walk[1] === dest.roomName
+    }
+
     getStuckTicks(creep: Creep | PowerCreep): number {
         const info = this._getRoomInfo(creep.pos.roomName)
         if (!info) return 0
@@ -1059,6 +1084,15 @@ export class Rewalker {
 
     planSwamp(from: RoomPosition, goals: Goal[], opts?: PlanOpts): PlanResult {
         return this.plan(from, goals, "swamp", opts)
+    }
+
+    // The walk between two points, no creep involved: plan() with the one
+    // goal. `cost` is what the walk costs on the walking matrices (a tick a
+    // step for a body of that terrain class, plus whatever the matrices add
+    // around keepers and the like), `path.length` its steps; `goal` is
+    // ERR_NO_PATH when the search did not get there.
+    planBetween(from: RoomPosition, to: RoomPosition, range = 1, terrain: MoveTerrain = "offroad", opts?: PlanOpts): PlanResult {
+        return this.plan(from, [{ pos: to, range }], terrain, opts)
     }
 
     plan(from: RoomPosition, goals: Goal[], terrain: MoveTerrain, opts: PlanOpts = {}): PlanResult {

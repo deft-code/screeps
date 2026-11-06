@@ -88,7 +88,7 @@ export function findStaging(staging: string, targets: RoomPosition[], opts: Stag
 // What `s` costs to get through, in hits: Infinity for what cannot be shot
 // down (ours, no hits, an invader core or power bank); null for what is
 // walked over (roads, containers, our own and public ramparts).
-function blockHits(s: Structure): number | null {
+export function blockHits(s: Structure): number | null {
     if (s.structureType === STRUCTURE_ROAD || s.structureType === STRUCTURE_CONTAINER) return null;
     if (s.structureType === STRUCTURE_RAMPART && ((s as StructureRampart).my || (s as StructureRampart).isPublic)) return null;
     if ((s as OwnedStructure).my || !s.hits) return Infinity;

@@ -144,6 +144,29 @@ export function standable(pos: RoomPosition, self?: Creep): boolean {
     return !_.any(pos.lookFor(LOOK_CREEPS), c => c.id !== self?.id);
 }
 
+// Units of `res` in `home`: terminal, storage and the labs. Shared by the
+// missions that lay boosted wicks (AssaultTwo, InvaderCoreThree).
+export function homeStock(home: Room | null, res: ResourceConstant): number {
+    if (!home) return 0;
+    const labs = home.findStructs(STRUCTURE_LAB) as StructureLab[];
+    return (home.terminal?.store[res] || 0) + (home.storage?.store[res] || 0)
+        + _.sum(labs, l => l.mineralType === res ? l.mineralAmount || 0 : 0);
+}
+
+// Units of `b` a creep of `body` takes to boost every part of that kind.
+export function boostNeed(body: BodyPartConstant[], b: Boost): number {
+    return _.sum(body, p => p === b.part ? 1 : 0) * LAB_BOOST_MINERAL;
+}
+
+// What `home` lacks to boost one creep of `body` with `boosts`:
+// "XGHO2:120/40" (need/have) per short boost, "" when it holds them all.
+export function boostsShort(home: Room | null, body: BodyPartConstant[], boosts: Boost[]): string {
+    return boosts
+        .map(b => [b.boost, boostNeed(body, b), homeStock(home, b.boost)] as [string, number, number])
+        .filter(([, need, have]) => have < need)
+        .map(([res, need, have]) => `${res}:${need}/${have}`).join(" ");
+}
+
 // A spawn with a lab within kLabRange.
 export function nearLab(spawn: StructureSpawn): boolean {
     return _.any(spawn.room.findStructs(STRUCTURE_LAB), l => spawn.pos.inRangeTo(l, kLabRange));

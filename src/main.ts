@@ -101,6 +101,8 @@ import 'ms.thorsurvey';
 import 'ms.assault';
 import 'ms.assaulttwo';
 import 'ms.assaultthree';
+import 'ms.invadercore';
+import 'ms.invadercorethree';
 import 'labplan';
 import "service.flag";
 
@@ -110,6 +112,9 @@ import "job.crow";
 import "job.wicktwo";
 import "job.wickthree";
 import "job.ballerina";
+import "job.coredrillthree";
+import "job.corecleaner";
+import "job.coresweeper";
 import "job.paver";
 import "job.toxic";
 import "job.razer";
