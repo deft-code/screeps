@@ -73,13 +73,15 @@ import * as debug from "debug";
 //   cleaners are replaced only until the loot can be reached; the last one
 //   spends what life it has left on the other ramparts and the towers).
 //   One Coresweeper (job.coresweeper.ts) once accessEta() is coreDist +
-//   kSweeperLead or less: 0 with loot open that it would take (energy
-//   counts only once nothing else is left), else the hits of the ruin's
+//   kSweeperLead or less: 0 with loot other than energy open, else the
+//   hits of the ruin's
 //   targets (with none, the next cover target) over the dismantle power of
 //   the cleaners in the room.
 //   An armed creep that is neither the Invader's nor a keeper in the room
 //   schedules Capture <room> (ms.capture.ts), once (memory.capture).
-//   No loot left in sight: wind down.
+//   Nothing but energy left in sight (lootLeft): wind down. Energy does
+//   not keep the mission going: the sweeper in the room takes what is open
+//   (piles of kMinPile and up) on its last trip.
 //
 // The stronghold's towers fire at the hostile nearest the core, which is
 // the drill while it stands on the spot: drillOnSite() is what lets a
@@ -125,6 +127,9 @@ const kSweeperLead = 150;
 const kTripSlack = 100;
 // coreDist for a job that asks before it is planned.
 const kUnknownDist = 200;
+// An energy pile smaller than this is not loot (dismantling drops energy
+// where the cleaner stands).
+const kMinPile = 200;
 // Ticks between target plans, and between retries of a failed spot or
 // distance search.
 const kPlanPace = 20;
@@ -488,7 +493,7 @@ export class InvaderCoreThree extends Mission {
         this.watchHostiles(room);
         this.planTargets(room);
         if (!this.lootLeft()) {
-            debug.log(this.name, "nothing left to carry out of", this.roomName, "; winding down");
+            debug.log(this.name, "nothing but energy left to carry out of", this.roomName, "; winding down");
             this.windDown();
             return;
         }
@@ -523,7 +528,8 @@ export class InvaderCoreThree extends Mission {
                 ...room.findStructs(STRUCTURE_CONTAINER), ...room.find(FIND_RUINS), ...room.find(FIND_TOMBSTONES)];
             list = [
                 ...stores.filter(s => near(s) && s.store.getUsedCapacity() > 0),
-                ...room.find(FIND_DROPPED_RESOURCES).filter(r => near(r) && r.amount > 0),
+                ...room.find(FIND_DROPPED_RESOURCES).filter(r => near(r)
+                    && (r.resourceType !== RESOURCE_ENERGY || r.amount >= kMinPile)),
             ];
         }
         this._holders = [Game.time, list];
@@ -556,21 +562,16 @@ export class InvaderCoreThree extends Mission {
         return _.any(Object.keys(store), res => res !== RESOURCE_ENERGY && store[res] > 0);
     }
 
-    // Open loot a sweeper would take now: energy counts only once nothing
-    // else is left anywhere (Coresweeper.pick).
+    // Open loot worth laying a sweeper for: something other than energy.
     takeable(): boolean {
-        const open = this.openLoot();
-        if (!open.length) return false;
-        return _.any(open, InvaderCoreThree.otherThanEnergy) || !this.otherLootLeft();
+        return _.any(this.openLoot(), InvaderCoreThree.otherThanEnergy);
     }
 
-    // Loot is left; true without vision (not known to be gone).
+    // Loot is left: something other than energy; true without vision (not
+    // known to be gone). Energy alone neither keeps the mission going nor
+    // lays a sweeper (a cleaner drops 6 a tick where it dismantles, for as
+    // long as it lives); the sweeper in the room takes it on its way out.
     lootLeft(): boolean {
-        return !this.room || this.holders().length > 0;
-    }
-
-    // Something other than energy is left; true without vision.
-    otherLootLeft(): boolean {
         if (!this.room) return true;
         return _.any(this.holders(), InvaderCoreThree.otherThanEnergy);
     }

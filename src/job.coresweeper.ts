@@ -24,8 +24,10 @@ import type { Holder, InvaderCoreThree } from "ms.invadercorethree";
 // storage, else terminal, else a container; dropped by the controller
 // with nowhere to put it), latched until empty. Empty at home with fewer
 // than 2 x coreDist ticks to live (no round trip left), or empty anywhere
-// too old to bring a load back, it suicides. Once the mission sees no loot
-// left it unloads what it has and is recycled at its origin spawn.
+// too old to bring a load back, it suicides. Once the mission sees nothing
+// but energy left (lootLeft) a sweeper in the stronghold's room takes the
+// energy that is open, then it unloads what it has and is recycled at its
+// origin spawn.
 const kUnits = 25;
 const kMargin = 15;
 const kEnergyLead = 50;
@@ -66,9 +68,12 @@ export class Coresweeper extends JobCreep {
             c.suicide();
             return "wait";
         }
-        const take = this.pick(ttl < dist + kEnergyLead || !m.otherLootLeft());
+        // With nothing but energy left the mission is done: what is open is
+        // taken only by a sweeper already there, never fetched from home.
+        const left = m.lootLeft();
+        const take = left || this.pos.roomName === m.roomName ? this.pick(ttl < dist + kEnergyLead || !left) : null;
         if (take) return this.fetch(take);
-        if (!m.lootLeft()) {
+        if (!left) {
             if (this.unloadLatch(true)) return this.unload(home);
             return this.retire();
         }

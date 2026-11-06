@@ -186,9 +186,9 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     enemy creep its ticks to live, the ramparts over loot containers free) -> ruinTargets = blockers on the cheapest path from the
          │                                                     spot to beside the core's tile, coverTargets = the container ramparts and the blockers of the other loot, all TStructs;
          │                                                     targets() = the live ones, the ruin's first. nJobs(Corecleaner, 1) while targets() is not empty; nJobs(Coresweeper, 1) once
-         │                                                     accessEta() (0 with loot open that a sweeper would take, takeable(): energy counts only once nothing else is left; else the ruin
+         │                                                     accessEta() (0 with loot other than energy open, takeable(); else the ruin
          │                                                     targets' hits over the cleaners' dismantle power) <= coreDist + 150; a drill still an egg is purged; an armed
-         │                                                     creep that is neither the Invader's nor a keeper schedules "Capture <room>" once (memory.capture); no loot in sight -> windDown.
+         │                                                     creep that is neither the Invader's nor a keeper schedules "Capture <room>" once (memory.capture); nothing but energy in sight (lootLeft(); energy piles under 200 are not loot at all) -> windDown.
          │                                                     tooFar (2 x coreDist + 100 >= a lifetime: no sweeper round trip) lays nothing at all. kill() removes the flag.
          ├─ Assault          @register  (ms.assault.ts)        "Assault <room> <home>"; vision of the room (theRadar.observeNow, else nJobs(Scout, 1) from home), then with it in sight
          │                                                     counts the hostile towers and evolve()s into the sibling for that count (2: "AssaultTwo <room> <home>", 3: "AssaultThree <room> <home>"; a count with no
@@ -455,7 +455,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 Rewalker.planWalk over every rampart; no ramparts: the towers; nothing: suicide. target is a TStruct; never a container.
          ├─ Coresweeper @register          (job.coresweeper.ts) InvaderCoreThree's hauler (5 Nov 2026): CARRY, MOVE x 25 (2500) from the home room (readySpawn). pick(): of the mission's
          │                                                 openLoot() the resource with the highest swipeworth.unitValue, the nearer holder on a tie; energy only once nothing else is
-         │                                                 left (otherLootLeft()) or within coreDist + 50 ticks of life; one withdraw or pickup a tick. Full, or loaded under coreDist +
+         │                                                 left (the mission's lootLeft() false; then only by a sweeper already in the room) or within coreDist + 50 ticks of life; one withdraw or pickup a tick. Full, or loaded under coreDist +
          │                                                 15 ticks: unloadHome (dropAt the controller with no store), latched. Empty at home under 2 x coreDist, or empty anywhere
          │                                                 under coreDist + 15: suicide. Nothing open: wait within 2 of the spot. No loot left: unload, then recycleAt(originSpawn).
          │   └─ Crow @register             (job.crow.ts)   Capture's fighter: fixed 25 MOVE, 24 RANGED_ATTACK, 1 HEAL (5100, Crow.power = 240) from the home room's spawns only (the daemon
