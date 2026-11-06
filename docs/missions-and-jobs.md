@@ -186,9 +186,10 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     enemy creep its ticks to live, the ramparts over loot containers free) -> ruinTargets = blockers on the cheapest path from the
          │                                                     spot to beside the core's tile, coverTargets = the container ramparts and the blockers of the other loot, all TStructs;
          │                                                     targets() = the live ones, the ruin's first. nJobs(Corecleaner, 1) while targets() is not empty; nJobs(Coresweeper, 1) once
-         │                                                     accessEta() (0 with loot open, else the ruin targets' hits over the cleaners' dismantle power) <= coreDist + 150; an armed
+         │                                                     accessEta() (0 with loot open that a sweeper would take, takeable(): energy counts only once nothing else is left; else the ruin
+         │                                                     targets' hits over the cleaners' dismantle power) <= coreDist + 150; a drill still an egg is purged; an armed
          │                                                     creep that is neither the Invader's nor a keeper schedules "Capture <room>" once (memory.capture); no loot in sight -> windDown.
-         │                                                     kill() removes the flag.
+         │                                                     tooFar (2 x coreDist + 100 >= a lifetime: no sweeper round trip) lays nothing at all. kill() removes the flag.
          ├─ Assault          @register  (ms.assault.ts)        "Assault <room> <home>"; vision of the room (theRadar.observeNow, else nJobs(Scout, 1) from home), then with it in sight
          │                                                     counts the hostile towers and evolve()s into the sibling for that count (2: "AssaultTwo <room> <home>", 3: "AssaultThree <room> <home>"; a count with no
          │                                                     sibling is logged every 100 ticks and the mission waits). The scout goes along with the evolve.
@@ -449,7 +450,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          ├─ Corecleaner @register          (job.corecleaner.ts) InvaderCoreThree's dismantler (5 Nov 2026): fixed 25 WORK, 25 MOVE (3750, 1250 hits a tick) from the home room (readySpawn),
          │                                                 priority 3. Core standing -> approach(): the walk to the spot is planned at range 1 and walked at range 40 (Rewalker.walkingTo:
          │                                                 a stored walk to the same destination is never replanned for a new range; a walk with no steps left is planned again at 1), so it
-         │                                                 stops one tile inside the core's room on the path that leads in; with no drill in the room, or hurt, it backs out toward home.
+         │                                                 stops one tile inside the core's room on the path that leads in; with no drill in the room, or once it lost hits there (memory.backoff), it backs out toward home.
          │                                                 Core gone -> clean(): the mission's targets() in order; none: the rampart beside it with the fewest hits; none beside:
          │                                                 Rewalker.planWalk over every rampart; no ramparts: the towers; nothing: suicide. target is a TStruct; never a container.
          ├─ Coresweeper @register          (job.coresweeper.ts) InvaderCoreThree's hauler (5 Nov 2026): CARRY, MOVE x 25 (2500) from the home room (readySpawn). pick(): of the mission's

@@ -560,6 +560,10 @@ const kMaxOps = 20000
 // loop-back trails; the trade is a longer extension search each tick.
 const kChaseCutback = 2
 
+// Added cost of a tile beside a rampart a hostile melee creep can stand on
+// (applyRampartReach).
+const kRampartReach = 150
+
 // Ceiling for the weight a long-stationary creep of ours puts on its tile.
 // Step.bump() pushes our own blockers aside, so a parked harvester should
 // nudge paths around it, not wall off a corridor. 50 is 25 plain tiles.
@@ -805,12 +809,15 @@ export class Rewalker {
 
     calcMatrix(room: Room, mat: CostMatrix) {
         const structs = room.find(FIND_STRUCTURES)
+        // Packed xys of the ramparts we cannot walk through.
+        const shut = new Set<number>()
         for (const struct of structs) {
             const [x, y] = [struct.pos.x, struct.pos.y]
             switch (struct.structureType) {
                 case STRUCTURE_RAMPART:
                     if (!struct.my && !struct.isPublic && !this.isAllied(struct)) {
                         mat.set(x, y, 0xff)
+                        shut.add(coordsToXY(x, y))
                     }
                     break
                 case STRUCTURE_ROAD:
@@ -848,13 +855,18 @@ export class Rewalker {
             }
         }
 
+        let rampartGuard = false
         for (const creep of room.find(FIND_CREEPS)) {
             const stuck = this.getStuckTicks(creep)
-            if (stuck > 3) {
+            // An impassable tile stays impassable (a defender parked on its
+            // rampart), and the weight stays under 255: a CostMatrix holds
+            // bytes, so 100 + stuck wrapped round to anything, 0 included,
+            // once a creep had stood still for 156 ticks.
+            if (stuck > 3 && mat.get(creep.pos.x, creep.pos.y) !== 0xff) {
                 if (creep.my) {
                     mat.set(creep.pos.x, creep.pos.y, Math.min(kMyStuckCap, 10 + stuck))
                 } else {
-                    mat.set(creep.pos.x, creep.pos.y, 100 + stuck)
+                    mat.set(creep.pos.x, creep.pos.y, Math.min(254, 100 + stuck))
                 }
             }
             // Danger zones are for creeps that can hurt us; our own guards
@@ -867,7 +879,9 @@ export class Rewalker {
             } else if (creep.getActiveBodyparts(ATTACK)) {
                 matrixAvoid(mat, creep.pos, 2)
             }
+            if (creep.getActiveBodyparts(ATTACK) && shut.has(toXY(creep.pos))) rampartGuard = true
         }
+        if (rampartGuard) this.applyRampartReach(mat, room.name, shut)
 
         // Use recent tombstones to identify hostile rooms and increase the travel cost accordingly.
         for (const tomb of room.find(FIND_TOMBSTONES)) {
@@ -880,6 +894,37 @@ export class Rewalker {
         }
 
         return mat
+    }
+
+    // A melee creep on a rampart we cannot enter walks its ramparts out of
+    // harm's way and hits whatever stands beside any of them: while one is
+    // in the room, every walkable tile beside such a rampart costs
+    // kRampartReach more, so a walk passes two tiles out. The avoid around
+    // the creep itself only covers where it stands now: a stronghold's
+    // defender crossed its bunker and hit a drill walking round the far
+    // corner, which cost the drill its TOUGH parts and its life (W4N6, 5
+    // Nov 2026). A walk that ends beside a rampart still gets there.
+    applyRampartReach(mat: CostMatrix, roomName: string, shut: Set<number>) {
+        const terrain = Game.map.getRoomTerrain(roomName)
+        const done = new Set<number>()
+        for (const xy of shut) {
+            const [rx, ry] = coordsFromXY(xy)
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const [x, y] = [rx + dx, ry + dy]
+                    if (x < 0 || y < 0 || x > 49 || y > 49) continue
+                    const key = coordsToXY(x, y)
+                    if (shut.has(key) || done.has(key)) continue
+                    done.add(key)
+                    const tile = terrain.get(x, y)
+                    if (tile & TERRAIN_MASK_WALL) continue
+                    let w = mat.get(x, y)
+                    if (w === 0xff) continue
+                    if (w === 0) w = (tile & TERRAIN_MASK_SWAMP ? 10 : 2)
+                    mat.set(x, y, Math.min(254, w + kRampartReach))
+                }
+            }
+        }
     }
 
     guessRoomCost(roomName: string): number {
