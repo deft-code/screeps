@@ -660,7 +660,12 @@ export class InvaderCoreThree extends Mission {
         if (!hits) return Infinity;
         const cleaners = this.roleCreeps(Corecleaner.name.toLowerCase()).filter(k => k.c && k.pos.roomName === this.roomName);
         const rate = _.sum(cleaners, k => k.c.getActiveBodyparts(WORK) * DISMANTLE_POWER);
-        return rate ? Math.ceil(hits / rate) : Infinity;
+        if (!rate) return Infinity;
+        const eta = Math.ceil(hits / rate);
+        // Cleaners that die first leave the rest to a replacement, which is
+        // a spawn and a walk away.
+        const life = _.max(cleaners.map(k => k.ticksToLive));
+        return eta <= life ? eta : eta + this.coreDist + kCleanerLead;
     }
 
     // The flag goes with the mission (evolve() kills too).

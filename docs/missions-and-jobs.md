@@ -457,7 +457,7 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 openLoot() the resource with the highest swipeworth.unitValue, the nearer holder on a tie; energy only once nothing else is
          │                                                 left (the mission's lootLeft() false; then only by a sweeper already in the room) or within coreDist + 50 ticks of life; one withdraw or pickup a tick. Full, or loaded under coreDist +
          │                                                 15 ticks: unloadHome (dropAt the controller with no store), latched. Empty at home under 2 x coreDist, or empty anywhere
-         │                                                 under coreDist + 15: suicide. Nothing open: wait within 2 of the spot. No loot left: unload, then recycleAt(originSpawn).
+         │                                                 under coreDist + 15: suicide. Nothing open: with a load and accessEta() > coreDist, home with it; else wait within 2 of the spot. No loot left: unload, then recycleAt(originSpawn).
          │   └─ Crow @register             (job.crow.ts)   Capture's fighter: fixed 25 MOVE, 24 RANGED_ATTACK, 1 HEAL (5100, Crow.power = 240) from the home room's spawns only (the daemon
          │                                                 waits for the energy); decide(): retreat (to the staging flag, range 2, not home) when hurt as Guard, else in staging mode stage():
          │                                                 walk to within 2 of the staging flag (the staging room without one) and wait, chasing nothing (shots and heals within reach are

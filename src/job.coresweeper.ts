@@ -15,7 +15,9 @@ import type { Holder, InvaderCoreThree } from "ms.invadercorethree";
 // as the Swipe missions' value pick), the nearer holder on a tie, one
 // resource a tick. Energy is left alone until nothing else is left in the
 // stronghold, open or not, or the sweeper is within kEnergyLead ticks of
-// leaving. With nothing open to take it waits by the mission's spot.
+// leaving. With nothing open to take it waits by the mission's spot, unless
+// it has a load and nothing is due to open within coreDist ticks
+// (InvaderCoreThree.accessEta): then the load goes home meanwhile.
 //
 // coreDist is the mission's walk cost from home to the spot. Full, or
 // loaded with fewer than coreDist + kMargin ticks to live (the user's
@@ -77,7 +79,12 @@ export class Coresweeper extends JobCreep {
             if (this.unloadLatch(true)) return this.unload(home);
             return this.retire();
         }
-        // Loot is left but none of it can be had yet: by the spot.
+        // Loot is left but none of it can be had yet. With a load aboard
+        // and nothing due to open within a one-way trip, the load goes home
+        // meanwhile (the first sweeper would have stood 400 ticks beside
+        // the last rampart with the stronghold's muscle and tissue aboard).
+        if (c.store.getUsedCapacity() && m.accessEta() > dist && this.unloadLatch(true)) return this.unload(home);
+        // Else wait by the spot.
         const spot = m.spotPos;
         if (!spot) this.moveRoom(m.roomName);
         else if (!this.pos.inRangeTo(spot, kHoldRange)) this.movePos(spot, kHoldRange);
