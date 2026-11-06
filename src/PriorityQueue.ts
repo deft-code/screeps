@@ -1,15 +1,20 @@
+// A binary min-heap keyed by number (FindRoute.ts). Orphan: nothing imports
+// FindRoute.
 
-class PriorityQueue {
-    constructor() {
-        this.heap = [];
-    }
+interface Entry<T> {
+    item: T
+    key: number
+}
+
+class PriorityQueue<T = any> {
+    heap: Entry<T>[] = [];
 
     // TODO: make it an option, for max or min priority queue
-    _compare(a, b) {
+    _compare(a: Entry<T>, b: Entry<T>) {
         return a.key - b.key;
     }
 
-    _bubbleUp(idx) {
+    _bubbleUp(idx: number) {
         let element = this.heap[idx];
         let parentIdx;
         let parent;
@@ -31,7 +36,7 @@ class PriorityQueue {
         }
     }
 
-    _sinkDown(idx) {
+    _sinkDown(idx: number) {
         let length = this.heap.length;
         let element = this.heap[idx];
         let swapIdx;
@@ -70,7 +75,7 @@ class PriorityQueue {
         }
     }
 
-    _findElementIndex(item) {
+    _findElementIndex(item: T) {
         // TODO: optimize
         for (let i = 0, l = this.heap.length; i < l; i++) {
             if (this.heap[i].item === item) { return i; }
@@ -82,17 +87,17 @@ class PriorityQueue {
         return this.heap.length;
     }
 
-    insert(item, key) {
+    insert(item: T, key: number) {
         this.heap.push({item, key});
         this._bubbleUp(this.heap.length - 1);
     }
 
-    pop() {
+    pop(): Entry<T> | null {
         if (this.heap.length === 0) {
             return null;
         }
         const element = this.heap[0];
-        const end = this.heap.pop();
+        const end = this.heap.pop()!;
         // replace the first element by the last,
         // and let it sink to its right place
         if (this.heap.length > 0) {
@@ -102,14 +107,14 @@ class PriorityQueue {
         return element;
     }
 
-    peek() {
+    peek(): Entry<T> | null {
         if (this.heap.length === 0) {
             return null;
         }
         return this.heap[0];
     }
 
-    updateKey(item, newKey) {
+    updateKey(item: T, newKey: number) {
         const idx = this._findElementIndex(item);
         if (idx === -1) {
             return;

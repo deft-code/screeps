@@ -1,22 +1,47 @@
 import * as debug from 'debug';
+import type { FlagExtra } from 'flag';
 
-module.exports = function runPlanner (flag) {
+// The 2017 base planner behind an orange flag: BasePlan lays out a base in
+// the flag's memory step by step (one step per tick, each returning true
+// once done), draws it, and on a white secondary colour commits the spots
+// and planned tiles to the room's keeper (room.keeper.ts). Orphan: its
+// require in flag.ts is commented out; the metastruct planner replaced it.
+
+// The plan as it accumulates in the flag's memory.
+interface PlanMem {
+  room?: string
+  // Spots to keep (room.addSpot on commit).
+  perm?: string[]
+  // Planned tiles (packed) by structure type.
+  structs?: { [stype: string]: number[] }
+  spots?: { [name: string]: number }
+  // placePath keys already laid.
+  paths?: number[]
+  srcs?: Id<Source>[]
+}
+
+declare global {
+  interface FlagMemory extends PlanMem {}
+}
+
+export default function runPlanner (flag: Flag) {
   switch (flag.secondaryColor) {
-    case COLOR_ORANGE:
+    case COLOR_ORANGE: {
       const b = new BasePlan(flag)
       return b.run()
+    }
     case COLOR_WHITE:
       return planCommit(flag)
     case COLOR_GREEN:
       return drawKeeper(flag)
     default:
-      return flag.temp()
+      return (flag as FlagExtra).temp()
   }
 }
 
-function drawKeeper (flag) {
-  const room = flag.room
-  const plans = room.keeper().memory.plans
+function drawKeeper (flag: Flag) {
+  const room = flag.room!
+  const plans = room.keeper().memory.plans || {}
   const stypes = _.keys(plans)
   for (let stype of stypes) {
     for (let xy of plans[stype]) {
@@ -26,7 +51,7 @@ function drawKeeper (flag) {
   }
 }
 
-function drawAt (v, stype, p) {
+function drawAt (v: RoomVisual, stype: string, p: RoomPosition) {
   const found = p.lookFor(LOOK_STRUCTURES)
   for (let f of found) {
     if (f.structureType === stype) return
@@ -44,30 +69,39 @@ function drawAt (v, stype, p) {
   }
 }
 
-function planCommit (flag) {
-  for (const spot of flag.memory.perm) {
-    const p = flag.room.unpackPos(flag.memory.spots[spot])
-    flag.room.addSpot(spot, p)
+function planCommit (flag: Flag) {
+  const room = flag.room!
+  const mem = flag.memory
+  for (const spot of mem.perm || []) {
+    const p = room.unpackPos(mem.spots![spot])
+    room.addSpot(spot, p)
   }
-  const k = flag.room.keeper()
-  const stypes = _.keys(flag.memory.structs)
+  const k = room.keeper()
+  const structs = mem.structs || {}
+  const stypes = _.keys(structs)
   for (const stype of stypes) {
-    k.plan(stype, ...flag.memory.structs[stype])
+    k.plan(stype as BuildableStructureConstant, ...structs[stype])
   }
   flag.remove()
 }
 
-function icon (stype) {
+function icon (stype: string): string {
   switch (stype) {
-    case STRUCTURE_SPAWN: return '\u24e2'
-    case STRUCTURE_TOWER: return '\u21f4'
-    case STRUCTURE_LINK: return '\u22c4'
+    case STRUCTURE_SPAWN: return 'ⓢ'
+    case STRUCTURE_TOWER: return '⇴'
+    case STRUCTURE_LINK: return '⋄'
   }
   return stype[0]
 }
 
+type Goal = { pos: RoomPosition, range: number }
+type TemplateCb = (c: string, x: number, y: number) => void
+
 class BasePlan {
-  constructor (flag) {
+  flag: Flag
+  srcs: Source[] = []
+
+  constructor (flag: Flag) {
     this.flag = flag
     if (this.memory.room !== flag.pos.roomName) {
       this.flag.memory = {
@@ -93,22 +127,31 @@ class BasePlan {
     }
   }
 
-  get room () {
-    return this.flag.room
+  get room (): Room {
+    return this.flag.room!
   }
 
-  get memory () {
+  get memory (): FlagMemory {
     return this.flag.memory
   }
 
-  getSpot (name) {
-    const xy = this.memory.spots[name]
+  // The plan's tile lists, spots and path keys (set by the constructor).
+  get structs (): { [stype: string]: number[] } {
+    return this.memory.structs!
+  }
+
+  get spots (): { [name: string]: number } {
+    return this.memory.spots!
+  }
+
+  getSpot (name: string): RoomPosition | null {
+    const xy = this.spots[name]
     if (!xy) {
       const f = _.find(this.room.find(FIND_FLAGS),
         x => x.name === name)
       if (!f) return null
 
-      this.memory.spots[name] = this.room.packPos(f.pos)
+      this.spots[name] = this.room.packPos(f.pos)
       return f.pos
     }
     return this.room.unpackPos(xy)
@@ -119,11 +162,11 @@ class BasePlan {
   }
 
   drawSpots () {
-    const names = _.keys(this.memory.spots)
+    const names = _.keys(this.spots)
     let y = this.flag.pos.y + 2
     const x = this.flag.pos.x
     for (let name of names) {
-      const p = this.getSpot(name)
+      const p = this.getSpot(name)!
       this.room.visual.text(name, x, y)
       this.room.visual.line(x, y, p.x, p.y)
       y++
@@ -151,7 +194,7 @@ class BasePlan {
       this.place('aux', this.srcs[1].pos, STRUCTURE_TERMINAL) &&
       this.placeEdge('aux', STRUCTURE_LINK, 2, true) &&
       this.placeEdge('aux', STRUCTURE_TOWER, 6) &&
-      this.findSpot('ctrl', this.room.controller.pos, 1) &&
+      this.findSpot('ctrl', this.room.controller!.pos, 1) &&
       this.placeEdge('ctrl', STRUCTURE_LINK, 3, true) &&
       this.findSpot('lab', this.getPos(STRUCTURE_TERMINAL), 3) &&
       this.convertShunt() &&
@@ -159,33 +202,33 @@ class BasePlan {
       this.findExtn() &&
       this.placeExtn() &&
       this.findMineral() &&
-      this.placePath(this.getPos(STRUCTURE_TERMINAL), this.getSpot('mineral')) &&
-      this.placePath(this.getSpot('lab'), this.getPos(STRUCTURE_TERMINAL)) &&
+      this.placePath(this.getPos(STRUCTURE_TERMINAL), this.getSpot('mineral')!) &&
+      this.placePath(this.getSpot('lab')!, this.getPos(STRUCTURE_TERMINAL)) &&
       this.placePathExtn() &&
-      this.placePathSpawns(this.getSpot('mineral')) &&
-      this.placePathSpawns(this.getSpot('core')) &&
-      this.placePathSpawns(this.getSpot('coresrc')) &&
-      this.placePathSpawns(this.getSpot('aux')) &&
-      this.placePathSpawns(this.getSpot('auxsrc')) &&
-      this.placePathSpawns(this.getSpot('ctrl')) &&
+      this.placePathSpawns(this.getSpot('mineral')!) &&
+      this.placePathSpawns(this.getSpot('core')!) &&
+      this.placePathSpawns(this.getSpot('coresrc')!) &&
+      this.placePathSpawns(this.getSpot('aux')!) &&
+      this.placePathSpawns(this.getSpot('auxsrc')!) &&
+      this.placePathSpawns(this.getSpot('ctrl')!) &&
       this.compressRoads() &&
       true
   }
 
-  getPos (stype) {
-    const xy = _.first(this.memory.structs[stype])
+  getPos (stype: BuildableStructureConstant): RoomPosition {
+    const xy = _.first(this.structs[stype])
     if (xy) return this.room.unpackPos(xy)
 
     const s = _.first(this.room.findStructs(stype))
     if (s) return s.pos
 
     debug.log(this, 'bad get pos', stype)
-    return this.room.getPositionAt(25, 25)
+    return this.room.getPositionAt(25, 25)!
   }
 
   orderSrcs () {
     if (this.memory.srcs) {
-      this.srcs = _.map(this.memory.srcs, Game.getObjectById)
+      this.srcs = _.map(this.memory.srcs, id => Game.getObjectById(id)!)
       return true
     }
 
@@ -193,9 +236,10 @@ class BasePlan {
     if (this.srcs.length !== 2) {
       this.room.log('too few srcs')
     }
-    this.srcs.sort((a, b) => a.pos.getRangeTo(this.room.controller) - b.pos.getRangeTo(this.room.controller))
+    const ctrl = this.room.controller!
+    this.srcs.sort((a, b) => a.pos.getRangeTo(ctrl) - b.pos.getRangeTo(ctrl))
     this.room.visual.line(this.flag.pos, this.srcs[0].pos, {color: 'red'})
-    this.memory.srcs = _.map(this.srcs, 'id')
+    this.memory.srcs = _.map(this.srcs, 'id') as Id<Source>[]
     return false
   }
 
@@ -207,7 +251,7 @@ class BasePlan {
     const y = Math.floor(
       (this.srcs[1].pos.y + this.srcs[0].pos.y) / 2)
 
-    this.memory.spots['centroid'] = this.room.packPos(this.room.getPositionAt(x, y))
+    this.spots['centroid'] = this.room.packPos(this.room.getPositionAt(x, y)!)
     return false
   }
 
@@ -216,7 +260,7 @@ class BasePlan {
     return true
   }
 
-  findShunt (name, from) {
+  findShunt (name: string, from: RoomPosition) {
     if (this.getSpot(name)) return true
 
     const ret = this.findPath(from, 2)
@@ -225,27 +269,27 @@ class BasePlan {
       return false
     }
     this.room.visual.poly(ret.path)
-    const shunt = ret.path.pop()
-    this.memory.spots[name] = this.room.packPos(shunt)
+    const shunt = ret.path.pop()!
+    this.spots[name] = this.room.packPos(shunt)
     this.room.visual.circle(shunt)
 
-    const src = ret.path.shift()
-    this.memory.spots[name + 'X'] = this.room.packPos(src)
+    const src = ret.path.shift()!
+    this.spots[name + 'X'] = this.room.packPos(src)
     this.room.visual.circle(src)
     return false
   }
 
   convertShunt () {
-    for (let spot of _.keys(this.memory.spots)) {
+    for (let spot of _.keys(this.spots)) {
       if (_.last(spot) !== 'X') continue
       const s = spot.replace('X', 'src')
-      this.memory.spots[s] = this.memory.spots[spot]
-      delete this.memory.spots[spot]
+      this.spots[s] = this.spots[spot]
+      delete this.spots[spot]
     }
     return true
   }
 
-  findSpot (name, from, range = 2) {
+  findSpot (name: string, from: RoomPosition, range = 2) {
     if (this.getSpot(name)) return true
 
     const ret = this.findPath(from, range)
@@ -254,19 +298,21 @@ class BasePlan {
       return false
     }
     this.room.visual.poly(ret.path)
-    const p = ret.path.pop()
-    this.memory.spots[name] = this.room.packPos(p)
+    const p = ret.path.pop()!
+    this.spots[name] = this.room.packPos(p)
     this.room.visual.circle(p)
     return false
   }
 
-  findPath (from, range) {
-    const obs = [{
+  // Flee from `from`, every wall, every exit and every planned tile to a
+  // spot `range` clear of them all.
+  findPath (from: RoomPosition, range: number) {
+    const obs: Goal[] = [{
       pos: from,
       range: range + 1
     }]
 
-    const circle = (range, color, x, y) =>
+    const circle = (range: number, color: string, x: number, y: number) =>
           this.room.visual.circle(x, y, {
             radius: range,
             opacity: 0.2,
@@ -280,7 +326,7 @@ class BasePlan {
       for (let y = 0; y < 50; y++) {
         if (t.get(x,y) === TERRAIN_MASK_WALL) {
           obs.push({
-            pos: this.room.getPositionAt(x, y),
+            pos: this.room.getPositionAt(x, y)!,
             range: range
           })
           circle(range, 'blue', x, y)
@@ -297,8 +343,8 @@ class BasePlan {
       circle(range + 4, 'red', exit.x, exit.y)
     }
 
-    for (const stype of _.keys(this.memory.structs)) {
-      for (let xy of this.memory.structs[stype]) {
+    for (const stype of _.keys(this.structs)) {
+      for (let xy of this.structs[stype]) {
         const p = this.room.unpackPos(xy)
         let r = range
         if (_.contains([STRUCTURE_TERMINAL, STRUCTURE_SPAWN, STRUCTURE_STORAGE], stype)) {
@@ -312,7 +358,7 @@ class BasePlan {
       }
     }
 
-    const rc = (name) => {
+    const rc = (name: string) => {
       if (name !== this.room.name) return false
       const mat = this.fleeObstacles()
       const x = from.x
@@ -341,13 +387,13 @@ class BasePlan {
   fleeObstacles () {
     const mat = new PathFinder.CostMatrix()
 
-    const c = this.getSpot('centroid')
+    const c = this.getSpot('centroid')!
     const t = Game.map.getRoomTerrain(this.room.name)
     for (let x = 0; x < 50; x++) {
       for (let y = 0; y < 50; y++) {
         if (t.get(x,y) === TERRAIN_MASK_WALL) continue
 
-        const p = this.room.getPositionAt(x, y)
+        const p = this.room.getPositionAt(x, y)!
         const d = p.getRangeTo(c)
         mat.set(x, y, 70 + 3 * d)
       }
@@ -356,23 +402,23 @@ class BasePlan {
     return this.obstacles(mat)
   }
 
-  obstacles (mat) {
+  obstacles (mat?: CostMatrix) {
     if (!mat) mat = new PathFinder.CostMatrix()
 
-    const stypes = _.keys(this.memory.structs)
+    const stypes = _.keys(this.structs)
     for (let stype of stypes) {
       if (!_.contains(OBSTACLE_OBJECT_TYPES, stype)) continue
 
-      for (let xy of this.memory.structs[stype]) {
+      for (let xy of this.structs[stype]) {
         const pos = this.room.unpackPos(xy)
         mat.set(pos.x, pos.y, 0xff)
       }
     }
 
-    for (let spot of _.keys(this.memory.spots)) {
-      if (!_.contains(this.memory.perm, spot)) continue
+    for (let spot of _.keys(this.spots)) {
+      if (!_.contains(this.memory.perm!, spot)) continue
 
-      const xy = this.memory.spots[spot]
+      const xy = this.spots[spot]
       const p = this.room.unpackPos(xy)
       mat.set(p.x, p.y, 0xff)
     }
@@ -380,9 +426,9 @@ class BasePlan {
   }
 
   drawPlans () {
-    const stypes = _.keys(this.memory.structs)
+    const stypes = _.keys(this.structs)
     for (let stype of stypes) {
-      for (let xy of this.memory.structs[stype]) {
+      for (let xy of this.structs[stype]) {
         const p = this.room.unpackPos(xy)
         if (stype === STRUCTURE_ROAD) {
           this.room.visual.circle(p.x, p.y)
@@ -395,25 +441,25 @@ class BasePlan {
     return true
   }
 
-  placeEdge (name, stype, num = 1, front = false) {
-    const xys = this.memory.structs[stype] = this.memory.structs[stype] || []
+  placeEdge (name: string, stype: BuildableStructureConstant, num = 1, front = false) {
+    const xys = this.structs[stype] = this.structs[stype] || []
     if (xys.length >= num) return true
 
-    const from = this.getSpot(name)
-    const p = from.findClosestByRange(FIND_EXIT)
+    const from = this.getSpot(name)!
+    const p = from.findClosestByRange(FIND_EXIT)!
     return this.place(name, p, stype, num, front)
   }
 
-  place (name, dest, stype, num = 1, front = false) {
-    const xys = this.memory.structs[stype] = this.memory.structs[stype] || []
+  place (name: string, dest: RoomPosition, stype: BuildableStructureConstant, num = 1, front = false) {
+    const xys = this.structs[stype] = this.structs[stype] || []
     if (xys.length >= num) return true
 
-    const rc = (r) => {
+    const rc = (r: string) => {
       console.log('roomCallback', r)
       return this.obstacles()
     }
 
-    const from = this.getSpot(name)
+    const from = this.getSpot(name)!
 
     const ret = PathFinder.search(
       from, [{pos: dest, range: 1}], {
@@ -423,33 +469,33 @@ class BasePlan {
       })
     this.room.visual.poly(ret.path)
     if (front) {
-      this.memory.structs[stype].unshift(this.room.packPos(ret.path[0]))
+      xys.unshift(this.room.packPos(ret.path[0]))
     } else {
-      this.memory.structs[stype].push(this.room.packPos(ret.path[0]))
+      xys.push(this.room.packPos(ret.path[0]))
     }
     return false
   }
 
-  extnCentroid () {
-    const n = this.memory.structs[STRUCTURE_EXTENSION].length
+  extnCentroid (): RoomPosition {
+    const n = this.structs[STRUCTURE_EXTENSION].length
     if (n === 0) {
       return this.getPos(STRUCTURE_STORAGE)
     }
 
     let tx = 0
     let ty = 0
-    for (let xy of this.memory.structs[STRUCTURE_EXTENSION]) {
+    for (let xy of this.structs[STRUCTURE_EXTENSION]) {
       const p = this.room.unpackPos(xy)
       tx += p.x
       ty += p.y
     }
     const x = Math.floor(tx / n)
     const y = Math.floor(ty / n)
-    return this.room.getPositionAt(x, y)
+    return this.room.getPositionAt(x, y)!
   }
 
   findExtn () {
-    const n = this.memory.structs[STRUCTURE_EXTENSION].length
+    const n = this.structs[STRUCTURE_EXTENSION].length
     if (n >= 60) return true
 
     const s = this.extnCentroid()
@@ -467,13 +513,13 @@ class BasePlan {
   }
 
   placeExtn () {
-    const n = this.memory.structs[STRUCTURE_EXTENSION].length
+    const n = this.structs[STRUCTURE_EXTENSION].length
     if (n >= 60) return true
 
     const e30 = `extn30_${n}`
-    const p30 = this.getSpot(e30)
+    const p30 = this.getSpot(e30)!
     const e15 = `extn15_${n}`
-    const p15 = this.getSpot(e15)
+    const p15 = this.getSpot(e15)!
     const s = this.extnCentroid()
     const d30 = s.getRangeTo(p30)
     const d15 = s.getRangeTo(p15)
@@ -499,39 +545,39 @@ class BasePlan {
       .eerere
       ..eeree`
 
-    let w
-    let t
-    let p
+    let w: number
+    let t: string
+    let p: RoomPosition
     if (d30 - 2 <= d15 && n <= 30) {
       p = p30
       w = 7
       t = extn30
-      delete this.memory.spots[e15]
+      delete this.spots[e15]
     } else {
       p = p15
       w = 5
       t = extn15
-      delete this.memory.spots[e30]
+      delete this.spots[e30]
     }
 
     const px = p.x - Math.floor(w / 2)
     const py = p.y - Math.floor(w / 2)
-    const cb = (c, x, y) => {
-      let stype
+    const cb: TemplateCb = (c, x, y) => {
+      let stype: BuildableStructureConstant
 
       switch (c) {
         case 'e': stype = STRUCTURE_EXTENSION; break
         case 'r': stype = STRUCTURE_ROAD; break
         default: return
       }
-      this.memory.structs[stype].push(this.room.packPos(this.room.getPositionAt(x + px, y + py)))
+      this.structs[stype].push(this.room.packPos(this.room.getPositionAt(x + px, y + py)!))
     }
 
     this.processTemplate(t, w, cb)
     return false
   }
 
-  processTemplate (tmpl, mx, cb) {
+  processTemplate (tmpl: string, mx: number, cb: TemplateCb) {
     let x = 0
     let y = 0
     for (let c of tmpl) {
@@ -547,14 +593,14 @@ class BasePlan {
   }
 
   placeLabs () {
-    this.memory.structs[STRUCTURE_LAB] = this.memory.structs[STRUCTURE_LAB] || []
-    this.memory.structs[STRUCTURE_ROAD] = this.memory.structs[STRUCTURE_ROAD] || []
+    this.structs[STRUCTURE_LAB] = this.structs[STRUCTURE_LAB] || []
+    this.structs[STRUCTURE_ROAD] = this.structs[STRUCTURE_ROAD] || []
 
-    if (this.memory.structs[STRUCTURE_LAB].length >= 10) {
+    if (this.structs[STRUCTURE_LAB].length >= 10) {
       return true
     }
 
-    const p = this.getSpot('lab')
+    const p = this.getSpot('lab')!
 
     // const lab = `
     //  rll.n
@@ -572,8 +618,8 @@ class BasePlan {
 
     const px = p.x - 2
     const py = p.y - 2
-    const cb = (c, x, y) => {
-      let stype
+    const cb: TemplateCb = (c, x, y) => {
+      let stype: BuildableStructureConstant
 
       switch (c) {
         case 'l': stype = STRUCTURE_LAB; break
@@ -584,16 +630,19 @@ class BasePlan {
         case 'p': stype = STRUCTURE_POWER_SPAWN; break
         default: return
       }
-      this.memory.structs[stype].push(this.room.packPos(this.room.getPositionAt(x + px, y + py)))
+      this.structs[stype].push(this.room.packPos(this.room.getPositionAt(x + px, y + py)!))
     }
 
     this.processTemplate(lab, 5, cb)
+    // (No return in the JS either: the run() chain stops here each tick
+    // the labs are laid.)
+    return undefined
   }
 
   findMineral () {
     if (this.getSpot('mineral')) return true
 
-    const rc = (name) => {
+    const rc = (name: string) => {
       if (name !== this.room.name) return false
       return this.obstacles()
     }
@@ -602,12 +651,12 @@ class BasePlan {
     const ret = PathFinder.search(t, [{pos: m, range: 1}], {
       roomCallback: rc
     })
-    this.memory.spots['mineral'] = this.room.packPos(ret.path.pop())
+    this.spots['mineral'] = this.room.packPos(ret.path.pop()!)
     return false
   }
 
-  placePathSpawns (dest) {
-    for (let xy of this.memory.structs[STRUCTURE_SPAWN]) {
+  placePathSpawns (dest: RoomPosition) {
+    for (let xy of this.structs[STRUCTURE_SPAWN]) {
       const p = this.room.unpackPos(xy)
       if (!this.placePath(p, dest)) return false
     }
@@ -616,23 +665,26 @@ class BasePlan {
 
   placePathExtn () {
     const s = this.getPos(STRUCTURE_STORAGE)
-    for (const spot of _.keys(this.memory.spots)) {
+    for (const spot of _.keys(this.spots)) {
       if (!_.startsWith(spot, 'extn')) continue
-      const e = this.getSpot(spot)
+      const e = this.getSpot(spot)!
       if (!this.placePath(e, s)) return false
     }
     return true
   }
 
-  placePath (from, dest, range = 1) {
+  // Lay a road from `from` to `dest` once (keyed by both ends); true when
+  // it was already laid.
+  placePath (from: RoomPosition, dest: RoomPosition, range = 1) {
     const key = this.room.packPos(from) * 10000 + this.room.packPos(dest)
-    if (_.contains(this.memory.paths, key)) return true
+    const paths = this.memory.paths!
+    if (_.contains(paths, key)) return true
 
-    const rc = (name) => {
+    const rc = (name: string) => {
       if (name !== this.room.name) return false
       const mat = this.obstacles()
 
-      for (let xy of this.memory.structs[STRUCTURE_ROAD]) {
+      for (let xy of this.structs[STRUCTURE_ROAD]) {
         const pos = this.room.unpackPos(xy)
         mat.set(pos.x, pos.y, 1)
       }
@@ -647,14 +699,16 @@ class BasePlan {
         heuristicWeight: 1
       })
 
-    this.memory.paths.push(key)
+    paths.push(key)
     this.room.visual.poly(ret.path)
     for (const p of ret.path) {
-      this.memory.structs[STRUCTURE_ROAD].push(this.room.packPos(p))
+      this.structs[STRUCTURE_ROAD].push(this.room.packPos(p))
     }
+    return undefined
   }
 
   compressRoads () {
-    this.memory.structs[STRUCTURE_ROAD] = _.unique(this.memory.structs[STRUCTURE_ROAD])
+    this.structs[STRUCTURE_ROAD] = _.unique(this.structs[STRUCTURE_ROAD])
+    return undefined
   }
 }

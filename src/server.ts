@@ -1,4 +1,14 @@
-function findName () {
+// Server identity (2017): each global names itself after the entry in
+// Memory.servers seen longest ago and stamps it every tick, to tell the
+// runtime's servers apart. Orphan: nothing imports it.
+
+declare global {
+  interface Memory {
+    servers: { [name: string]: { seen: number } }
+  }
+}
+
+function findName (): string {
   let min = Game.time
   let me = 'nope'
   for (let s in Memory.servers) {
@@ -14,6 +24,11 @@ function findName () {
 // 'Mercury', 'Venus', 'Earth', 'Mars', 'Ceres', 'Jupiter', 'Saturn', 'Neptune', 'Uranus', 'Pluto'
 
 class Server {
+  name: string
+  reload: number
+  sig: number
+  ticks: number
+
   constructor () {
     this.name = findName()
     this.reload = Game.time
@@ -32,4 +47,4 @@ class Server {
   }
 }
 
-module.exports = new Server()
+export default new Server()
