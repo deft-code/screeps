@@ -81,11 +81,34 @@ export function junkIn(store: StoreDefinition | Store<ResourceConstant, false>):
     return worthlessIn(store).filter(res => !catalyzed(res));
 }
 
-// What a unit of `res` sells for (the buy-order price), for ranking loot; 0
-// when it has no price this tick or there is no market.
+// The market history's latest daily average price by resource, asked again
+// every kHistoryTTL ticks (heap; Game.market.getHistory costs ~0.05 CPU a
+// resource).
+const kHistoryTTL = 1000;
+const history = new Map<string, [number, number]>();
+
+function historyPrice(res: ResourceConstant): number {
+    const hit = history.get(res);
+    if (hit && Game.time - hit[0] < kHistoryTTL) return hit[1];
+    const day = _.last(Game.market.getHistory(res) as PriceHistory[]);
+    const avg = day ? day.avgPrice : 0;
+    history.set(res, [Game.time, avg]);
+    return avg;
+}
+
+// What a unit of `res` is worth, for ranking loot: the buy-order price; with
+// no price this tick (a thin book: under 10k units bid) its moving average
+// (market.buyOrderPriceEma), else the market history's latest daily average.
+// The rarest loot has the thinnest book: a stronghold's muscle, tissue and
+// phlegm (1.5M, 625k and 32k credits a unit) ranked 0, behind composite,
+// until 6 Nov 2026. 0 when nothing prices it or there is no market.
 export function unitValue(res: ResourceConstant): number {
     if (marketDisabled()) return 0;
-    return Math.max(0, tryGetBuyOrderPrice(res));
+    const live = tryGetBuyOrderPrice(res);
+    if (live > 0) return live;
+    const ema = buyOrderPriceEma(res);
+    if (ema > 0) return ema;
+    return Math.max(0, historyPrice(res));
 }
 
 // The resources of a store that are `worth` taking, most valuable first.
