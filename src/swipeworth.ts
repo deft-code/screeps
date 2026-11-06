@@ -103,7 +103,9 @@ function historyPrice(res: ResourceConstant): number {
 // phlegm (1.5M, 625k and 32k credits a unit) ranked 0, behind composite,
 // until 6 Nov 2026. 0 when nothing prices it or there is no market.
 export function unitValue(res: ResourceConstant): number {
-    if (marketDisabled()) return 0;
+    // No resource (an empty store's first): getHistory() without one
+    // answers every resource's history.
+    if (!res || marketDisabled()) return 0;
     const live = tryGetBuyOrderPrice(res);
     if (live > 0) return live;
     const ema = buyOrderPriceEma(res);

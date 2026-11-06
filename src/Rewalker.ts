@@ -866,15 +866,15 @@ export class Rewalker {
         let rampartGuard = false
         for (const creep of room.find(FIND_CREEPS)) {
             const stuck = this.getStuckTicks(creep)
-            // An impassable tile stays impassable (a defender parked on its
-            // rampart), and the weight stays under 255: a CostMatrix holds
-            // bytes, so 100 + stuck wrapped round to anything, 0 included,
-            // once a creep had stood still for 156 ticks.
+            // An impassable tile stays impassable: until 5 Nov 2026 a
+            // defender parked on its rampart made that tile walkable for its
+            // first 155 ticks there. (CostMatrix.set clamps at 255, so a
+            // creep of somebody else's parked longer than that is a wall.)
             if (stuck > 3 && mat.get(creep.pos.x, creep.pos.y) !== 0xff) {
                 if (creep.my) {
                     mat.set(creep.pos.x, creep.pos.y, Math.min(kMyStuckCap, 10 + stuck))
                 } else {
-                    mat.set(creep.pos.x, creep.pos.y, Math.min(254, 100 + stuck))
+                    mat.set(creep.pos.x, creep.pos.y, 100 + stuck)
                 }
             }
             // Danger zones are for creeps that can hurt us; our own guards

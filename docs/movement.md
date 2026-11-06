@@ -120,9 +120,10 @@ the rooms, cost and ops, since that only happens when the room's own tiles
 were made expensive. Room matrices (`calcMatrix`) mark: foreign ramparts and all
 non-walkable structures `0xFF`, roads `1`, keeper lairs avoided at range 3 (by `applyKeepers`, with the keeper rings; `calcMatrix` leaves the lair tile alone),
 stuck creeps `10+ticks` capped at `kMyStuckCap` 50 (own, since `bump()` can
-move them) or `100+ticks` capped at 254 (others; never on a tile already
-`0xFF`: until 5 Nov 2026 a defender parked on its rampart made that tile
-walkable, and the uncapped sum wrapped round a byte), hostile melee/ranged
+move them) or `100+ticks` (others: `CostMatrix.set` clamps at 255, so one
+parked over 155 ticks is a wall; never on a tile already `0xFF`: until 5 Nov
+2026 a defender parked on its rampart made that tile walkable for its first
+155 ticks there), hostile melee/ranged
 avoided at range 2/4 (own and system creeps are skipped; until Sept 2026 our
 guards repelled our own paths), every walkable tile beside a foreign rampart
 `+kRampartReach` (150) while an invader core stands and an Invader creep with

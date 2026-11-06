@@ -621,7 +621,8 @@ export class InvaderCoreThree extends Mission {
         this.plannedAt = Game.time;
         const core = this.corePos!;
         const from = this.spotPos || core;
-        const holders = this.holders();
+        // Nothing comes down for energy alone.
+        const holders = this.holders().filter(InvaderCoreThree.otherThanEnergy);
         const covers = _.compact(holders.filter(h => h instanceof StructureContainer).map(h => coverAt(h.pos))) as Structure[];
         const mat = this.accessMatrix(room, new Set(covers.map(r => toXY(r.pos))));
         const ruin = _.any(holders, h => h.pos.isEqualTo(core)) ? this.pathBlockers(from, core, mat) : [];
