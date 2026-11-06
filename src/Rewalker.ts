@@ -145,6 +145,8 @@ export function matrixAvoid(mat: CostMatrix, pos: RoomPosition, range: number, b
 
 // The engine's Source Keeper user (creeps/keepers/pretick.js in the engine).
 export const kKeeperUser = 'Source Keeper'
+// The engine's user for invader creeps, cores and strongholds.
+export const kInvaderUser = 'Invader'
 // applyKeepers: cost added per ring of the avoid around a known keeper tile
 // (range 3: 50, 100, 150) and around a resource whose keeper is unseen
 // (range 4: 40 .. 160). Stays under the 254 clamp with plain terrain.
@@ -809,8 +811,10 @@ export class Rewalker {
 
     calcMatrix(room: Room, mat: CostMatrix) {
         const structs = room.find(FIND_STRUCTURES)
-        // Packed xys of the ramparts we cannot walk through.
+        // Packed xys of the ramparts we cannot walk through, and whether an
+        // invader core stands (applyRampartReach).
         const shut = new Set<number>()
+        let core = false
         for (const struct of structs) {
             const [x, y] = [struct.pos.x, struct.pos.y]
             switch (struct.structureType) {
@@ -834,6 +838,10 @@ export class Rewalker {
                 case STRUCTURE_KEEPER_LAIR:
                     // The keeper layer (applyKeepers) rings it; the tile
                     // itself is a wall.
+                    break
+                case STRUCTURE_INVADER_CORE:
+                    core = true
+                    mat.set(x, y, 0xff)
                     break
                 default:
                     mat.set(x, y, 0xff)
@@ -879,7 +887,8 @@ export class Rewalker {
             } else if (creep.getActiveBodyparts(ATTACK)) {
                 matrixAvoid(mat, creep.pos, 2)
             }
-            if (creep.getActiveBodyparts(ATTACK) && shut.has(toXY(creep.pos))) rampartGuard = true
+            if (core && creep.owner.username === kInvaderUser && creep.getActiveBodyparts(ATTACK)
+                && shut.has(toXY(creep.pos))) rampartGuard = true
         }
         if (rampartGuard) this.applyRampartReach(mat, room.name, shut)
 
@@ -896,14 +905,19 @@ export class Rewalker {
         return mat
     }
 
-    // A melee creep on a rampart we cannot enter walks its ramparts out of
-    // harm's way and hits whatever stands beside any of them: while one is
-    // in the room, every walkable tile beside such a rampart costs
-    // kRampartReach more, so a walk passes two tiles out. The avoid around
-    // the creep itself only covers where it stands now: a stronghold's
-    // defender crossed its bunker and hit a drill walking round the far
-    // corner, which cost the drill its TOUGH parts and its life (W4N6, 5
-    // Nov 2026). A walk that ends beside a rampart still gets there.
+    // A stronghold's melee defender walks its ramparts out of harm's way
+    // and hits whatever stands beside any of them: while the invader core
+    // stands and one of the Invader's creeps with a working ATTACK part is
+    // on a rampart, every walkable tile beside a rampart we cannot enter
+    // costs kRampartReach more, so a walk passes two tiles out. The avoid
+    // around the creep itself only covers where it stands now: a defender
+    // crossed its bunker and hit a drill walking round the far corner,
+    // which cost the drill its TOUGH parts and its life (W4N6, 5 Nov 2026).
+    // Only while the core stands: without it the defenders are dead weight,
+    // and a walk that ends beside a rampart (every dismantler's does) pays
+    // the cost on its last tile, which sends the search over the whole room
+    // first and leaves it incomplete. A player's rampart defenders are left
+    // to the jobs that fight them.
     applyRampartReach(mat: CostMatrix, roomName: string, shut: Set<number>) {
         const terrain = Game.map.getRoomTerrain(roomName)
         const done = new Set<number>()

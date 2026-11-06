@@ -9,7 +9,7 @@ import { coverAt } from "job.bulldozer";
 import { isActiveMilitant } from "creep.enemy";
 import { FlagExtra, createFlagAt } from "flag";
 import { roomCenterPos } from "intel";
-import { defaultRewalker, coordsFromXY, fromXY, toXY } from "Rewalker";
+import { defaultRewalker, coordsFromXY, fromXY, kInvaderUser, toXY } from "Rewalker";
 import { blockHits, blockers } from "staging";
 import { TStruct } from "tstruct";
 import { theRadar } from "radar";
@@ -105,7 +105,6 @@ export interface InvaderCoreMemory extends MissionMemory {
 
 export type Holder = StructureContainer | Ruin | Tombstone | Resource;
 
-export const kInvader = "Invader";
 const kFlagName = "InvaderCore";
 const kSiegeColour = COLOR_RED;
 const kLootColour = COLOR_YELLOW;
@@ -503,7 +502,7 @@ export class InvaderCoreThree extends Mission {
         const mem = this.mem;
         if (mem.capture !== undefined) return;
         const foes = (room.enemies || room.find(FIND_HOSTILE_CREEPS))
-            .filter(e => isActiveMilitant(e) && !e.keeper && e.owner.username !== kInvader);
+            .filter(e => isActiveMilitant(e) && !e.keeper && e.owner.username !== kInvaderUser);
         if (!foes.length) return;
         const cmd = `Capture ${this.roomName}`;
         debug.log(this.name, "hostile creeps of", _.uniq(foes.map(f => f.owner.username)).join(","), "in", this.roomName, "; scheduling", cmd);
