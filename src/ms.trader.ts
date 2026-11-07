@@ -35,7 +35,18 @@ import { oldestOf, slowOf, trackOf, transferRate, tryGetBuyOrderPrice, tryGetSel
 //             2% deadband: sell when the bid side is topping (now under mid,
 //             mid over slow) or flat with now at or over slow; buy when the ask
 //             side is bottoming (now over mid, mid under slow) or flat with
-//             now at or under slow. Deals into the best order.
+//             now at or under slow. Deals into the best order. No gap test.
+//   fairB     same-side fair prices: fair buy = the lower of the ask side's mid
+//             and slow, fair sell = the higher of the bid side's mid and slow;
+//             a good buy is an ask at or under fair buy, a good sell a bid at
+//             or over fair sell, and optional trades only while
+//             fair sell - fair buy >= the surcharge. A side with no price
+//             passes the test for the other side's action (a round trip is
+//             impossible without it). Added after the first hours of the dry
+//             run (6 Nov 2026) because fairA stalls on one-sided books.
+//   fourGap   fourState's timing with fairB's surcharge test and fair prices
+//             as guards (buy at or under fair buy, sell at or over fair sell).
+//             Added at the same time: fourState churned purifier at a loss.
 //
 // Prices are effective: an ask costs its price plus our transfer energy, a
 // bid pays its price minus it, energy valued at zero while the room's storage
@@ -44,7 +55,7 @@ import { oldestOf, slowOf, trackOf, transferRate, tryGetBuyOrderPrice, tryGetSel
 // candidates are ordered by absolute price delta (credits a unit between the
 // order and the fair price it beats), mandatory ones first.
 
-const kScenarioNames = ["fairA", "fourState"] as const;
+const kScenarioNames = ["fairA", "fourState", "fairB", "fourGap"] as const;
 type ScenarioName = typeof kScenarioNames[number];
 
 // Resources examined per tick.
@@ -363,12 +374,43 @@ export class Trader extends Service {
             return out;
         }
 
-        // fourState
+        // fairB and fourGap share the same-side fair prices and the gap test.
+        const fairBuyB = v.ask.mid !== undefined && v.ask.slow !== undefined ? Math.min(v.ask.mid, v.ask.slow) : undefined;
+        const fairSellB = v.bid.mid !== undefined && v.bid.slow !== undefined ? Math.max(v.bid.mid, v.bid.slow) : undefined;
+        const gapOk = fairBuyB === undefined || fairSellB === undefined || fairSellB - fairBuyB >= 2 * kTypicalRate * energy;
+
+        if (scn === "fairB") {
+            if (!gapOk) return out;
+            if (wantsBuy && fairBuyB !== undefined) {
+                const hit = first(v.asks, "buy", eff => eff <= fairBuyB && eff <= (rule.ceil ?? Infinity));
+                if (hit) {
+                    const [o, eff] = hit;
+                    out.push({ ...base, kind: "want", dir: "buy", orderId: o.id, orderRoom: o.roomName!, price: o.price, eff,
+                        qty: Math.min(chunk, this.available(ledger, v.res, o), rule.want! - stock), delta: fairBuyB - eff,
+                        why: `ask ${eff.toFixed(1)} <= fair buy ${fairBuyB.toFixed(1)} (ask min(mid, slow)), stock ${stock} < want ${rule.want}` });
+                }
+            }
+            if (wantsSell && fairSellB !== undefined) {
+                const hit = first(v.bids, "sell", eff => eff >= fairSellB && eff >= (rule.floor ?? 0));
+                if (hit) {
+                    const [o, eff] = hit;
+                    out.push({ ...base, kind: "surplus", dir: "sell", orderId: o.id, orderRoom: o.roomName!, price: o.price, eff,
+                        qty: Math.min(chunk, this.available(ledger, v.res, o), stock - rule.surplus!), delta: eff - fairSellB,
+                        why: `bid ${eff.toFixed(1)} >= fair sell ${fairSellB.toFixed(1)} (bid max(mid, slow)), stock ${stock} > surplus ${rule.surplus}` });
+                }
+            }
+            return out;
+        }
+
+        // fourState and fourGap
+        const gated = scn === "fourGap";
+        if (gated && !gapOk) return out;
         if (wantsBuy) {
             const st = stateOf(v.ask);
             const go = st === "bottoming" || (st === "flat" && v.ask.now! <= v.ask.slow!);
+            const cap = gated ? Math.min(rule.ceil ?? Infinity, fairBuyB ?? Infinity) : (rule.ceil ?? Infinity);
             if (go) {
-                const hit = first(v.asks, "buy", eff => eff <= (rule.ceil ?? Infinity));
+                const hit = first(v.asks, "buy", eff => eff <= cap);
                 if (hit) {
                     const [o, eff] = hit;
                     out.push({ ...base, kind: "want", dir: "buy", orderId: o.id, orderRoom: o.roomName!, price: o.price, eff,
@@ -380,8 +422,9 @@ export class Trader extends Service {
         if (wantsSell) {
             const st = stateOf(v.bid);
             const go = st === "topping" || (st === "flat" && v.bid.now! >= v.bid.slow!);
+            const floor = gated ? Math.max(rule.floor ?? 0, fairSellB ?? 0) : (rule.floor ?? 0);
             if (go) {
-                const hit = first(v.bids, "sell", eff => eff >= (rule.floor ?? 0));
+                const hit = first(v.bids, "sell", eff => eff >= floor);
                 if (hit) {
                     const [o, eff] = hit;
                     out.push({ ...base, kind: "surplus", dir: "sell", orderId: o.id, orderRoom: o.roomName!, price: o.price, eff,

@@ -10,7 +10,7 @@ import { theRadar } from "radar";
 //
 // 1. Suspects. Once every kHistoryHours per tracked resource, one resource a
 //    tick, the daily market history is read. A resource becomes a suspect
-//    when either of its last two days has an average price over kPriceX
+//    when any of its last kRecentDays days has an average price over kPriceX
 //    times the clean price AND more transactions than kTxX times the clean
 //    count (and at least kTxMin): a wash trade is many small self-deals, so
 //    the count explodes while the lots shrink, which is what told the four
@@ -43,6 +43,10 @@ const kPriceX = 1.5;
 const kTxX = 5;
 const kTxMin = 50;
 const kMinDays = 6;
+// Daily rows looked at for the pump signature: the newest is today's
+// partial day (after the UTC rollover it may hold one trade), so three rows
+// is "yesterday and the day before" whatever the hour.
+const kRecentDays = 3;
 // Credits: resources whose clean price is under this are never suspects.
 const kMinBase = 1;
 const kBlacklistDays = 8;
@@ -86,7 +90,7 @@ function checkHistory(res: ResourceConstant) {
     // pumped against, and every order would count as an outlier.
     if (base < kMinBase) return;
     const pumped = (d: PriceHistory) => d.avgPrice > kPriceX * base && d.transactions > Math.max(kTxX * txBase, kTxMin);
-    const recent = days.slice(-2);
+    const recent = days.slice(-kRecentDays);
     if (!current) {
         const hit = _.find(recent, pumped);
         if (hit) {
