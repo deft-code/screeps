@@ -62,6 +62,11 @@ const kGlutUnder = 0.7;
 const kBand = 0.02;
 // Typical transfer rate per leg for the surcharge.
 const kTypicalRate = 0.75;
+// No buy from an ask over this many times the best real bid (a pumped ask
+// side sits far above anything a buyer pays); bids under kRealBid credits are
+// junk and do not count.
+const kAskOverBid = 2;
+const kRealBid = 1;
 // Default chunk when the rule has none.
 const kChunk = 1000;
 // Ticks between rebuilds of the ruled resource list.
@@ -291,10 +296,14 @@ export class Trader extends Service {
         const energy = energyValue(room);
         const chunk = rule.chunk || kChunk;
         const base = { scn, room: room.name, res: v.res, tick: Game.time };
+        // The ask-to-bid guard: the best bid anyone real posts, or none.
+        const bestBid = _.find(v.bids, o => o.price >= kRealBid);
+        const askCap = bestBid ? kAskOverBid * bestBid.price : Infinity;
         const first = (orders: Order[], dir: Dir, ok: (eff: number) => boolean): [Order, number] | undefined => {
             for (const o of orders) {
                 if (this.available(ledger, v.res, o) <= 0) continue;
                 const eff = effective(o, dir, room.name, energy);
+                if (dir === "buy" && eff > askCap) return undefined;
                 return ok(eff) ? [o, eff] : undefined;   // best first: if the best fails, all do
             }
             return undefined;
@@ -451,7 +460,7 @@ export class Trader extends Service {
 }
 
 // traderReport() prints each ledger: cash, energy, deals, the net position
-// marked at the bid side's slow (what the stock would fetch), and per
+// marked at the mid of the two sides' slows, and per
 // resource what was bought and sold; traderReport("fairA", 30) adds the last
 // 30 fills of that scenario.
 export function report(scn?: string, fills = 0): string {
@@ -466,13 +475,16 @@ export function report(scn?: string, fills = 0): string {
             const [bought, spent, sold, earned, deals] = l.stats[res];
             const net = _.sum(_.values(l.delta), (d: any) => d[res] || 0) as number;
             const rec = Memory.market[res as ResourceConstant];
-            const mark = credits(slowOf(rec && rec.b)) ?? 0;
+            const bidSlow = credits(slowOf(rec && rec.b));
+            const askSlow = credits(slowOf(rec && rec.s));
+            // Marked at the mid of the two slows (one side when only one is priced).
+            const mark = bidSlow !== undefined && askSlow !== undefined ? (bidSlow + askSlow) / 2 : (bidSlow ?? askSlow ?? 0);
             marked += net * mark;
             rows.push(`  ${res.padEnd(14)} ${String(deals).padStart(3)} deals  bought ${String(bought).padStart(6)} for ${Math.round(spent).toLocaleString().padStart(12)}` +
                 `  sold ${String(sold).padStart(6)} for ${Math.round(earned).toLocaleString().padStart(12)}  net ${String(net).padStart(6)} @ ${mark.toFixed(1)}`);
         }
         lines.push(`${name}: ${l.deals} deals since ${Game.time - l.start} ticks, cash ${Math.round(l.cash).toLocaleString()}, ` +
-            `position ${Math.round(marked).toLocaleString()} at bid slow, total ${Math.round(l.cash + marked).toLocaleString()}, energy ${l.energy.toLocaleString()}`);
+            `position ${Math.round(marked).toLocaleString()} at mid of slows, total ${Math.round(l.cash + marked).toLocaleString()}, energy ${l.energy.toLocaleString()}`);
         lines.push(...rows);
         if (fills > 0) {
             for (const f of l.fills.slice(-fills)) {

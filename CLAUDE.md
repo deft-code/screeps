@@ -43,11 +43,12 @@ follows from that:
   the code is inert without the season's structures. Decide whether to keep,
   generalise or delete it once the next target is known, and update
   `docs/file-inventory.md` with the decision.
-- Market code (`market.ts`, `markethack.ts`, `Selloff`) is a no-op on
-  `shardSeason` (no market there). On shard2 the `MarketSweep` daemon keeps
-  the `Memory.market` price averages current; `Selloff` was last measured
-  there in Sept 2026 (`docs/legacy-systems.md`); re-check it before relying
-  on it.
+- Market code (`market.ts`, `marketwatch.ts`, `markethack.ts`, `Selloff`,
+  `Trader`) is a no-op on `shardSeason` (no market there). On shard2 the
+  `MarketTracker` daemon keeps the `Memory.market` prices current and the
+  `Trader` service runs in dry-run form (paper ledgers, no deals), the
+  refactor of Nov 2026 (`docs/market-design.md`). `Selloff` was last measured
+  there in Sept 2026 (`docs/legacy-systems.md`); the trader is to replace it.
 
 ## What is actually running
 
@@ -99,7 +100,9 @@ per-room strats start themselves. What each process does:
 | `FlagService` daemon | orange genesis flags -> metastruct planning; purple flags -> transient services named by the flag (`Swipe_W4N3_W3N4`) |
 | `SpawnDaemon` | turns eggs into `spawnCreep` |
 | `SpawnTelemetry` | per-spawn busy ticks and creeps started, 500-tick windows in `Memory.spawns`; `spawnLoads()` prints it |
-| `MarketSweep` | every 100 ticks prices both sides of every resource with an open order (best 10k units, `market.ts`), feeding the `buy`/`sell` 1/20 and 1/100 decaying averages in `Memory.market`; the on-demand sampling by swipers and `Selloff` only touches what they look at. No-op off-market; `require('market').sweep()` runs one by hand; its `status()` shows the last sweep's cost |
+| `Trader` | the market trader (`ms.trader.ts`, `docs/market-design.md`), dry run only so far: no `deal` is ever made. Each tick it examines five ruled resources (`stockrules.ts`: need/want/surplus/glut per resource, class defaults plus `stockRule()` overrides) and, per scenario and room with a terminal, books the trade that scenario would make into a paper ledger in `Memory.trader.sim` (virtual stock, cash, energy, per-order quantities so an order is not filled twice, last 150 fills), one fill per paper terminal per 10 ticks. Scenarios: `fairA` (fair buy = bid slow, fair sell = ask slow, optional trades only while they are a surcharge apart) and `fourState` (the now/mid/slow trend table). Mandatory `need`/`glut` trades keep price guards; a suspect resource is never bought; no ask over twice the best real bid. `traderReport([scenario[, fills]])`, `getService('Trader').reset()` |
+| `MarketTracker` | prices (`market.ts`): each resource is refreshed 100 +- 20 ticks after its last refresh, on demand when a price is asked or by this daemon when nobody asked (two overdue a tick); a refresh folds `now` into `mid` (ratio from the pacer, ~1:5) and, hourly, pushes `mid` into a round-robin history of 1/2/4/8-hour buckets whose weighted mean is `slow`. Depth per resource from the stock rules; blacklisted rooms' orders ignored; a suspect's averages frozen. `market()` / `market('H')` |
+| `MarketWatch` | manipulation detector (`marketwatch.ts`), passive half: reads one resource's daily history a tick and flags a suspect when a recent day's average is over 1.5x the clean (lower-quartile) price with over 5x the clean transaction count (the wash signature); follows a suspect's outlier orders by id; resolves the blacklist (`Memory.marketcfg.blacklist[player][res]`, 8 days, by hand for now: `blacklist('Taki', 'XKH2O')`) to rooms through intel, asking the radar about unseen rooms. `suspects()`, `blacklist()` |
 
 Not on this build even though the code loads: market automation, deposit
 farming, flag "teams", power creeps. The only flags the code makes are
@@ -136,7 +139,10 @@ main.ts
  ├─ staging.ts / heal.ts / suppress.ts / labplan.ts   shared mission helpers
  ├─ cache.ts / debug.ts / roomobj.ts / lib.ts / shed.ts   infrastructure
  ├─ reactor.ts      Season 11 helpers: sectorCore, findReactors, thoriumMineral; defines the season globals as undefined off-season (main.ts imports it first)
- └─ intel.ts / radar.ts / market.ts / deposit.ts          intel and radar are live; the rest only registers
+ ├─ market.ts       prices and their tracking (MarketTracker daemon); marketcfg.ts the shared blacklist/suspect state; stockrules.ts the per-resource thresholds
+ │   ├─ marketwatch.ts   MarketWatch daemon: pump suspects from the daily history, outlier-order watch, blacklist resolution
+ │   └─ ms.trader.ts     Trader service: the dry-run paper trader with its scenarios
+ └─ intel.ts / radar.ts / deposit.ts                      intel and radar are live; deposit only registers
 ```
 
 Docs: [missions-and-jobs](docs/missions-and-jobs.md),
@@ -336,6 +342,10 @@ getService('SkFarm W25S6 W25S7').harvesting = false   // no skharvester/sktrucke
 getService('SkFarm W25S6 W25S7').invaderless = true   // background-radar the sector's 8 keeper rooms; no skharvesters while a core there is live
 getService('LabPlan W25S7').add('XZHO2', 3000)   // lab targets: add(res, quota) appends, remove, setQuota, reset, replan; status() shows chain stocks
 getService('Balance').addRoom('W25S7'); getService('Balance').boosts()   // balancer rooms; boost stocks
+market(); market('H')                 // price tracker: bid/ask now, mid, slow per resource; one resource with its history slots
+stockRules(); stockRule('H', {surplus: 60000}); stockRule('H', null)   // merged stock rules (overrides starred); override fields; drop the override; stockRules('ts') prints overrides as table lines
+suspects(); blacklist(); blacklist('Taki', 'XKH2O')   // pump suspects with evidence; blacklist entries; blacklist a player on a resource for 8 days (blacklist('Taki', null) clears)
+traderReport(); traderReport('fairA', 20); getService('Trader').reset()   // dry-run ledgers per scenario; with the last 20 fills; start the ledgers over
 require('intel').RoomIntel.get('W24S8').centerPos     // room centre (findRoomCenter), cached in intel.center; recenter() redoes it
 ```
 
@@ -376,7 +386,9 @@ links, labs, spots, containers}`, `Memory.intel`, `Memory.flags[genesis].newer`,
 `Memory.spawns[name]` (spawn telemetry, `spawnload.ts`; read it with
 `spawnLoads()`), `Memory.Rewalker.rooms[x].{sk, cost}` (what blind walks know of
 keeper tiles and route costs, written by `Rewalker.gatherIntel` from `strat.init`),
-`Memory.labplan[room]`, `Memory.balance`, `Memory.debug`. Shapes in
+`Memory.labplan[room]`, `Memory.balance`, `Memory.market` (prices),
+`Memory.marketcfg` (rule overrides, suspects, blacklist), `Memory.trader`
+(paper ledgers), `Memory.debug`. Shapes in
 [docs/memory-layout.md](docs/memory-layout.md).
 
 ## Known traps (full list in docs/known-issues.md)

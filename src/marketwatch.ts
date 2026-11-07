@@ -37,6 +37,8 @@ import { theRadar } from "radar";
 //    resource's averages so they re-seed from the cleaned book.
 
 const kHistoryHours = 3;
+// Ticks the first round of history checks after a reset is spread over.
+const kFirstRound = 300;
 const kPriceX = 1.5;
 const kTxX = 5;
 const kTxMin = 50;
@@ -208,8 +210,9 @@ class MarketWatch extends Process {
         for (const res in Memory.market) {
             let at = nextHistory.get(res);
             if (at === undefined) {
-                // Stagger the first round over a full interval.
-                at = Game.time + _.random(0, every);
+                // Stagger the first round, but get through it quickly: until a
+                // resource is checked a pump on it is invisible to the trader.
+                at = Game.time + _.random(0, kFirstRound);
                 nextHistory.set(res, at);
             }
             if (at <= Game.time && at < pickAt) {

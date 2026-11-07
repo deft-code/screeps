@@ -112,7 +112,9 @@ The rows a running build settles into (Season 11 shape; the mission rows depend 
 | `FlagService` | `@daemon` in `service.flag.ts` | `low` | 8000 | Orange flags drive metastruct planning (`runGenesis`); orphan grey child flags are removed; purple flags spawn the non-mission service their name spells (`_` = space), kill it when the flag goes, and turn white/purple when the name spawns nothing or names a Mission. |
 | `SpawnDaemon` | `@daemon` in `spawn.ts` | `late` | 2000 | Turns eggs into `spawnCreep` calls. |
 | `SpawnTelemetry` | `@daemon` in `spawnload.ts` | `late` | 2000 | Per-spawn busy ticks and creeps started (`Memory.spawns`). |
-| `MarketSweep` | `@daemon` in `market.ts` | `late` | 5000 | Every 100 ticks prices both sides of every traded resource into the `Memory.market` averages (~5 CPU a sweep on shard2 at 87 resources); nothing off-market. |
+| `MarketTracker` | `@daemon` in `market.ts` | `late` | 3000 | Refreshes the two resources furthest past their 100 +- 20 tick deadline (+20) each tick, so the price averages stay current for resources nobody asks about; reads the whole book every 500 ticks for new resources. ~0.1 CPU a tick. Nothing off-market. |
+| `MarketWatch` | `@daemon` in `marketwatch.ts` | `late` | 3000 | One resource's daily market history a tick (every ~3 hours per resource) for the pump signature; every tick the book of each suspect; every 50 ticks the blacklist's rooms through intel and the radar. |
+| `Trader` | `Memory.scheduler.services` | `low` | 9000 | Creepless market trader, dry run: evaluates five ruled resources a tick and books paper fills per scenario (~2 CPU a tick on shard2 with ~45 ruled resources). |
 
 Row ordering means: mission lays eggs (critical) -> rooms run (normal) -> flags
 (low) -> spawner consumes eggs (late), all in one tick.

@@ -1,7 +1,11 @@
 # Market refactor: tracker, stock rules, trader (draft plan)
 
-Status: **plan under discussion, nothing here is implemented.** Written
-6 Nov 2026 from the 2020 code (`market.ts` at 28cc2a7 and the dead market
+Status: **phases 1-3 implemented on 6 Nov 2026 and running on shard2 in
+dry run** (`market.ts`, `marketcfg.ts`, `stockrules.ts`, `marketwatch.ts`,
+`ms.trader.ts`; branch `new-market`). The trader books paper fills for the
+`fairA` and `fourState` scenarios side by side; nothing deals. Phases 4-6
+(live trading, the probing half of the detector, own orders) are not
+written. Written 6 Nov 2026 from the 2020 code (`market.ts` at 28cc2a7 and the dead market
 half of `struct.terminal.ts`), the Sept 2026 rewrite of `market.ts`, and the
 shard2 books of that week (`~/screeps/market`). Sections marked **Decide**
 need an answer before implementation.
