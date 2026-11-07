@@ -126,7 +126,7 @@ main.ts
  │   mybasecreep.ts   MyBaseCreep: the contract MyCreep and MyPowerCreep share (intents, action wrappers, home/birth rooms, walkTo/walkRoom) and the shared helper bodies
  │   intents.ts       Intents: the per-tick record (a Creep's tick.intents) with the can*() checks and set*() records every layer uses
  │   enemy.ts         enemyOf(creep) / enemiesIn(room): EnemyCreep/EnemyPowerCreep by id in a tobj.ts Registry
- │   swipe.ts         the swipe quest for any MyBaseCreep (Swiper job and Furiosa): targets, skip list, deliver home, nomNearby
+ │   swipe.ts         the swipe quest for any MyBaseCreep (Swiper job and Furiosa): targets (structures and ruins), skip list, deliver home, nomNearby
  ├─ spawn.ts        SpawnDaemon + energyDef; spawnold.ts supplies findSpawns/buildBody body table
  ├─ creep.role.ts   dispatch: creep name "asrc3" -> role "asrc" -> Creep.prototype.roleAsrc()
  │   creep.ts > creep.role.ts > creep.move.ts > creep.carry.ts > creep.harvest/build/repair.ts (mixins)
