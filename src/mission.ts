@@ -31,6 +31,9 @@ export interface MissionMemory {
     noenergy?: boolean
     // Swipe: a fixed swiper count in place of the estimate (swipers = n).
     swipers?: number
+    // Swipe: route rooms last seen held by an armed player creep, as
+    // [username, tick seen] (watchRoute).
+    guard?: { [room: string]: [string, number] }
     // Bulldoze: tiles to clear as [xy, roomName], the first is the destination.
     doze?: [number, string][]
 }

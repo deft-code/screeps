@@ -7,6 +7,8 @@ import { Swiper } from "job.swiper";
 import { isRuin, swipeTargets, SwipeTarget } from "swipe";
 import { Konmari } from "job.konmari";
 import { junkIn, minSwipePrice, Worth, worthSwiping } from "swipeworth";
+import { theRadar } from "radar";
+import { defaultRewalker, kInvaderUser } from "Rewalker";
 
 // Ticks between sparkJoy looks, plus up to kSparkJoyJitter.
 const kSparkJoyPace = 1000;
@@ -22,6 +24,8 @@ const kSwiperLoad = 25 * CARRY_CAPACITY;
 // (one MOVE per CARRY, loaded, on plains), plus loading and unloading.
 const kTilesPerRoom = 50;
 const kTripOverhead = 60;
+// A guard sighting stands this long (ticks) with the room out of sight.
+const kGuardTTL = CREEP_LIFE_TIME;
 
 // Loot a room: "Swipe <target> <home>". A Scout while the target is not
 // visible, then Swipers until the room has nothing left worth taking, then
@@ -30,8 +34,24 @@ const kTripOverhead = 60;
 // How many swipers (wantSwipers): enough to carry what is worth taking out
 // within kClearTicks, or within half the time the ruins holding it have left,
 // whichever is less, from the round-trip estimate and a 1,250-unit load;
-// never under kMinSwipers or over kMaxSwipers. `swipers = n` on the mission
-// fixes the count by hand (persisted; null returns to the estimate).
+// never under kMinSwipers or over kMaxSwipers. That many are kept out at a
+// time (paceNJobs: one egg per 1500/(n+1) ticks while under n heads; nJobs
+// kept ~2n-1, its n being a TTL sum, and 14 swipers ran W3N4's spawns at 97%
+// on 7 Nov 2026). `swipers = n` on the mission fixes the count by hand
+// (persisted; null returns to the estimate).
+//
+// The route (watchRoute): the Rewalker's route from home to the target, home
+// excluded, is asked of the radar in the background every tick (served once
+// 50 ticks stale), and every room of it in sight is checked for an armed
+// creep of another player (ATTACK or RANGED_ATTACK; keepers and invaders are
+// not players: the Rewalker prices keeper rooms, missions fight invaders).
+// One found holds the mission (guardedBy, `GUARDED` in status): swiper eggs
+// are purged and none laid, the swipers at home wait by the exit toward the
+// route (job.swiper.ts), the ones out finish their trip. The room seen clear
+// lifts the hold; a sighting nothing can refresh lapses after kGuardTTL.
+// psy372's W5N3 ranger (17 RANGED_ATTACK 8 HEAL 25 MOVE, 170 a tick) stripped
+// four W6N2 swipers of their CARRY on 7 Nov 2026; every route from W3N4 to
+// W6N2 crosses W5N3 or a tower room, so there is nothing to reroute to.
 //
 // `ignoreEnergy = true` (persisted) takes energy off the worth list: its
 // containers and energy-only ruins are not targets, the swipers do not pick
@@ -95,6 +115,53 @@ export class Swipe extends Mission {
         this.lastWant = `loot:${units} trips:${trips} trip:${trip} decay:${decay === Infinity ? "-" : decay} swipers:${n}${fixed ? " (fixed)" : ""}`;
         return n;
     }
+
+    // The rooms a swiper walks from home to the target, home excluded (ours,
+    // with towers), the target included.
+    routeRooms(): string[] {
+        const home = this.home;
+        if (!home) return [this.roomName];
+        return defaultRewalker().getRoute(home, this.roomName).slice(1);
+    }
+
+    // See the header: memory.guard from the route rooms in sight, the radar
+    // asked for the rest.
+    watchRoute(rooms: string[]) {
+        const guard = this.memory.guard || {};
+        const rewalker = defaultRewalker();
+        const blind: string[] = [];
+        for (const name of rooms) {
+            const room = Game.rooms[name];
+            if (!room) {
+                blind.push(name);
+                continue;
+            }
+            const armed = _.find(room.find(FIND_HOSTILE_CREEPS),
+                c => c.hostile && !c.keeper && c.owner.username !== kInvaderUser && !rewalker.isAllied(c));
+            if (armed) {
+                if (!guard[name]) debug.log(this.name, name, "held by", armed.owner.username, armed.body.map(b => b.type[0]).join(""), "at", armed.pos);
+                guard[name] = [armed.owner.username, Game.time];
+            } else if (guard[name]) {
+                debug.log(this.name, name, "clear of", guard[name][0]);
+                delete guard[name];
+            }
+        }
+        for (const name of Object.keys(guard)) {
+            if (!_.contains(rooms, name) || guard[name][1] + kGuardTTL < Game.time) delete guard[name];
+        }
+        if (blind.length) theRadar.observeBackground(...blind);
+        if (_.isEmpty(guard)) delete this.memory.guard;
+        else this.memory.guard = guard;
+    }
+
+    // "<room> by <player>" for a route room held by an armed player creep,
+    // else null. Read by Swiper.
+    get guardedBy(): string | null {
+        const guard = this.memory.guard;
+        const name = guard && _.first(Object.keys(guard));
+        return name ? `${name} by ${guard![name][0]}` : null;
+    }
+
     get roomName() {
         return this.args[1];
     }
@@ -144,6 +211,7 @@ export class Swipe extends Mission {
         if (this.windingDown) return super.run();
 
         this.sparkJoy();
+        this.watchRoute(this.routeRooms());
 
         debug.log("swipe mission! from", this.getRoomName(), "to", this.getRoomName("home"), this.room, "min price", this.minPrice());
 
@@ -157,7 +225,12 @@ export class Swipe extends Mission {
                 debug.log(this.name, this.roomName, "has nothing left worth", this.minPrice(), "a unit, winding down");
                 this.windDown();
             } else {
-                this.nJobs(Swiper, this.wantSwipers(targets, worth));
+                const want = this.wantSwipers(targets, worth);
+                if (this.guardedBy) {
+                    if (this.hasEgg(Swiper.name.toLowerCase())) this.purgeEggs([Scout.name.toLowerCase(), Konmari.name.toLowerCase()]);
+                } else {
+                    this.paceNJobs(Swiper, want);
+                }
             }
         }
         super.run();
@@ -165,6 +238,8 @@ export class Swipe extends Mission {
     }
 
     status(): string {
-        return super.status() + ` minPrice:${Math.round(this.minPrice())}${this.ignoreEnergy ? " noenergy" : ""} ${this.lastWant}`;
+        const guarded = this.guardedBy;
+        return super.status() + ` minPrice:${Math.round(this.minPrice())}${this.ignoreEnergy ? " noenergy" : ""}`
+            + ` route:${this.routeRooms().join(">")}${guarded ? ` GUARDED:${guarded}` : ""} ${this.lastWant}`;
     }
 }

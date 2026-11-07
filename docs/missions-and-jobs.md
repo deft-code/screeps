@@ -56,6 +56,11 @@ Process                      run(): Priority; kill()           (process.ts)
          ├─ Swipe            @register  (ms.swipe.ts)          "Swipe <target> <home>"; Scout while the target is invisible, else Swipers: 2 to 8 (kMinSwipers..kMaxSwipers), enough to carry the
          │                                                     loot worth taking out within 20k ticks or half the ruins' remaining decay, whichever is less, at 1,250 units a trip and a round trip of
          │                                                     2 x 50 x findRoute rooms + 60 ticks (wantSwipers; status shows loot/trips/trip/decay/swipers); `swipers = n` fixes the count (persisted, null = estimate);
+         │                                                     that many heads at a time through paceNJobs (nJobs kept ~2n-1 and ran the home spawns at 97%, 7 Nov 2026);
+         │                                                     watchRoute: the Rewalker route home -> target (home excluded; status `route:`) is observeBackground'ed every tick and each room in sight checked for an
+         │                                                     armed creep (ATTACK/RANGED_ATTACK) of another player (not keepers, invaders or allies); one found is kept in Memory.missions[m].guard[room] =
+         │                                                     [player, tick] (cleared when the room is seen clear, lapses after 1500 ticks unseen) and holds the mission (guardedBy, status `GUARDED:<room> by <player>`):
+         │                                                     swiper eggs purged, none laid, empty swipers at home wait by the exit (Swiper.waitByExit); psy372's W5N3 ranger stripped four swipers' CARRY, 7 Nov 2026
          │                                                     winds down once the target room has no swipe targets left (swipe.ts swipeTargets)
          │                                                     worth(res) (swipeworth.ts, shared with Furiosa's questSwipe): energy always, unless `ignoreEnergy = true` (persisted Memory.missions[m].noenergy:
          │                                                     energy containers and energy-only ruins are not targets, swipers do not pick energy up, and the mission winds down once the other loot is gone
@@ -361,7 +366,9 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       loots the Swipe target through swipe.ts's questSwipe (shared with Furiosa) with targets by path: the cheapest-path non-own structure holding anything worth taking (one Rewalker.planWalk over all candidates, kept while it still qualifies), one resource at a time in random order
      │                       (nuker excluded; rampart-covered or unreachable ones skipped 1500 ticks via memory.swipe.skip) until full, or until the room is empty and it holds anything,
      │                       then unloads at home until empty (swipe.deliverHome: storage, terminal, else the home container with the most space, else dropped at the controller); after() nomNearby,
-     │                       picking up only what is neither worthless nor outside the mission's worth (no energy under ignoreEnergy)
+     │                       picking up only what is neither worthless nor outside the mission's worth (no energy under ignoreEnergy); empty at home while the mission reports
+     │                       its route held (Swipe.guardedBy) it waits within 4 of the middle tile of the home exit toward the target (waitByExit) instead of leaving; with no
+     │                       CARRY part left it suicides (ERR_FULL forever otherwise)
      ├─ JobCreep.unloadLatch/unloadHome  (job.creep.ts) shared by Trucker and Swiper: latched (memory.unload) until empty; walks
      │                       straight to the home storage, else terminal (ours, with space), else the home container with the most free
      │                       space (memory.dropid), then the next; every transfer passes what fits; null when home has no space

@@ -7,6 +7,8 @@ import { anything, Worth, worthless } from "swipeworth";
 
 // Body budget: 25 CARRY + 25 MOVE is the 50-part cap.
 const kMaxBodyEnergy = 2500;
+// How close to the home exit a swiper waits while the route is held.
+const kWaitRange = 4;
 
 // Loot an abandoned or hostile base for the Swipe mission
 // ("Swipe <target> <home>"): the swipe quest of swipe.ts, choosing targets
@@ -16,6 +18,13 @@ const kMaxBodyEnergy = 2500;
 // containers, else dropped at the controller) and goes back for more. What
 // lies within reach on the way is picked up (nomNearby), unless worthless or
 // not worth it by the mission (a Swipe with ignoreEnergy leaves energy).
+//
+// While the mission reports its route held by an armed player creep
+// (Swipe.guardedBy), a swiper that is empty at home waits within kWaitRange
+// of the home exit toward the target instead of walking into the fire; one
+// out on the route finishes its trip. A swiper with no CARRY part left
+// (psy372's W5N3 ranger took all 25 of two swipers in Nov 2026) can only
+// loop on ERR_FULL, so it suicides.
 @register
 export class Swiper extends JobCreep {
     // From the spawns nearest home, one MOVE per CARRY (full speed loaded on
@@ -34,11 +43,40 @@ export class Swiper extends JobCreep {
         return m.worth ? res => m.worth!(res) : anything;
     }
 
+    // The mission's hold (Swipe.guardedBy: "<room> by <player>"), null for a
+    // mission without one or with the route clear.
+    get guardedBy(): string | null {
+        const m = this.mission as unknown as { guardedBy?: string | null };
+        return m.guardedBy ?? null;
+    }
+
     start(): Task2Ret {
+        if (!this.c.getActiveBodyparts(CARRY)) {
+            this.log("no CARRY left, suiciding");
+            this.c.suicide();
+            return "wait";
+        }
+        const guarded = this.guardedBy;
+        if (guarded && this.pos.roomName === this.homeName && !this.c.store.getUsedCapacity()) {
+            this.dlog("route held:", guarded, "- waiting at home");
+            this.waitByExit();
+            return "wait";
+        }
         const ret = questSwipe(this, this.mission.roomName, this.homeName, this.worth, "path");
         if (ret === false) this.dlog("nothing to swipe in", this.mission.roomName);
         else this.dlog("swipe:", ret);
         return "wait";
+    }
+
+    // Stand within kWaitRange of the middle tile of the home exit toward the
+    // mission's room; where the map finds no exit, stay put.
+    waitByExit() {
+        const home = this.c.room;
+        const exit = Game.map.findExit(home.name, this.mission.roomName);
+        if (exit < 0) return;
+        const tiles = home.find(exit as ExitConstant);
+        const mid = tiles[Math.floor(tiles.length / 2)];
+        if (mid && !this.pos.inRangeTo(mid, kWaitRange)) this.movePos(mid, kWaitRange);
     }
 
     after() {
