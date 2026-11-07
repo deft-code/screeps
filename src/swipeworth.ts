@@ -39,7 +39,12 @@ export function worthSwiping(res: ResourceConstant, home?: string): boolean {
     let ok = memo.get(key);
     if (ok === undefined) {
         const min = minSwipePrice(home);
-        ok = min <= 0 || tryGetBuyOrderPrice(res) >= min;
+        // The live price when the book is deep enough, else the same
+        // valuation the ranking uses (unitValue: average, then history), so a
+        // thin book or a junk-polluted average does not make real loot
+        // worthless (XZH2O's 10k units in W6N2 were, 7 Nov 2026).
+        const live = tryGetBuyOrderPrice(res);
+        ok = min <= 0 || (live > 0 ? live : unitValue(res)) >= min;
         memo.set(key, ok);
     }
     return ok;
@@ -96,21 +101,22 @@ function historyPrice(res: ResourceConstant): number {
     return avg;
 }
 
-// What a unit of `res` is worth, for ranking loot: the buy-order price; with
-// no price this tick (a thin book: under 10k units bid) its moving average
-// (market.buyOrderPriceEma), else the market history's latest daily average.
+// What a unit of `res` is worth, for ranking loot: the best of the buy-order
+// price this tick (none with a thin book), its moving average
+// (market.buyOrderPriceEma) and the market history's latest daily average.
 // The rarest loot has the thinnest book: a stronghold's muscle, tissue and
 // phlegm (1.5M, 625k and 32k credits a unit) ranked 0, behind composite,
-// until 6 Nov 2026. 0 when nothing prices it or there is no market.
+// until 6 Nov 2026; and an average dragged down by junk bids (XZH2O's 72
+// against real bids of 1,700 and a daily average of 1,500) ranked real loot
+// as junk until the best of the three was taken (7 Nov 2026). 0 when
+// nothing prices it or there is no market.
 export function unitValue(res: ResourceConstant): number {
     // No resource (an empty store's first): getHistory() without one
     // answers every resource's history.
     if (!res || marketDisabled()) return 0;
     const live = tryGetBuyOrderPrice(res);
-    if (live > 0) return live;
     const ema = buyOrderPriceEma(res);
-    if (ema > 0) return ema;
-    return Math.max(0, historyPrice(res));
+    return Math.max(0, live > 0 ? live : 0, ema > 0 ? ema : 0, historyPrice(res));
 }
 
 // The resources of a store that are `worth` taking, most valuable first.
