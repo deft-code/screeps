@@ -11,6 +11,11 @@ const kLogPace = 100;
 const kIdleRange = 5;
 // Below this many ticks to live she drops everything and goes home to renew.
 const kRenewBelow = 300;
+// While in the home room, below this many ticks to live she renews before
+// anything else: a swipe round trip to a room three or four hops out is
+// 300-400 ticks, and she died on one on 7 Nov 2026 after leaving W3N4 with
+// too little life to come back and renew (8 hours of spawn cooldown).
+const kHomeRenewBelow = 1200;
 
 interface FuriosaMemory {
     // Room whose power spawn Furiosa is homed on.
@@ -73,8 +78,10 @@ export class Furiosa extends Service {
             this.spawnCreep(pc);
             return "low";
         }
-        if (pc.ticksToLive < kRenewBelow) {
-            this.lastStatus = pc.runRenew(this.homeName || pc.homeName);
+        const home = this.homeName || pc.homeName;
+        const atHome = !!pc.room && pc.room.name === home;
+        if (pc.ticksToLive < kRenewBelow || (atHome && pc.ticksToLive < kHomeRenewBelow)) {
+            this.lastStatus = pc.runRenew(home);
             return "low";
         }
         this.lastStatus = this.runChildren(pc);
