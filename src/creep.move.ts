@@ -26,10 +26,15 @@ declare global {
   }
 }
 
+// The walks of the 2017 roles go through the creep's MyCreep (Creep.t,
+// creep.ts): moveDir and moveTarget call MyCreep.moveDir and MyCreep.walkTo,
+// which record the move intent and pass the job's WalkOptions (rewalksk and
+// the fighters' chase mode) to the Rewalker. Until 7 Nov 2026 moveTarget
+// called the Rewalker itself with rewalksk alone.
 @injecter(Creep)
 export class CreepMove extends CreepRole {
   moveDir(dir: DirectionConstant) {
-    return this.moveHelper(this.move(dir), dir)
+    return this.moveHelper(this.t.moveDir(dir), dir)
   }
 
   movePos(target: ObjPos, opts: any = {}) {
@@ -55,11 +60,16 @@ export class CreepMove extends CreepRole {
       this.dlog('moveTarget: no position', target);
       return false;
     }
-    const ret = rewalker.walkTo(this as unknown as Creep, pos, opts.range, !!this.memory.rewalksk);
+    // MyCreep.walkTo records the step as the move intent (the record is
+    // this creep's tick.intents).
+    const ret = this.t.walkTo(pos, opts.range);
     switch (ret) {
       case ERR_TIRED:
       case ERR_BUSY:
         this.say(errStr(ret));
+        // The error takes the move slot for the tick, as it always has, so
+        // the rest of the role does not walk again this tick.
+        this.intents.setMove(ret as unknown as DirectionConstant);
       // fallthrough
 
       case TOP:
@@ -70,7 +80,6 @@ export class CreepMove extends CreepRole {
       case BOTTOM_RIGHT:
       case RIGHT:
       case TOP_RIGHT:
-        this.intents.setMove(ret as DirectionConstant);
         return `move ${dirStr(ret as DirectionConstant)}@${pos}`;
       case OK:
         return false;

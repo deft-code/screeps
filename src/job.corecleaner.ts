@@ -125,7 +125,7 @@ export class Corecleaner extends JobCreep {
         // A stored walk with no steps left is one a detour replanned at the
         // wide range and that ran out short of the room: plan again at 1.
         const planned = rewalker.walkingTo(c, spot) && rewalker.walkSteps(c) > 0;
-        rewalker.walkTo(c, spot, planned && !pressed ? kWaitRange : 1, !!this.memory.rewalksk);
+        this.walkTo(spot, planned && !pressed ? kWaitRange : 1);
         return "wait";
     }
 

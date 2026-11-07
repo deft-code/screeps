@@ -1,5 +1,6 @@
 import { JobCreep } from "job.creep";
 import { register, Task2Ret } from "mycreep";
+import { fighterWalk } from "mybasecreep";
 import type { CreepMove } from "creep.move";
 import { isActiveMilitant, militantsIn } from "creep.enemy";
 import { healIdle, healSelf } from "heal";
@@ -174,6 +175,11 @@ export function nearLab(spawn: StructureSpawn): boolean {
 
 @register
 export class Wicktwo extends JobCreep {
+    // A fighter's walk: chase mode (mybasecreep.ts fighterWalk).
+    walkOptions() {
+        return fighterWalk;
+    }
+
     static readonly body: BodyPartConstant[] = [
         ..._.times(kTough, () => TOUGH),
         ..._.times(kMoves, () => MOVE),

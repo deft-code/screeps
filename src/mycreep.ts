@@ -15,7 +15,7 @@ import * as debug from "debug";
 import { NullStrat } from "strat";
 import { TCreep } from "tcreep";
 import { IntentLog, issue, issueWork, MyBaseCreep, walkRoom, walkTo } from "mybasecreep";
-import { WalkReturnCode } from "Rewalker";
+import { WalkOptions, WalkReturnCode } from "Rewalker";
 import { Intents } from "intents";
 
 interface Task2Memory {
@@ -226,16 +226,31 @@ export class MyCreep extends TCreep implements MyBaseCreep {
         return err;
     }
 
-    // Walk toward pos with the Rewalker, honouring memory.rewalksk (keeper
-    // rooms without their keeper layer): OK within range, a direction while
-    // stepping, else an error.
+    // How this creep's walks are planned and followed (Rewalker
+    // WalkOptions): the defaults. A job overrides it (the fighters answer
+    // mybasecreep.ts fighterWalk).
+    walkOptions(): WalkOptions | null {
+        return null;
+    }
+
+    // walkOptions() with memory.rewalksk (keeper rooms without their keeper
+    // layer: Skhunter and the others sent at the keepers set it) folded in
+    // as ignoreSK.
+    private walkOpts(): WalkOptions | null {
+        const opts = this.walkOptions();
+        if (!this.memory.rewalksk) return opts;
+        return { ...opts, ignoreSK: true };
+    }
+
+    // Walk toward pos with the Rewalker, on walkOpts(): OK within range, a
+    // direction while stepping, else an error.
     walkTo(pos: RoomPosition, range = 1): WalkReturnCode {
-        return walkTo(this, pos, range, !!this.memory.rewalksk);
+        return walkTo(this, pos, range, this.walkOpts());
     }
 
     // Toward the middle of a room until inside its 20-range core.
     walkRoom(roomName: string, range = 20): WalkReturnCode {
-        return walkRoom(this, roomName, range, !!this.memory.rewalksk);
+        return walkRoom(this, roomName, range, this.walkOpts());
     }
 
     withdraw(target: Structure | Tombstone | Ruin, resource: ResourceConstant, amount?: number): ScreepsReturnCode {

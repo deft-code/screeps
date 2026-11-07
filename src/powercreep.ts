@@ -18,7 +18,7 @@
 // (enableRoom, once per room, adjacent); PWR_GENERATE_OPS ran whenever idle
 // and off cooldown. Behaviour belongs to services such as ms.furiosa.ts.
 import type { DebugMemory } from "debug";
-import { WalkReturnCode } from "Rewalker";
+import { WalkOptions, WalkReturnCode } from "Rewalker";
 import { CreepKind, TAnyCreep } from "tanycreep";
 import { IntentLog, issue, MyBaseCreep, walkRoom, walkTo } from "mybasecreep";
 import { Intents } from "intents";
@@ -327,14 +327,19 @@ export class MyPowerCreep extends TPowerCreep implements MyBaseCreep {
         return err;
     }
 
+    // The defaults (MyBaseCreep.walkOptions).
+    walkOptions(): WalkOptions | null {
+        return null;
+    }
+
     // Walk toward pos; OK once within range, a direction while moving, else an error.
     walkTo(pos: RoomPosition, range = 1): WalkReturnCode {
-        return walkTo(this, pos, range);
+        return walkTo(this, pos, range, this.walkOptions());
     }
 
     // Toward the middle of a room until inside its 20-range core.
     walkRoom(roomName: string, range = 20): WalkReturnCode {
-        return walkRoom(this, roomName, range);
+        return walkRoom(this, roomName, range, this.walkOptions());
     }
 
     // --- resources -------------------------------------------------------------

@@ -12,11 +12,18 @@
 // record: a caller that wants to skip an action when its slot is taken
 // checks `intents.canX()` first, target picking and all, as the legacy
 // roles do.
-import { defaultRewalker, WalkReturnCode } from "Rewalker";
+import { defaultRewalker, WalkOptions, WalkReturnCode } from "Rewalker";
 import { CreepKind, Target } from "tanycreep";
 import { IntentKind, Intents } from "intents";
 
 const rewalker = defaultRewalker();
+
+// The fighters' walk (Guard, Wolf, Micro, Skhunter, Wicktwo, Immortan
+// return it from walkOptions): a coin toss a step between following the
+// stored path and planning afresh while the target is in the room and
+// within reach (Rewalker WalkOptions.chaseRepath), so a chase cuts a moving
+// target off instead of tracing its trail.
+export const fighterWalk: Readonly<WalkOptions> = Object.freeze({ chaseRepath: 0.5 });
 
 // A per-tick intent record on the heap.
 export class IntentLog {
@@ -64,6 +71,10 @@ export interface MyBaseCreep {
     drop(resource: ResourceConstant, amount?: number): ScreepsReturnCode;
     say(message: string, toPublic?: boolean): ScreepsReturnCode;
     moveDir(direction: DirectionConstant): ScreepsReturnCode;
+    // How this creep's walks are planned and followed (Rewalker
+    // WalkOptions): null for the defaults, which both classes answer; a job
+    // overrides it (the fighters answer fighterWalk).
+    walkOptions(): WalkOptions | null;
     // A Rewalker walk: OK within range, a direction while stepping, else an error.
     walkTo(pos: RoomPosition, range?: number): WalkReturnCode;
     // Toward a room's middle until inside its core.
@@ -101,19 +112,19 @@ export function issueWork(me: Issuer, act: () => ScreepsReturnCode, what: any = 
 }
 
 // Walk toward pos with the Rewalker; a step taken records its direction as
-// the move intent.
-export function walkTo(me: Issuer, pos: RoomPosition, range = 1, ignoreSK = false): WalkReturnCode {
-    const ret = rewalker.walkTo(me.tryc, pos, range, ignoreSK);
+// the move intent. `opts` as Rewalker.walkTo (null: the defaults).
+export function walkTo(me: Issuer, pos: RoomPosition, range = 1, opts: WalkOptions | null = null): WalkReturnCode {
+    const ret = rewalker.walkTo(me.tryc, pos, range, opts);
     if (ret > 0) me.intents.setMove(ret as DirectionConstant);
     return ret;
 }
 
-export function walkRoom(me: Issuer, roomName: string, range = 20, ignoreSK = false): WalkReturnCode {
-    return walkTo(me, new RoomPosition(25, 25, roomName), range, ignoreSK);
+export function walkRoom(me: Issuer, roomName: string, range = 20, opts: WalkOptions | null = null): WalkReturnCode {
+    return walkTo(me, new RoomPosition(25, 25, roomName), range, opts);
 }
 
 // One PathFinder search over every goal: the index of the goal the walk was
 // planned to, the walk stored as the creep's; -1 when the search failed.
-export function planWalk(me: Issuer, goals: { pos: RoomPosition, range: number }[], ignoreSK = false): number {
-    return rewalker.planWalk(me.tryc, goals, ignoreSK);
+export function planWalk(me: Issuer, goals: { pos: RoomPosition, range: number }[], opts: WalkOptions | null = null): number {
+    return rewalker.planWalk(me.tryc, goals, opts);
 }

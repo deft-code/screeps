@@ -130,14 +130,14 @@ main.ts
  │   swipe.ts         the swipe quest for any MyBaseCreep (Swiper job and Furiosa): targets (structures and ruins), skip list, deliver home, nomNearby
  ├─ spawn.ts        SpawnDaemon + energyDef; spawnold.ts supplies findSpawns/buildBody body table
  ├─ creep.role.ts   dispatch: creep name "asrc3" -> role "asrc" -> Creep.prototype.roleAsrc()
- │   creep.ts > creep.role.ts > creep.move.ts > creep.carry.ts > creep.harvest/build/repair.ts (mixins)
+ │   creep.ts > creep.role.ts > creep.move.ts > creep.carry.ts > creep.harvest/build/repair.ts (mixins); creep.t is the creep's MyCreep, and creep.move.ts walks through t.walkTo, so a 2017 role's walk gets its job's WalkOptions
  │   role.*.ts (@injecter(Creep)) add roleXxx/afterXxx; the 2017 ones extend the creep.work -> creep.heal chain and are imported last, so they win a collision
  ├─ strat.ts        NullStrat/ClaimedStrat per room (also processes); registerStrat/setRoomStrat override via Memory.rooms[x].strat (strat.thor.ts: ThorStrat)
  ├─ metastruct.ts   base templates + flag-driven planning + construction upkeep + maxHits + spot lookup
  │   ├─ metatraffic.ts  road planner: metas declare traffic() src/dest entries, MetaManager plans the room's roads; the shared road weights (2:3:6)
  │   └─ roadplan.ts     room-to-room road planner on those weights (RoadPlanner): Remote legs, Startup's road, the Experiment service
  ├─ struct.link/tower/lab/factory/terminal/container/controller/observer  structure logic and prototype helpers
- ├─ Rewalker.ts     movement engine (matrix.ts is dead); planBetween for a walk between two points, walkDest/walkSteps/walkingTo to read a creep's stored walk
+ ├─ Rewalker.ts     movement engine (matrix.ts is dead); walkTo/planWalk take a WalkOptions (ignoreSK, chaseRepath: the fighters' coin-toss replan while the target is in the room within 25) from MyBaseCreep.walkOptions(); planBetween for a walk between two points, walkDest/walkSteps/walkingTo to read a creep's stored walk
  ├─ staging.ts / heal.ts / suppress.ts / labplan.ts   shared mission helpers
  ├─ cache.ts / debug.ts / roomobj.ts / lib.ts / shed.ts   infrastructure
  ├─ reactor.ts      Season 11 helpers: sectorCore, findReactors, thoriumMineral; defines the season globals as undefined off-season (main.ts imports it first)

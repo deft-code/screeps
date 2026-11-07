@@ -1,6 +1,7 @@
 import { JobCreep } from "job.creep";
 import { CreepMove } from "creep.move";
 import { register, Task2Ret } from "mycreep";
+import { fighterWalk } from "mybasecreep";
 import { closeSpawns } from "spawnold";
 
 // Source Keeper hunter: the fighter of the SK farm (ms.skfarm, to come). A
@@ -59,6 +60,11 @@ declare global {
 
 @register
 export class Skhunter extends JobCreep {
+    // A fighter's walk: chase mode (mybasecreep.ts fighterWalk).
+    walkOptions() {
+        return fighterWalk;
+    }
+
     // 25 MOVE, 20 ATTACK, 5 HEAL: 4100 energy, 50 parts (plan F of the Oct
     // 2026 stub simulation, scratchpad skhunter_sim.py). A keeper's damage
     // eats the body from the front: the MOVEs go first, then ATTACKs, and

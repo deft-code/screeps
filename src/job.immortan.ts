@@ -1,5 +1,6 @@
 import { JobRole } from "job.role";
 import { register, taskbroken, Task2Ret } from "mycreep";
+import { fighterWalk } from "mybasecreep";
 import { findReactors } from "reactor";
 import type { CreepMove } from "creep.move";
 
@@ -63,6 +64,11 @@ function thoriumAt(pos: RoomPosition): number {
 
 @register
 export class Immortan extends JobRole {
+    // A fighter's walk: chase mode (mybasecreep.ts fighterWalk).
+    walkOptions() {
+        return fighterWalk;
+    }
+
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         // body key "immortan" in spawnold.buildBody: [MOVE x5, CLAIM]; one CLAIM
         // part is all claimReactor needs, and 5 MOVE lets it cross swamps at

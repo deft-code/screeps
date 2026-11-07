@@ -1,5 +1,6 @@
 import { JobRole } from "job.role";
 import { register, Task2Ret } from "mycreep";
+import { fighterWalk } from "mybasecreep";
 import { CreepRepair } from "creep.repair";
 import { closeSpawns } from "spawnold";
 import { roomCenterPos } from "intel";
@@ -24,6 +25,11 @@ const kRemember = 100;
 
 @register
 export class Micro extends JobRole {
+    // A fighter's walk: chase mode (mybasecreep.ts fighterWalk).
+    walkOptions() {
+        return fighterWalk;
+    }
+
     // As Mini: ahead of the civilian eggs, behind srcers.
     priority = 7;
 

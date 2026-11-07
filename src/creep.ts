@@ -1,5 +1,6 @@
 import { extender } from 'roomobj';
 import type { Intents } from 'intents';
+import { getMyCreep, MyCreep } from 'mycreep';
 
 declare global {
   interface CreepCache {
@@ -25,6 +26,14 @@ declare global {
 export class CreepExtra extends Creep {
   toString() {
     return `<a href="/a/#!/room/${Game.shard.name}/${this.pos.roomName}">${this.name}</a>`
+  }
+
+  // The MyCreep wrapper of this creep (mycreep.ts getMyCreep: one per name,
+  // on the heap), for the legacy mixins to reach the job layer: its walks
+  // (creep.move.ts moveTarget goes through t.walkTo, so a role's walk gets
+  // the job's WalkOptions) and its intents.
+  get t(): MyCreep {
+    return getMyCreep(this.name)
   }
 
   get partsByType() {

@@ -411,6 +411,39 @@ export interface PlanOpts {
     maxCost?: number
 }
 
+// How a creep's walk is planned and followed (walkTo, planWalk). Every field
+// is optional; a missing one takes its kDefaultWalkOptions value, and a null
+// or absent options object is all defaults. MyBaseCreep.walkOptions() is
+// where a creep says what it wants (null for most; the fighters set
+// chaseRepath, mybasecreep.ts fighterWalk).
+export interface WalkOptions {
+    // Plan keeper rooms on their matrices without the keeper layer
+    // (applyKeepers), for a creep sent at the keepers.
+    ignoreSK?: boolean
+    // Chase mode. While the destination is in the creep's room and within
+    // kChaseRange of it, each step throws the stored path away and plans
+    // afresh with this probability (0: never, so the path is trimmed and
+    // extended as the target moves; 0.5: a coin toss a step). A path
+    // extended toward a moving target traces where the target was; a guard
+    // chasing psy372's ranger in W5N3 followed its trail instead of cutting
+    // it off (7 Nov 2026).
+    chaseRepath?: number
+}
+
+export const kDefaultWalkOptions: Readonly<Required<WalkOptions>> = Object.freeze({
+    ignoreSK: false,
+    chaseRepath: 0,
+})
+
+// `opts` filled out with the defaults; the defaults themselves for null.
+export function walkOptions(opts?: WalkOptions | null): Required<WalkOptions> {
+    if (!opts) return kDefaultWalkOptions
+    return {
+        ignoreSK: opts.ignoreSK ?? kDefaultWalkOptions.ignoreSK,
+        chaseRepath: opts.chaseRepath ?? kDefaultWalkOptions.chaseRepath,
+    }
+}
+
 export function drawGoal(pos: RoomPosition, color: string, goal: Goal) {
     if (goal.pos.roomName === pos.roomName) {
         const vis = new RoomVisual(pos.roomName)
@@ -569,6 +602,9 @@ const kMaxOps = 20000
 // re-planned rather than recorded. Increase it if chasers keep following
 // loop-back trails; the trade is a longer extension search each tick.
 const kChaseCutback = 2
+// Chase mode (WalkOptions.chaseRepath) applies while the destination is in
+// the creep's room and within this many tiles (Chebyshev) of it.
+const kChaseRange = 25
 
 // Added cost of a tile beside a stronghold's rampart while its core and a
 // melee defender stand (applyRampartReach).
@@ -714,10 +750,10 @@ export class Rewalker {
     }
 
     // Return index of plan destination or ERR_* constant.
-    // `ignoreSK` (planWalk and walkTo): plan on keeper rooms' matrices
-    // without their keeper layer, for a creep sent at the keepers.
-    planWalk(c: Creep | PowerCreep, goals: Goal[], ignoreSK = false): number {
-        const step = new Step(c, c.pos, 1, this, ignoreSK)
+    // `opts` (planWalk and walkTo): how the walk is planned and followed
+    // (WalkOptions); null is all defaults.
+    planWalk(c: Creep | PowerCreep, goals: Goal[], opts: WalkOptions | null = null): number {
+        const step = new Step(c, c.pos, 1, this, walkOptions(opts))
         const clean = goals.map(cleanGoal)
         const [i, path] = step.planSteps(c.pos, clean, CREEP_LIFE_TIME)
         step.path = path
@@ -732,7 +768,7 @@ export class Rewalker {
     // * Direction [1,8] of creep's move
     // * OK (0) when already in range of destination
     // * error code (,0) when move fails
-    walkTo(c: Creep | PowerCreep, dest: RoomPosition, range = 1, ignoreSK = false): WalkReturnCode {
+    walkTo(c: Creep | PowerCreep, dest: RoomPosition, range = 1, opts: WalkOptions | null = null): WalkReturnCode {
         //console.log(Game.time, "Rewalker.walkTo", c.pos, range);
         if (c.pos.inRangeTo(dest, range)) {
             delete c.memory._walk
@@ -740,7 +776,7 @@ export class Rewalker {
         }
         if (c instanceof Creep && c.fatigue > 0) return ERR_TIRED
 
-        const step = new Step(c, dest, range, this, ignoreSK)
+        const step = new Step(c, dest, range, this, walkOptions(opts))
         return step.walkTo()
     }
 
@@ -1298,8 +1334,8 @@ class Step {
         public dest: RoomPosition,
         public range: number,
         public readonly rewalker: Rewalker,
-        // Walk on keeper rooms' matrices without their keeper layer.
-        public readonly ignoreSK = false) {
+        // How to plan and follow (WalkOptions, filled out).
+        public readonly opts: Required<WalkOptions> = kDefaultWalkOptions) {
         const mem = creep.memory._walk
         if (mem) {
             this.prev = fromXY(mem[0], mem[1])
@@ -1409,12 +1445,26 @@ class Step {
         return this.step()
     }
 
+    // Chase mode (WalkOptions.chaseRepath): a fresh plan this step, by the
+    // coin toss, while the destination is in the creep's room and within
+    // kChaseRange. The stored path is a trail of where a moving target was.
+    chasing(): boolean {
+        const p = this.opts.chaseRepath
+        if (!(p > 0)) return false
+        const pos = this.creep.pos
+        if (this.dest.roomName !== pos.roomName || pos.getRangeTo(this.dest) > kChaseRange) return false
+        return Math.random() < p
+    }
+
     walkTo(): WalkReturnCode {
         //console.log(Game.time, "start walkTo", this.creep.pos, this.path.first, this.path.second);
+        if (this.chasing()) {
+            return this.replan(cleanGoal(this.goal))
+        }
         // Target has moved or there is a new target
         if (!this.dest.isEqualTo(this.prev)) {
             //console.log('new walk', this.dest, this.prev, JSON.stringify(this.creep.memory._walk))
-            const goal = cleanGoal({ pos: this.dest, range: this.range })
+            const goal = cleanGoal(this.goal)
             // New destintation is too far to rewalk
             if (this.dest.getRangeTo(this.prev) > 3 || this.path.size < 3) {
                 return this.replan(goal)
@@ -1459,7 +1509,7 @@ class Step {
             if (this.path.done) {
                 // console.log("path is empty", JSON.stringify(this.path), JSON.stringify(this.creep.memory._walk))
                 // path ran out build a new one.
-                return this.replan(cleanGoal({ pos: this.dest, range: this.range }))
+                return this.replan(cleanGoal(this.goal))
             }
             this.path = this.path.step()
             if (!this.path.done && this.creep.pos.isNearTo(this.path.second)) {
@@ -1485,7 +1535,7 @@ class Step {
     }
 
     rewalkTo(): WalkReturnCode {
-        const goals = [cleanGoal({ pos: this.dest, range: this.range })];
+        const goals = [cleanGoal(this.goal)];
         (() => {
             const it = this.path.it()
             let next: RoomPosition | null = null
@@ -1544,7 +1594,7 @@ class Step {
     // Whether the creep can arrive in time is the job's call, not the
     // walk's.
     planSteps(pos: RoomPosition, goals: Array<Goal>, maxCost: number): [number, Path] {
-        const ret = this.rewalker._search(pos, goals, moveTerrain(this.creep), maxCost, this.ignoreSK)
+        const ret = this.rewalker._search(pos, goals, moveTerrain(this.creep), maxCost, this.opts.ignoreSK)
         this.incomplete = ret.incomplete
 
         // A walk that starts and ends in one room should stay in it. Leaving

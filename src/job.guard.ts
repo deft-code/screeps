@@ -1,5 +1,6 @@
 import { JobRole } from "job.role";
 import { register, taskbroken, Task2Ret } from "mycreep";
+import { fighterWalk } from "mybasecreep";
 import { CreepMove } from "creep.move";
 import { roomCenterPos } from "intel";
 import { healIdle } from "heal";
@@ -46,6 +47,11 @@ declare global {
 
 @register
 export class Guard extends JobRole {
+    // A fighter's walk: chase mode (mybasecreep.ts fighterWalk).
+    walkOptions() {
+        return fighterWalk;
+    }
+
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         // body key "guard" in spawnold.buildBody. energySpawn picks the first
         // close spawn whose room *capacity* is >= 550; energyDef then scales the

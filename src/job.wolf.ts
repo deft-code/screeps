@@ -1,5 +1,6 @@
 import { JobRole } from "job.role";
 import { register, taskbroken, Task2Ret } from "mycreep";
+import { fighterWalk } from "mybasecreep";
 import { CreepRole } from "creep.role";
 import { EnemyCreep } from "creep.enemy";
 import { roomCenterPos } from "intel";
@@ -55,6 +56,11 @@ function exitTile(pos: RoomPosition): RoomPosition | null {
 
 @register
 export class Wolf extends JobRole {
+    // A fighter's walk: chase mode (mybasecreep.ts fighterWalk).
+    walkOptions() {
+        return fighterWalk;
+    }
+
     // The enemy creep last attacked; see pursue().
     lastTarget: EnemyCreep | null = null;
     // Stepping over the exit the latest target left by.

@@ -1,7 +1,7 @@
 import { Mission } from "mission";
 import { MyCreep, taskbroken, Task2Ret } from "mycreep";
 import { Service } from "process";
-import { defaultRewalker, fromXY } from "Rewalker";
+import { fromXY } from "Rewalker";
 import { healPick, hurtFriendlies, isFighter } from "heal";
 import { closeSpawns } from "spawnold";
 
@@ -25,8 +25,6 @@ declare global {
 const kHealRange = 3;
 
 type UnloadStore = StructureStorage | StructureTerminal | StructureContainer;
-
-const rewalker = defaultRewalker();
 
 export class JobCreep extends MyCreep {
     get mission(): Mission {
@@ -111,16 +109,16 @@ export class JobCreep extends MyCreep {
         return this.walkDir(this.pos.getDirectionTo(target.pos));
     }
 
-    // Both walks honour memory.rewalksk (creep.move.ts): keeper rooms
-    // without their keeper layer.
+    // Both walks are MyCreep.walkTo: the job's walkOptions() with
+    // memory.rewalksk folded in, the step recorded as the move intent.
     movePos(pos: RoomPosition, range: number): Task2Ret {
-        const ret = rewalker.walkTo(this.c, pos, range, !!this.memory.rewalksk);
+        const ret = this.walkTo(pos, range);
         if (ret === OK) return "start";
         return "wait";
     }
 
     walkRange(target: HasPos) {
-        return rewalker.walkTo(this.c, target.pos, 3, !!this.memory.rewalksk);
+        return this.walkTo(target.pos, 3);
     }
 
     // Latch for unloadHome: true from the tick `begin` holds until the creep

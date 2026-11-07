@@ -15,12 +15,26 @@ Three generations of movement code exist. Only **Rewalker** is live.
 
 `defaultRewalker()` returns the module singleton. Main calls:
 
-- `walkTo(creep, destPos, range=1, ignoreSK=false): WalkReturnCode` -> a `DirectionConstant`
+- `walkTo(creep, destPos, range=1, opts=null): WalkReturnCode` -> a `DirectionConstant`
   (1-8) when a move was issued, `OK` when already in range (and `_walk` memory
-  is cleared), or an `ERR_*`. `creep.move.ts` wraps this: `moveTarget` returns
-  a `"move N@pos"` string while walking and `false` on arrival, and passes
-  `!!creep.memory.rewalksk` as `ignoreSK` (as do `JobCreep.movePos`/`walkRange`).
-- `planWalk(creep, goals, ignoreSK=false)`, `getRoute`, `getRouteSet`, `getRouteDist`,
+  is cleared), or an `ERR_*`. `opts` is a `WalkOptions` (`ignoreSK`,
+  `chaseRepath`; every field optional, null = `kDefaultWalkOptions`, filled out
+  by `walkOptions(opts)`). Nobody but the Rewalker's own callers passes it by
+  hand: `MyBaseCreep.walkOptions()` is what a creep wants (null in `MyCreep`
+  and `MyPowerCreep`; the fighters Guard, Wolf, Micro, Skhunter, Wicktwo and
+  Immortan answer `mybasecreep.ts fighterWalk`, `{chaseRepath: 0.5}`), and
+  `MyCreep.walkTo` folds `memory.rewalksk` in as `ignoreSK`. `creep.move.ts`
+  goes through it too since 7 Nov 2026: `Creep.t` (creep.ts) is the creep's
+  MyCreep and `moveTarget` calls `t.walkTo`, so a 2017 role's walk gets its
+  job's options; `moveTarget` returns a `"move N@pos"` string while walking
+  and `false` on arrival (as do `JobCreep.movePos`/`walkRange`).
+- `chaseRepath`: chase mode. While the destination is in the creep's room
+  and within 25 tiles (`kChaseRange`), each step plans afresh with that
+  probability instead of following the stored path; a path trimmed and
+  extended after a moving target (`kChaseCutback`) is a trail of where the
+  target was, and a guard chasing psy372's ranger in W5N3 followed it (7 Nov
+  2026). 0 (the default) keeps the trim-and-extend.
+- `planWalk(creep, goals, opts=null)`, `getRoute`, `getRouteSet`, `getRouteDist`,
   `getMatrix(roomName, ignoreSK=false)`, `getStuckTicks(creep)`. `planWalk` issues no move
   but overwrites `creep.memory._walk`, which the next `walkTo` builds on.
 - `ignoreSK`: plan keeper rooms on a matrix without their keeper layer
