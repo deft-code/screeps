@@ -7,7 +7,10 @@ scenarios side by side: `fairA` (option A below), `fourState` (the trend
 table, no gap test), and, added after the first hours showed fairA silent
 on one-sided books and fourState churning purifier at a loss, `fairB`
 (option B with the surcharge test) and `fourGap` (the trend table behind the
-same test). Nothing deals. Phases 4-6
+same test). On 7 Nov 2026 `fairB` went live with a 1.2B credits floor
+(phase 4 in part: deals verified from the transaction log, a halt under the
+floor, deals with Taki or qnz recorded); `Selloff` is not yet folded in and
+the dead terminal code still stands. Phases 4-6
 (live trading, the probing half of the detector, own orders) are not
 written. Written 6 Nov 2026 from the 2020 code (`market.ts` at 28cc2a7 and the dead market
 half of `struct.terminal.ts`), the Sept 2026 rewrite of `market.ts`, and the

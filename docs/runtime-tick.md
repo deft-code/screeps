@@ -114,7 +114,7 @@ The rows a running build settles into (Season 11 shape; the mission rows depend 
 | `SpawnTelemetry` | `@daemon` in `spawnload.ts` | `late` | 2000 | Per-spawn busy ticks and creeps started (`Memory.spawns`). |
 | `MarketTracker` | `@daemon` in `market.ts` | `late` | 3000 | Refreshes the two resources furthest past their 100 +- 20 tick deadline (+20) each tick, so the price averages stay current for resources nobody asks about; reads the whole book every 500 ticks for new resources. ~0.1 CPU a tick. Nothing off-market. |
 | `MarketWatch` | `@daemon` in `marketwatch.ts` | `late` | 3000 | One resource's daily market history a tick (every ~3 hours per resource) for the pump signature; every tick the book of each suspect; every 50 ticks the blacklist's rooms through intel and the radar. |
-| `Trader` | `Memory.scheduler.services` | `low` | 9000 | Creepless market trader, dry run: evaluates five ruled resources a tick and books paper fills per scenario (~2 CPU a tick on shard2 with ~45 ruled resources). |
+| `Trader` | `Memory.scheduler.services` | `low` | 9000 | Creepless market trader: evaluates five ruled resources a tick, books paper fills per scenario and, with a live scenario set, one real deal per room per tick (~2 CPU a tick on shard2 with ~45 ruled resources). |
 
 Row ordering means: mission lays eggs (critical) -> rooms run (normal) -> flags
 (low) -> spawner consumes eggs (late), all in one tick.
