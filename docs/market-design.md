@@ -336,13 +336,13 @@ The surcharge is what a round trip through the market costs us:
 
 - **Dealing:** the transfer energy on both legs. From W3N4 that is 0.6-0.9
   energy per unit per leg, priced at energy's value.
-- **Energy's value is zero while the room's storage is over half full of
-  energy** (500k of its 1M). The energy is already there and has nowhere
-  better to go, so shipping is free and the surcharge for dealing is zero.
-  Under half, energy is priced at its bid-side `slow`, 35-50 credits a
-  unit per leg. That is what makes cheap bulk tradeable: at energy's market
-  price one leg costs more than a unit of U, O or L, at zero it costs
-  nothing.
+- **Energy's value scales with the storage's fill** (changed 7 Nov 2026
+  from a cliff at half). At or under half the storage's capacity (500k of
+  its 1M) energy is priced in full at its bid-side `slow`, 35-50 credits a
+  unit per leg; from there the price falls linearly to nothing at capacity,
+  where the energy has nowhere better to go. That is what makes cheap bulk
+  tradeable when the room is rich: at energy's market price one leg costs
+  more than a unit of U, O or L, at a quarter of it the trade can clear.
 - **Own orders** (the last phase): the 5% fee on each order instead.
 
 The terminal still has to hold the transfer energy for each deal whatever
@@ -364,8 +364,8 @@ terminal per 10 ticks is the engine's limit anyway.
   a 10-credit edge on a base mineral whatever the percentages say.
 
 - **Effective prices.** Orders are compared after our transfer energy at
-  energy's current value: zero while the storage is over half full of
-  energy, energy's bid-side `slow` otherwise.
+  energy's current value: its bid-side `slow` in full at or under half the
+  storage's capacity, falling linearly to nothing at capacity.
 - **Verification.** `deal()` returning OK proves nothing (the engine fills
   the nearest dealer first and skips the rest silently). The trader reads
   `outgoingTransactions`/`incomingTransactions` the next tick and only then

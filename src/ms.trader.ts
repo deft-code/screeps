@@ -65,9 +65,10 @@ import { oldestOf, slowOf, trackOf, transferRate, tryGetBuyOrderPrice, tryGetSel
 //             Added at the same time: fourState churned purifier at a loss.
 //
 // Prices are effective: an ask costs its price plus our transfer energy, a
-// bid pays its price minus it, energy valued at zero while the room's storage
-// is over half full of energy and at energy's bid-side slow otherwise. The
-// surcharge is that energy value on both legs at the typical rate. Optional
+// bid pays its price minus it, energy valued at its bid-side slow scaled by
+// the storage's fill: the full price at or under half capacity, linearly down
+// to nothing at capacity. The surcharge is that energy value on both legs at
+// the typical rate. Optional
 // candidates are ordered by absolute price delta (credits a unit between the
 // order and the fair price it beats), mandatory ones first.
 
@@ -213,13 +214,18 @@ function roomStock(room: Room, res: ResourceConstant): number {
     return n;
 }
 
-// Credits a unit of transfer energy costs the room: nothing while the storage
-// is over half full of energy, energy's bid-side slow otherwise.
+// Credits a unit of transfer energy costs the room: energy's bid-side slow,
+// scaled by how full of energy the storage is. At or under half its capacity
+// the full price; from there linearly down to nothing at capacity (the energy
+// has nowhere better to go). No storage: the full price.
 function energyValue(room: Room): number {
-    const storage = room.storage;
-    if (storage && storage.store.energy > storage.store.getCapacity() / 2) return 0;
     const slow = credits(slowOf(trackOf(RESOURCE_ENERGY, "buy")));
-    return slow ?? Math.max(0, tryGetBuyOrderPrice(RESOURCE_ENERGY, room.name));
+    const price = slow ?? Math.max(0, tryGetBuyOrderPrice(RESOURCE_ENERGY, room.name));
+    const storage = room.storage;
+    if (!storage) return price;
+    const fill = storage.store.energy / storage.store.getCapacity();
+    const discount = Math.min(1, Math.max(0, (fill - 0.5) / 0.5));
+    return price * (1 - discount);
 }
 
 function effective(order: Order, dir: Dir, room: string, energy: number): number {
