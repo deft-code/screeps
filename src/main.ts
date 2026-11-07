@@ -114,6 +114,7 @@ import 'ms.assaulttwo';
 import 'ms.assaultthree';
 import 'ms.invadercore';
 import 'ms.invadercorethree';
+import 'ms.coreminer';
 import 'labplan';
 import "service.flag";
 
