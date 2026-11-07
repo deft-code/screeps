@@ -10,7 +10,9 @@
 //            nearer on a tie, taking its resources most valuable first
 //            (Furiosa: a small store, a 5000-tick life)
 //
-// Targets are the room's structures that are not ours, hold something worth
+// Targets are the room's structures that are not ours, and its ruins (a
+// destroyed storage keeps its store for 500k ticks, as W6N2's did once
+// psy372 had torn the base down, 7 Nov 2026), that hold something worth
 // taking, have no rampart on top, are not nukers (withdrawing from one is
 // bugged) and have not refused us lately: a withdraw that fails with
 // ERR_NOT_OWNER (a hostile rampart over it) or a walk that finds no path
@@ -39,7 +41,7 @@ export type SwipePick = "path" | "value";
 
 export interface SwipeMemory {
     // structure being emptied; re-picked every tick, kept for status
-    target?: Id<AnyStoreStructure>
+    target?: Id<SwipeTarget>
     // structure id -> tick until which it is left alone
     skip?: { [id: string]: number }
     // the target room had nothing left when we set off home with a partial load
@@ -74,9 +76,26 @@ function hasStocked(store: AnyStore, worth: Worth): boolean {
     return _.any(Object.keys(s), res => s[res] > 0 && worth(res as ResourceConstant));
 }
 
-// May a swiper loot this structure (see the header)? `skip` is the creep's
-// refusal list, structure id -> tick until which it is left alone.
-export function isSwipeTarget(s: AnyStructure, skip: { [id: string]: number } = {}, worth: Worth = anything): s is AnyStoreStructure {
+// What a swiper loots: a structure with a store, or a ruin.
+export type SwipeTarget = AnyStoreStructure | Ruin;
+
+export function isRuin(t: SwipeTarget | AnyStructure): t is Ruin {
+    return (t as Ruin).structure !== undefined && (t as Ruin).ticksToDecay !== undefined;
+}
+
+// For logs: "storage" or "ruin of storage".
+export function targetKind(t: SwipeTarget): string {
+    return isRuin(t) ? `ruin of ${t.structure.structureType}` : t.structureType;
+}
+
+// May a swiper loot this structure or ruin (see the header)? `skip` is the
+// creep's refusal list, id -> tick until which it is left alone.
+export function isSwipeTarget(s: AnyStructure | Ruin, skip: { [id: string]: number } = {}, worth: Worth = anything): s is SwipeTarget {
+    if (isRuin(s)) {
+        return hasStocked(s.store, worth) &&
+            !(skip[s.id] > Game.time) &&
+            !_.any(s.pos.lookFor(LOOK_STRUCTURES), r => r.structureType === STRUCTURE_RAMPART);
+    }
     return !(s as OwnedStructure).my &&
         !_.contains(kNoSwipe, s.structureType) &&
         (s as AnyStoreStructure).store !== undefined &&
@@ -85,9 +104,11 @@ export function isSwipeTarget(s: AnyStructure, skip: { [id: string]: number } = 
         !_.any(s.pos.lookFor(LOOK_STRUCTURES), r => r.structureType === STRUCTURE_RAMPART);
 }
 
-// Structures in `room` a swiper may loot.
-export function swipeTargets(room: Room, skip: { [id: string]: number } = {}, worth: Worth = anything): AnyStoreStructure[] {
-    return room.find(FIND_STRUCTURES, { filter: (s: AnyStructure) => isSwipeTarget(s, skip, worth) }) as AnyStoreStructure[];
+// Structures and ruins in `room` a swiper may loot.
+export function swipeTargets(room: Room, skip: { [id: string]: number } = {}, worth: Worth = anything): SwipeTarget[] {
+    const structs = room.find(FIND_STRUCTURES, { filter: (s: AnyStructure) => isSwipeTarget(s, skip, worth) }) as SwipeTarget[];
+    const ruins = room.find(FIND_RUINS, { filter: (r: Ruin) => isSwipeTarget(r, skip, worth) }) as SwipeTarget[];
+    return structs.concat(ruins);
 }
 
 // The creep's swipe state, made on first use.
@@ -95,11 +116,11 @@ export function swipeMemory(me: MyBaseCreep): SwipeMemory {
     return me.memory.swipe = me.memory.swipe || {};
 }
 
-function skipTarget(me: MyBaseCreep, mem: SwipeMemory, target: AnyStoreStructure, why: string) {
+function skipTarget(me: MyBaseCreep, mem: SwipeMemory, target: SwipeTarget, why: string) {
     const skip = mem.skip = mem.skip || {};
     skip[target.id] = Game.time + kSkipTicks;
     delete mem.target;
-    me.log(target.structureType, "at", target.pos, why + ", skipping it for", kSkipTicks);
+    me.log(targetKind(target), "at", target.pos, why + ", skipping it for", kSkipTicks);
 }
 
 // The target in the creep's room, by `pick` (see the header), or null. In
@@ -107,7 +128,7 @@ function skipTarget(me: MyBaseCreep, mem: SwipeMemory, target: AnyStoreStructure
 // (the search is the expensive part, and the walk is stored); in value mode
 // it is picked afresh every tick, since once the best resource of a
 // structure is aboard another may hold the most valuable one left.
-export function pickTarget(me: MyBaseCreep, mem: SwipeMemory, worth: Worth, pick: SwipePick): AnyStoreStructure | null {
+export function pickTarget(me: MyBaseCreep, mem: SwipeMemory, worth: Worth, pick: SwipePick): SwipeTarget | null {
     const room = me.room;
     const pos = me.pos;
     if (!room || !pos) return null;
@@ -131,7 +152,7 @@ export function pickTarget(me: MyBaseCreep, mem: SwipeMemory, worth: Worth, pick
 }
 
 // Walk to the target and withdraw its next resource; a status string.
-export function swipeFrom(me: MyBaseCreep, mem: SwipeMemory, target: AnyStoreStructure, worth: Worth, pick: SwipePick): string {
+export function swipeFrom(me: MyBaseCreep, mem: SwipeMemory, target: SwipeTarget, worth: Worth, pick: SwipePick): string {
     if (!me.isNearTo(target)) {
         const ret = me.walkTo(target.pos, 1);
         // An incomplete search for a walk inside the target's own room is
@@ -141,14 +162,14 @@ export function swipeFrom(me: MyBaseCreep, mem: SwipeMemory, target: AnyStoreStr
             delete me.memory._walk;
             return "no path, retarget";
         }
-        return `to ${target.structureType}`;
+        return `to ${targetKind(target)}`;
     }
     const res = pick === "value" ? _.first(byValue(target.store, worth)) : _.first(stocked(target.store, worth));
     if (!res) return "retarget";
     const err = me.withdraw(target, res);
     if (err === OK) return `swiping ${res}`;
     if (err === ERR_NOT_OWNER) skipTarget(me, mem, target, "is covered");
-    else me.log("withdraw from", target.structureType, "at", target.pos, "failed", err);
+    else me.log("withdraw from", targetKind(target), "at", target.pos, "failed", err);
     delete mem.target;
     return "retarget";
 }
