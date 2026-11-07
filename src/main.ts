@@ -67,6 +67,15 @@ global.statusServices = () => liveServices().map(svc => svc.toString());
 global.spawnLoads = () => require('spawnload').report();
 global.createFlagAt = (...args: any[]) => require('flag').createFlagAt(...args);
 
+// Market console (docs/market-design.md): the price tracker table, the stock
+// rules, the manipulation suspects and blacklist, the dry-run trader's ledgers.
+global.market = (res?: string) => require('market').table(res);
+global.stockRule = (res: string, patch?: any) => require('stockrules').stockRule(res, patch);
+global.stockRules = (format?: string) => require('stockrules').stockRules(format);
+global.blacklist = (player?: string, res?: string | null, days?: number) => require('marketwatch').blacklist(player, res, days);
+global.suspects = () => require('marketwatch').listSuspects();
+global.traderReport = (scn?: string, fills?: number) => require('ms.trader').report(scn, fills);
+
 import 'reactor';  // defines the season-only globals as undefined off-season; must load first
 import 'strat';
 
@@ -89,6 +98,7 @@ import 'ms.startup';
 import 'ms.hub';
 import 'ms.thorhub';
 import 'ms.selloff';
+import 'ms.trader';
 import 'ms.experiment';
 import 'ms.balance';
 import 'ms.furiosa';
@@ -190,6 +200,7 @@ import 'role.shunt';
 import 'markethack';  // installs the raw order table getter at import
 import { theRadar } from 'radar';
 import 'intel';
+import 'marketwatch';  // market manipulation detector daemon; after market and intel
 
 // The legacy creep mixins (@injecter(Creep) classes; until Nov 2026 plain
 // JS classes merged here by lib.merge). Imported after the TS roles above

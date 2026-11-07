@@ -2,6 +2,7 @@ import * as debug from 'debug';
 import * as k from 'constants';
 import { extender } from 'roomobj';
 import { mineralPlan } from 'struct.lab';
+import { legacyInfo } from 'market';
 
 // Terminal helpers of the 2017 base. energyFill/energyDrain are the hauler's
 // thresholds (live); the rest is the market automation of 2017-2020, dead
@@ -65,7 +66,7 @@ class TerminalExtra extends StructureTerminal {
   }
 
   safeBuy(resource: ResourceConstant, amount = 1000) {
-    const m = Memory.market[resource]
+    const m = legacyInfo(resource)
     if (!m) return ERR_NOT_FOUND
     const max = (1.1 * m.sell99!) / 1000
     const orders = _.filter(
@@ -103,14 +104,14 @@ class TerminalExtra extends StructureTerminal {
   }
 
   buyOrder(resource: ResourceConstant, amount = 10000) {
-    const m = Memory.market[resource]
+    const m = legacyInfo(resource)
     if (!m) return ERR_NOT_FOUND
     const p = Math.min(Math.max(m.buy! + 1, m.buy95!), Math.round(1.1 * m.buy99!))
     return this.order(ORDER_BUY, resource, p, amount)
   }
 
   sellOrder(resource: ResourceConstant, amount = 10000) {
-    const m = Memory.market[resource]
+    const m = legacyInfo(resource)
     if (!m || !m.sell) {
       this.room.dlog('Bad market', resource, amount)
       return
