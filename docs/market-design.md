@@ -2,8 +2,12 @@
 
 Status: **phases 1-3 implemented on 6 Nov 2026 and running on shard2 in
 dry run** (`market.ts`, `marketcfg.ts`, `stockrules.ts`, `marketwatch.ts`,
-`ms.trader.ts`; branch `new-market`). The trader books paper fills for the
-`fairA` and `fourState` scenarios side by side; nothing deals. Phases 4-6
+`ms.trader.ts`; branch `new-market`). The trader books paper fills for four
+scenarios side by side: `fairA` (option A below), `fourState` (the trend
+table, no gap test), and, added after the first hours showed fairA silent
+on one-sided books and fourState churning purifier at a loss, `fairB`
+(option B with the surcharge test) and `fourGap` (the trend table behind the
+same test). Nothing deals. Phases 4-6
 (live trading, the probing half of the detector, own orders) are not
 written. Written 6 Nov 2026 from the 2020 code (`market.ts` at 28cc2a7 and the dead market
 half of `struct.terminal.ts`), the Sept 2026 rewrite of `market.ts`, and the

@@ -15,7 +15,7 @@ Process                      run(): Priority; kill()           (process.ts)
      │                                            Then the fullest terminal off cooldown that did not send this tick sends half the
      │                                            energy gap to the emptiest when the gap is at least 5k, shrunk to what it can pay with the transfer fee. stocks() prints the base minerals per RCL8 room.
      ├─ Trader       @register  (ms.trader.ts)    "Trader"; no creeps; the market trader in dry-run form (docs/market-design.md, Nov 2026): evaluates the ruled
-     │                                            resources (stockrules.ts) five a tick and books, per scenario (fairA, fourState) and room with a terminal, the
+     │                                            resources (stockrules.ts) five a tick and books, per scenario (fairA, fourState, fairB, fourGap) and room with a terminal, the
      │                                            trade that scenario would make into a paper ledger (Memory.trader.sim), one fill per paper terminal per 10 ticks,
      │                                            each order's taken quantity remembered so it is not filled twice. Never calls Game.market.deal. traderReport().
      ├─ Selloff      @register  (ms.selloff.ts)   "Selloff <room>"; no creeps, so a purple flag "Selloff_<room>" may run it. To be replaced by Trader.
