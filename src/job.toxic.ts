@@ -7,8 +7,11 @@ import { toXY } from "Rewalker";
 //
 //   scheduleService('Once Toxic W25S5')     // one; 'Once Toxic W25S5 3' for three in turn
 //
+// or by a mission for another room than its own (Swipe, for a route room an
+// armed player creep holds): the egg's memory.troom names it (targetRoom).
+//
 // It runs a mode machine in memory.tmode:
-//   travel  the start mode: walk to the mission room. There, hostiles (armed
+//   travel  the start mode: walk to the target room. There, hostiles (armed
 //           enemies, room.hostiles) mean bait, none means harass.
 //   bait    hold range 5 from the nearest hostile: flee (idleFlee) when
 //           closer, close in when farther, shooting whatever comes within 3.
@@ -55,6 +58,9 @@ declare global {
         // the nearest hostile (tfoe, its packed xy) has not moved.
         tstill?: number
         tfoe?: number
+        // The room to fight in when it is not the mission's own (Swipe lays
+        // a toxic for a guarded route room); set on the egg.
+        troom?: string
     }
 }
 
@@ -81,6 +87,12 @@ export class Toxic extends Guard {
         delete this.memory.tfoe;
     }
 
+    // Where it fights: memory.troom (an egg laid for another room), else the
+    // mission's room.
+    get targetRoom(): string {
+        return this.memory.troom || this.mission.roomName;
+    }
+
     get disarmed(): boolean {
         return !this.cc.activeByType.get(RANGED_ATTACK);
     }
@@ -96,9 +108,9 @@ export class Toxic extends Guard {
             this.mode = "heal";
             return this.healUp();
         }
-        if (this.c.room.name !== this.mission.roomName) {
+        if (this.c.room.name !== this.targetRoom) {
             this.mode = "travel";
-            return this.moveRoom(this.mission.roomName);
+            return this.moveRoom(this.targetRoom);
         }
         switch (this.mode) {
             case "bait": return this.bait();
@@ -210,7 +222,7 @@ export class Toxic extends Guard {
             return "again";
         }
         const hostiles = this.hostiles;
-        if (this.pos.roomName === this.mission.roomName) {
+        if (this.pos.roomName === this.targetRoom) {
             const exit = this.pos.findClosestByRange(FIND_EXIT);
             if (exit) this.movePos(exit, 0);
             return "wait";

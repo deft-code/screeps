@@ -19,10 +19,10 @@ const kWaitRange = 4;
 // lies within reach on the way is picked up (nomNearby), unless worthless or
 // not worth it by the mission (a Swipe with ignoreEnergy leaves energy).
 //
-// While the mission reports its route held by an armed player creep
-// (Swipe.guardedBy), a swiper that is empty at home waits within kWaitRange
-// of the home exit toward the target instead of walking into the fire; one
-// out on the route finishes its trip. A swiper with no CARRY part left
+// While the mission reports its route held by an armed player creep and no
+// toxic of its own is in that room yet (Swipe.hold), a swiper that is empty
+// at home waits within kWaitRange of the home exit toward the target instead
+// of walking into the fire; one out on the route finishes its trip. A swiper with no CARRY part left
 // (psy372's W5N3 ranger took all 25 of two swipers in Nov 2026) can only
 // loop on ERR_FULL, so it suicides.
 @register
@@ -43,11 +43,12 @@ export class Swiper extends JobCreep {
         return m.worth ? res => m.worth!(res) : anything;
     }
 
-    // The mission's hold (Swipe.guardedBy: "<room> by <player>"), null for a
-    // mission without one or with the route clear.
-    get guardedBy(): string | null {
-        const m = this.mission as unknown as { guardedBy?: string | null };
-        return m.guardedBy ?? null;
+    // The mission's hold (Swipe.hold: "<room> by <player>"), null for a
+    // mission without one, with the route clear, or with a toxic baiting the
+    // guard.
+    get hold(): string | null {
+        const m = this.mission as unknown as { hold?: string | null };
+        return m.hold ?? null;
     }
 
     start(): Task2Ret {
@@ -56,9 +57,9 @@ export class Swiper extends JobCreep {
             this.c.suicide();
             return "wait";
         }
-        const guarded = this.guardedBy;
-        if (guarded && this.pos.roomName === this.homeName && !this.c.store.getUsedCapacity()) {
-            this.dlog("route held:", guarded, "- waiting at home");
+        const hold = this.hold;
+        if (hold && this.pos.roomName === this.homeName && !this.c.store.getUsedCapacity()) {
+            this.dlog("route held:", hold, "- waiting at home");
             this.waitByExit();
             return "wait";
         }

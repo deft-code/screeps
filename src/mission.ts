@@ -233,6 +233,15 @@ export abstract class Mission extends Service {
         debug.log(this.name, "winding down");
     }
 
+    // Undo windDown() before the mission has killed itself: it lays eggs
+    // again next tick, with whatever creeps it still has.
+    //   getService('Swipe W6N2 W3N4').resume()
+    resume() {
+        delete this.memory.windDown;
+        delete this.memory.tombs;
+        debug.log(this.name, "wind-down cancelled");
+    }
+
     runWindDown(): Priority {
         this.purgeEggs();
         this.spawnHatches();

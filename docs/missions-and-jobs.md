@@ -61,7 +61,10 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     armed creep (ATTACK/RANGED_ATTACK) of another player (not keepers, invaders or allies); one found is kept in Memory.missions[m].guard[room] =
          │                                                     [player, tick] (cleared when the room is seen clear, lapses after 1500 ticks unseen) and holds the mission (guardedBy, status `GUARDED:<room> by <player>`):
          │                                                     swiper eggs purged, none laid, empty swipers at home wait by the exit (Swiper.waitByExit); psy372's W5N3 ranger stripped four swipers' CARRY, 7 Nov 2026;
-         │                                                     windDown() lifts the hold (guardedBy is null while winding down) so the swipers left run through the guard until they die
+         │                                                     while guarded one Toxic is kept per guarded room (toxic(): one egg at a time as soon as one is short, the egg's memory.troom = its room, re-aimed
+         │                                                     when a guard moves); once a toxic stands in every guarded room (`baited`) the hold lifts (Swipe.hold, what Swiper reads) and the swipers run
+         │                                                     past the distracted guard (a HEAL guard outlasts a bait, so it is a decoy); windDown() lifts the hold too, so the swipers left run until they
+         │                                                     die; Mission.resume() cancels a windDown (deletes Memory.missions[m].windDown and tombs)
          │                                                     winds down once the target room has no swipe targets left (swipe.ts swipeTargets)
          │                                                     worth(res) (swipeworth.ts, shared with Furiosa's questSwipe): energy always, unless `ignoreEnergy = true` (persisted Memory.missions[m].noenergy:
          │                                                     energy containers and energy-only ruins are not targets, swipers do not pick energy up, and the mission winds down once the other loot is gone
@@ -494,7 +497,8 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
          │                                                 Guard.after's opportunistic pass; potshots() leaves Source Keepers out, the staging room being a keeper room);
          │                                                 in attack mode Guard.decide with hold() at range 3 of the mission flag in the target room instead of the room centre
          │   └─ Mini @register             (job.mini.ts)   Guard on the fixed 'mini' body [RANGED_ATTACK, MOVE, MOVE, HEAL], still via "close"
-         │   └─ Toxic @register            (job.toxic.ts)  bait-and-trap skirmisher on the 'mini' body via "close", spawned by Once; mode machine in
+         │   └─ Toxic @register            (job.toxic.ts)  bait-and-trap skirmisher on the 'mini' body via "close", spawned by Once, or by Swipe for a guarded route
+         │                                                 room (the egg's memory.troom names the room to fight in, targetRoom; else the mission's); mode machine in
          │                                                 memory.tmode: travel (start) -> bait (hold range 5 from the nearest hostile, idleFlee when
          │                                                 closer; memory.tstill counts ticks at full health with no flee or damage while the nearest hostile
          │                                                 holds its tile (memory.tfoe), 10 closes to 4, 20 to 3) -> trap (within 2 of an exit with a hostile within 5: stand on the tile just inside

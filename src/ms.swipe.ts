@@ -6,6 +6,7 @@ import { Scout } from "job.scout";
 import { Swiper } from "job.swiper";
 import { isRuin, swipeTargets, SwipeTarget } from "swipe";
 import { Konmari } from "job.konmari";
+import { Toxic } from "job.toxic";
 import { junkIn, minSwipePrice, Worth, worthSwiping } from "swipeworth";
 import { theRadar } from "radar";
 import { defaultRewalker, kInvaderUser } from "Rewalker";
@@ -50,6 +51,12 @@ const kGuardTTL = CREEP_LIFE_TIME;
 // route (job.swiper.ts), the ones out finish their trip. The room seen clear
 // lifts the hold; a sighting nothing can refresh lapses after kGuardTTL; so
 // does windDown(), whose swipers run through the guard until they die.
+// Meanwhile one Toxic (job.toxic.ts, the bait-and-trap mini) is kept per
+// guarded room (its egg's memory.troom; re-aimed if the guard moves): once
+// one stands in every guarded room drawing its guard (`baited`), the hold
+// lifts and the swipers run past. A guard with HEAL outlasts a bait
+// (ms.reactor.ts), so against psy372's ranger the toxic is a decoy, not a
+// kill.
 // psy372's W5N3 ranger (17 RANGED_ATTACK 8 HEAL 25 MOVE, 170 a tick) stripped
 // four W6N2 swipers of their CARRY on 7 Nov 2026; every route from W3N4 to
 // W6N2 crosses W5N3 or a tower room, so there is nothing to reroute to.
@@ -155,14 +162,63 @@ export class Swipe extends Mission {
         else this.memory.guard = guard;
     }
 
-    // "<room> by <player>" for a route room held by an armed player creep,
-    // else null. Read by Swiper. Winding down lifts it: the swipers left are
-    // to run until they die, not to sit at home.
+    // The route rooms held by an armed player creep.
+    get guardedRooms(): string[] {
+        return Object.keys(this.memory.guard || {});
+    }
+
+    // "<room> by <player>, ..." for them, else null.
     get guardedBy(): string | null {
-        if (this.windingDown) return null;
         const guard = this.memory.guard;
-        const name = guard && _.first(Object.keys(guard));
-        return name ? `${name} by ${guard![name][0]}` : null;
+        const rooms = this.guardedRooms;
+        return rooms.length ? rooms.map(n => `${n} by ${guard![n][0]}`).join(", ") : null;
+    }
+
+    // The mission's toxics and toxic eggs.
+    get toxics() {
+        const role = Toxic.name.toLowerCase();
+        return [...this.roleCreeps(role), ...this.roleEggs(role)];
+    }
+
+    // Whether every guarded room has a toxic of the mission standing in it,
+    // drawing its guard.
+    get baited(): boolean {
+        const rooms = this.guardedRooms;
+        if (!rooms.length) return false;
+        const standing = this.toxics.map(t => t.c?.pos.roomName);
+        return rooms.every(r => _.contains(standing, r));
+    }
+
+    // What keeps the swipers at home (read by Swiper): the guards, until a
+    // toxic stands in each of their rooms; null winding down, when the
+    // swipers left are to run until they die rather than sit at home.
+    get hold(): string | null {
+        if (this.windingDown || this.baited) return null;
+        return this.guardedBy;
+    }
+
+    // One Toxic per guarded room (memory.troom on the egg), laid one egg at a
+    // time as soon as one is short, so a decoy is on its way the tick a guard
+    // is seen and a dead one is replaced at once. A toxic or egg aimed at a
+    // room no longer guarded is re-aimed at one that lacks its own.
+    toxic(rooms: string[]) {
+        const role = Toxic.name.toLowerCase();
+        const all = this.toxics;
+        if (all.length < rooms.length && !this.hasEgg(role)) all.push(this.layEgg(role));
+        const taken = new Set<string>();
+        const loose = [];
+        for (const t of all) {
+            const r = t.memory.troom;
+            if (r && _.contains(rooms, r) && !taken.has(r)) taken.add(r);
+            else loose.push(t);
+        }
+        for (const r of rooms) {
+            if (taken.has(r)) continue;
+            const t = loose.shift();
+            if (!t) break;
+            t.memory.troom = r;
+            taken.add(r);
+        }
     }
 
     get roomName() {
@@ -229,8 +285,12 @@ export class Swipe extends Mission {
                 this.windDown();
             } else {
                 const want = this.wantSwipers(targets, worth);
-                if (this.guardedBy) {
-                    if (this.hasEgg(Swiper.name.toLowerCase())) this.purgeEggs([Scout.name.toLowerCase(), Konmari.name.toLowerCase()]);
+                const guarded = this.guardedRooms;
+                if (guarded.length) this.toxic(guarded);
+                if (this.hold) {
+                    if (this.hasEgg(Swiper.name.toLowerCase())) {
+                        this.purgeEggs([Scout.name.toLowerCase(), Konmari.name.toLowerCase(), Toxic.name.toLowerCase()]);
+                    }
                 } else {
                     this.paceNJobs(Swiper, want);
                 }
@@ -243,6 +303,6 @@ export class Swipe extends Mission {
     status(): string {
         const guarded = this.guardedBy;
         return super.status() + ` minPrice:${Math.round(this.minPrice())}${this.ignoreEnergy ? " noenergy" : ""}`
-            + ` route:${this.routeRooms().join(">")}${guarded ? ` GUARDED:${guarded}` : ""} ${this.lastWant}`;
+            + ` route:${this.routeRooms().join(">")}${guarded ? ` GUARDED:${guarded}${this.baited ? " baited" : " holding"}` : ""} ${this.lastWant}`;
     }
 }
