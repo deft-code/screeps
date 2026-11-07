@@ -2,20 +2,36 @@ import * as debug from "debug";
 import { Priority, register, Service } from "process";
 import { getAllOrders, getOrderById, marketDisabled } from "markethack";
 import { isSuspect } from "marketcfg";
+import { RoomIntel } from "intel";
 import { ruleFor, ruledResources, StockRule } from "stockrules";
 import { oldestOf, slowOf, trackOf, transferRate, tryGetBuyOrderPrice, tryGetSellOrderPrice } from "market";
 
-// The trader (docs/market-design.md), in its dry-run form: nothing here calls
-// Game.market.deal. Every tick it looks at a few ruled resources (kPerTick,
-// round robin), and for each scenario and each room with a terminal works out
-// the trade that scenario would make; when a scenario's paper terminal is off
-// its cooldown it "fills" the best candidate and books it in that scenario's
-// ledger (Memory.trader.sim[name]): virtual stock per resource, cash, the
-// transfer energy burned, the quantity taken from each order (so the same
-// order is not filled twice while it still shows in the book), and the last
-// kFills fills. traderReport() prints the ledgers side by side.
+// The trader (docs/market-design.md). Every tick it looks at a few ruled
+// resources (kPerTick, round robin), and for each scenario and each room with
+// a terminal works out the trade that scenario would make; when a scenario's
+// paper terminal is off its cooldown it "fills" the best candidate and books
+// it in that scenario's ledger (Memory.trader.sim[name]): virtual stock per
+// resource, cash, the transfer energy burned, the quantity taken from each
+// order (so the same order is not filled twice while it still shows in the
+// book), and the last kFills fills. traderReport() prints the ledgers.
 //
 //   scheduleService('Trader')
+//   getService('Trader').live('fairB', 1.2e9)   // deal for real on that scenario's candidates
+//   getService('Trader').live(null)             // back to paper only
+//
+// Live (Memory.trader.live): one scenario's candidates, computed on the
+// room's real stock (no dry-run `start`), are dealt with Game.market.deal,
+// one per room per tick when its terminal is off cooldown, holds the goods
+// (sell) or the room (buy) and the transfer energy, and the buy would not
+// take the credits under the floor. A deal is booked only the next tick,
+// when it shows in Game.market.incoming/outgoingTransactions with the order's
+// id (the engine fills the nearest dealer first and skips the rest silently);
+// a missing one counts as failed. The transaction names the counterparty, and
+// every deal with a player on kWatchPlayers (the ones seen behind the
+// manipulation of Nov 2026) is recorded in Memory.trader.live.watch
+// (traderWatch()). The break: the moment Game.market.credits is under the
+// floor the live trader halts (no deals of either side), logs, notifies, and
+// stays halted until resume().
 //
 // Stock rules (stockrules.ts) give each resource need/want/surplus/glut; a
 // resource's stock is what the room's storage, terminal and factory hold,
@@ -57,6 +73,12 @@ import { oldestOf, slowOf, trackOf, transferRate, tryGetBuyOrderPrice, tryGetSel
 
 const kScenarioNames = ["fairA", "fourState", "fairB", "fourGap"] as const;
 type ScenarioName = typeof kScenarioNames[number];
+// Players whose deals with us are recorded (traderWatch()).
+const kWatchPlayers = ["Taki", "qnz"];
+// Watch events kept.
+const kWatch = 200;
+// Default credits floor for live trading.
+const kDefaultFloor = 1.2e9;
 
 // Resources examined per tick.
 const kPerTick = 5;
@@ -88,6 +110,8 @@ type Dir = "buy" | "sell";
 
 interface Candidate {
     scn: ScenarioName
+    // A live candidate: real stock, dealt for real.
+    live?: boolean
     room: string
     res: ResourceConstant
     kind: Kind
@@ -121,10 +145,37 @@ interface Ledger {
     fills: Fill[]
 }
 
+interface Pending {
+    tick: number
+    room: string
+    res: ResourceConstant
+    dir: Dir
+    kind: Kind
+    orderId: string
+    orderRoom: string
+    price: number
+    qty: number
+    delta: number
+}
+
+// [tick, player, res, dir, qty, price, orderRoom, orderId, ok]
+type WatchEvent = [number, string, string, Dir, number, number, string, string, boolean];
+
+interface Live {
+    scenario: ScenarioName | null
+    floor: number
+    halted?: string
+    pending: Pending[]
+    failed: number
+    ledger: Ledger
+    watch: WatchEvent[]
+}
+
 declare global {
     interface Memory {
         trader?: {
             sim: { [name: string]: Ledger }
+            live?: Live
         }
     }
 }
@@ -186,6 +237,11 @@ function ledgers(): { [name: string]: Ledger } {
     return t.sim;
 }
 
+function liveState(): Live {
+    const t = Memory.trader = Memory.trader || { sim: {} };
+    return t.live = t.live || { scenario: null, floor: kDefaultFloor, pending: [], failed: 0, ledger: blankLedger(), watch: [] };
+}
+
 // Relation of a to b with the deadband: 1 above, -1 below, 0 flat.
 function cmp(a: number, b: number): number {
     if (a > b * (1 + kBand)) return 1;
@@ -220,8 +276,10 @@ export class Trader extends Service {
         const cpu = Game.cpu.getUsed();
         const rooms = _.filter(Game.rooms, r => !!r.terminal && r.terminal.my && !!r.controller && r.controller.my);
         if (rooms.length) {
+            this.verifyPending();
             this.evaluateSome(rooms);
             this.fillDue(rooms);
+            this.dealLive(rooms);
         }
         this.lastCpu = Game.cpu.getUsed() - cpu;
         return "low";
@@ -277,6 +335,19 @@ export class Trader extends Service {
                 const stock = roomStock(room, res) + (view.rule.start || 0) + ((ledger.delta[room.name] || {})[res] || 0);
                 for (const c of this.propose(scn, room, view, stock, ledger)) {
                     this.candidates.set(this.key(scn, room.name, res, c.kind), c);
+                }
+            }
+        }
+        // Live: the real stock, no dry-run start, pending deals count as consumed.
+        const live = liveState();
+        if (live.scenario) {
+            this.pruneConsumed(live.ledger, res, orders);
+            for (const room of rooms) {
+                for (const kind of ["need", "glut", "want", "surplus"] as Kind[]) this.candidates.delete(this.key("live", room.name, res, kind));
+                const stock = roomStock(room, res);
+                for (const c of this.propose(live.scenario, room, view, stock, live.ledger)) {
+                    c.live = true;
+                    this.candidates.set(this.key("live", room.name, res, c.kind), c);
                 }
             }
         }
@@ -445,7 +516,7 @@ export class Trader extends Service {
                 if ((ledger.cool[room.name] || 0) > Game.time) continue;
                 const fresh = this.fresh();
                 const mine = Array.from(this.candidates.values())
-                    .filter(c => c.scn === scn && c.room === room.name && c.qty > 0 && Game.time - c.tick <= fresh);
+                    .filter(c => !c.live && c.scn === scn && c.room === room.name && c.qty > 0 && Game.time - c.tick <= fresh);
                 if (!mine.length) continue;
                 const rank = (c: Candidate) => (c.kind === "need" || c.kind === "glut" ? 1e12 : 0) + c.delta;
                 mine.sort((a, b) => rank(b) - rank(a));
@@ -487,10 +558,137 @@ export class Trader extends Service {
         return true;
     }
 
+    // --- live -----------------------------------------------------------------
+
+    // Deals made last tick: booked when the transaction log shows them, else failed.
+    verifyPending() {
+        const live = liveState();
+        if (!live.pending.length) return;
+        const still: Pending[] = [];
+        for (const p of live.pending) {
+            if (p.tick >= Game.time) { still.push(p); continue; }
+            const log = p.dir === "sell" ? Game.market.outgoingTransactions : Game.market.incomingTransactions;
+            const t = _.find(log, t => t.time >= p.tick && !!t.order && t.order.id === p.orderId && t.resourceType === p.res);
+            const other = t ? (p.dir === "sell" ? t.recipient : t.sender)?.username || "NPC" : undefined;
+            if (!t) {
+                live.failed++;
+                debug.log(`TRADER LIVE FAILED ${p.kind} ${p.dir} ${p.qty} ${p.res} @ ${p.price} ${p.orderRoom} ${p.orderId}: no transaction`);
+                this.noteWatch(p, undefined, false);
+                continue;
+            }
+            const qty = t.amount;
+            const value = qty * p.price;
+            const energy = Math.ceil(qty * transferRate(p.room, p.orderRoom));
+            const l = live.ledger;
+            const sign = p.dir === "buy" ? 1 : -1;
+            (l.delta[p.room] = l.delta[p.room] || {})[p.res] = ((l.delta[p.room] || {})[p.res] || 0) + sign * qty;
+            l.cash += p.dir === "buy" ? -value : value;
+            l.energy += energy;
+            l.deals++;
+            const st = l.stats[p.res] = l.stats[p.res] || [0, 0, 0, 0, 0];
+            if (p.dir === "buy") { st[0] += qty; st[1] += value; } else { st[2] += qty; st[3] += value; }
+            st[4]++;
+            l.fills.push([p.tick, p.res, p.dir, p.kind, p.orderId, p.orderRoom, p.price, qty, Math.round(p.delta * 100) / 100, p.room]);
+            if (l.fills.length > kFills) l.fills.splice(0, l.fills.length - kFills);
+            debug.log(`TRADER LIVE ${p.kind} ${p.dir} ${qty}/${p.qty} ${p.res} @ ${p.price} with ${other} ${p.orderRoom} ${p.orderId} ${energy}e, credits ${Math.round(Game.market.credits).toLocaleString()}`);
+            this.noteWatch(p, other, true);
+        }
+        live.pending = still;
+    }
+
+    // Record a deal with a watched player (by the transaction's name, or by
+    // the room's known owner when the deal left no transaction).
+    noteWatch(p: Pending, other: string | undefined, ok: boolean) {
+        const who = other || RoomIntel.get(p.orderRoom)?.owner || undefined;
+        if (!who || !_.contains(kWatchPlayers, who)) return;
+        const live = liveState();
+        live.watch.push([p.tick, who, p.res, p.dir, p.qty, p.price, p.orderRoom, p.orderId, ok]);
+        if (live.watch.length > kWatch) live.watch.splice(0, live.watch.length - kWatch);
+        debug.log(`TRADER WATCH ${who}: ${ok ? "dealt" : "FAILED"} ${p.dir} ${p.qty} ${p.res} @ ${p.price} from ${p.orderRoom} ${p.orderId}`);
+    }
+
+    // One real deal per room per tick for the live scenario's best candidate.
+    dealLive(rooms: Room[]) {
+        const live = liveState();
+        if (!live.scenario || live.halted) return;
+        const credits = Game.market.credits;
+        if (credits < live.floor) {
+            live.halted = `credits ${Math.round(credits).toLocaleString()} under floor ${live.floor.toLocaleString()} at ${Game.time}`;
+            debug.log("TRADER HALTED:", live.halted);
+            Game.notify(`Trader halted: ${live.halted}`);
+            return;
+        }
+        const fresh = this.fresh();
+        for (const room of rooms) {
+            const term = room.terminal!;
+            if (term.cooldown) continue;
+            if (_.any(live.pending, p => p.room === room.name)) continue;
+            const mine = Array.from(this.candidates.values())
+                .filter(c => c.live && c.room === room.name && c.qty > 0 && Game.time - c.tick <= fresh);
+            if (!mine.length) continue;
+            const rank = (c: Candidate) => (c.kind === "need" || c.kind === "glut" ? 1e12 : 0) + c.delta;
+            mine.sort((a, b) => rank(b) - rank(a));
+            for (const c of mine) {
+                if (this.deal(live, c, term)) break;
+            }
+        }
+    }
+
+    // Try one candidate for real; true when a deal intent was placed.
+    deal(live: Live, c: Candidate, term: StructureTerminal): boolean {
+        this.candidates.delete(this.key("live", c.room, c.res, c.kind));
+        const order = getOrderById(c.orderId);
+        if (!order || order.amount <= 0 || Math.abs(order.price - c.price) > 1e-6) return false;
+        let qty = Math.min(c.qty, order.amount);
+        if (c.dir === "sell") qty = Math.min(qty, term.store[c.res] || 0);
+        else {
+            qty = Math.min(qty, term.store.getFreeCapacity());
+            // Never buy the credits under the floor.
+            qty = Math.min(qty, Math.floor((Game.market.credits - live.floor) / order.price));
+        }
+        if (qty <= 0) return false;
+        const cost = Game.market.calcTransactionCost(qty, c.room, c.orderRoom);
+        if (cost > term.store.energy) {
+            debug.log(`TRADER LIVE skip ${c.dir} ${qty} ${c.res}: transfer ${cost} energy, terminal holds ${term.store.energy}`);
+            return false;
+        }
+        const err = Game.market.deal(c.orderId, qty, c.room);
+        if (err !== OK) {
+            debug.log(`TRADER LIVE deal ${c.dir} ${qty} ${c.res} @ ${order.price} ${c.orderRoom} ${c.orderId} -> ${debug.errStr(err)}`);
+            return false;
+        }
+        live.pending.push({ tick: Game.time, room: c.room, res: c.res, dir: c.dir, kind: c.kind, orderId: c.orderId, orderRoom: c.orderRoom, price: order.price, qty, delta: c.delta });
+        const used = live.ledger.consumed[c.res] = live.ledger.consumed[c.res] || {};
+        used[order.id] = (used[order.id] || 0) + qty;
+        debug.log(`TRADER LIVE dealing ${c.kind} ${c.dir} ${qty} ${c.res} @ ${order.price} (${c.eff.toFixed(1)} eff, +${c.delta.toFixed(1)}) ${c.orderRoom} ${c.orderId} ${cost}e: ${c.why}`);
+        return true;
+    }
+
+    // Console: live('fairB'[, floor]) deals that scenario for real; live(null) stops.
+    live(scenario: ScenarioName | null, floor?: number): string {
+        const live = liveState();
+        if (scenario && !_.contains(kScenarioNames, scenario)) return `unknown scenario ${scenario}; one of ${kScenarioNames.join(", ")}`;
+        live.scenario = scenario;
+        if (floor !== undefined) live.floor = floor;
+        if (!scenario) for (const key of Array.from(this.candidates.keys())) if (key.startsWith("live|")) this.candidates.delete(key);
+        return `live: ${scenario || "off"}, floor ${live.floor.toLocaleString()}${live.halted ? ", HALTED: " + live.halted : ""}`;
+    }
+
+    resume(): string {
+        const live = liveState();
+        const was = live.halted;
+        delete live.halted;
+        return was ? `resumed (was: ${was})` : "was not halted";
+    }
+
     status(): string {
         const sims = ledgers();
         const parts = kScenarioNames.map(n => `${n}: ${sims[n].deals} deals, cash ${Math.round(sims[n].cash).toLocaleString()}`);
-        return `${super.status()} dry run, ${this.evaluated} evaluations, ${this.candidates.size} candidates, last tick ${this.lastCpu.toFixed(2)} CPU; ${parts.join("; ")}`;
+        const live = liveState();
+        const liveStr = live.scenario
+            ? `LIVE ${live.scenario} floor ${live.floor.toLocaleString()}${live.halted ? " HALTED" : ""}: ${live.ledger.deals} deals, ${live.failed} failed, ${live.pending.length} pending, cash ${Math.round(live.ledger.cash).toLocaleString()}, credits ${Math.round(Game.market.credits).toLocaleString()}; `
+            : "paper only; ";
+        return `${super.status()} ${liveStr}${this.evaluated} evaluations, ${this.candidates.size} candidates, last tick ${this.lastCpu.toFixed(2)} CPU; ${parts.join("; ")}`;
     }
 
     // Start the ledgers over (the rules or assumptions changed).
@@ -507,10 +705,15 @@ export class Trader extends Service {
 // resource what was bought and sold; traderReport("fairA", 30) adds the last
 // 30 fills of that scenario.
 export function report(scn?: string, fills = 0): string {
-    const sims = (Memory.trader && Memory.trader.sim) || {};
+    const sims: { [name: string]: Ledger } = Object.assign({}, (Memory.trader && Memory.trader.sim) || {});
+    const live = Memory.trader && Memory.trader.live;
+    if (live && live.scenario) sims[`live(${live.scenario})`] = live.ledger;
     const lines: string[] = [];
+    if (live && live.scenario) {
+        lines.push(`live ${live.scenario}: floor ${live.floor.toLocaleString()}, ${live.halted ? "HALTED (" + live.halted + ")" : "running"}, ${live.failed} failed, ${live.pending.length} pending, credits ${Math.round(Game.market.credits).toLocaleString()}`);
+    }
     for (const name of Object.keys(sims)) {
-        if (scn && scn !== name) continue;
+        if (scn && scn !== name && !(scn === "live" && name.startsWith("live"))) continue;
         const l = sims[name];
         let marked = 0;
         const rows: string[] = [];
@@ -536,4 +739,11 @@ export function report(scn?: string, fills = 0): string {
         }
     }
     return lines.length ? lines.join("\n") : "no trader ledgers";
+}
+
+// traderWatch() lists every live deal (or failed deal) with a watched player.
+export function watchReport(): string {
+    const live = Memory.trader && Memory.trader.live;
+    if (!live || !live.watch.length) return "no deals with watched players (" + kWatchPlayers.join(", ") + ")";
+    return live.watch.map(w => `${w[0]} ${w[1].padEnd(6)} ${w[8] ? "dealt " : "FAILED"} ${w[3]} ${String(w[4]).padStart(5)} ${w[2].padEnd(13)} @ ${w[5]} ${w[6]} ${w[7]}`).join("\n");
 }

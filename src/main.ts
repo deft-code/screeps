@@ -75,6 +75,7 @@ global.stockRules = (format?: string) => require('stockrules').stockRules(format
 global.blacklist = (player?: string, res?: string | null, days?: number) => require('marketwatch').blacklist(player, res, days);
 global.suspects = () => require('marketwatch').listSuspects();
 global.traderReport = (scn?: string, fills?: number) => require('ms.trader').report(scn, fills);
+global.traderWatch = () => require('ms.trader').watchReport();
 
 import 'reactor';  // defines the season-only globals as undefined off-season; must load first
 import 'strat';
