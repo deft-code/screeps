@@ -4,7 +4,7 @@ import { getAllOrders, getOrderById, marketDisabled } from "markethack";
 import { isSuspect } from "marketcfg";
 import { RoomIntel } from "intel";
 import { ruleFor, ruledResources, StockRule } from "stockrules";
-import { oldestOf, slowOf, trackOf, transferRate, tryGetBuyOrderPrice, tryGetSellOrderPrice } from "market";
+import { energyValue, oldestOf, slowOf, trackOf, transferRate, tryGetBuyOrderPrice, tryGetSellOrderPrice } from "market";
 
 // The trader (docs/market-design.md). Every tick it looks at a few ruled
 // resources (kPerTick, round robin), and for each scenario and each room with
@@ -212,20 +212,6 @@ function roomStock(room: Room, res: ResourceConstant): number {
         if (s && s.my) n += s.store[res] || 0;
     }
     return n;
-}
-
-// Credits a unit of transfer energy costs the room: energy's bid-side slow,
-// scaled by how full of energy the storage is. At or under half its capacity
-// the full price; from there linearly down to nothing at capacity (the energy
-// has nowhere better to go). No storage: the full price.
-function energyValue(room: Room): number {
-    const slow = credits(slowOf(trackOf(RESOURCE_ENERGY, "buy")));
-    const price = slow ?? Math.max(0, tryGetBuyOrderPrice(RESOURCE_ENERGY, room.name));
-    const storage = room.storage;
-    if (!storage) return price;
-    const fill = storage.store.energy / storage.store.getCapacity();
-    const discount = Math.min(1, Math.max(0, (fill - 0.5) / 0.5));
-    return price * (1 - discount);
 }
 
 function effective(order: Order, dir: Dir, room: string, energy: number): number {

@@ -27,6 +27,10 @@ export interface MissionMemory {
     when?: { [role: string]: number }
     // Swipe: tick of the next sparkJoy look at the home stores.
     sparkjoy?: number
+    // Swipe: energy is not worth taking (ignoreEnergy).
+    noenergy?: boolean
+    // Swipe: a fixed swiper count in place of the estimate (swipers = n).
+    swipers?: number
     // Bulldoze: tiles to clear as [xy, roomName], the first is the destination.
     doze?: [number, string][]
 }

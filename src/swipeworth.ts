@@ -1,16 +1,19 @@
-import { bidUnits, buyOrderPriceEma, tryGetBuyOrderPrice, tryGetSellOrderPrice } from "market";
+import { bidUnits, buyOrderPriceEma, energyValue, tryGetBuyOrderPrice } from "market";
 import { marketDisabled } from "markethack";
+import { ruledResources } from "stockrules";
 
 // What is worth carrying home from a looted room; shared by the Swipe mission
 // (ms.swipe.ts, job.swiper.ts) and Furiosa's swipe (powercreep.ts).
 //
-// The base cost of a trip is taken to be energy, priced at what buying it
-// costs delivered to the home room (market.getSellOrderPrice(energy, home):
-// effective price, shipping included). A resource is picked up only when
-// selling it pays (market.getBuyOrderPrice) at least kWorthFactor times that.
-// Energy itself is always worth it. A resource the market cannot price (under
-// 10k units bid for) is not; when energy cannot be priced, or the shard has no
-// market at all (season), everything is.
+// The base cost of a trip is taken to be energy, priced as the trader prices
+// it (market.energyValue: the bid-side slow average, scaled down as the home
+// storage fills past half). A resource is picked up only when selling it pays
+// (market.getBuyOrderPrice) at least kWorthFactor times that. Energy itself
+// is always worth it. A resource the market cannot price (under 10k units bid
+// for) is not; when energy cannot be priced, or the shard has no market at all
+// (season), everything is. Until 7 Nov 2026 energy was priced at the ask
+// delivered to the home room, which far orders' transfer energy inflated to
+// ~4x the bid and put K and H (310k and 43k units in W6N2) under the bar.
 const kWorthFactor = 2;
 
 // Says which resources are worth taking.
@@ -20,8 +23,8 @@ export const anything: Worth = () => true;
 // Credits per unit a resource must sell for; 0 when there is no telling.
 export function minSwipePrice(home?: string): number {
     if (marketDisabled()) return 0;
-    const energy = tryGetSellOrderPrice(RESOURCE_ENERGY, home);
-    return energy === Infinity ? 0 : kWorthFactor * energy;
+    const energy = energyValue(home ? Game.rooms[home] : undefined);
+    return energy > 0 ? kWorthFactor * energy : 0;
 }
 
 // Verdicts of this tick by home room and resource; the prices behind them are
@@ -80,10 +83,16 @@ export function catalyzed(res: ResourceConstant): boolean {
 }
 
 // What a Konmari may throw away out of a store: the worthless, except the
-// catalyzed boosts. Those stay for now even when nobody bids for them: they
-// are the labs' end product and a thin book says little about their use to us.
+// catalyzed boosts and anything the stock rules cover (stockrules.ts: base
+// minerals, ghodium, tier-3 boosts, factory products). The boosts stay even
+// when nobody bids for them: they are the labs' end product and a thin book
+// says little about their use to us. The ruled resources are the trader's:
+// it buys them to their `want` and sells the surplus, and a Konmari laid to
+// drop 8,545 O and 5,000 U the trader had just bought (W3N4, 7 Nov 2026) was
+// cancelled on the spawn.
 export function junkIn(store: StoreDefinition | Store<ResourceConstant, false>): ResourceConstant[] {
-    return worthlessIn(store).filter(res => !catalyzed(res));
+    const ruled = ruledResources();
+    return worthlessIn(store).filter(res => !catalyzed(res) && !_.contains(ruled, res));
 }
 
 // The market history's latest daily average price by resource, asked again

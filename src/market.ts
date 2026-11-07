@@ -135,6 +135,23 @@ export function buyOrderPriceEma(res: ResourceConstant, roomName?: string): numb
   return mid === undefined ? -Infinity : mid / 1000;
 }
 
+// Credits a unit of energy is worth to a room: energy's bid-side slow (what
+// selling it fetches; the delivered ask overstated it by the transfer energy
+// of far orders, ~4x, until 7 Nov 2026), scaled by how full of energy the
+// room's storage is. At or under half its capacity the full price; from there
+// linearly down to nothing at capacity (the energy has nowhere better to go).
+// No room in sight or no storage: the full price. The trader's transfer
+// energy cost and the swipe worth test (swipeworth.ts) both use it.
+export function energyValue(room?: Room): number {
+  const slow = slowOf(trackOf(RESOURCE_ENERGY, "buy"));
+  const price = slow === undefined ? Math.max(0, tryGetBuyOrderPrice(RESOURCE_ENERGY, room?.name)) : slow / 1000;
+  const storage = room?.storage;
+  if (!storage) return price;
+  const fill = storage.store.energy / storage.store.getCapacity();
+  const discount = Math.min(1, Math.max(0, (fill - 0.5) / 0.5));
+  return price * (1 - discount);
+}
+
 // Units of `res` anyone but us is bidding `minPrice` or more for right now;
 // 0 off-market.
 export function bidUnits(res: ResourceConstant, minPrice = 0): number {

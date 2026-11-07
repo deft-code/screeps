@@ -3,7 +3,7 @@ import { register, Task2Ret } from "mycreep";
 import { closeSpawns } from "spawnold";
 import { energyDef } from "spawn";
 import { nomNearby, questSwipe } from "swipe";
-import { anything, Worth } from "swipeworth";
+import { anything, Worth, worthless } from "swipeworth";
 
 // Body budget: 25 CARRY + 25 MOVE is the 50-part cap.
 const kMaxBodyEnergy = 2500;
@@ -14,7 +14,8 @@ const kMaxBodyEnergy = 2500;
 // (Swipe.worth; anything for a mission without). Full, or holding something
 // once the room is dry, it unloads at home (storage, terminal, else the home
 // containers, else dropped at the controller) and goes back for more. What
-// lies within reach on the way is picked up (nomNearby).
+// lies within reach on the way is picked up (nomNearby), unless worthless or
+// not worth it by the mission (a Swipe with ignoreEnergy leaves energy).
 @register
 export class Swiper extends JobCreep {
     // From the spawns nearest home, one MOVE per CARRY (full speed loaded on
@@ -41,6 +42,7 @@ export class Swiper extends JobCreep {
     }
 
     after() {
-        nomNearby(this);
+        const worth = this.worth;
+        nomNearby(this, res => !worthless(res) && worth(res));
     }
 }

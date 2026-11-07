@@ -397,7 +397,11 @@ unit, more than the 5% fee on everything priced over ~1,000.
   `requestMineral`, `run` and its helpers); `energyFill`/`energyDrain` stay.
 - `history.ts` (orphan), the `buy95`/`buy99`/`x100` memory fields after a
   one-time migration (`buy95 -> mid`, `buy99 -> slow`).
-- `swipeworth.ts` keeps its API; `buyOrderPriceEma` reads `mid`.
+- `swipeworth.ts` keeps its API; `buyOrderPriceEma` reads `mid`. Since 7 Nov
+  2026 its energy cost is the trader's `market.energyValue` (bid-side slow,
+  scaled by storage fill) instead of the delivered ask, and `junkIn` never
+  names a stock-ruled resource (the Konmari was about to drop the O and U the
+  trader had bought to `want`).
 
 ## 6. Phases
 
