@@ -48,7 +48,8 @@ const kGuardTTL = CREEP_LIFE_TIME;
 // One found holds the mission (guardedBy, `GUARDED` in status): swiper eggs
 // are purged and none laid, the swipers at home wait by the exit toward the
 // route (job.swiper.ts), the ones out finish their trip. The room seen clear
-// lifts the hold; a sighting nothing can refresh lapses after kGuardTTL.
+// lifts the hold; a sighting nothing can refresh lapses after kGuardTTL; so
+// does windDown(), whose swipers run through the guard until they die.
 // psy372's W5N3 ranger (17 RANGED_ATTACK 8 HEAL 25 MOVE, 170 a tick) stripped
 // four W6N2 swipers of their CARRY on 7 Nov 2026; every route from W3N4 to
 // W6N2 crosses W5N3 or a tower room, so there is nothing to reroute to.
@@ -155,8 +156,10 @@ export class Swipe extends Mission {
     }
 
     // "<room> by <player>" for a route room held by an armed player creep,
-    // else null. Read by Swiper.
+    // else null. Read by Swiper. Winding down lifts it: the swipers left are
+    // to run until they die, not to sit at home.
     get guardedBy(): string | null {
+        if (this.windingDown) return null;
         const guard = this.memory.guard;
         const name = guard && _.first(Object.keys(guard));
         return name ? `${name} by ${guard![name][0]}` : null;

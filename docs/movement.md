@@ -156,18 +156,26 @@ again from the cached `SKInfo`, the callback asked only for entries still
 answer alone.
 
 Route costs for `Game.map.findRoute` (`routeCallback`): own claimed 1, own
-reserved 2, highway 3, ally reserved 4, normal 5, ally claimed 6, SK 7,
-hostile reserved 7 (as SK), hostile claimed 25 when the room has a tower
-(a towerless foreign claim costs 7, as a reservation, since Oct 2026), and 25
-for any room holding a deployed invader core (level 1 and up, whatever its
-controller); a room where we were recently killed costs +20 for 2000 ticks.
-`isAllied` only treats `SYSTEM_USERNAME` as allied. Routes are cached 500
-ticks per unordered room pair, and every cached route that starts, ends or
-passes through a room is dropped the moment that room's cost is recomputed
-to a different value (`purgeRoutes`, from `RoomInfo.update`, logged
-`Rewalker W18S6 route cost 5 -> 25: dropped N cached routes`; a first look
-compares against the blind or guessed cost), so a base's towers coming
-into view reroute the next plan instead of the one 500 ticks later.
+reserved 2, highway 3, ally reserved 4, normal 5, ally claimed 6, hostile
+reserved 7, SK 8 (equal to a reservation at 7 until 7 Nov 2026, when a tie
+sent swipers through W5N4's keepers instead of a reserved W4N3), hostile
+claimed 50 when the room has a tower (a towerless foreign claim costs 7, as a
+reservation, since Oct 2026), and 50 for any room holding a deployed invader
+core (level 1 and up, whatever its controller); a room where we were recently
+killed costs +20 for 2000 ticks. The tower cost was 25 until 7 Nov 2026: a
+murder in a reserved room (7 + 20 = 27) then outranked a tower room, so the
+W6N2 swipers were routed through psy372's W6N3 towers, and counted as deadly
+itself (`unsafeRoom`); at 50 a murdered room always stays the cheaper and the
+safer. `isAllied` only treats `SYSTEM_USERNAME` as allied. Routes are cached
+500 ticks per unordered room pair, and every cached route that starts, ends
+or passes through a room is dropped the moment that room's cost changes:
+recomputed to a different value in sight (`purgeRoutes`, from
+`RoomInfo.update`, logged `Rewalker W18S6 route cost 5 -> 50: dropped N
+cached routes`; a first look compares against the blind or guessed cost), or
+its blind entry lapsing (`blindRoomCost`, since 7 Nov 2026; before, a murder
+mark lapsing out of sight left the detour it had caused cached), so a base's
+towers coming into view reroute the next plan instead of the one 500 ticks
+later.
 `calcRoomCost(room)` returns the cost with a
 `ttl` (how long to trust it blind: 20000 for a base, the collapse timer for
 a core, the reservation's `ticksToEnd`, 2000 for a murder) and a visible

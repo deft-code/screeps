@@ -501,10 +501,18 @@ const ROUTE_HIGHWAY = 3
 const ROUTE_ALLY_RESERVED = 4
 const ROUTE_NORMAL = 5
 const ROUTE_ALLY_CLAIMED = 6
-const ROUTE_SK = 7
-const ROUTE_HOSTILE_RESERVED = ROUTE_SK
-// A base with towers, or a stronghold: a two-room detour is always worth it.
-const ROUTE_HOSTILE_CLAIMED = 25
+const ROUTE_HOSTILE_RESERVED = 7
+// Over a foreign reservation: a keeper room's four keepers hit anything that
+// passes within 3 of them, a reservation's harvesters hit nothing. Equal at 7
+// until 7 Nov 2026, when a tie sent the W6N2 swipers through W5N4's keepers
+// instead of mocnyFull's W4N3.
+const ROUTE_SK = 8
+// A base with towers, or a stronghold: a nine-room detour is always worth it,
+// and a murdered room (+20, calcRoomCost) must stay under it: at 25, until
+// 7 Nov 2026, a kill in a reserved room (7 + 20 = 27) made the next route go
+// through psy372's towers in W6N3 instead, and counted as deadly itself
+// (unsafeRoom).
+const ROUTE_HOSTILE_CLAIMED = 50
 const ROUTE_INVADER_CORE = ROUTE_HOSTILE_CLAIMED
 // Every walkable tile of an unsafe room (unsafeRoom: a hostile base with
 // towers, a deployed invader core) costs at least this in a tile search
@@ -643,7 +651,15 @@ export class Rewalker {
         const mem = this.roomMemory(roomName)
         if (!mem || !mem.cost) return null
         if (mem.cost[1] < Game.time) {
+            // The room's price just changed back to its guess, so the routes
+            // found at the old price are stale, as RoomInfo.update purges
+            // them for a room in sight. Until 7 Nov 2026 only sight purged:
+            // a murder mark lapsing out of sight left the W6N2 swipers on
+            // the detour it had caused, through psy372's towers in W6N3.
+            const before = mem.cost[0]
             delete mem.cost
+            const after = this.guessRoomCost(roomName)
+            if (before !== after) this.purgeRoutes(roomName, before, after)
             return null
         }
         return mem.cost[0]

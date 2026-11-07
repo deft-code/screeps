@@ -60,7 +60,8 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     watchRoute: the Rewalker route home -> target (home excluded; status `route:`) is observeBackground'ed every tick and each room in sight checked for an
          │                                                     armed creep (ATTACK/RANGED_ATTACK) of another player (not keepers, invaders or allies); one found is kept in Memory.missions[m].guard[room] =
          │                                                     [player, tick] (cleared when the room is seen clear, lapses after 1500 ticks unseen) and holds the mission (guardedBy, status `GUARDED:<room> by <player>`):
-         │                                                     swiper eggs purged, none laid, empty swipers at home wait by the exit (Swiper.waitByExit); psy372's W5N3 ranger stripped four swipers' CARRY, 7 Nov 2026
+         │                                                     swiper eggs purged, none laid, empty swipers at home wait by the exit (Swiper.waitByExit); psy372's W5N3 ranger stripped four swipers' CARRY, 7 Nov 2026;
+         │                                                     windDown() lifts the hold (guardedBy is null while winding down) so the swipers left run through the guard until they die
          │                                                     winds down once the target room has no swipe targets left (swipe.ts swipeTargets)
          │                                                     worth(res) (swipeworth.ts, shared with Furiosa's questSwipe): energy always, unless `ignoreEnergy = true` (persisted Memory.missions[m].noenergy:
          │                                                     energy containers and energy-only ruins are not targets, swipers do not pick energy up, and the mission winds down once the other loot is gone
