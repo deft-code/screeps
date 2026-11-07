@@ -277,20 +277,25 @@ export function questSwipe(me: MyBaseCreep, targetRoom: string, homeName: string
 // Grab what lies within reach (a pile, then a tombstone, then a ruin) with
 // whatever intents the tick has left, except the worthless: a Konmari drops
 // that along the swipe roads. No movement. True when something was taken.
-export function nomNearby(me: MyBaseCreep): boolean {
+// Grab what lies within reach: piles, tombstones and ruins beside the creep
+// holding something `worth` taking (by default anything not worthless). A
+// value-mode swiper with a small store passes a stricter worth, or it fills
+// up on the 200 energy in every tower ruin it passes on its way to the
+// storage ruin (Furiosa in W6N2, 7 Nov 2026: 1,200 of 2,600 capacity).
+export function nomNearby(me: MyBaseCreep, worth: Worth = r => !worthless(r)): boolean {
     const room = me.room;
     const pos = me.pos;
     if (!room || !pos || !me.free) return false;
     if (me.intents.canPickup()) {
         const pile = _.find(room.lookForAtRange(LOOK_RESOURCES, pos, 1, true),
-            spot => !worthless(spot[LOOK_RESOURCES].resourceType));
+            spot => worth(spot[LOOK_RESOURCES].resourceType));
         if (pile) return me.pickup(pile[LOOK_RESOURCES]) === OK;
     }
     if (!me.intents.canWithdraw() || !me.intents.canTransfer()) return false;
     for (const look of [LOOK_TOMBSTONES, LOOK_RUINS] as (LOOK_TOMBSTONES | LOOK_RUINS)[]) {
         for (const spot of room.lookForAtRange(look, pos, 1, true)) {
             const holder = (spot as any)[look] as Tombstone | Ruin;
-            const res = _.first(stocked(holder.store, r => !worthless(r)));
+            const res = _.first(stocked(holder.store, worth));
             if (res) return me.withdraw(holder, res) === OK;
         }
     }

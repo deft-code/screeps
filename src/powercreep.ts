@@ -23,7 +23,7 @@ import { CreepKind, TAnyCreep } from "tanycreep";
 import { IntentLog, issue, MyBaseCreep, walkRoom, walkTo } from "mybasecreep";
 import { Intents } from "intents";
 import * as swipe from "swipe";
-import { swipeWorth } from "swipeworth";
+import { minSwipePrice, swipeWorth, unitValue } from "swipeworth";
 
 declare global {
     interface PowerCreepMemory {
@@ -398,13 +398,17 @@ export class MyPowerCreep extends TPowerCreep implements MyBaseCreep {
     // The shared swipe quest, choosing targets by the value of what they hold
     // (a power creep's store is small and its life long), renewing at any
     // own power spawn passed on the way and grabbing what lies within reach
-    // (swipe.nomNearby). A status string, or false once the creep is empty
-    // and the target room has nothing left worth the trip (swipeworth.ts,
-    // priced for homeRoom).
+    // (swipe.nomNearby) when it is worth the trip and at least the minimum
+    // swipe price a unit: energy is always worth the trip but not worth a
+    // slot of a 2,600 store on the way to a storage ruin. A status string, or
+    // false once the creep is empty and the target room has nothing left
+    // worth the trip (swipeworth.ts, priced for homeRoom).
     questSwipe(targetRoom: string, homeRoom: string): string | false {
         this.idleRenew();
-        const ret = swipe.questSwipe(this, targetRoom, homeRoom, swipeWorth(homeRoom), "value");
-        swipe.nomNearby(this);
+        const worth = swipeWorth(homeRoom);
+        const ret = swipe.questSwipe(this, targetRoom, homeRoom, worth, "value");
+        const floor = minSwipePrice(homeRoom);
+        swipe.nomNearby(this, r => worth(r) && unitValue(r) >= floor);
         return ret;
     }
 }
