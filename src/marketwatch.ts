@@ -41,12 +41,15 @@ const kPriceX = 1.5;
 const kTxX = 5;
 const kTxMin = 50;
 const kMinDays = 6;
+// Credits: resources whose clean price is under this are never suspects.
+const kMinBase = 1;
 const kBlacklistDays = 8;
 const kDay = 86400000;
 const kResolveTicks = 50;
 const kRadarPerPass = 3;
-// Most outlier orders followed per suspect.
+// Most outlier orders followed per suspect, and most rooms tallied for it.
 const kMaxFollowed = 60;
+const kMaxRooms = 24;
 
 interface Followed {
     room: string
@@ -77,6 +80,9 @@ function checkHistory(res: ResourceConstant) {
     const current = all[res];
     const base = current ? current.base : quartile(days.map(d => d.avgPrice));
     const txBase = current ? current.txBase : Math.max(1, quartile(days.map(d => d.transactions)));
+    // A junk-priced resource (GH averages 0.001) has no clean price to be
+    // pumped against, and every order would count as an outlier.
+    if (base < kMinBase) return;
     const pumped = (d: PriceHistory) => d.avgPrice > kPriceX * base && d.transactions > Math.max(kTxX * txBase, kTxMin);
     const recent = days.slice(-2);
     if (!current) {
@@ -118,7 +124,9 @@ function watch(res: string, info: MarketSuspect) {
         seen.set(o.id, { room: o.roomName, price: o.price, type: o.type, first: Game.time, last: Game.time });
         info.seen = (info.seen || 0) + 1;
         info.rooms = info.rooms || {};
-        info.rooms[o.roomName] = (info.rooms[o.roomName] || 0) + 1;
+        if (o.roomName in info.rooms || _.size(info.rooms) < kMaxRooms) {
+            info.rooms[o.roomName] = (info.rooms[o.roomName] || 0) + 1;
+        }
         debug.log("marketwatch: outlier", res, o.type, o.price, "x", o.remainingAmount, "from", o.roomName, "clean", Math.round(info.base));
     }
     for (const [id, f] of seen) {

@@ -3,7 +3,7 @@ import { Priority, register, Service } from "process";
 import { getAllOrders, getOrderById, marketDisabled } from "markethack";
 import { isSuspect } from "marketcfg";
 import { ruleFor, ruledResources, StockRule } from "stockrules";
-import { oldestOf, slowOf, trackOf, transferRate, tryGetBuyOrderPrice } from "market";
+import { oldestOf, slowOf, trackOf, transferRate, tryGetBuyOrderPrice, tryGetSellOrderPrice } from "market";
 
 // The trader (docs/market-design.md), in its dry-run form: nothing here calls
 // Game.market.deal. Every tick it looks at a few ruled resources (kPerTick,
@@ -49,8 +49,8 @@ type ScenarioName = typeof kScenarioNames[number];
 
 // Resources examined per tick.
 const kPerTick = 5;
-// A candidate older than this is re-evaluated before it is used.
-const kFresh = 12;
+// A candidate older than one evaluation cycle plus this is not used.
+const kFreshSlack = 2;
 // Paper terminal cooldown per deal.
 const kCooldown = TERMINAL_COOLDOWN;
 // Fills kept per ledger.
@@ -64,6 +64,8 @@ const kBand = 0.02;
 const kTypicalRate = 0.75;
 // Default chunk when the rule has none.
 const kChunk = 1000;
+// Ticks between rebuilds of the ruled resource list.
+const kRuledTicks = 50;
 
 type Kind = "need" | "want" | "surplus" | "glut";
 type Dir = "buy" | "sell";
@@ -209,9 +211,27 @@ export class Trader extends Service {
         return "low";
     }
 
+    private ruled: ResourceConstant[] = [];
+    private ruledTick = -1;
+
+    // The ruled resources, recomputed every kRuledTicks (a console override
+    // may add one).
+    ruledNow(): ResourceConstant[] {
+        if (Game.time - this.ruledTick >= kRuledTicks) {
+            this.ruled = ruledResources() as ResourceConstant[];
+            this.ruledTick = Game.time;
+        }
+        return this.ruled;
+    }
+
+    // Ticks a candidate stays usable: one pass over the ruled resources plus slack.
+    fresh(): number {
+        return Math.ceil(this.ruledNow().length / kPerTick) + kFreshSlack;
+    }
+
     // Examine the next kPerTick ruled resources and refresh their candidates.
     evaluateSome(rooms: Room[]) {
-        const all = ruledResources() as ResourceConstant[];
+        const all = this.ruledNow();
         if (!all.length) return;
         for (let i = 0; i < kPerTick; i++) {
             const res = all[this.cursor++ % all.length];
@@ -222,8 +242,9 @@ export class Trader extends Service {
 
     evaluate(res: ResourceConstant, rooms: Room[]) {
         this.evaluated++;
-        // Pricing the resource is what keeps its tracker current.
+        // Pricing both sides is what keeps the tracker's `now` current.
         tryGetBuyOrderPrice(res);
+        tryGetSellOrderPrice(res);
         const orders = getAllOrders({ resourceType: res }).filter(o => !Game.market.orders[o.id] && o.amount > 0 && !!o.roomName);
         const view: ResView = {
             res, rule: ruleFor(res), suspect: isSuspect(res),
@@ -370,8 +391,9 @@ export class Trader extends Service {
             const ledger = sims[scn];
             for (const room of rooms) {
                 if ((ledger.cool[room.name] || 0) > Game.time) continue;
+                const fresh = this.fresh();
                 const mine = Array.from(this.candidates.values())
-                    .filter(c => c.scn === scn && c.room === room.name && c.qty > 0 && Game.time - c.tick <= kFresh);
+                    .filter(c => c.scn === scn && c.room === room.name && c.qty > 0 && Game.time - c.tick <= fresh);
                 if (!mine.length) continue;
                 const rank = (c: Candidate) => (c.kind === "need" || c.kind === "glut" ? 1e12 : 0) + c.delta;
                 mine.sort((a, b) => rank(b) - rank(a));
@@ -387,6 +409,9 @@ export class Trader extends Service {
         this.candidates.delete(this.key(c.scn, c.room, c.res, c.kind));
         const order = getOrderById(c.orderId);
         if (!order || order.amount <= 0) return false;
+        // Repriced since the evaluation: the edge was computed on the old
+        // price, so let the next evaluation judge it again.
+        if (Math.abs(order.price - c.price) > 1e-6) return false;
         const qty = Math.min(c.qty, this.available(ledger, c.res, order));
         if (qty <= 0) return false;
         const rate = transferRate(room.name, c.orderRoom);
@@ -440,7 +465,8 @@ export function report(scn?: string, fills = 0): string {
         for (const res of Object.keys(l.stats).sort()) {
             const [bought, spent, sold, earned, deals] = l.stats[res];
             const net = _.sum(_.values(l.delta), (d: any) => d[res] || 0) as number;
-            const mark = credits(slowOf(trackOf(res as ResourceConstant, "buy"))) ?? 0;
+            const rec = Memory.market[res as ResourceConstant];
+            const mark = credits(slowOf(rec && rec.b)) ?? 0;
             marked += net * mark;
             rows.push(`  ${res.padEnd(14)} ${String(deals).padStart(3)} deals  bought ${String(bought).padStart(6)} for ${Math.round(spent).toLocaleString().padStart(12)}` +
                 `  sold ${String(sold).padStart(6)} for ${Math.round(earned).toLocaleString().padStart(12)}  net ${String(net).padStart(6)} @ ${mark.toFixed(1)}`);
