@@ -16,7 +16,11 @@
 // taking, have no rampart on top, are not nukers (withdrawing from one is
 // bugged) and have not refused us lately: a withdraw that fails with
 // ERR_NOT_OWNER (a hostile rampart over it) or a walk that finds no path
-// (walled in) skips the structure for kSkipTicks. Full, or holding something
+// (walled in) skips the structure for kSkipTicks. Since 7 Nov 2026 also
+// the room's dropped piles of kMinPile or more of something worth taking
+// (what a killed swiper spilled, or a harvester drop-mined), ranked and
+// picked like the stores and picked up rather than withdrawn; smaller piles
+// are left to nomNearby, which grabs anything within reach. Full, or holding something
 // when the room has nothing left, the creep carries the load home: the home
 // storage, else the terminal, else (a young room) the container with the
 // most free space, else dropped within 3 of the controller; one resource a
@@ -76,21 +80,39 @@ function hasStocked(store: AnyStore, worth: Worth): boolean {
     return _.any(Object.keys(s), res => s[res] > 0 && worth(res as ResourceConstant));
 }
 
-// What a swiper loots: a structure with a store, or a ruin.
-export type SwipeTarget = AnyStoreStructure | Ruin;
+// A dropped pile this big is a target in its own right (smaller ones are
+// nomNearby's, within reach only).
+export const kMinPile = 100;
+
+// What a swiper loots: a structure with a store, a ruin, or a dropped pile.
+export type SwipeTarget = AnyStoreStructure | Ruin | Resource;
 
 export function isRuin(t: SwipeTarget | AnyStructure): t is Ruin {
     return (t as Ruin).structure !== undefined && (t as Ruin).ticksToDecay !== undefined;
 }
 
-// For logs: "storage" or "ruin of storage".
+export function isPile(t: SwipeTarget | AnyStructure): t is Resource {
+    return (t as Resource).resourceType !== undefined && (t as Resource).amount !== undefined;
+}
+
+// What a target holds, as a store: a pile is its one resource.
+export function storeOf(t: SwipeTarget): AnyStore {
+    if (isPile(t)) return { [t.resourceType]: t.amount } as unknown as AnyStore;
+    return t.store;
+}
+
+// For logs: "storage", "ruin of storage" or "pile of X".
 export function targetKind(t: SwipeTarget): string {
+    if (isPile(t)) return `pile of ${t.resourceType}`;
     return isRuin(t) ? `ruin of ${t.structure.structureType}` : t.structureType;
 }
 
 // May a swiper loot this structure or ruin (see the header)? `skip` is the
 // creep's refusal list, id -> tick until which it is left alone.
-export function isSwipeTarget(s: AnyStructure | Ruin, skip: { [id: string]: number } = {}, worth: Worth = anything): s is SwipeTarget {
+export function isSwipeTarget(s: AnyStructure | Ruin | Resource, skip: { [id: string]: number } = {}, worth: Worth = anything): s is SwipeTarget {
+    if (isPile(s)) {
+        return s.amount >= kMinPile && worth(s.resourceType) && !(skip[s.id] > Game.time);
+    }
     if (isRuin(s)) {
         return hasStocked(s.store, worth) &&
             !(skip[s.id] > Game.time) &&
@@ -104,11 +126,12 @@ export function isSwipeTarget(s: AnyStructure | Ruin, skip: { [id: string]: numb
         !_.any(s.pos.lookFor(LOOK_STRUCTURES), r => r.structureType === STRUCTURE_RAMPART);
 }
 
-// Structures and ruins in `room` a swiper may loot.
+// Structures, ruins and piles (kMinPile and up) in `room` a swiper may loot.
 export function swipeTargets(room: Room, skip: { [id: string]: number } = {}, worth: Worth = anything): SwipeTarget[] {
     const structs = room.find(FIND_STRUCTURES, { filter: (s: AnyStructure) => isSwipeTarget(s, skip, worth) }) as SwipeTarget[];
     const ruins = room.find(FIND_RUINS, { filter: (r: Ruin) => isSwipeTarget(r, skip, worth) }) as SwipeTarget[];
-    return structs.concat(ruins);
+    const piles = room.find(FIND_DROPPED_RESOURCES, { filter: (r: Resource) => isSwipeTarget(r, skip, worth) }) as SwipeTarget[];
+    return structs.concat(ruins, piles);
 }
 
 // The creep's swipe state, made on first use.
@@ -139,7 +162,7 @@ export function pickTarget(me: MyBaseCreep, mem: SwipeMemory, worth: Worth, pick
     const targets = swipeTargets(room, mem.skip, worth);
     if (!targets.length) return null;
     if (pick === "value") {
-        const ranked = targets.map(t => ({ t, value: unitValue(_.first(byValue(t.store, worth))!) }));
+        const ranked = targets.map(t => ({ t, value: unitValue(_.first(byValue(storeOf(t), worth))!) }));
         const top = _.max(ranked, r => r.value).value;
         return pos.findClosestByRange(ranked.filter(r => r.value >= top).map(r => r.t));
     }
@@ -164,7 +187,17 @@ export function swipeFrom(me: MyBaseCreep, mem: SwipeMemory, target: SwipeTarget
         }
         return `to ${targetKind(target)}`;
     }
-    const res = pick === "value" ? _.first(byValue(target.store, worth)) : _.first(stocked(target.store, worth));
+    if (isPile(target)) {
+        // pickup takes what fits (no amount to size); a pile under a hostile
+        // rampart is still picked up from beside it.
+        const err = me.pickup(target);
+        if (err === OK) return `picking up ${target.resourceType}`;
+        me.log("pickup of", targetKind(target), "at", target.pos, "failed", err);
+        delete mem.target;
+        return "retarget";
+    }
+    const store = storeOf(target);
+    const res = pick === "value" ? _.first(byValue(store, worth)) : _.first(stocked(store, worth));
     if (!res) return "retarget";
     const err = me.withdraw(target, res);
     if (err === OK) return `swiping ${res}`;

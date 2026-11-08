@@ -65,7 +65,8 @@ Process                      run(): Priority; kill()           (process.ts)
          │                                                     when a guard moves); once a toxic stands in every guarded room (`baited`) the hold lifts (Swipe.hold, what Swiper reads) and the swipers run
          │                                                     past the distracted guard (a HEAL guard outlasts a bait, so it is a decoy); windDown() lifts the hold too, so the swipers left run until they
          │                                                     die; Mission.resume() cancels a windDown (deletes Memory.missions[m].windDown and tombs)
-         │                                                     winds down once the target room has no swipe targets left (swipe.ts swipeTargets)
+         │                                                     winds down once the target room has no swipe targets left (swipe.ts swipeTargets: uncovered foreign stores, ruins, and since 7 Nov 2026 dropped piles
+         │                                                     of kMinPile (100) or more of something worth taking, ranked with the stores by unit value and picked up; smaller piles are nomNearby's)
          │                                                     worth(res) (swipeworth.ts, shared with Furiosa's questSwipe): energy always, unless `ignoreEnergy = true` (persisted Memory.missions[m].noenergy:
          │                                                     energy containers and energy-only ruins are not targets, swipers do not pick energy up, and the mission winds down once the other loot is gone
          │                                                     rather than contest the energy with the room's harvesters; Nov 2026); else market.getBuyOrderPrice(res) >= 2 x market.energyValue(home room)

@@ -4,7 +4,7 @@ import { register, Priority } from "process";
 import * as debug from "debug";
 import { Scout } from "job.scout";
 import { Swiper } from "job.swiper";
-import { isRuin, swipeTargets, SwipeTarget } from "swipe";
+import { isRuin, storeOf, swipeTargets, SwipeTarget } from "swipe";
 import { Konmari } from "job.konmari";
 import { Toxic } from "job.toxic";
 import { junkIn, minSwipePrice, Worth, worthSwiping } from "swipeworth";
@@ -111,7 +111,7 @@ export class Swipe extends Mission {
         let units = 0;
         let decay = Infinity;
         for (const t of targets) {
-            const s = t.store as unknown as { [res: string]: number };
+            const s = storeOf(t) as unknown as { [res: string]: number };
             for (const res of Object.keys(s)) if (s[res] > 0 && worth(res as ResourceConstant)) units += s[res];
             if (isRuin(t)) decay = Math.min(decay, t.ticksToDecay);
         }
