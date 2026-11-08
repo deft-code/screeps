@@ -1,12 +1,28 @@
 import { JobCreep } from "job.creep";
 import { register, Task2Ret } from "mycreep";
 import { closeSpawns } from "spawnold";
-import { energyDef } from "spawn";
 import { nomNearby, questSwipe } from "swipe";
 import { anything, Worth, worthless } from "swipeworth";
 
-// Body budget: 25 CARRY + 25 MOVE is the 50-part cap.
-const kMaxBodyEnergy = 2500;
+// The body (swiperBody): kFrontPairs of CARRY, MOVE, then CARRY, MOVE, MOVE
+// to the 50-part cap (21 CARRY, 29 MOVE, 2500 energy, 1,050 capacity),
+// shortened from the tail to the energy on hand. Damage eats a body from
+// the front: a swiper that has lost its front pairs is left with two MOVE
+// per CARRY, so it speeds up after a beating and holds that speed, instead
+// of crawling home (every CARRY first, until 7 Nov 2026) or losing a CARRY
+// and a MOVE a hit for the whole body (interleaved, the same day).
+const kFrontPairs = 13;
+const kMaxParts = 50;
+const kPartCost = BODYPART_COST[CARRY];
+
+// The plan above cut to what `energy` buys, never under one pair.
+export function swiperBody(energy: number): BodyPartConstant[] {
+    const plan: BodyPartConstant[] = [];
+    for (let i = 0; i < kFrontPairs; i++) plan.push(CARRY, MOVE);
+    while (plan.length + 3 <= kMaxParts) plan.push(CARRY, MOVE, MOVE);
+    const parts = Math.max(2, Math.min(plan.length, Math.floor(energy / kPartCost)));
+    return plan.slice(0, parts);
+}
 // How close to the home exit a swiper waits while the route is held.
 const kWaitRange = 4;
 
@@ -31,19 +47,13 @@ const kWaitRange = 4;
 // loop on ERR_FULL, so it suicides.
 @register
 export class Swiper extends JobCreep {
-    // From the spawns nearest home, one MOVE per CARRY (full speed loaded on
-    // plains), sized to the energy on hand up to the 50-part cap, the parts
-    // interleaved (CARRY, MOVE, CARRY, MOVE, ...): damage eats a body from
-    // the front, and with every CARRY ahead of the MOVEs psy372's ranger
-    // took all 25 CARRY off a swiper that then ran home at full speed with
-    // nothing (7 Nov 2026). Interleaved, each hit costs a CARRY and a MOVE,
-    // so the survivor keeps its speed and part of its load.
+    // From the spawns nearest home, the body plan above sized to the energy
+    // on hand (every part costs kPartCost).
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         const close = closeSpawns(spawns, this.homeName) as StructureSpawn[];
         const spawn = _.find(close, s => !s.spawning) || _.first(close);
         if (!spawn) return [null, []];
-        const energy = Math.min(spawn.room.energyAvailable, kMaxBodyEnergy);
-        return [spawn, energyDef({ move: 1, per: [CARRY], energy, interleave: true } as any)];
+        return [spawn, swiperBody(spawn.room.energyAvailable)];
     }
 
     // The mission's pricing (Swipe.worth); anything goes for a mission without.
