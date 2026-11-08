@@ -2,13 +2,16 @@ import { JobCreep } from "job.creep";
 import { CreepCarry } from "creep.carry";
 import { register, Task2Ret } from "mycreep";
 import { closeSpawns } from "spawnold";
+import { combatCarrier } from "spawn";
 import { roomCenterPos } from "intel";
 import { fleeKeepers } from "job.skharvester";
 import type { SkFarm } from "ms.skfarm";
 
 // The SK farm's hauler (ms.skfarm.ts): carries the energy the Skharvesters
-// drop-mine into their containers home. Body [CARRY, MOVE] x 25 (2500
-// energy, 1250 carry), spawned in the mission's home room (else the spawns
+// drop-mine into their containers home. Body: spawn.ts's combat carrier of
+// kUnits pairs (25 CARRY, 25 MOVE, 2500 energy, 1250 carry; CARRY in front
+// so a hit keeper or invader leaves it faster, not slower; [CARRY, MOVE] x 25
+// until 7 Nov 2026), spawned in the mission's home room (else the spawns
 // nearest the mission room), only with the whole cost in hand. SkFarm paces
 // as many as there are containers holding at least 500 energy.
 //
@@ -36,7 +39,7 @@ const kUnits = 25;
 
 @register
 export class Sktrucker extends JobCreep {
-    static readonly body: BodyPartConstant[] = _.flatten(_.times(kUnits, () => [CARRY, MOVE])) as BodyPartConstant[];
+    static readonly body: BodyPartConstant[] = combatCarrier(Infinity, kUnits);
 
     static readonly cost = _.sum(Sktrucker.body, part => BODYPART_COST[part]);
 

@@ -30,6 +30,13 @@ const kRepairChunk = 100000;
 // raised rampart ceiling (an RCL up) gets its upkeep without the worker
 // bouncing to every road first.
 const kRampartBias = 0.1;
+// Ramparts and walls are raised in waves: one is a candidate only while its
+// hits are within this of the lowest candidate rampart or wall's, so the
+// whole shell climbs a chunk at a time. Until Nov 2026 the only gate was
+// the worse half of every candidate, roads included, and a room with many
+// worn roads made that half hold every rampart: W3N4's worker1 kept taking
+// the 1.2M rampart beside the spawn over 30 ramparts under 2.5k.
+const kWaveBand = kRepairChunk;
 // A road or container is left alone until it is down to this fraction of
 // its ceiling: repair restores up to the creep's power a tick (100 hits
 // per WORK) at 1 energy per 100 hits, so topping up a shallow gap spends a
@@ -109,8 +116,9 @@ export class CreepRepair extends CreepBuild {
     // does not decay (lowest hits / hitsMax; foreign ones, an invader core
     // or another player's leftovers, are never ours to mend), else the
     // nearest of the worse half of the decaying structures on the repair
-    // scale (repairScale, Infinity left out; the half rounds up, so one
-    // candidate is itself): nearest by the Rewalker's walk to repair range
+    // scale (repairScale, Infinity left out; ramparts and walls only in the
+    // current wave, within kWaveBand hits of the lowest of them; the half
+    // rounds up, so one candidate is itself): nearest by the Rewalker's walk to repair range
     // (planWalk, which also stores the walk for the task), the lowest scale
     // when no walk is found. Null with nothing to do.
     repairPick(structs: Structure[], wear = kWearFraction): Structure | null {
@@ -133,8 +141,13 @@ export class CreepRepair extends CreepBuild {
         }
         if (hurt) return hurt;
         if (!scored.length) return null;
-        scored.sort((a, b) => a.scale - b.scale);
-        const worst = scored.slice(0, Math.ceil(scored.length / 2)).map(x => x.struct);
+        let lowWall = Infinity;
+        for (const x of scored) {
+            if (rampartish(x.struct)) lowWall = Math.min(lowWall, x.struct.hits);
+        }
+        const wave = scored.filter(x => !rampartish(x.struct) || x.struct.hits <= lowWall + kWaveBand);
+        wave.sort((a, b) => a.scale - b.scale);
+        const worst = wave.slice(0, Math.ceil(wave.length / 2)).map(x => x.struct);
         // One already in reach needs no walk, so no search.
         const near = _.find(worst, s => this.pos.inRangeTo(s, buildRange(s.pos)));
         if (near) return near;

@@ -1,28 +1,18 @@
 import { JobCreep } from "job.creep";
 import { register, Task2Ret } from "mycreep";
 import { closeSpawns } from "spawnold";
+import { combatCarrier } from "spawn";
 import { nomNearby, questSwipe } from "swipe";
 import { anything, Worth, worthless } from "swipeworth";
 
-// The body (swiperBody): kFrontPairs of CARRY, MOVE, then CARRY, MOVE, MOVE
-// to the 50-part cap (21 CARRY, 29 MOVE, 2500 energy, 1,050 capacity),
-// shortened from the tail to the energy on hand. Damage eats a body from
-// the front: a swiper that has lost its front pairs is left with two MOVE
-// per CARRY, so it speeds up after a beating and holds that speed, instead
-// of crawling home (every CARRY first, until 7 Nov 2026) or losing a CARRY
-// and a MOVE a hit for the whole body (interleaved, the same day).
-const kFrontPairs = 13;
-const kMaxParts = 50;
-const kPartCost = BODYPART_COST[CARRY];
+// The body is spawn.ts's combat carrier sized to the energy on hand (25
+// CARRY, 25 MOVE, 1,250 capacity at the 50-part cap): damage takes CARRY
+// first until two MOVE stand per CARRY, then holds that ratio, so a beaten
+// swiper speeds up for the rest of its trip. Before 7 Nov 2026 every CARRY
+// came first and a swiper stripped of them ran home empty; the same day it
+// was interleaved pairs, then 13 pairs and (CARRY, MOVE, MOVE) to the cap
+// (21 CARRY, 1,050 capacity), until the combat carrier replaced both.
 
-// The plan above cut to what `energy` buys, never under one pair.
-export function swiperBody(energy: number): BodyPartConstant[] {
-    const plan: BodyPartConstant[] = [];
-    for (let i = 0; i < kFrontPairs; i++) plan.push(CARRY, MOVE);
-    while (plan.length + 3 <= kMaxParts) plan.push(CARRY, MOVE, MOVE);
-    const parts = Math.max(2, Math.min(plan.length, Math.floor(energy / kPartCost)));
-    return plan.slice(0, parts);
-}
 // How close to the home exit a swiper waits while the route is held.
 const kWaitRange = 4;
 
@@ -47,13 +37,13 @@ const kWaitRange = 4;
 // loop on ERR_FULL, so it suicides.
 @register
 export class Swiper extends JobCreep {
-    // From the spawns nearest home, the body plan above sized to the energy
-    // on hand (every part costs kPartCost).
+    // From the spawns nearest home, the combat carrier sized to the energy
+    // on hand.
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         const close = closeSpawns(spawns, this.homeName) as StructureSpawn[];
         const spawn = _.find(close, s => !s.spawning) || _.first(close);
         if (!spawn) return [null, []];
-        return [spawn, swiperBody(spawn.room.energyAvailable)];
+        return [spawn, combatCarrier(spawn.room.energyAvailable)];
     }
 
     // The mission's pricing (Swipe.worth); anything goes for a mission without.

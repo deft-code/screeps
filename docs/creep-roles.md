@@ -76,8 +76,9 @@ Worker, Mason, Farmer, Cart, Bootstrap and Paver repair through
    hitsMax, whatever a retired tile's meta says). Foreign structures, an
    invader core included, are never repaired.
 2. Otherwise the nearest of the worse half of the decaying structures on
-   the repair scale (`repairPick`: every finite `repairScale` sorted, the
-   lower half kept rounding up, then `Rewalker.planWalk` to repair range
+   the repair scale (`repairPick`: every finite `repairScale`, ramparts and
+   walls only while within `kWaveBand` (100k) hits of the lowest of them, so
+   the shell rises in waves; sorted, the lower half kept rounding up, then `Rewalker.planWalk` to repair range
    picks the cheapest walk among them and stores it; the lowest scale when
    no walk is found). `repairScale` is `hits / room.maxHits(struct)`, with ramparts and walls
    read `kRampartBias` (0.1) lower so they win ties and near-ties. Left
@@ -108,7 +109,10 @@ the worse half. A rampart at 1.2M
 Five ramparts at 0.9 and one at 0.3 [1M]: the worse half is the 0.3 one
 and two of the 0.9 ones, and the nearest of those three is taken, so the
 0.3 one is not necessarily first; over a few tasks they all come up and
-even out. With hurt
+even out. Thirty ramparts under 2.5k and one at 1.2M [20M], with fifty worn
+roads: the 1.2M one is out of the wave until the rest reach 1.1M (until
+Nov 2026 the roads made the worse half big enough to hold it, and W3N4's
+worker1, refilling beside it, took it every time). With hurt
 extensions present the lowest one is made whole first, then the next.
 
 Until Oct 2026 a task ran to `hits + 100k` whatever `maxHits` said and the

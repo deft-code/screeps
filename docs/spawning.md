@@ -105,7 +105,16 @@ rooms the 50-part cap. `wolf` (`per: [ATTACK]`,
 - **Reboot**: same shape but sized from `energyAvailable`, so it spawns
   immediately with whatever is in the spawn; the spawn is a random one in the
   mission room, or any spawn if the room has none.
-- **Scout**: `[MOVE]`. **Swiper**: `[MOVE, CARRY]`.
+- **Scout**: `[MOVE]`.
+- **Combat carrier** (`spawn.ts combatCarrier(energy, maxPairs = 25)`): Swiper
+  (sized to the energy on hand), Sktrucker and Looter (25 pairs), Skvulture
+  (17 pairs). n CARRY and n MOVE ending in a fixed tail (`kCombatCarrierTails`):
+  none under 13 pairs, `MMMMM` from 13 (1300 energy), `MMMMMCMMMMM` from 18
+  (1800), so the last CARRY parts ride with five MOVE each (full speed loaded
+  on swamp). Damage eats from the front, and each part ahead of the tail is
+  laid so the one lost is a MOVE when the whole creep keeps two MOVE per
+  CARRY, else a CARRY. 550: `CCCMCMMCMM`; 800: `CCCCCMMCMMCMMCMM`; 1300:
+  `CCCCCCCMCMMCMMCMMCMCCMMMMM`; 1800: `CCCCCCCCCCMMCMMCMMCMMCCCCMMMMMCMMMMM`.
 - **JobRole subclasses** (`Worker`, `Ctrl`, `Hub`, `Hauler`, `Srcer`):
   `localSpawn(spawns, eggMem)` -> `findSpawns(spawns, mission.roomName, {spawn:"local", body: role, ...eggMem})`
   -> `buildBody(possibleSpawns, eggMem, { maxRCL })`.

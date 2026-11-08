@@ -2,12 +2,15 @@ import { JobCreep } from "job.creep";
 import { CreepCarry } from "creep.carry";
 import { register, Task2Ret } from "mycreep";
 import { closeSpawns } from "spawnold";
+import { combatCarrier } from "spawn";
 import { roomCenterPos } from "intel";
 
 // Source Keeper room scavenger for the SK farm (ms.skfarm.ts): the hauler
 // that follows the Skhunter (job.skhunter.ts) around and picks the room
-// clean. Body [CARRY, MOVE] x 17 (1700 energy, 850 carry), spawned in
-// the mission's home room (else the spawns nearest the mission room), only
+// clean. Body: spawn.ts's combat carrier of kUnits pairs (17 CARRY, 17
+// MOVE, 1700 energy, 850 carry; CARRY in front so a hit leaves it faster,
+// not slower; [CARRY, MOVE] x 17 until 7 Nov 2026), spawned in the
+// mission's home room (else the spawns nearest the mission room), only
 // when that room has the whole cost in hand.
 //
 // Each tick, in order:
@@ -71,7 +74,7 @@ declare global {
 
 @register
 export class Skvulture extends JobCreep {
-    static readonly body: BodyPartConstant[] = _.flatten(_.times(kUnits, () => [CARRY, MOVE])) as BodyPartConstant[];
+    static readonly body: BodyPartConstant[] = combatCarrier(Infinity, kUnits);
 
     static readonly cost = _.sum(Skvulture.body, part => BODYPART_COST[part]);
 

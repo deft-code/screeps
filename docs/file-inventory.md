@@ -29,7 +29,7 @@ Status legend:
 | `src/enemy.ts` | LIVE (`main.ts`) | 2026 | `enemyOf(creep)`/`enemyById(id)`/`enemiesIn(room)`: `EnemyCreep`/`EnemyPowerCreep` wrappers by id in a `tobj.ts` `Registry` (100-tick collections). |
 | `src/swipe.ts` | REACHABLE (Swiper, Furiosa) | 2026 | The swipe quest for any `MyBaseCreep`: `questSwipe` over `memory.swipe`, `swipeTargets`/`isSwipeTarget` (structures with a store and, since 7 Nov 2026, ruins: a torn-down storage keeps its stock in one), `pickTarget` (by path or by value), `swipeFrom`, `deliverHome`/`unloadStore`/`unloadLatch`, `nomNearby`. |
 | `src/mycreep.ts` | LIVE | 2022, on `TCreep` since Nov 2026 | `MyCreep` wrapper (exists from the egg on; `c` typed non-null for the jobs, null at runtime for an egg), role registry, `@task`, `Task2Ret`, intent-tracking wrappers for every Creep action sharing the Creep's `tick.intents` with the legacy roles. |
-| `src/spawn.ts` | LIVE | 2022 | `SpawnDaemon`, `energyDef`, `runSpawns`. |
+| `src/spawn.ts` | LIVE | 2022 | `SpawnDaemon`, `energyDef`, `combatCarrier` (the CARRY/MOVE body that keeps two MOVE per CARRY as it is shot: Swiper, Sktrucker, Looter, Skvulture), `runSpawns`. |
 | `src/spawnload.ts` | LIVE | 2026 | `SpawnTelemetry` daemon: per-spawn busy ticks and creeps started in `Memory.spawns`; `spawnLoad`/`spawnRate` (+`Long`, `room*`, `global*`) readers, console `spawnLoads()`. No consumer yet. |
 | `src/service.flag.ts` | LIVE | 2022 | `FlagService` daemon -> metastruct genesis. |
 | `src/ms.globalrespawn.ts` | LIVE | 2022 | The active mission. |

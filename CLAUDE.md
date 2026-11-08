@@ -128,7 +128,7 @@ main.ts
  │   intents.ts       Intents: the per-tick record (a Creep's tick.intents) with the can*() checks and set*() records every layer uses
  │   enemy.ts         enemyOf(creep) / enemiesIn(room): EnemyCreep/EnemyPowerCreep by id in a tobj.ts Registry
  │   swipe.ts         the swipe quest for any MyBaseCreep (Swiper job and Furiosa): targets (structures and ruins), skip list, deliver home, nomNearby
- ├─ spawn.ts        SpawnDaemon + energyDef; spawnold.ts supplies findSpawns/buildBody body table
+ ├─ spawn.ts        SpawnDaemon + energyDef + combatCarrier (CARRY/MOVE body that speeds up when shot); spawnold.ts supplies findSpawns/buildBody body table
  ├─ creep.role.ts   dispatch: creep name "asrc3" -> role "asrc" -> Creep.prototype.roleAsrc()
  │   creep.ts > creep.role.ts > creep.move.ts > creep.carry.ts > creep.harvest/build/repair.ts (mixins); creep.t is the creep's MyCreep, and creep.move.ts walks through t.walkTo, so a 2017 role's walk gets its job's WalkOptions
  │   role.*.ts (@injecter(Creep)) add roleXxx/afterXxx; the 2017 ones extend the creep.work -> creep.heal chain and are imported last, so they win a collision

@@ -4,7 +4,7 @@ import { dodgeKeepers } from "job.skharvester";
 import type { Loot } from "ms.loot";
 
 // Empties the containers for the Loot mission (ms.loot.ts): a Sktrucker
-// (job.sktrucker.ts, CARRY, MOVE x 25 from the home room) pointed at the
+// (job.sktrucker.ts, its 25-pair combat carrier from the home room) pointed at the
 // mission room's uncovered containers (Loot.openContainers) and taking
 // every resource they hold, not just energy: the fullest container first,
 // its largest stack each tick. Full, or old with a load, it carries the

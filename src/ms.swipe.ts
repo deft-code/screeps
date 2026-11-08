@@ -3,7 +3,8 @@ import { Mission } from "mission";
 import { register, Priority } from "process";
 import * as debug from "debug";
 import { Scout } from "job.scout";
-import { Swiper, swiperBody } from "job.swiper";
+import { Swiper } from "job.swiper";
+import { combatCarrier } from "spawn";
 import { isRuin, storeOf, swipeTargets, SwipeTarget } from "swipe";
 import { Konmari } from "job.konmari";
 import { Toxic } from "job.toxic";
@@ -19,8 +20,8 @@ const kSparkJoyJitter = 100;
 const kMinSwipers = 2;
 const kMaxSwipers = 8;
 const kClearTicks = 20000;
-// A swiper's load: the CARRY parts of job.swiper.ts's full body plan.
-const kSwiperLoad = swiperBody(Infinity).filter(p => p === CARRY).length * CARRY_CAPACITY;
+// A swiper's load: the CARRY parts of a full-size combat carrier (spawn.ts).
+const kSwiperLoad = combatCarrier(Infinity).filter(p => p === CARRY).length * CARRY_CAPACITY;
 // A round trip: the route's rooms walked there and back at a tile a tick
 // (one MOVE per CARRY, loaded, on plains), plus loading and unloading.
 const kTilesPerRoom = 50;

@@ -153,6 +153,51 @@ export function energyDef(def: EnergyBodyDef): BodyPartConstant[] {
   return defBody(ldef);
 }
 
+// The fixed end of a combat carrier of at least `pairs` pairs, the first
+// that fits: the last CARRY parts left ride with five MOVE each, full speed
+// loaded on swamp (two MOVE per CARRY is already full speed on plains and
+// roads). 13 pairs (1300 energy): 5 MOVE; 18 pairs (1800) and up: 5 MOVE,
+// CARRY, 5 MOVE.
+const kCombatCarrierTails: { pairs: number, tail: BodyPartConstant[] }[] = [
+  { pairs: 18, tail: [MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE] },
+  { pairs: 13, tail: [MOVE, MOVE, MOVE, MOVE, MOVE] },
+];
+
+// The combat carrier: n CARRY and n MOVE, ordered for a creep that gets shot
+// on the way. Damage eats a body from the front, and each part ahead of the
+// tail (kCombatCarrierTails) is laid so that the one lost is a MOVE when the
+// whole creep keeps two MOVE per CARRY without it, else a CARRY: CARRY goes
+// first until two MOVE stand per CARRY, then the rest holds that ratio or
+// better to the last part, so a beaten carrier speeds up instead of
+// crawling home. The tail's MOVE count toward the ratio, so the parts just
+// ahead of it run out of MOVE and end in CARRY. Whole, it is one MOVE per
+// CARRY (full speed loaded on plains). 550 energy: CCCMCMMCMM; 1300:
+// CCCCCCCMCMMCMMCMMCMCCMMMMM. As many pairs as `energy` buys, at least one
+// and at most `maxPairs` (25 pairs is the 50-part cap).
+export function combatCarrier(energy: number, maxPairs = MAX_CREEP_SIZE / 2): BodyPartConstant[] {
+  const pairCost = BODYPART_COST[CARRY] + BODYPART_COST[MOVE];
+  const n = Math.max(1, Math.min(maxPairs, Math.floor(energy / pairCost)));
+  const tail = _.find(kCombatCarrierTails, t => n >= t.pairs)?.tail ?? [];
+  const tailCarry = tail.filter(part => part === CARRY).length;
+  const tailMove = tail.length - tailCarry;
+  // The parts ahead of the tail still to lay, front first.
+  let carry = n - tailCarry;
+  let move = n - tailMove;
+  const body: BodyPartConstant[] = [];
+  while (carry + move > 0) {
+    const c = carry + tailCarry;
+    const m = move + tailMove;
+    if (move > 0 && (m - 1 >= 2 * c || carry === 0)) {
+      body.push(MOVE);
+      move--;
+    } else {
+      body.push(CARRY);
+      carry--;
+    }
+  }
+  return body.concat(tail);
+}
+
 
 export function runSpawns() {
   const all = _.keys(Memory.creeps);
