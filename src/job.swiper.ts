@@ -11,9 +11,13 @@ const kMaxBodyEnergy = 2500;
 const kWaitRange = 4;
 
 // Loot an abandoned or hostile base for the Swipe mission
-// ("Swipe <target> <home>"): the swipe quest of swipe.ts, choosing targets
-// by the cheapest walk and taking what the mission says is worth the trip
-// (Swipe.worth; anything for a mission without). Full, or holding something
+// ("Swipe <target> <home>"): the swipe quest of swipe.ts in value mode, as
+// Furiosa's: the structure holding the most valuable resource (unitValue a
+// unit, nearest such on a tie), that resource first, among what the mission
+// says is worth the trip (Swipe.worth; anything for a mission without).
+// Until 7 Nov 2026 it walked to the nearest target and took its resources
+// in random order, so a 1,250 load was Z (450) as often as X (960). Full,
+// or holding something
 // once the room is dry, it unloads at home (storage, terminal, else the home
 // containers, else dropped at the controller) and goes back for more. What
 // lies within reach on the way is picked up (nomNearby), unless worthless or
@@ -63,7 +67,7 @@ export class Swiper extends JobCreep {
             this.waitByExit();
             return "wait";
         }
-        const ret = questSwipe(this, this.mission.roomName, this.homeName, this.worth, "path");
+        const ret = questSwipe(this, this.mission.roomName, this.homeName, this.worth, "value");
         if (ret === false) this.dlog("nothing to swipe in", this.mission.roomName);
         else this.dlog("swipe:", ret);
         return "wait";
