@@ -32,13 +32,18 @@ const kWaitRange = 4;
 @register
 export class Swiper extends JobCreep {
     // From the spawns nearest home, one MOVE per CARRY (full speed loaded on
-    // plains), sized to the energy on hand up to the 50-part cap.
+    // plains), sized to the energy on hand up to the 50-part cap, the parts
+    // interleaved (CARRY, MOVE, CARRY, MOVE, ...): damage eats a body from
+    // the front, and with every CARRY ahead of the MOVEs psy372's ranger
+    // took all 25 CARRY off a swiper that then ran home at full speed with
+    // nothing (7 Nov 2026). Interleaved, each hit costs a CARRY and a MOVE,
+    // so the survivor keeps its speed and part of its load.
     spawn(spawns: StructureSpawn[]): [StructureSpawn | null, BodyPartConstant[]] {
         const close = closeSpawns(spawns, this.homeName) as StructureSpawn[];
         const spawn = _.find(close, s => !s.spawning) || _.first(close);
         if (!spawn) return [null, []];
         const energy = Math.min(spawn.room.energyAvailable, kMaxBodyEnergy);
-        return [spawn, energyDef({ move: 1, per: [CARRY], energy } as any)];
+        return [spawn, energyDef({ move: 1, per: [CARRY], energy, interleave: true } as any)];
     }
 
     // The mission's pricing (Swipe.worth); anything goes for a mission without.

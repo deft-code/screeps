@@ -365,7 +365,8 @@ MyCreep                      wrapper object per creep *name* (mycreep.ts); not a
      │                       within 2 (linear) of the mission room, dismantles an adjacent chaosTarget (most hits first) when the melee/range (WORK) intents are free; a road being dismantled is also stepped onto (plain move) so a chaos never sits on an exit tile
      ├─ Konmari  @register   (job.konmari.ts) CARRY/MOVE pairs like Swiper; loads worthless resources (catalyzed boosts and the stock-ruled resources the trader manages excepted, swipeworth.junkIn) from the home storage then terminal, walks towards the
      │                       Swipe target and drops 20 units per tick while outside the home room; empty -> home for more; nothing worthless left -> suicide
-     ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs from the spawns nearest home (JobCreep.homeName: mission
+     ├─ Swiper   @register   (job.swiper.ts) CARRY/MOVE pairs, interleaved (CARRY, MOVE, CARRY, MOVE, ...: since 7 Nov 2026, so damage takes a CARRY and a MOVE a hit instead of every CARRY first;
+     │                       psy372's ranger stripped a front-loaded swiper of all 25 CARRY), from the spawns nearest home (JobCreep.homeName: mission
      │                       "home", else "spawn", else the nest's room, else a random spawn's, so "Once Swiper <room>" works), sized to energy on hand (max 50 parts);
      │                       loots the Swipe target through swipe.ts's questSwipe (shared with Furiosa) with targets by value (since 7 Nov 2026; by path before: the cheapest-path structure, its resources in random order, so a load was Z as often as X): the structure holding the most valuable resource (swipeworth.unitValue a unit; the nearest on a tie), re-picked every tick, that resource first
      │                       (nuker excluded; rampart-covered or unreachable ones skipped 1500 ticks via memory.swipe.skip) until full, or until the room is empty and it holds anything,
