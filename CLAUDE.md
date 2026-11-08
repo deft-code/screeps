@@ -46,8 +46,10 @@ follows from that:
 - Market code (`market.ts`, `marketwatch.ts`, `markethack.ts`, `Selloff`,
   `Trader`) is a no-op on `shardSeason` (no market there). On shard2 the
   `MarketTracker` daemon keeps the `Memory.market` prices current and the
-  `Trader` service runs in dry-run form (paper ledgers, no deals), the
-  refactor of Nov 2026 (`docs/market-design.md`). `Selloff` was last measured
+  `Trader` service keeps paper ledgers for every scenario and deals for real
+  only while `live(scenario, floor)` is set (persisted in `Memory.trader.live`;
+  `live(null)` returns to paper), the refactor of Nov 2026
+  (`docs/market-design.md`). `Selloff` was last measured
   there in Sept 2026 (`docs/legacy-systems.md`); the trader is to replace it.
 
 ## What is actually running
@@ -173,7 +175,9 @@ Mission jobs (`job.*.ts`, no `roleXxx` method): `harvester`, `trucker`,
 a fedex in a room with no container hands its load to the creeps that take it,
 `donate`); `scout`, `guard`, `mini`, `wolf` wherever a mission wants vision or
 a fight; `micro` and `pup` (`suppress.ts`) against unarmed enemies in farms and
-hubs; `toxic` (bait-and-trap mini, `Once Toxic <room>`); `razer` (`Raze`);
+hubs; `toxic` (bait-and-trap mini, `Once Toxic <room>`, and `Swipe`'s decoy
+for a guarded route room, `memory.troom`); `swiper` and `konmari` (`Swipe`;
+the swiper's body is `spawn.ts`'s combat carrier); `razer` (`Raze`);
 `canopener` and `looter` (`Loot`); `chaos` (`Nidoran`); `bulldozer`
 (`Bulldoze`); `skhunter`, `skvulture`, `skharvester`, `sktrucker`, `prospector`
 (`SkFarm`; the prospector also for `Reactor`); `crow` (`Capture`); `wicktwo`,
@@ -214,6 +218,10 @@ else with a `roleXxx` method is loaded but no job spawns it.
   each tick; it was a no-op until Oct 2026 and most former uses are the
   no-op `@taskbroken` (re-enters `start()` every tick). Move a job to the fixed
   `@task` deliberately (docs/known-issues.md).
+- `nJobs(ctor, n)` / `nCreeps` keep a TTL *sum* of `(n-1) x 1500`, which is
+  ~`2n-1` creeps at steady state, not `n` (`n = 1` is "replace as it dies");
+  `paceNJobs(ctor, n)` is a head count (one egg per `1500/(n+1)` ticks while
+  under `n`). Pick by what the mission means.
 
 ## Build & deploy
 
@@ -351,6 +359,10 @@ stockRules(); stockRule('H', {surplus: 60000}); stockRule('H', null)   // merged
 suspects(); blacklist(); blacklist('Taki', 'XKH2O')   // pump suspects with evidence; blacklist entries; blacklist a player on a resource for 8 days (blacklist('Taki', null) clears)
 traderReport(); traderReport('fairA', 20); getService('Trader').reset()   // dry-run ledgers per scenario; with the last 20 fills; start the ledgers over
 require('intel').RoomIntel.get('W24S8').centerPos     // room centre (findRoomCenter), cached in intel.center; recenter() redoes it
+getService('Swipe W6N2 W3N4').resume()   // undo windDown() before the mission has killed itself
+createFlagAt('W3N4', 25, 25, 'bubble_Play', COLOR_GREY, COLOR_GREY); Game.flags.Play.setColor(COLOR_ORANGE, COLOR_YELLOW)   // bubble: GREY child + YELLOW genesis starts it (WHITE while planning, saves itself, GREY when done); BLUE replans
+require('metabubble').Meta_bubble.status('bubble_Play')   // what the bubble planner is doing
+(rw => [rw.getRoute('W3N4', 'W6N2'), rw._getRoomCost('W5N3')])(require('Rewalker').defaultRewalker())   // defaultRewalker is a function; route and cost of a room (Memory.Rewalker.rooms[x].cost holds blind costs); rw._routes.clear() + delete Memory.creeps.x._walk re-plans after a cost change
 ```
 
 Genesis flags reset themselves to CYAN (secondary `4`) when a command is done.
@@ -434,6 +446,14 @@ keeper tiles and route costs, written by `Rewalker.gatherIntel` from `strat.init
 - If every creep of one mission freezes while others move, the mission's
   process fell out of the run table (a throw escaping `runRow`); `lsProcess`
   still shows it with a row. A push rebuilds the table.
+- The Rewalker prices rooms by ownership, towers and keepers, never by the
+  creeps in them: an armed player creep in a reserved room costs nothing until
+  one of ours dies there (`_checkMurder`, +20 for 2000 ticks). A mission that
+  walks civilians through foreign rooms watches its route itself
+  (`Swipe.watchRoute`: radar + hold + toxic decoy).
+- `new SomeJob("name")` for a creep with no `Memory.creeps` entry throws on
+  its first memory read; probe body plans through `require("spawn")`
+  helpers or `getMyCreep(existingName)` instead.
 
 ## Legacy and orphans
 
