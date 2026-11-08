@@ -205,7 +205,10 @@ function* planner(f: FlagExtra, man: MetaManager, mem: MetaMem): Planner {
                 if (!shell.has(g.xy)) addShell(g);
                 gate = g;
             }
-            if (gate) mem.traffic.push({ src: kOrigin, dest: gate.xy, range: 0, rcl: +kRoadLevel, swamp: +kRoadLevel });
+            // Entrances whose paths cross the ring at one place share a gate.
+            if (gate && !_.any(mem.traffic, t => t.dest === gate!.xy)) {
+                mem.traffic.push({ src: kOrigin, dest: gate.xy, range: 0, rcl: +kRoadLevel, swamp: +kRoadLevel });
+            }
             yield `gate ${describeEntrance(e)}: ${gate ? gate.x + "," + gate.y : "none"}`;
         }
     }
