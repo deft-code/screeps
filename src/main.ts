@@ -162,6 +162,7 @@ import 'deposit';
 import 'Visual';
 
 import 'metastruct';
+import 'metabubble';
 import 'mission';
 import 'matrix';
 import 'flag';

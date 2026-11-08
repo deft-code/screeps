@@ -1,5 +1,6 @@
 import { defaultRewalker, atExit } from "Rewalker";
 import { roomCenterPos } from "intel";
+import { roomExitTiles } from "entrances";
 import * as debug from "debug";
 
 // Staging locator (Oct 2026, written for the Assault missions; any mission
@@ -131,22 +132,9 @@ export function blockers(pos: RoomPosition): Structure[] {
     return _.sortBy(structs, s => s.structureType === STRUCTURE_RAMPART ? 0 : 1);
 }
 
-// Every walkable tile on the edge of `roomName`, by terrain.
+// Every walkable tile on the edge of `roomName`, by terrain (entrances.ts).
 export function exitTiles(roomName: string): RoomPosition[] {
-    const terrain = Game.map.getRoomTerrain(roomName);
-    const out: RoomPosition[] = [];
-    const add = (x: number, y: number) => {
-        if (!(terrain.get(x, y) & TERRAIN_MASK_WALL)) out.push(new RoomPosition(x, y, roomName));
-    };
-    for (let i = 0; i < 50; i++) {
-        add(i, 0);
-        add(i, 49);
-        if (i > 0 && i < 49) {
-            add(0, i);
-            add(49, i);
-        }
-    }
-    return out;
+    return roomExitTiles(roomName);
 }
 
 // The keeper lairs of `roomName`: by sight, else what the Rewalker's keeper

@@ -51,6 +51,7 @@ The flags described here are the only flags that exist in the game today.
 | `shield` | 0 | Rampart shell sealing a gap: the flag's row out to terrain wall each way is the gap. Every gap tile is a range-2 goal in one PathFinder search from the parent (genesis) flag, restricted to the room, on a terrain-only matrix; a path ends on entering that band so it never crosses the gap. The tile reached gets a rampart (level 3) and is blocked, repeated until no complete path remains (at most 80 ramparts, CPU-gated). Needs the parent flag in the room. Ramparts repair at the RCL table. Declares a traffic entry from the origin to the flag tile (range 0), so the road to the exit crosses the shell. |
 | `wall` | 0 | Rampart/wall line through the flag, east and west along its row, or north and south along its column when the flag's primary colour is RED; each way runs to terrain wall or the room edge. The flag tile, tiles beside terrain wall and every other tile are ramparts, the rest constructed walls. A parallel road both ways through the first step of the flag-to-storage path more than 2 tiles out, and on-ramps (road + rampart, `mem.onramps`, repaired at `rcl-3`) from each rampart to it. Needs the saved storage site; with the storage within 2 tiles of the flag only the line is planned (no road, no on-ramps). |
 | `nuke` | 200 | Auto-created by `checkNukes(room)` (never called): ramparts over blast tiles with hits scaled by expected damage. |
+| `bubble` | 0 | (`metabubble.ts`) A rampart shell around the whole base, from a `bubble_<genesis>` flag anywhere in the room (its tile means nothing). Covers every structure the other metas plan, roads and ramparts aside: (1) a structure 2-3 tiles from the edge within 3 of an exit tile, or (2) 4-5 tiles from the edge within 3 of a tile one step in from an exit, gets a rampart of its own (level 5); (3) the shell: from the middle exit tile of each entrance (`entrances.ts`), one PathFinder search to within 3 of any structure left, every structure, exit tile and earlier shell tile impassable; the path's last tile gets a rampart (5) with a road under it (7) and blocks, repeated until no complete path remains (cap 400); (4) the gates: a path from the traffic origin to each entrance, the 2 path tiles before its first shell crossing become shell tiles and the last one a traffic entry (`src kOrigin, range 0, rcl 7`). Planned as a generator yielding after each search, driven 1 CPU a tick by `Meta_bubble.resume()` from every `runGenesis` pass (see Multi-tick planning below). Ramparts repair at the RCL table (`calcRampWallHits`), roads at Full. `check()` ignores the flag's tile and colour, so only BLUE replans a saved bubble. |
 
 Roads are not a meta role: the manager plans them (next section).
 
@@ -180,6 +181,18 @@ is a command; after acting it usually resets itself to `COLOR_CYAN` (idle):
 | GREEN | Save all newly planned/changed metas into room memory (`setMeta` + `save`). |
 | BLUE | Force re-planning of every child even if its meta still matches, and of the traffic. |
 | CYAN | Idle. |
+
+**Multi-tick planning** (since 7 Nov 2026): a meta class may have a static
+`resume(f, man)` beside `plan` (`MetaCtor`); `runGenesis` calls it for every
+child flag of that class on every pass, whatever the genesis colour. The
+first user is `Meta_bubble`: its `plan()` (a YELLOW or BLUE pass) only starts
+the plan, and only from a GREY child flag, turning the flag WHITE and keeping
+a generator on the heap; `resume()` runs the generator for 1 CPU a tick while
+the flag is WHITE (any other colour drops the plan), draws the partial result,
+and when the generator finishes sets the flag GREY and saves the meta itself
+(`setMeta` + `save`): GREEN cannot be timed to the tick a long plan ends. A
+push while WHITE starts the plan over. `Meta_bubble.status(flagName)` prints
+the generator's last step.
 
 Traffic is not a child: GREEN and BROWN save, and the manager replans the
 roads on its next upkeep pass. Every pass, CYAN included, draws the road

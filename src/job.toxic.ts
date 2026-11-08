@@ -1,6 +1,7 @@
 import { register, taskbroken, Task2Ret } from "mycreep";
 import { Guard } from "job.guard";
 import { toXY } from "Rewalker";
+import { edgeRange } from "entrances";
 
 // A bait-and-trap skirmisher on the fixed 'mini' body [RANGED_ATTACK, MOVE,
 // MOVE, HEAL] (400 energy, spawnold.buildBody), spawned by Once:
@@ -62,10 +63,6 @@ declare global {
         // a toxic for a guarded route room); set on the egg.
         troom?: string
     }
-}
-
-function edgeRange(pos: RoomPosition): number {
-    return Math.min(pos.x, pos.y, 49 - pos.x, 49 - pos.y);
 }
 
 @register

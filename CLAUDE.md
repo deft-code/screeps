@@ -134,6 +134,8 @@ main.ts
  │   role.*.ts (@injecter(Creep)) add roleXxx/afterXxx; the 2017 ones extend the creep.work -> creep.heal chain and are imported last, so they win a collision
  ├─ strat.ts        NullStrat/ClaimedStrat per room (also processes); registerStrat/setRoomStrat override via Memory.rooms[x].strat (strat.thor.ts: ThorStrat)
  ├─ metastruct.ts   base templates + flag-driven planning + construction upkeep + maxHits + spot lookup
+ │   ├─ metabubble.ts   Meta_bubble: the rampart shell around a base, planned by a generator 1 CPU a tick (MetaCtor.resume); the bubble child flag's secondary colour is the planning state (GREY idle, WHITE planning)
+ │   ├─ entrances.ts    roomEntrances(room): the runs of adjacent exit tiles per edge, entranceTiles/entranceMiddle/roomExitTiles/edgeRange
  │   ├─ metatraffic.ts  road planner: metas declare traffic() src/dest entries, MetaManager plans the room's roads; the shared road weights (2:3:6)
  │   └─ roadplan.ts     room-to-room road planner on those weights (RoadPlanner): Remote legs, Startup's road, the Experiment service
  ├─ struct.link/tower/lab/factory/terminal/container/controller/observer  structure logic and prototype helpers

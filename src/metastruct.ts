@@ -95,7 +95,7 @@ class RoomMetaExtra extends Room {
 }
 merge(Room, RoomMetaExtra);
 
-enum MAXHITS {
+export enum MAXHITS {
     Unknown = 0,
     Skip = 1,
     Full = 2,
@@ -229,6 +229,10 @@ export function runGenesis(f: FlagExtra) {
             continue;
         }
         let nextm = null as MetaStructure | null;
+        // A class that plans over several ticks runs its slice every pass
+        // and saves the result itself (MetaCtor.resume), so the lookup
+        // below sees a plan that finished this tick.
+        metaClass(child.self)?.resume?.(child, man);
         const meta = man.getMeta(child.self);
         f.log("actual child", child, meta);
         if (!meta) {
@@ -378,7 +382,7 @@ function addMemRamparts(mem: MetaMem, stype: BuildableStructureConstant) {
             xy => addMemStruct(mem, STRUCTURE_RAMPART, Math.max(3,+lvl!) as PlanLevel, xy)));
 }
 
-function cleanMem(mem: MetaMem) {
+export function cleanMem(mem: MetaMem) {
     _.forEach(mem.structs, lvls => _.forEach(lvls!, (xys, lvl) => lvls![lvl as PlanLevel] = _.uniq(xys!)));
 }
 
@@ -1657,18 +1661,29 @@ function checkSitePos(pos: RoomPosition, stype: BuildableStructureConstant): [Ro
     return [pos, null];
 }
 
-export type MetaCtor = typeof MetaStructure & { plan(f: Flag, man: MetaManager): MetaStructure | null };
+// A meta class: plan() answers a genesis pass (YELLOW, or BLUE and a failed
+// check) with the planned meta, or null. A class whose plan takes more than
+// one tick (Meta_bubble, metabubble.ts) also has resume(): runGenesis calls
+// it for the class's child flags on every pass, and it runs a slice of the
+// plan and saves the result itself when done.
+export type MetaCtor = typeof MetaStructure & {
+    plan(f: Flag, man: MetaManager): MetaStructure | null
+    resume?(f: FlagExtra, man: MetaManager): void
+};
 const allMetas = new Map<string, MetaCtor>();
 
 export function registerMeta(klass: MetaCtor) {
     allMetas.set(klass.name, klass);
 }
 
+// The class for a meta or child flag name ("extna1_genesis" -> Meta_extna).
+function metaClass(name: string): MetaCtor | undefined {
+    return allMetas.get('Meta_' + calcRole(name));
+}
+
 function planMeta(f: Flag) {
-    const role = calcRole(f.name);
-    const klassName = 'Meta_' + role;
-    const klass = allMetas.get(klassName);
-    f.log("Planning Meta", klassName, role, klass?.name);
+    const klass = metaClass(f.name);
+    f.log("Planning Meta", calcRole(f.name), klass?.name);
     if (!klass) return null;
     const man = getMetaManager(f.pos.roomName);
     return klass.plan(f, man);
@@ -1688,9 +1703,7 @@ function storageOrParent(f: FlagExtra, man: MetaManager): RoomPosition | null {
 }
 
 function newMeta(mem: MetaMem, man: MetaManager) {
-    const role = calcRole(mem.name);
-    const klassName = 'Meta_' + role;
-    const klass = allMetas.get(klassName);
+    const klass = metaClass(mem.name);
     if (!klass) return null;
     return new klass(mem, man);
 }
