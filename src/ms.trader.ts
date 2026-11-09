@@ -66,8 +66,10 @@ import { energyValue, oldestOf, slowOf, trackOf, transferRate, tryGetBuyOrderPri
 // The emergency energy sell order (only while live trading is on): a room
 // whose storage holds over kEmergencyFill of its capacity and over
 // kEmergencyEnergy energy (storage + terminal) keeps one own sell order of
-// kEmergencyAmount energy from its terminal, priced kEmergencyUnder under the
-// lowest foreign energy ask, topped back up with extendOrder while the
+// kEmergencyAmount energy from its terminal, priced kEmergencyUnder x the
+// lowest foreign energy ask but never under kEmergencyFloor x energy's
+// bid-side slow (or x the best real bid while slow is unknown; neither = no
+// order), topped back up with extendOrder while the
 // condition holds, repriced (changeOrderPrice, again under the lowest other
 // ask) when it is no longer the lowest ask and its price is kRepriceAge ticks
 // old, cancelled only once empty with the condition gone. Order ids by room
@@ -113,6 +115,8 @@ const kEmergencyFill = 0.9;
 const kEmergencyEnergy = 100000;
 const kEmergencyAmount = 10000;
 const kEmergencyUnder = 0.9;
+// Never priced under this times energy's bid-side slow (or the best real bid).
+const kEmergencyFloor = 0.5;
 const kRepriceAge = 100;
 // Ticks between looks at the energy book for a reprice.
 const kRepriceCheck = 10;
@@ -670,6 +674,28 @@ export class Trader extends Service {
         return typeof low === "number" ? undefined : low.price;
     }
 
+    // The lowest price the emergency order may ask: kEmergencyFloor x energy's
+    // bid-side slow, else x the best real foreign bid; undefined (no order)
+    // when energy has neither.
+    energyFloor(): number | undefined {
+        const slow = credits(slowOf(trackOf(RESOURCE_ENERGY, "buy")));
+        if (slow !== undefined) return kEmergencyFloor * slow;
+        const bids = getAllOrders({ type: ORDER_BUY, resourceType: RESOURCE_ENERGY })
+            .filter(o => !Game.market.orders[o.id] && o.amount > 0 && o.price >= kRealBid);
+        if (!bids.length) return undefined;
+        return kEmergencyFloor * _.max(bids.map(o => o.price));
+    }
+
+    // kEmergencyUnder under the lowest other ask, never under the floor;
+    // undefined when there is no ask or no floor.
+    energyAskPrice(): [number, number, number] | undefined {
+        const low = this.lowestEnergyAsk();
+        const floor = this.energyFloor();
+        if (low === undefined || floor === undefined) return undefined;
+        const price = Math.ceil(Math.max(low * kEmergencyUnder, floor) * 1000) / 1000;
+        return [price, low, floor];
+    }
+
     energyOrder(room: Room, eo: { [room: string]: EnergyOrder }, live: Live) {
         const storage = room.storage;
         const energy = (storage ? storage.store.energy : 0) + (room.terminal ? room.terminal.store.energy : 0);
@@ -700,14 +726,14 @@ export class Trader extends Service {
         }
         if (!rec || !order) {
             if (!urgent || !isVariant(live.scenario)) return;
-            const low = this.lowestEnergyAsk();
-            if (low === undefined) return;
-            const price = Math.max(0.001, Math.floor(low * kEmergencyUnder * 1000) / 1000);
+            const quote = this.energyAskPrice();
+            if (!quote) return;
+            const [price, low, floor] = quote;
             const fee = price * kEmergencyAmount * MARKET_FEE;
             if (!canPay(fee)) return;
             const err = Game.market.createOrder({ type: ORDER_SELL, resourceType: RESOURCE_ENERGY, price, totalAmount: kEmergencyAmount, roomName: room.name });
             debug.log(`TRADER energy order ${room.name}: storage ${storage!.store.getUsedCapacity()}/${storage!.store.getCapacity()}, energy ${energy}: ` +
-                `sell ${kEmergencyAmount} @ ${price} (lowest other ask ${low}), fee ${fee.toFixed(0)} -> ${debug.errStr(err)}`);
+                `sell ${kEmergencyAmount} @ ${price} (lowest other ask ${low}, floor ${floor.toFixed(3)}), fee ${fee.toFixed(0)} -> ${debug.errStr(err)}`);
             if (err === OK) eo[room.name] = { made: Game.time };
             return;
         }
@@ -731,12 +757,12 @@ export class Trader extends Service {
         // (age counted from the creation or the last reprice).
         const age = Game.time - Math.max(rec.made, rec.priced || 0, order.created || 0);
         if (age >= kRepriceAge && Game.time % kRepriceCheck === 0) {
-            const low = this.lowestEnergyAsk();
-            if (low !== undefined && low <= order.price) {
-                const price = Math.max(0.001, Math.floor(low * kEmergencyUnder * 1000) / 1000);
+            const quote = this.energyAskPrice();
+            if (quote && quote[1] <= order.price) {
+                const [price, low, floor] = quote;
                 if (price < order.price) {
                     const err = Game.market.changeOrderPrice(order.id, price);
-                    debug.log(`TRADER energy order ${room.name}: reprice ${order.id} ${order.price} -> ${price} (lowest other ask ${low}) -> ${debug.errStr(err)}`);
+                    debug.log(`TRADER energy order ${room.name}: reprice ${order.id} ${order.price} -> ${price} (lowest other ask ${low}, floor ${floor.toFixed(3)}) -> ${debug.errStr(err)}`);
                     if (err === OK) rec.priced = Game.time;
                 }
             }

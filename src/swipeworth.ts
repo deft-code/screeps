@@ -90,8 +90,8 @@ export function catalyzed(res: ResourceConstant): boolean {
 // it buys them to their `want` and sells the surplus, and a Konmari laid to
 // drop 8,545 O and 5,000 U the trader had just bought (W3N4, 7 Nov 2026) was
 // cancelled on the spawn. A resource with a stock-rule class counts as ruled
-// even while its rule is rejected (the factory classes since the bands of
-// 8 Nov 2026), so a rule that fails validation never turns stock into junk.
+// even while its rule is rejected, so a rule that fails validation (a bad
+// console override) never turns stock into junk.
 export function junkIn(store: StoreDefinition | Store<ResourceConstant, false>): ResourceConstant[] {
     const ruled = ruledResources();
     return worthlessIn(store).filter(res => !catalyzed(res) && classOf(res) === "other" && !_.contains(ruled, res));

@@ -24,10 +24,15 @@ import { cfg } from "marketcfg";
 //   glut       closed             1.0 -> 0.5
 //   liquidate  closed             0 (any real bid)
 //
-// A missing boundary collapses its band to nothing (it takes the value of the
-// boundary below it, 0 under the first). Boundaries must be monotone
-// (need <= stock <= ... <= glut among those present), else the rule is
-// rejected (logged once, the resource is not traded).
+// A missing boundary below the highest one given collapses its band to
+// nothing (it takes the value of the boundary below it, 0 under the first).
+// Missing boundaries above the highest one given do not collapse: the band
+// that boundary opens runs to infinity, so only a rule with `glut` ever
+// liquidates (without `glut` but with `clear`, the glut band runs to
+// infinity; with `arb` the highest, the clear band does). A band running to
+// infinity keeps the multipliers of its lower end. Boundaries must be
+// monotone (need <= stock <= ... <= glut among those present), else the rule
+// is rejected (logged once, the resource is not traded).
 //
 // A rule is the class default, overlaid by kRules (the hardcoded exceptions),
 // overlaid by Memory.marketcfg.rules (console overrides: stockRule()).
@@ -73,18 +78,22 @@ export interface BandInfo {
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 // The band a stock is in and the multipliers in force there. The position
-// inside a band is clamped to [0, 1], and a band of zero width is never
-// entered (stock < hi fails when lo == hi), so nothing divides by zero.
+// inside a band is clamped to [0, 1], a band of zero width is never entered
+// (stock < hi fails when lo == hi), and a band running to infinity sits at
+// its lower end (t = 0), so nothing divides by zero.
 export function bandOf(rule: StockRule, stock: number, margin = kVeryGood): BandInfo {
-    // A rule with no boundary at all trades nothing (it would otherwise be
-    // all liquidate); tradeable() keeps such rules out of the trader anyway.
+    // A rule with no boundary at all trades nothing; tradeable() keeps such
+    // rules out of the trader anyway.
     if (!tradeable(rule)) return { band: "hold", lo: 0, hi: Infinity };
+    // The highest boundary given: the band it opens is the last one.
+    let top = -1;
+    kBounds.forEach((f, i) => { if (rule[f] !== undefined) top = i; });
     let lo = 0;
     for (let i = 0; i < kBounds.length; i++) {
         const b = rule[kBounds[i]];
-        const hi = b === undefined ? lo : Math.max(lo, b);
+        const hi = i > top ? Infinity : b === undefined ? lo : Math.max(lo, b);
         if (stock < hi) {
-            const t = hi > lo ? Math.min(1, Math.max(0, (stock - lo) / (hi - lo))) : 0;
+            const t = hi === Infinity ? 0 : hi > lo ? Math.min(1, Math.max(0, (stock - lo) / (hi - lo))) : 0;
             const band = kBands[i];
             const info: BandInfo = { band, lo, hi };
             switch (band) {
@@ -129,20 +138,20 @@ const kTier3Used: ResourceConstant[] = [
 const kDefaultDepth = 10000;
 
 // The class defaults of 8 Nov 2026 (docs/market-design.md section 8), per
-// owned room. The factory classes are section 2's rules mapped onto the
-// bands as the design states (want -> goodbuy, surplus -> arb); with a
-// surplus of 0 under a want above it that mapping is not monotone, so those
-// rules are rejected (logged) and the factory products are not traded until
-// they are revisited.
+// owned room. The factory classes are cleared, never stocked: the clear band
+// up to 1k, the glut band from 1k to 10k, liquidate above. Commodity NPC
+// bids follow a daily average players manipulate (cell is being depressed
+// by earwig), so neither the bids nor the tracker's fair price is an anchor
+// worth holding stock against.
 const kClassRules: Record<ResClass, StockRule> = {
     base: { need: 3000, stock: 6000, hold: 6000, goodbuy: 12000, arb: 24000, clear: 40000, glut: 100000, depth: 10000, chunk: 1000 },
     tier3used: { need: 1000, stock: 3000, hold: 3000, goodbuy: 6000, arb: 10000, clear: 15000, glut: 25000, depth: 5000, chunk: 1000 },
     tier3unused: { hold: 0, goodbuy: 1000, arb: 3000, clear: 5000, glut: 8000, depth: 5000, chunk: 1000 },
     compound: { stock: 1000, hold: 3000, goodbuy: 4000, arb: 6000, clear: 7000, glut: 8000 },
     energy: { need: 10000, stock: 50000, hold: 900000, goodbuy: 910000, arb: 920000, clear: 930000, glut: 940000, chunk: 5000 },
-    factory0: { goodbuy: 3000, arb: 0, depth: 3000, chunk: 500 },
-    factory1: { goodbuy: 1000, arb: 0, depth: 200, chunk: 100, start: 1000 },
-    factory2: { goodbuy: 100, arb: 0, depth: 30, chunk: 10, start: 100 },
+    factory0: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 3000, chunk: 500 },
+    factory1: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 200, chunk: 100 },
+    factory2: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 30, chunk: 10 },
     other: {},
 };
 

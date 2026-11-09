@@ -532,7 +532,12 @@ need, glut and liquidate deal on their cap or floor alone (plus `ceil`,
 
 The rule becomes the seven boundaries, all optional and monotone
 (`need <= stock <= hold <= goodbuy <= arb <= clear <= glut`); a missing
-boundary collapses its band to nothing. A class default per resource class,
+boundary below the highest one given collapses its band to nothing. A
+missing `glut` means never liquidate (decided 9 Nov 2026): missing
+boundaries above the highest one given do not collapse, the band that
+boundary opens runs to infinity instead (with `clear` the highest, the glut
+band; with `arb` the highest, the clear band), at the multipliers of its
+lower end. A class default per resource class,
 `kRules` exceptions and `Memory.marketcfg.rules` overrides merge as before.
 
 Class defaults (per owned room; stock = storage + terminal + factory):
@@ -544,7 +549,7 @@ Class defaults (per owned room; stock = storage + terminal + factory):
 | tier3 unused (XGH2O XKH2O XZH2O XUHO2) | - | - | 0 | 1k | 3k | 5k | 8k | sell-down, never bought |
 | tier1 and tier2 (OH ZK UL GH UH LH ZH KH and the *H2O / *HO2 compounds) | - | 1k | 3k | 4k | 6k | 7k | 8k | the hold band is where lab working stock sits |
 | energy | 10k | 50k | 900k | 910k | 920k | 930k | 940k | hold is the dominant band: energy is not arbitraged, only sold into outlier bids (1.15 x fair sell) once the room holds 900k, and the bands above are deliberately thin; buys above hold are moot anyway (fair sell < fair buy for energy, so the surcharge test fails); the emergency order below is what keeps the storage from filling |
-| factory0/1/2 | unchanged from section 2, mapped onto the bands: `want` -> goodbuy, `surplus` -> arb, no need/hold/glut; revisited when commodities are built, with chunks sized to their daily volume |
+| factory0/1/2 | 0 | 0 | 0 | 0 | 0 | 1k | 10k | cleared, never stocked (9 Nov 2026; the first mapping of section 2's want/surplus was not monotone): the clear band to 1k, glut band to 10k, liquidate above; no dry-run `start`. Commodity NPC bids follow a daily average players manipulate (cell is being depressed by earwig), so neither those bids nor the tracker's fair price is an anchor worth stocking against |
 
 Chunk sizes stay as they are (1000 base/tier3, 500 factory0, 100/10 factory1/2; energy 5000).
 
@@ -557,11 +562,14 @@ until own orders arrive for every resource (phase 6):
 - **When:** the room's storage holds more than 90% of its capacity and the
   room (storage + terminal) holds over 100k energy.
 - **What:** one sell order of 10k energy from that room's terminal, priced
-  10% under the lowest sell order for energy that is not ours. Quantity is
+  10% under the lowest sell order for energy that is not ours, but never
+  under 0.5 x energy's bid-side slow (0.5 x the best real bid while slow is
+  unknown; with neither, no order is created or repriced). Quantity is
   topped back up to 10k (`extendOrder`) whenever it has been partly filled.
 - **Repricing:** only when the order is no longer the lowest ask in the
-  book, and only once it is at least 100 ticks old (`changeOrderPrice`,
-  again to 10% under the lowest other ask).
+  book, and only once its price is at least 100 ticks old, counted from the
+  creation or the last reprice (`changeOrderPrice`, again to 10% under the
+  lowest other ask, floor as above).
 - **Cancel:** only when its remaining amount is 0 and the condition above no
   longer holds. An order with amount left stays, whatever the storage does.
 - Order ids are kept in `Memory.trader` by room; the trader finds its own
