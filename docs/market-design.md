@@ -241,6 +241,9 @@ adds one by hand, `blacklist('Taki', null)` clears.
 
 ## 2. Stock rules (`stockrules.ts`)
 
+Superseded on 8 Nov 2026 by the bands of section 8 (seven boundaries, eight
+bands); kept as the model the bands replaced.
+
 One rule per resource, four stock thresholds with built-in hysteresis:
 
 ```
@@ -351,6 +354,10 @@ it is priced at; the hub creep's terminal fill covers that.
 A suspect resource is never bought, whatever its prices.
 
 ## 4. Trader (`ms.trader.ts`, creepless service like `Balance`)
+
+Since 8 Nov 2026 the candidates come from the bands of section 8 (one price
+path, paper variants `vg15`/`vg10`, the emergency energy order); the
+mandatory/optional split below is what they replaced.
 
 `scheduleService('Trader')`. Each tick, per owned terminal off cooldown, the
 trader lists the candidate trades and makes the first one. One deal per
@@ -484,6 +491,91 @@ unit, more than the 5% fee on everything priced over ~1,000.
 - **The pacer is heap state.** `pace.ts` restarts from a five-tick median
   after each global reset. The hourly deadline is stored as a tick, so a
   reset only affects deadlines computed in its first few ticks.
+
+## 8. Bands (8 Nov 2026): the second stock model
+
+The four cliffs of section 2 are replaced by eight **bands** along the stock
+axis, each with a buy cap and a sell floor expressed as multipliers of the
+fair prices (fair buy = `min(ask mid, ask slow)`, fair sell =
+`max(bid mid, bid slow)`, the `fairB` pair), interpolated linearly inside a
+band where its two ends differ. A band with a side closed never deals on
+that side. Reasons: thresholds that were cliffs made the trader flip from
+"buy anything" to "hold" on one unit, and the working band of section 2 had
+no way to say "hold some stock for the labs without competing for it".
+
+```
+  0      need    stock    hold   goodbuy    arb    clear    glut      ->  stock
+  |  need |  stock |  hold  | goodbuy |  arb  | clear |  glut  | liquidate
+  buy 2.0 | buy    | no buy | buy 1.0 | buy   | buy   | no buy | no buy
+   -> 1.0 | 0.85   | no sell| sell    | 1.0   | 1.0   | sell   | sell at
+  no sell | no sell|        | 1.15    | sell  | ->0.85| 1.0    | any bid
+          |        |        |         | 1.0   | sell  | -> 0.5 |
+          |        |        |         |       | 1.0   |        |
+```
+
+| band | stock | buy cap (x fair buy) | sell floor (x fair sell) |
+|---|---|---|---|
+| need | `[0, need)` | 2.0 at 0 falling linearly to 1.0 at `need` | closed |
+| stock | `[need, stock)` | 0.85 (very good buys only) | closed |
+| hold | `[stock, hold)` | closed | closed |
+| goodbuy | `[hold, goodbuy)` | 1.0 (good buys) | 1.15 (very good sells) |
+| arb | `[goodbuy, arb)` | 1.0 | 1.15 at `goodbuy` falling to 1.0 at `arb` |
+| clear | `[arb, clear)` | 1.0 at `arb` falling to 0.85 at `clear` | 1.0 (good sells) |
+| glut | `[clear, glut)` | closed | 1.0 at `clear` falling to 0.5 at `glut` |
+| liquidate | `[glut, inf)` | closed | 0 (the best real bid, whatever it is) |
+
+"Good" is the fair price; "very good" is 15% inside it (0.85 on a buy, 1.15
+on a sell). Mandatory and optional trades are no longer different kinds: the
+surcharge test (section 3) applies in the goodbuy, arb and clear bands only;
+need, glut and liquidate deal on their cap or floor alone (plus `ceil`,
+`floor`, the suspect flag and the ask-to-bid guard, which stay).
+
+The rule becomes the seven boundaries, all optional and monotone
+(`need <= stock <= hold <= goodbuy <= arb <= clear <= glut`); a missing
+boundary collapses its band to nothing. A class default per resource class,
+`kRules` exceptions and `Memory.marketcfg.rules` overrides merge as before.
+
+Class defaults (per owned room; stock = storage + terminal + factory):
+
+| class | need | stock | hold | goodbuy | arb | clear | glut | notes |
+|---|---|---|---|---|---|---|---|---|
+| base (H O U L K Z X) | 3k | 6k | 6k | 12k | 24k | 40k | 100k | no hold band; K carries a temporary `kRules` glut of 150k (111k held on 8 Nov 2026) so it sells in the glut band instead of liquidating |
+| tier3 used + G (G XGHO2 XKHO2 XLHO2 XZHO2 XLH2O XUH2O) | 1k | 3k | 3k | 6k | 10k | 15k | 25k | no hold band |
+| tier3 unused (XGH2O XKH2O XZH2O XUHO2) | - | - | 0 | 1k | 3k | 5k | 8k | sell-down, never bought |
+| tier1 and tier2 (OH ZK UL GH UH LH ZH KH and the *H2O / *HO2 compounds) | - | 1k | 3k | 4k | 6k | 7k | 8k | the hold band is where lab working stock sits |
+| energy | 10k | 50k | 900k | 910k | 920k | 930k | 940k | hold is the dominant band: energy is not arbitraged, only sold into outlier bids (1.15 x fair sell) once the room holds 900k, and the bands above are deliberately thin; buys above hold are moot anyway (fair sell < fair buy for energy, so the surcharge test fails); the emergency order below is what keeps the storage from filling |
+| factory0/1/2 | unchanged from section 2, mapped onto the bands: `want` -> goodbuy, `surplus` -> arb, no need/hold/glut; revisited when commodities are built, with chunks sized to their daily volume |
+
+Chunk sizes stay as they are (1000 base/tier3, 500 factory0, 100/10 factory1/2; energy 5000).
+
+### The emergency energy sell order
+
+Dealing cannot drain energy fast enough (one deal per cooldown, transfer
+energy on every leg), so energy gets the first own order, a special case
+until own orders arrive for every resource (phase 6):
+
+- **When:** the room's storage holds more than 90% of its capacity and the
+  room (storage + terminal) holds over 100k energy.
+- **What:** one sell order of 10k energy from that room's terminal, priced
+  10% under the lowest sell order for energy that is not ours. Quantity is
+  topped back up to 10k (`extendOrder`) whenever it has been partly filled.
+- **Repricing:** only when the order is no longer the lowest ask in the
+  book, and only once it is at least 100 ticks old (`changeOrderPrice`,
+  again to 10% under the lowest other ask).
+- **Cancel:** only when its remaining amount is 0 and the condition above no
+  longer holds. An order with amount left stays, whatever the storage does.
+- Order ids are kept in `Memory.trader` by room; the trader finds its own
+  orders through `Game.market.orders` and never deals on them (it already
+  filters them out of the book).
+
+### Paper and live
+
+The scenarios collapse to one price path (the band curve on the `fairB` fair
+prices); the paper ledgers stay as variants of the "very good" margin
+(0.85/1.15 and 0.90/1.10) so the live choice can be compared against the
+other. `live(variant, floor)` as before. `status()`, `stockRules()` and
+`traderReport()` show the band a room's stock is in and the multipliers in
+force, and each candidate's `why` names the band.
 
 ## Notes for the intershard triage (deferred)
 

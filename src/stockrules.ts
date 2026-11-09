@@ -1,20 +1,33 @@
 import { cfg } from "marketcfg";
 
 // Stock rules: what the trader may do with each resource, by how much of it
-// a room holds. Design: docs/market-design.md.
+// a room holds. Design: docs/market-design.md, section 8 (bands, 8 Nov 2026).
 //
-// Four thresholds, two independent pairs:
+// Seven optional, monotone boundaries cut the stock axis into eight bands:
 //
-//   stock <  need     buy at market (price guards only)
-//   stock <  want     buy when the price is a good buy
-//   stock >  surplus  sell when the price is a good sell
-//   stock >  glut     sell at market (price guards only)
+//   0   need   stock   hold   goodbuy   arb   clear   glut         -> stock
+//   | need | stock | hold | goodbuy | arb | clear | glut | liquidate
 //
-// need <= want and surplus <= glut. `want` may sit above `surplus`: between
-// the two both optional sides are open and the trader works the resource
-// for profit, buying under its fair buy price and selling over its fair sell
-// price. A rule with need > surplus or need >= glut would buy what it must
-// then sell, so it is rejected (logged once, the resource is not traded).
+// Each band has a buy cap and a sell floor as multipliers of the fair prices
+// (fair buy = min(ask mid, ask slow), fair sell = max(bid mid, bid slow)),
+// interpolated linearly inside the band where its two ends differ; a closed
+// side never deals. `m` is the "very good" margin (0.15 or 0.10, the trader's
+// paper variants):
+//
+//   band       buy cap            sell floor
+//   need       2.0 -> 1.0         closed
+//   stock      1 - m              closed
+//   hold       closed             closed
+//   goodbuy    1.0                1 + m
+//   arb        1.0                1 + m -> 1.0
+//   clear      1.0 -> 1 - m       1.0
+//   glut       closed             1.0 -> 0.5
+//   liquidate  closed             0 (any real bid)
+//
+// A missing boundary collapses its band to nothing (it takes the value of the
+// boundary below it, 0 under the first). Boundaries must be monotone
+// (need <= stock <= ... <= glut among those present), else the rule is
+// rejected (logged once, the resource is not traded).
 //
 // A rule is the class default, overlaid by kRules (the hardcoded exceptions),
 // overlaid by Memory.marketcfg.rules (console overrides: stockRule()).
@@ -22,8 +35,11 @@ import { cfg } from "marketcfg";
 // for kRules.
 export interface StockRule {
     need?: number
-    want?: number
-    surplus?: number
+    stock?: number
+    hold?: number
+    goodbuy?: number
+    arb?: number
+    clear?: number
     glut?: number
     // Never sell under / buy over this many credits a unit.
     floor?: number
@@ -37,51 +53,129 @@ export interface StockRule {
     start?: number
 }
 
-export type ResClass = "base" | "ghodium" | "tier3" | "factory0" | "factory1" | "factory2" | "other";
+export const kBounds = ["need", "stock", "hold", "goodbuy", "arb", "clear", "glut"] as const;
+export const kBands = ["need", "stock", "hold", "goodbuy", "arb", "clear", "glut", "liquidate"] as const;
+export type Band = typeof kBands[number];
+
+// The default "very good" margin: 15% inside the fair price.
+export const kVeryGood = 0.15;
+
+export interface BandInfo {
+    band: Band
+    // The band's stock range [lo, hi); hi is Infinity for liquidate.
+    lo: number
+    hi: number
+    // Multipliers of fair buy / fair sell; undefined = that side is closed.
+    buyMult?: number
+    sellMult?: number
+}
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+// The band a stock is in and the multipliers in force there. The position
+// inside a band is clamped to [0, 1], and a band of zero width is never
+// entered (stock < hi fails when lo == hi), so nothing divides by zero.
+export function bandOf(rule: StockRule, stock: number, margin = kVeryGood): BandInfo {
+    // A rule with no boundary at all trades nothing (it would otherwise be
+    // all liquidate); tradeable() keeps such rules out of the trader anyway.
+    if (!tradeable(rule)) return { band: "hold", lo: 0, hi: Infinity };
+    let lo = 0;
+    for (let i = 0; i < kBounds.length; i++) {
+        const b = rule[kBounds[i]];
+        const hi = b === undefined ? lo : Math.max(lo, b);
+        if (stock < hi) {
+            const t = hi > lo ? Math.min(1, Math.max(0, (stock - lo) / (hi - lo))) : 0;
+            const band = kBands[i];
+            const info: BandInfo = { band, lo, hi };
+            switch (band) {
+                case "need": info.buyMult = lerp(2.0, 1.0, t); break;
+                case "stock": info.buyMult = 1 - margin; break;
+                case "hold": break;
+                case "goodbuy": info.buyMult = 1.0; info.sellMult = 1 + margin; break;
+                case "arb": info.buyMult = 1.0; info.sellMult = lerp(1 + margin, 1.0, t); break;
+                case "clear": info.buyMult = lerp(1.0, 1 - margin, t); info.sellMult = 1.0; break;
+                case "glut": info.sellMult = lerp(1.0, 0.5, t); break;
+            }
+            return info;
+        }
+        lo = hi;
+    }
+    return { band: "liquidate", lo, hi: Infinity, sellMult: 0 };
+}
+
+// "glut 0.68s" / "stock 0.85b" / "goodbuy 1.00b/1.15s" / "hold": a band and
+// its multipliers, for the console.
+export function bandStr(b: BandInfo): string {
+    const sides = [b.buyMult === undefined ? "" : `${b.buyMult.toFixed(2)}b`, b.sellMult === undefined ? "" : `${b.sellMult.toFixed(2)}s`]
+        .filter(s => s).join("/");
+    return sides ? `${b.band} ${sides}` : b.band;
+}
+
+export type ResClass = "base" | "tier3used" | "tier3unused" | "compound" | "energy" | "factory0" | "factory1" | "factory2" | "other";
 
 const kBase: ResourceConstant[] = [
     RESOURCE_HYDROGEN, RESOURCE_OXYGEN, RESOURCE_UTRIUM, RESOURCE_LEMERGIUM,
     RESOURCE_KEANIUM, RESOURCE_ZYNTHIUM, RESOURCE_CATALYST,
 ];
 
+// Ghodium and the tier-3 boosts the labs use; the other tier-3 boosts are
+// sold down and (on the band table's intent) not bought.
+const kTier3Used: ResourceConstant[] = [
+    RESOURCE_GHODIUM, RESOURCE_CATALYZED_GHODIUM_ALKALIDE, RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
+    RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
+    RESOURCE_CATALYZED_LEMERGIUM_ACID, RESOURCE_CATALYZED_UTRIUM_ACID,
+];
+
 const kDefaultDepth = 10000;
 
-// The class defaults are the dry-run assumptions of 6 Nov 2026: base
-// minerals, ghodium and the tier-3 boosts want 5k with a surplus of 3k (a
-// working band), level-0 factory products want 3k with a surplus of 0, and
-// the level-1 and level-2 commodities are assumed to start at 1000 and 100
-// units, sold from there and bought back up to it. Tier-3 boosts also carry
-// a need of a few units: the unit an elevated bid is probed with.
+// The class defaults of 8 Nov 2026 (docs/market-design.md section 8), per
+// owned room. The factory classes are section 2's rules mapped onto the
+// bands as the design states (want -> goodbuy, surplus -> arb); with a
+// surplus of 0 under a want above it that mapping is not monotone, so those
+// rules are rejected (logged) and the factory products are not traded until
+// they are revisited.
 const kClassRules: Record<ResClass, StockRule> = {
-    base: { want: 5000, surplus: 3000, depth: 10000, chunk: 1000 },
-    ghodium: { want: 5000, surplus: 3000, depth: 5000, chunk: 1000 },
-    tier3: { need: 10, want: 5000, surplus: 3000, depth: 5000, chunk: 1000 },
-    factory0: { want: 3000, surplus: 0, depth: 3000, chunk: 500 },
-    factory1: { want: 1000, surplus: 0, depth: 200, chunk: 100, start: 1000 },
-    factory2: { want: 100, surplus: 0, depth: 30, chunk: 10, start: 100 },
+    base: { need: 3000, stock: 6000, hold: 6000, goodbuy: 12000, arb: 24000, clear: 40000, glut: 100000, depth: 10000, chunk: 1000 },
+    tier3used: { need: 1000, stock: 3000, hold: 3000, goodbuy: 6000, arb: 10000, clear: 15000, glut: 25000, depth: 5000, chunk: 1000 },
+    tier3unused: { hold: 0, goodbuy: 1000, arb: 3000, clear: 5000, glut: 8000, depth: 5000, chunk: 1000 },
+    compound: { stock: 1000, hold: 3000, goodbuy: 4000, arb: 6000, clear: 7000, glut: 8000 },
+    energy: { need: 10000, stock: 50000, hold: 900000, goodbuy: 910000, arb: 920000, clear: 930000, glut: 940000, chunk: 5000 },
+    factory0: { goodbuy: 3000, arb: 0, depth: 3000, chunk: 500 },
+    factory1: { goodbuy: 1000, arb: 0, depth: 200, chunk: 100, start: 1000 },
+    factory2: { goodbuy: 100, arb: 0, depth: 30, chunk: 10, start: 100 },
     other: {},
 };
 
-// The hardcoded exceptions to the class defaults. Empty so far.
+// The hardcoded exceptions to the class defaults.
 const kRules: Partial<Record<ResourceConstant, StockRule>> = {
+    // Temporary (8 Nov 2026): W3N4 held 111k K, so it sells in the glut band
+    // instead of liquidating.
+    K: { glut: 150000 },
 };
 
-const kFields: (keyof StockRule)[] = ["need", "want", "surplus", "glut", "floor", "ceil", "depth", "chunk", "start"];
+const kFields: (keyof StockRule)[] = [...kBounds, "floor", "ceil", "depth", "chunk", "start"];
 
 let classes: Map<string, ResClass> | undefined;
 function classMap(): Map<string, ResClass> {
     if (classes) return classes;
     const map = new Map<string, ResClass>();
     for (const res of kBase) map.set(res, "base");
-    map.set(RESOURCE_GHODIUM, "ghodium");
-    for (const res of RESOURCES_ALL) {
-        // The catalyzed boosts: X + a tier-2 compound.
-        if (res.length === 5 && res[0] === "X") map.set(res, "tier3");
+    for (const res of kTier3Used) map.set(res, "tier3used");
+    map.set(RESOURCE_ENERGY, "energy");
+    // The lab compounds from REACTIONS: tier 1 (two letters: OH, ZK, UL, UH,
+    // UO, ...), tier 2 (UH2O, UHO2, ...) and tier 3 (X + a tier-2 compound).
+    for (const a in REACTIONS) {
+        for (const b in (REACTIONS as any)[a]) {
+            const res = (REACTIONS as any)[a][b] as string;
+            if (map.has(res)) continue;
+            if (res.length === 5 && res[0] === "X") map.set(res, "tier3unused");
+            else if (res !== RESOURCE_GHODIUM && res.length >= 2) map.set(res, "compound");
+        }
     }
     for (const res in COMMODITIES) {
         // COMMODITIES also lists the decompressions (U from utrium_bar) and
         // energy (from battery): those keep the class they have, or none.
-        if (map.has(res) || res === RESOURCE_ENERGY) continue;
+        if (map.has(res)) continue;
         const level = (COMMODITIES as any)[res].level || 0;
         if (level === 0) map.set(res, "factory0");
         else if (level === 1) map.set(res, "factory1");
@@ -96,13 +190,17 @@ export function classOf(res: string): ResClass {
 
 const complained = new Set<string>();
 
-// Why a rule cannot be traded on, or "" when it is sound.
+// Why a rule cannot be traded on, or "" when it is sound: the boundaries
+// present must not decrease.
 function invalid(rule: StockRule): string {
-    const { need, want, surplus, glut } = rule;
-    if (need !== undefined && want !== undefined && need > want) return "need > want";
-    if (surplus !== undefined && glut !== undefined && surplus > glut) return "surplus > glut";
-    if (need !== undefined && surplus !== undefined && need > surplus) return "need > surplus";
-    if (need !== undefined && glut !== undefined && need >= glut) return "need >= glut";
+    let prev: string | undefined;
+    for (const f of kBounds) {
+        const v = rule[f];
+        if (v === undefined) continue;
+        if (typeof v !== "number" || isNaN(v) || v < 0) return `${f} ${v} is not a stock`;
+        if (prev !== undefined && v < rule[prev as keyof StockRule]!) return `${f} ${v} < ${prev} ${rule[prev as keyof StockRule]}`;
+        prev = f;
+    }
     return "";
 }
 
@@ -110,12 +208,15 @@ function invalid(rule: StockRule): string {
 // tracking fields (depth), so the resource is priced but never traded.
 export function ruleFor(res: string): StockRule {
     const override = (cfg().rules || {})[res];
-    const rule: StockRule = Object.assign({}, kClassRules[classOf(res)], (kRules as any)[res], override);
+    const hard = (kRules as any)[res];
+    const rule: StockRule = Object.assign({}, kClassRules[classOf(res)], hard, override);
     const why = invalid(rule);
     if (why) {
-        if (!complained.has(res + why)) {
-            complained.add(res + why);
-            console.log(`stockrules: rule for ${res} rejected (${why}): ${JSON.stringify(rule)}`);
+        // A class default complains once for the whole class.
+        const who = override || hard ? res : `class ${classOf(res)}`;
+        if (!complained.has(who + why)) {
+            complained.add(who + why);
+            console.log(`stockrules: rule for ${who} rejected (${why}): ${JSON.stringify(rule)}`);
         }
         return { depth: rule.depth };
     }
@@ -131,10 +232,10 @@ export function depthFor(res: string): number {
 
 // Does the rule let the trader do anything at all?
 export function tradeable(rule: StockRule): boolean {
-    return rule.need !== undefined || rule.want !== undefined || rule.surplus !== undefined || rule.glut !== undefined;
+    return kBounds.some(f => rule[f] !== undefined);
 }
 
-// Every resource with a tradeable rule: those of a class with thresholds,
+// Every resource with a tradeable rule: those of a class with boundaries,
 // the hardcoded ones and the overridden ones.
 export function ruledResources(): string[] {
     const out = new Set<string>();
@@ -146,7 +247,21 @@ export function ruledResources(): string[] {
     return Array.from(out).filter(res => tradeable(ruleFor(res)));
 }
 
-// Console: stockRule("H") shows the merged rule; stockRule("H", {surplus:
+// The real stock of a resource in a room: storage, terminal and factory
+// (labs excluded: they are LabPlan's working stock).
+export function roomStock(room: Room, res: ResourceConstant): number {
+    let n = 0;
+    for (const s of [room.storage, room.terminal, ...room.findStructs(STRUCTURE_FACTORY)]) {
+        if (s && s.my) n += s.store[res] || 0;
+    }
+    return n;
+}
+
+function terminalRooms(): Room[] {
+    return _.filter(Game.rooms, r => !!r.terminal && r.terminal.my && !!r.controller && r.controller.my);
+}
+
+// Console: stockRule("H") shows the merged rule; stockRule("H", {glut:
 // 60000}) overrides fields; stockRule("H", null) drops the override.
 export function stockRule(res: string, patch?: { [field: string]: number } | null): string {
     const all = cfg().rules = cfg().rules || {};
@@ -157,11 +272,16 @@ export function stockRule(res: string, patch?: { [field: string]: number } | nul
         if (bad.length) return `unknown or non-numeric fields: ${bad.join(", ")} (fields: ${kFields.join(", ")})`;
         all[res] = Object.assign(all[res] || {}, patch);
     }
-    return `${res} [${classOf(res)}] ${JSON.stringify(ruleFor(res))}` + (all[res] ? ` override ${JSON.stringify(all[res])}` : "");
+    const rule = ruleFor(res);
+    const bands = terminalRooms().map(r => { const s = roomStock(r, res as ResourceConstant); return `${r.name} ${s} ${bandStr(bandOf(rule, s))}`; });
+    return `${res} [${classOf(res)}] ${JSON.stringify(rule)}` + (all[res] ? ` override ${JSON.stringify(all[res])}` : "") +
+        (bands.length ? ` | ${bands.join(", ")}` : "");
 }
 
 // Console: stockRules() lists every tradeable rule, overridden fields
-// starred; stockRules("ts") prints the overrides as lines for kRules.
+// starred (an override from Memory.marketcfg.rules or a kRules exception),
+// then each terminal room's stock and the band it is in; stockRules("ts")
+// prints the console overrides as lines for kRules.
 export function stockRules(format?: string): string {
     const overrides = cfg().rules || {};
     if (format === "ts") {
@@ -171,12 +291,14 @@ export function stockRules(format?: string): string {
         });
         return lines.length ? lines.join("\n") : "no overrides";
     }
+    const rooms = terminalRooms();
     const lines: string[] = [];
     for (const res of ruledResources().sort((a, b) => classOf(a).localeCompare(classOf(b)) || a.localeCompare(b))) {
         const rule = ruleFor(res);
-        const over = overrides[res] || {};
+        const over = Object.assign({}, (kRules as any)[res], overrides[res]);
         const cells = kFields.filter(f => rule[f] !== undefined).map(f => `${f}${f in over ? "*" : ""}:${rule[f]}`);
-        lines.push(`${res} [${classOf(res)}] ${cells.join(" ")}`);
+        const bands = rooms.map(r => { const s = roomStock(r, res as ResourceConstant); return `${r.name}:${s} ${bandStr(bandOf(rule, s))}`; });
+        lines.push(`${res} [${classOf(res)}] ${cells.join(" ")}${bands.length ? " | " + bands.join(", ") : ""}`);
     }
     return lines.join("\n");
 }

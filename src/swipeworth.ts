@@ -1,6 +1,6 @@
 import { bidUnits, buyOrderPriceEma, energyValue, tryGetBuyOrderPrice } from "market";
 import { marketDisabled } from "markethack";
-import { ruledResources } from "stockrules";
+import { classOf, ruledResources } from "stockrules";
 
 // What is worth carrying home from a looted room; shared by the Swipe mission
 // (ms.swipe.ts, job.swiper.ts) and Furiosa's swipe (powercreep.ts).
@@ -89,10 +89,12 @@ export function catalyzed(res: ResourceConstant): boolean {
 // says little about their use to us. The ruled resources are the trader's:
 // it buys them to their `want` and sells the surplus, and a Konmari laid to
 // drop 8,545 O and 5,000 U the trader had just bought (W3N4, 7 Nov 2026) was
-// cancelled on the spawn.
+// cancelled on the spawn. A resource with a stock-rule class counts as ruled
+// even while its rule is rejected (the factory classes since the bands of
+// 8 Nov 2026), so a rule that fails validation never turns stock into junk.
 export function junkIn(store: StoreDefinition | Store<ResourceConstant, false>): ResourceConstant[] {
     const ruled = ruledResources();
-    return worthlessIn(store).filter(res => !catalyzed(res) && !_.contains(ruled, res));
+    return worthlessIn(store).filter(res => !catalyzed(res) && classOf(res) === "other" && !_.contains(ruled, res));
 }
 
 // The market history's latest daily average price by resource, asked again
