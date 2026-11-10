@@ -17,6 +17,12 @@ import type { CreepMove } from "creep.move";
 //   scheduleService('Capture W25S5')      // args[1]=target room
 //   getService('Capture W25S5').status()
 //
+// A Capture another mission scheduled (InvaderCoreThree, for an armed
+// player in its stronghold room) is that mission's child (memory.parent,
+// Mission.setParent): it winds down when the parent winds down or is gone,
+// its crows fighting on for what life they have. One scheduled by hand has
+// no parent and runs until windDown().
+//
 // On its first run it picks and keeps (memory.home) the owned room at RCL7
 // or above, with a spawn, nearest the target by room route; every crow and
 // scout spawns there, and the radar's observers (if any) are its eyes.
@@ -229,6 +235,9 @@ export class Capture extends Mission {
     }
 
     run(): Priority {
+        // A Capture a mission scheduled for itself (InvaderCoreThree) ends
+        // with that mission (Mission.watchParent), before anything is laid.
+        this.watchParent();
         if (this.windingDown) return super.run();
         if (!this.ensureHome()) {
             if (Game.time % kLogPace === 0) debug.log(this.name, "no owned room at RCL", kMinHomeRCL, "or above with a spawn; laying nothing");

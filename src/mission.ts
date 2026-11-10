@@ -23,6 +23,9 @@ export interface MissionMemory {
     // missions, and a live namesake kept W29S4's wound-down missions, and
     // its teardown, waiting for good. Old entries keyed by name still expire.
     tombs?: { [id: string]: number }
+    // The command string of the mission this one serves (setParent): it
+    // winds down when that mission winds down or is no longer live.
+    parent?: string
     // role -> tick its last paced egg was laid (paceCreeps).
     when?: { [role: string]: number }
     // Swipe: tick of the next sparkJoy look at the home stores.
@@ -188,6 +191,10 @@ export abstract class Mission extends Service {
         if (this.memory.when) {
             other.memory.when = _.assign(other.memory.when || {}, this.memory.when);
         }
+        // The children follow the mission to its new name.
+        for (const child in Memory.missions) {
+            if (Memory.missions[child].parent === this.name) Memory.missions[child].parent = cmd;
+        }
         debug.log(this.name, "evolved into", cmd);
         this.kill();
         return other;
@@ -205,6 +212,7 @@ export abstract class Mission extends Service {
         // super.run()), or memory gone: nothing to run. Until Oct 2026 this
         // read the deleted memory and threw (Thormine W29S4's teardown end).
         if (this.dead || !this.memory) return "kill";
+        this.watchParent();
         if (this.windingDown) return this.runWindDown();
         this.hatchEggs();
         this.spawnHatches();
@@ -216,10 +224,42 @@ export abstract class Mission extends Service {
         return !!this.memory?.windDown;
     }
 
+    // A child mission (9 Nov 2026): one a parent scheduled for its own ends
+    // (InvaderCoreThree's Capture) names the parent's command string in
+    // memory.parent and winds down the tick the parent is winding down or
+    // is not a live mission any more (killed, wound down and gone, or a
+    // transient that did not survive a global reset). The Capture W5N6 of
+    // that week outlived its stronghold mission by a day, still laying
+    // crows. null clears it: the mission stands by itself again. evolve()
+    // re-points the children at the parent's new name.
+    //   getService('Capture W5N6').setParent('InvaderCoreThree W5N6 W3N4')
+    setParent(cmd: string | null) {
+        if (cmd) this.memory.parent = cmd;
+        else delete this.memory.parent;
+    }
+
+    get parentName(): string | null {
+        return this.memory?.parent || null;
+    }
+
+    // Wind down with the parent. Mission.run() calls it; a subclass that
+    // lays eggs before super.run() calls it first (it is idempotent) so it
+    // lays nothing on the tick it is orphaned. True when it wound down.
+    watchParent(): boolean {
+        const cmd = this.parentName;
+        if (!cmd || this.windingDown) return false;
+        const parent = Service.getType<Mission>(cmd);
+        if (parent && !parent.dead && !parent.windingDown) return false;
+        debug.log(this.name, "parent", cmd, parent && !parent.dead ? "is winding down" : "is gone", "; winding down");
+        this.windDown();
+        return true;
+    }
+
     status(): string {
         const mem = this.memory;
         let out = super.status();
         if (!mem) return out + " (memory gone)";
+        if (mem.parent) out += ` parent:[${mem.parent}]`;
         if (this.windingDown) out += ` windDown tombs:${_.size(mem.tombs || {})}`;
         return out + ` eggs:${mem.eggs.length} hatch:${mem.hatch.length} creeps:${mem.creeps.length}`;
     }
@@ -239,6 +279,13 @@ export abstract class Mission extends Service {
     resume() {
         delete this.memory.windDown;
         delete this.memory.tombs;
+        // A child whose parent is gone or winding down would wind down
+        // again next tick: resumed by hand, it stands by itself.
+        const parent = this.parentName && Service.getType<Mission>(this.parentName);
+        if (this.parentName && (!parent || parent.dead || parent.windingDown)) {
+            debug.log(this.name, "resumed without its parent", this.parentName, "; parent link dropped");
+            delete this.memory.parent;
+        }
         debug.log(this.name, "wind-down cancelled");
     }
 

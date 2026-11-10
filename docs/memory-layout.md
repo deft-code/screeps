@@ -49,7 +49,8 @@ ours already standing for the room is adopted when the id is missing or stale.
 ### `Memory.missions` (`mission.ts`)
 ```
 { "GlobalRespawn": { eggs: ["startup2"], hatch: ["hauler0"], creeps: ["startup0", "asrc0", ...],
-                     windDown?: true, tombs?: { <creepId>: tick },  // set by windDown(); tick = expected tombstone decay (keyed by creep id since Oct 2026, names are reused across missions; old name keys still expire)
+                     parent?: "<command>",  // a child mission: winds down when that mission winds down or is no longer live (Mission.setParent/watchParent; evolve() re-points it)
+                    windDown?: true, tombs?: { <creepId>: tick },  // set by windDown(); tick = expected tombstone decay (keyed by creep id since Oct 2026, names are reused across missions; old name keys still expire)
                      when?: { wolf: tick },                           // paceCreeps: tick the last paced egg was laid
                      sparkjoy?: tick,                                 // Swipe: next sparkJoy look at the home stores
                      doze?: [[xy, roomName], ...],                    // Bulldoze: tiles to clear, the first is the destination

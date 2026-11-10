@@ -78,7 +78,8 @@ import * as debug from "debug";
 //   dismantle power of the cleaners in the room, plus a replacement's
 //   walk (coreDist) when those cleaners die first.
 //   An armed creep that is neither the Invader's nor a keeper in the room
-//   schedules Capture <room> (ms.capture.ts), once (memory.capture).
+//   schedules Capture <room> (ms.capture.ts), once (memory.capture), as
+//   this mission's child: it winds down when this mission does.
 //   Nothing but energy left in sight (lootLeft): wind down. Energy does
 //   not keep the mission going: the sweeper in the room takes what is open
 //   (piles of kMinPile and up) on its last trip.
@@ -511,7 +512,12 @@ export class InvaderCoreThree extends Mission {
         if (!foes.length) return;
         const cmd = `Capture ${this.roomName}`;
         debug.log(this.name, "hostile creeps of", _.uniq(foes.map(f => f.owner.username)).join(","), "in", this.roomName, "; scheduling", cmd);
-        Service.schedule(cmd);
+        // A Capture already there is someone else's (scheduled by hand): it
+        // keeps its own life. One made here is this mission's child and
+        // winds down with it (Mission.watchParent).
+        const mine = !Service.getType(cmd);
+        const capture = Service.schedule(cmd) as Mission | null;
+        if (mine && capture) capture.setParent(this.name);
         mem.capture = Game.time;
     }
 
