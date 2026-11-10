@@ -31,10 +31,14 @@ import { energyValue, oldestOf, slowOf, trackOf, transferRate, tryGetBuyOrderPri
 //   vg15   0.85 / 1.15
 //   vg10   0.90 / 1.10
 //
-// The surcharge test (fair sell - fair buy >= the round trip's transfer
-// energy at energy's value; a side with no price passes) applies in the
-// goodbuy, arb and clear bands only; need, glut and liquidate deal on their
-// cap or floor alone. Always: a suspect resource (marketcfg) is never
+// The surcharge test guards buys only (9 Nov 2026; it used to veto both
+// sides, which stopped every clearance sell while the book had a spread,
+// since fair sell sits under fair buy in a quiet market): in the goodbuy,
+// arb and clear bands an ask is taken only if the unit could be sold back at
+// fair sell without a loss, so the buy cap is also fair sell minus the round
+// trip's transfer energy at energy's value (no fair sell: no such cap). A
+// sell needs nothing beyond its floor: the unit is already ours. need, glut
+// and liquidate deal on their cap or floor alone. Always: a suspect resource (marketcfg) is never
 // bought, no ask over kAskOverBid x the best real bid is taken, and
 // liquidate sells into the best real bid (>= kRealBid credits) whatever it is.
 //
@@ -107,7 +111,7 @@ const kChunk = 1000;
 const kRuledTicks = 50;
 // The bands whose trades go before every other.
 const kMandatory: Band[] = ["need", "liquidate"];
-// The bands the surcharge test applies in.
+// The bands whose buys the surcharge test caps.
 const kSurcharged: Band[] = ["goodbuy", "arb", "clear"];
 
 // The emergency energy sell order (docs/market-design.md section 8).
@@ -422,8 +426,9 @@ export class Trader extends Service {
         const fairBuy = v.ask.mid !== undefined && v.ask.slow !== undefined ? Math.min(v.ask.mid, v.ask.slow) : undefined;
         const fairSell = v.bid.mid !== undefined && v.bid.slow !== undefined ? Math.max(v.bid.mid, v.bid.slow) : undefined;
         const surcharge = 2 * kTypicalRate * energy;
-        const gapOk = !_.contains(kSurcharged, band.band) || fairBuy === undefined || fairSell === undefined || fairSell - fairBuy >= surcharge;
-        const gapNote = () => `gap ${fmt(fairSell)} - ${fmt(fairBuy)} < surcharge ${fmt(surcharge)}`;
+        // What a bought unit must stay under to be resold at fair sell without
+        // a loss; Infinity where the test does not apply or nothing prices it.
+        const resale = _.contains(kSurcharged, band.band) && fairSell !== undefined ? fairSell - surcharge : Infinity;
         // The ask-to-bid guard: the best bid anyone real posts, or none.
         const bestBid = _.find(v.bids, o => o.price >= kRealBid);
         const askCap = bestBid ? kAskOverBid * bestBid.price : Infinity;
@@ -443,20 +448,20 @@ export class Trader extends Service {
             const room_ = band.hi - stock;
             if (v.suspect) seen.notes.push("buy: suspect");
             else if (fairBuy === undefined) seen.notes.push("buy: no fair buy");
-            else if (!gapOk) seen.notes.push(`buy: ${gapNote()}`);
             else if (!(room_ > 0)) seen.notes.push("buy: at the band's top");
             else {
-                const cap = Math.min(rule.ceil ?? Infinity, mult * fairBuy);
+                const cap = Math.min(rule.ceil ?? Infinity, mult * fairBuy, resale);
+                const capped = resale < mult * fairBuy ? ` (resale ${fmt(fairSell)} - surcharge ${fmt(surcharge)})` : "";
                 seen.cap = cap;
                 const hit = first(v.asks, "buy", (o, eff) => eff <= cap);
                 if (hit) {
                     const [o, eff] = hit;
                     out.push({ ...base, dir: "buy", orderId: o.id, orderRoom: o.roomName!, price: o.price, eff,
                         qty: Math.min(chunk, this.available(ledger, v.res, o), Math.ceil(room_)), delta: cap - eff,
-                        why: `${where}: buy x${mult.toFixed(2)} cap ${fmt(cap)} (fair buy ${fmt(fairBuy)}), ask ${fmt(eff)} eff` });
+                        why: `${where}: buy x${mult.toFixed(2)} cap ${fmt(cap)} (fair buy ${fmt(fairBuy)})${capped}, ask ${fmt(eff)} eff` });
                 } else {
                     const best = _.find(v.asks, o => this.available(ledger, v.res, o) > 0);
-                    seen.notes.push(`buy: no ask <= cap ${fmt(cap)}` + (best ? ` (best ${fmt(effective(best, "buy", room.name, energy))} eff${effective(best, "buy", room.name, energy) > askCap ? ", over 2x best bid" : ""})` : " (no asks)"));
+                    seen.notes.push(`buy: no ask <= cap ${fmt(cap)}${capped}` + (best ? ` (best ${fmt(effective(best, "buy", room.name, energy))} eff${effective(best, "buy", room.name, energy) > askCap ? ", over 2x best bid" : ""})` : " (no asks)"));
                 }
             }
         }
@@ -466,7 +471,6 @@ export class Trader extends Service {
             const down = stock - band.lo;
             const liquidate = band.band === "liquidate";
             if (!liquidate && fairSell === undefined) seen.notes.push("sell: no fair sell");
-            else if (!gapOk) seen.notes.push(`sell: ${gapNote()}`);
             else if (!(down > 0)) seen.notes.push("sell: at the band's bottom");
             else {
                 // Liquidate: sellMult 0, so the floor is only the rule's

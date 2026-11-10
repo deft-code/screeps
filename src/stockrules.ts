@@ -120,7 +120,7 @@ export function bandStr(b: BandInfo): string {
     return sides ? `${b.band} ${sides}` : b.band;
 }
 
-export type ResClass = "base" | "tier3used" | "tier3unused" | "compound" | "energy" | "factory0" | "factory1" | "factory2" | "other";
+export type ResClass = "base" | "tier3used" | "tier3unused" | "compound" | "energy" | "factory0" | "factory1" | "factory2" | "factory3" | "other";
 
 const kBase: ResourceConstant[] = [
     RESOURCE_HYDROGEN, RESOURCE_OXYGEN, RESOURCE_UTRIUM, RESOURCE_LEMERGIUM,
@@ -138,11 +138,13 @@ const kTier3Used: ResourceConstant[] = [
 const kDefaultDepth = 10000;
 
 // The class defaults of 8 Nov 2026 (docs/market-design.md section 8), per
-// owned room. The factory classes are cleared, never stocked: the clear band
-// up to 1k, the glut band from 1k to 10k, liquidate above. Commodity NPC
-// bids follow a daily average players manipulate (cell is being depressed
-// by earwig), so neither the bids nor the tracker's fair price is an anchor
-// worth holding stock against.
+// owned room. Every commodity (COMMODITIES levels 0 to 5, factory0..3) is
+// cleared, never stocked: the clear band up to 1k, the glut band from 1k to
+// 10k, liquidate above; the classes differ only in depth and chunk, which
+// shrink with the level as the books do. Commodity NPC bids follow a daily
+// average players manipulate (cell is being depressed by earwig), so neither
+// the bids nor the tracker's fair price is an anchor worth holding stock
+// against.
 const kClassRules: Record<ResClass, StockRule> = {
     base: { need: 3000, stock: 6000, hold: 6000, goodbuy: 12000, arb: 24000, clear: 40000, glut: 100000, depth: 10000, chunk: 1000 },
     tier3used: { need: 1000, stock: 3000, hold: 3000, goodbuy: 6000, arb: 10000, clear: 15000, glut: 25000, depth: 5000, chunk: 1000 },
@@ -152,6 +154,7 @@ const kClassRules: Record<ResClass, StockRule> = {
     factory0: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 3000, chunk: 500 },
     factory1: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 200, chunk: 100 },
     factory2: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 30, chunk: 10 },
+    factory3: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 10, chunk: 5 },
     other: {},
 };
 
@@ -189,6 +192,7 @@ function classMap(): Map<string, ResClass> {
         if (level === 0) map.set(res, "factory0");
         else if (level === 1) map.set(res, "factory1");
         else if (level === 2) map.set(res, "factory2");
+        else map.set(res, "factory3");   // levels 3 to 5: liquid, the tier-3 and higher products
     }
     return classes = map;
 }

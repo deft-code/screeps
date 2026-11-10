@@ -335,6 +335,9 @@ fair sell - fair buy >= surcharge
 `need` buys and `glut` sells ignore the test and keep their price guards
 (`ceil`, `floor`, the suspect flag, the ask-to-bid guard).
 
+Superseded on 9 Nov 2026 by the one-sided form in section 8: the test caps
+buys at `fair sell - surcharge` and never touches a sell.
+
 The surcharge is what a round trip through the market costs us:
 
 - **Dealing:** the transfer energy on both legs. From W3N4 that is 0.6-0.9
@@ -526,9 +529,15 @@ no way to say "hold some stock for the labs without competing for it".
 
 "Good" is the fair price; "very good" is 15% inside it (0.85 on a buy, 1.15
 on a sell). Mandatory and optional trades are no longer different kinds: the
-surcharge test (section 3) applies in the goodbuy, arb and clear bands only;
-need, glut and liquidate deal on their cap or floor alone (plus `ceil`,
-`floor`, the suspect flag and the ask-to-bid guard, which stay).
+surcharge test (section 3) guards buys in the goodbuy, arb and clear bands
+only, as a second cap, `fair sell - surcharge` (the bought unit must be
+resellable at fair sell without a loss; no fair sell, no cap). Sells are
+never gap-tested (9 Nov 2026: the two-sided test `fair sell - fair buy >=
+surcharge` fails whenever the book has a spread, and had stopped every
+clearance sell of composite and crystal, a 21k crystal bid against an
+11.6k fair sell included). need, glut and liquidate deal on their cap or
+floor alone (plus `ceil`, `floor`, the suspect flag and the ask-to-bid
+guard, which stay).
 
 The rule becomes the seven boundaries, all optional and monotone
 (`need <= stock <= hold <= goodbuy <= arb <= clear <= glut`); a missing
@@ -549,9 +558,9 @@ Class defaults (per owned room; stock = storage + terminal + factory):
 | tier3 unused (XGH2O XKH2O XZH2O XUHO2) | - | - | 0 | 1k | 3k | 5k | 8k | sell-down, never bought |
 | tier1 and tier2 (OH ZK UL GH UH LH ZH KH and the *H2O / *HO2 compounds) | - | 1k | 3k | 4k | 6k | 7k | 8k | the hold band is where lab working stock sits |
 | energy | 10k | 50k | 900k | 910k | 920k | 930k | 940k | hold is the dominant band: energy is not arbitraged, only sold into outlier bids (1.15 x fair sell) once the room holds 900k, and the bands above are deliberately thin; buys above hold are moot anyway (fair sell < fair buy for energy, so the surcharge test fails); the emergency order below is what keeps the storage from filling |
-| factory0/1/2 | 0 | 0 | 0 | 0 | 0 | 1k | 10k | cleared, never stocked (9 Nov 2026; the first mapping of section 2's want/surplus was not monotone): the clear band to 1k, glut band to 10k, liquidate above; no dry-run `start`. Commodity NPC bids follow a daily average players manipulate (cell is being depressed by earwig), so neither those bids nor the tracker's fair price is an anchor worth stocking against |
+| factory0/1/2/3 (every commodity; factory3 = COMMODITIES level 3 and up: liquid, the tier-3+ products) | 0 | 0 | 0 | 0 | 0 | 1k | 10k | cleared, never stocked (9 Nov 2026; the first mapping of section 2's want/surplus was not monotone, and until then level 3+ had no class at all, so liquid was never traded): the clear band to 1k, glut band to 10k, liquidate above; no dry-run `start`. Commodity NPC bids follow a daily average players manipulate (cell is being depressed by earwig), so neither those bids nor the tracker's fair price is an anchor worth stocking against |
 
-Chunk sizes stay as they are (1000 base/tier3, 500 factory0, 100/10 factory1/2; energy 5000).
+Chunk sizes stay as they are (1000 base/tier3, 500 factory0, 100/10/5 factory1/2/3; energy 5000); depths shrink with the commodity level (3000/200/30/10).
 
 ### The emergency energy sell order
 
