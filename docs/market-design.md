@@ -560,7 +560,7 @@ Class defaults (per owned room; stock = storage + terminal + factory):
 | energy | 10k | 50k | 900k | 910k | 920k | 930k | 940k | hold is the dominant band: energy is not arbitraged, only sold into outlier bids (1.15 x fair sell) once the room holds 900k, and the bands above are deliberately thin; buys above hold are moot anyway (fair sell < fair buy for energy, so the surcharge test fails); the emergency order below is what keeps the storage from filling |
 | factory0/1/2/3 (every commodity; factory3 = COMMODITIES level 3 and up: liquid, the tier-3+ products) | 0 | 0 | 0 | 0 | 0 | 1k | 10k | cleared, never stocked (9 Nov 2026; the first mapping of section 2's want/surplus was not monotone, and until then level 3+ had no class at all, so liquid was never traded): the clear band to 1k, glut band to 10k, liquidate above; no dry-run `start`. Commodity NPC bids follow a daily average players manipulate (cell is being depressed by earwig), so neither those bids nor the tracker's fair price is an anchor worth stocking against |
 
-Chunk sizes stay as they are (1000 base/tier3, 500 factory0, 100/10/5 factory1/2/3; energy 5000); depths shrink with the commodity level (3000/200/30/10).
+Chunk sizes stay as they are (1000 base/tier3, 500 factory0, 100/10/5 factory1/2/3; energy 5000); depths shrink with the commodity level (3000/100/20/6, set on 9 Nov 2026 from a tour of the books: the NPC bids that make up most of each book are ~68 units at level 1, ~11 at level 2 and 3-7 at levels 3-5, and about two of them is the right depth for a fair sell).
 
 ### The emergency energy sell order
 

@@ -141,7 +141,10 @@ const kDefaultDepth = 10000;
 // owned room. Every commodity (COMMODITIES levels 0 to 5, factory0..3) is
 // cleared, never stocked: the clear band up to 1k, the glut band from 1k to
 // 10k, liquidate above; the classes differ only in depth and chunk, which
-// shrink with the level as the books do. Commodity NPC bids follow a daily
+// shrink with the level as the books do: the NPC bids that make up most of
+// each book are ~68 units at level 1, ~11 at level 2 and 3-7 at levels 3-5
+// (9 Nov 2026), and a depth of about two of them makes fair sell the mean of
+// the best two bids. Commodity NPC bids follow a daily
 // average players manipulate (cell is being depressed by earwig), so neither
 // the bids nor the tracker's fair price is an anchor worth holding stock
 // against.
@@ -152,9 +155,9 @@ const kClassRules: Record<ResClass, StockRule> = {
     compound: { stock: 1000, hold: 3000, goodbuy: 4000, arb: 6000, clear: 7000, glut: 8000 },
     energy: { need: 10000, stock: 50000, hold: 900000, goodbuy: 910000, arb: 920000, clear: 930000, glut: 940000, chunk: 5000 },
     factory0: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 3000, chunk: 500 },
-    factory1: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 200, chunk: 100 },
-    factory2: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 30, chunk: 10 },
-    factory3: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 10, chunk: 5 },
+    factory1: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 100, chunk: 100 },
+    factory2: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 20, chunk: 10 },
+    factory3: { need: 0, stock: 0, hold: 0, goodbuy: 0, arb: 0, clear: 1000, glut: 10000, depth: 6, chunk: 5 },
     other: {},
 };
 
